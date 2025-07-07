@@ -1,0 +1,788 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>Unknown </title></head><body>
+<h1 id="v3-services-field-agent-deployment-system">V3 Services Field Agent Deployment System</h1>
+<h2 id="complete-deployment-and-user-guide">Complete Deployment and User Guide</h2>
+<h3 id="table-of-contents">Table of Contents</h3>
+<ol>
+<li><a href="#system-overview">System Overview</a></li>
+<li><a href="#architecture">Architecture</a></li>
+<li><a href="#installation-guide">Installation Guide</a></li>
+<li><a href="#configuration">Configuration</a></li>
+<li><a href="#deployment">Deployment</a></li>
+<li><a href="#user-guides">User Guides</a></li>
+<li><a href="#api-documentation">API Documentation</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+<li><a href="#maintenance">Maintenance</a></li>
+</ol>
+<hr />
+<h2 id="system-overview">System Overview</h2>
+<p>The V3 Services Field Agent Deployment System is a comprehensive solution designed to enable rapid deployment of field agents for urgent jobs. The system consists of three main components:</p>
+<h3 id="components">Components</h3>
+<ul>
+<li><strong>Backend API</strong>: Flask-based REST API with SQLite database</li>
+<li><strong>Web Dashboard</strong>: React-based admin interface for job and agent management</li>
+<li><strong>Mobile App</strong>: React-based mobile application for field agents</li>
+</ul>
+<h3 id="key-features">Key Features</h3>
+<ul>
+<li>Real-time job assignment and notifications</li>
+<li>Agent availability management with weekly scheduling</li>
+<li>Urgent job prioritization with instant notifications</li>
+<li>Weather integration for job locations</li>
+<li>Comprehensive analytics and reporting</li>
+<li>Automated weekly availability reminders</li>
+<li>Role-based access control (Admin vs Agent)</li>
+</ul>
+<h3 id="technology-stack">Technology Stack</h3>
+<ul>
+<li><strong>Backend</strong>: Python Flask, SQLite, JWT Authentication, APScheduler</li>
+<li><strong>Frontend</strong>: React, Tailwind CSS, shadcn/ui, Recharts</li>
+<li><strong>Notifications</strong>: Firebase Cloud Messaging (FCM) ready</li>
+<li><strong>Weather</strong>: OpenWeatherMap API integration</li>
+<li><strong>Deployment</strong>: Docker-ready, cloud-deployable</li>
+</ul>
+<hr />
+<h2 id="architecture">Architecture</h2>
+<h3 id="system-architecture-diagram">System Architecture Diagram</h3>
+<p><code>┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Web Dashboard │    │   Mobile App    │    │  External APIs  │
+│   (Admin UI)    │    │  (Agent UI)     │    │ (Weather, FCM)  │
+└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
+          │                      │                      │
+          │              HTTP/REST API                  │
+          │                      │                      │
+          └──────────────┬───────┴──────────────────────┘
+                         │
+                ┌────────▼────────┐
+                │   Backend API   │
+                │   (Flask)       │
+                └────────┬────────┘
+                         │
+                ┌────────▼────────┐
+                │   SQLite DB     │
+                │   (Data Store)  │
+                └─────────────────┘</code></p>
+<h3 id="database-schema">Database Schema</h3>
+<p>```sql
+-- Users (Admins and Agents)
+users: id, email, password_hash, first_name, last_name, role, phone, created_at, updated_at</p>
+<p>-- Agent Availability
+availability: id, agent_id, date, is_available, is_away, notes, created_at, updated_at</p>
+<p>-- Jobs
+jobs: id, title, job_type, address, postcode, arrival_time, agents_required, 
+      lead_agent_name, instructions, urgency_level, status, created_at, updated_at</p>
+<p>-- Job Assignments
+assignments: id, job_id, agent_id, status, assigned_at, responded_at, created_at, updated_at</p>
+<p>-- Notifications
+notifications: id, user_id, title, message, type, is_read, sent_at, created_at, updated_at</p>
+<p>-- JWT Token Blacklist
+token_blacklist: id, jti, created_at
+```</p>
+<hr />
+<h2 id="installation-guide">Installation Guide</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<ul>
+<li>Python 3.11+ </li>
+<li>Node.js 20+</li>
+<li>npm or pnpm</li>
+<li>Git</li>
+</ul>
+<h3 id="backend-setup">Backend Setup</h3>
+<h4 id="1-clone-and-setup-backend">1. Clone and Setup Backend</h4>
+<p>```bash</p>
+<h1 id="navigate-to-backend-directory">Navigate to backend directory</h1>
+<p>cd v3-services-backend</p>
+<h1 id="create-virtual-environment">Create virtual environment</h1>
+<p>python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate</p>
+<h1 id="install-dependencies">Install dependencies</h1>
+<p>pip install -r requirements.txt</p>
+<h1 id="initialize-database">Initialize database</h1>
+<p>python src/main.py</p>
+<h1 id="this-will-create-the-sqlite-database-and-default-admin-user">This will create the SQLite database and default admin user</h1>
+<p>```</p>
+<h4 id="2-environment-configuration">2. Environment Configuration</h4>
+<p>Create <code>.env</code> file in backend root:
+```env</p>
+<h1 id="database">Database</h1>
+<p>DATABASE_URL=sqlite:///v3_services.db</p>
+<h1 id="jwt-configuration">JWT Configuration</h1>
+<p>JWT_SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
+JWT_ACCESS_TOKEN_EXPIRES=3600</p>
+<h1 id="weather-api-optional">Weather API (Optional)</h1>
+<p>OPENWEATHER_API_KEY=your-openweather-api-key</p>
+<h1 id="firebase-cloud-messaging-optional">Firebase Cloud Messaging (Optional)</h1>
+<p>FCM_SERVER_KEY=your-fcm-server-key</p>
+<h1 id="flask-configuration">Flask Configuration</h1>
+<p>FLASK_ENV=production
+FLASK_DEBUG=False
+```</p>
+<h4 id="3-start-backend-server">3. Start Backend Server</h4>
+<p>```bash</p>
+<h1 id="development">Development</h1>
+<p>python src/main.py</p>
+<h1 id="production-with-gunicorn">Production (with Gunicorn)</h1>
+<p>pip install gunicorn
+gunicorn -w 4 -b 0.0.0.0:5000 src.main:app
+```</p>
+<h3 id="web-dashboard-setup">Web Dashboard Setup</h3>
+<h4 id="1-install-dependencies">1. Install Dependencies</h4>
+<p>```bash
+cd v3-services-dashboard
+npm install</p>
+<h1 id="or">or</h1>
+<p>pnpm install
+```</p>
+<h4 id="2-environment-configuration_1">2. Environment Configuration</h4>
+<p>Create <code>.env</code> file in dashboard root:
+```env
+VITE_API_BASE_URL=http://localhost:5000/api</p>
+<h1 id="for-production-use-your-actual-api-url">For production, use your actual API URL</h1>
+<h1 id="vite_api_base_urlhttpsyour-api-domaincomapi">VITE_API_BASE_URL=https://your-api-domain.com/api</h1>
+<p>```</p>
+<h4 id="3-build-and-start">3. Build and Start</h4>
+<p>```bash</p>
+<h1 id="development_1">Development</h1>
+<p>npm run dev</p>
+<h1 id="or_1">or</h1>
+<p>pnpm run dev</p>
+<h1 id="production-build">Production build</h1>
+<p>npm run build</p>
+<h1 id="or_2">or</h1>
+<p>pnpm run build</p>
+<h1 id="serve-production-build">Serve production build</h1>
+<p>npm run preview</p>
+<h1 id="or_3">or</h1>
+<p>pnpm run preview
+```</p>
+<h3 id="mobile-app-setup">Mobile App Setup</h3>
+<h4 id="1-install-dependencies_1">1. Install Dependencies</h4>
+<p>```bash
+cd v3-services-mobile
+npm install</p>
+<h1 id="or_4">or</h1>
+<p>pnpm install
+```</p>
+<h4 id="2-environment-configuration_2">2. Environment Configuration</h4>
+<p>Create <code>.env</code> file in mobile app root:
+```env
+VITE_API_BASE_URL=http://localhost:5000/api</p>
+<h1 id="for-production-use-your-actual-api-url_1">For production, use your actual API URL</h1>
+<h1 id="vite_api_base_urlhttpsyour-api-domaincomapi_1">VITE_API_BASE_URL=https://your-api-domain.com/api</h1>
+<p>```</p>
+<h4 id="3-build-and-start_1">3. Build and Start</h4>
+<p>```bash</p>
+<h1 id="development_2">Development</h1>
+<p>npm run dev</p>
+<h1 id="or_5">or</h1>
+<p>pnpm run dev</p>
+<h1 id="production-build_1">Production build</h1>
+<p>npm run build</p>
+<h1 id="or_6">or</h1>
+<p>pnpm run build
+```</p>
+<hr />
+<h2 id="configuration">Configuration</h2>
+<h3 id="backend-configuration">Backend Configuration</h3>
+<h4 id="database-configuration">Database Configuration</h4>
+<p>The system uses SQLite by default for simplicity. For production, consider PostgreSQL:</p>
+<p>```python</p>
+<h1 id="in-srcmainpy-update-database-uri">In src/main.py, update database URI</h1>
+<p>app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://user:password@localhost/v3services'
+```</p>
+<h4 id="jwt-configuration_1">JWT Configuration</h4>
+<p>```python</p>
+<h1 id="strong-secret-key-for-jwt-tokens">Strong secret key for JWT tokens</h1>
+<p>JWT_SECRET_KEY = 'your-256-bit-secret-key'
+JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
+```</p>
+<h4 id="cors-configuration">CORS Configuration</h4>
+<p>```python</p>
+<h1 id="allow-specific-origins-in-production">Allow specific origins in production</h1>
+<p>CORS(app, origins=['https://your-dashboard-domain.com', 'https://your-mobile-domain.com'])
+```</p>
+<h4 id="scheduler-configuration">Scheduler Configuration</h4>
+<p>```python</p>
+<h1 id="weekly-reminder-schedule-sundays-at-6-pm">Weekly reminder schedule (Sundays at 6 PM)</h1>
+<p>scheduler.add_job(
+    func=send_weekly_reminders,
+    trigger="cron",
+    day_of_week=6,  # Sunday
+    hour=18,        # 6 PM
+    minute=0,
+    id='weekly_reminders'
+)
+```</p>
+<h3 id="frontend-configuration">Frontend Configuration</h3>
+<h4 id="api-base-url">API Base URL</h4>
+<p>Update the API base URL in both frontend applications:</p>
+<p><code>javascript
+// In hooks/useAuth.jsx
+const API_BASE_URL = process.env.VITE_API_BASE_URL || 'http://localhost:5000/api'</code></p>
+<h4 id="build-configuration">Build Configuration</h4>
+<p><code>javascript
+// vite.config.js
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    host: '0.0.0.0',  // Allow external connections
+    port: 5173
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false  // Disable in production
+  }
+})</code></p>
+<hr />
+<h2 id="deployment">Deployment</h2>
+<h3 id="production-deployment-options">Production Deployment Options</h3>
+<h4 id="option-1-traditional-server-deployment">Option 1: Traditional Server Deployment</h4>
+<h5 id="backend-deployment">Backend Deployment</h5>
+<p>```bash</p>
+<h1 id="install-production-dependencies">Install production dependencies</h1>
+<p>pip install gunicorn supervisor</p>
+<h1 id="create-systemd-service">Create systemd service</h1>
+<p>sudo nano /etc/systemd/system/v3-backend.service
+```</p>
+<p>```ini
+[Unit]
+Description=V3 Services Backend
+After=network.target</p>
+<p>[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/v3-services-backend
+Environment=PATH=/path/to/v3-services-backend/venv/bin
+ExecStart=/path/to/v3-services-backend/venv/bin/gunicorn -w 4 -b 0.0.0.0:5000 src.main:app
+Restart=always</p>
+<p>[Install]
+WantedBy=multi-user.target
+```</p>
+<p>```bash</p>
+<h1 id="enable-and-start-service">Enable and start service</h1>
+<p>sudo systemctl enable v3-backend
+sudo systemctl start v3-backend
+```</p>
+<h5 id="frontend-deployment-with-nginx">Frontend Deployment with Nginx</h5>
+<p>```bash</p>
+<h1 id="build-frontend-applications">Build frontend applications</h1>
+<p>cd v3-services-dashboard &amp;&amp; npm run build
+cd v3-services-mobile &amp;&amp; npm run build</p>
+<h1 id="configure-nginx">Configure Nginx</h1>
+<p>sudo nano /etc/nginx/sites-available/v3-services
+```</p>
+<p>```nginx
+server {
+    listen 80;
+    server_name your-domain.com;</p>
+<pre><code># Dashboard
+location / {
+    root /path/to/v3-services-dashboard/dist;
+    try_files $uri $uri/ /index.html;
+}
+
+# Mobile app
+location /mobile {
+    alias /path/to/v3-services-mobile/dist;
+    try_files $uri $uri/ /mobile/index.html;
+}
+
+# API proxy
+location /api {
+    proxy_pass http://localhost:5000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+</code></pre>
+<p>}
+```</p>
+<h4 id="option-2-docker-deployment">Option 2: Docker Deployment</h4>
+<h5 id="backend-dockerfile">Backend Dockerfile</h5>
+<p>```dockerfile
+FROM python:3.11-slim</p>
+<p>WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt</p>
+<p>COPY src/ ./src/
+COPY v3_services.db ./</p>
+<p>EXPOSE 5000
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "src.main:app"]
+```</p>
+<h5 id="frontend-dockerfile">Frontend Dockerfile</h5>
+<p>```dockerfile
+FROM node:20-alpine as build</p>
+<p>WORKDIR /app
+COPY package*.json ./
+RUN npm install</p>
+<p>COPY . .
+RUN npm run build</p>
+<p>FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
+```</p>
+<h5 id="docker-compose">Docker Compose</h5>
+<p>```yaml
+version: '3.8'
+services:
+  backend:
+    build: ./v3-services-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+    volumes:
+      - ./data:/app/data</p>
+<p>dashboard:
+    build: ./v3-services-dashboard
+    ports:
+      - "80:80"
+    depends_on:
+      - backend</p>
+<p>mobile:
+    build: ./v3-services-mobile
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+```</p>
+<h4 id="option-3-cloud-deployment">Option 3: Cloud Deployment</h4>
+<h5 id="heroku-deployment">Heroku Deployment</h5>
+<p>```bash</p>
+<h1 id="backend">Backend</h1>
+<p>cd v3-services-backend
+echo "web: gunicorn src.main:app" &gt; Procfile
+git init &amp;&amp; git add . &amp;&amp; git commit -m "Initial commit"
+heroku create v3-services-backend
+heroku config:set JWT_SECRET_KEY=your-secret-key
+git push heroku main</p>
+<h1 id="frontend-using-static-hosting">Frontend (using static hosting)</h1>
+<p>cd v3-services-dashboard
+npm run build</p>
+<h1 id="deploy-dist-folder-to-netlify-vercel-or-similar">Deploy dist/ folder to Netlify, Vercel, or similar</h1>
+<p>```</p>
+<h5 id="aws-deployment">AWS Deployment</h5>
+<ul>
+<li><strong>Backend</strong>: Deploy to AWS Elastic Beanstalk or ECS</li>
+<li><strong>Frontend</strong>: Deploy to AWS S3 + CloudFront</li>
+<li><strong>Database</strong>: Use AWS RDS for PostgreSQL</li>
+</ul>
+<hr />
+<h2 id="user-guides">User Guides</h2>
+<h3 id="admin-user-guide">Admin User Guide</h3>
+<h4 id="getting-started">Getting Started</h4>
+<ol>
+<li><strong>Login</strong>: Access the web dashboard at your domain</li>
+<li>Default credentials: <code>admin@v3services.com</code> / <code>admin123</code></li>
+<li>
+<p>Change default password immediately</p>
+</li>
+<li>
+<p><strong>Dashboard Overview</strong></p>
+</li>
+<li>View today's jobs and available agents</li>
+<li>Monitor pending responses and system status</li>
+<li>Quick access to urgent actions</li>
+</ol>
+<h4 id="managing-agents">Managing Agents</h4>
+<ol>
+<li><strong>View Agents</strong>: Navigate to "Agents" section</li>
+<li><strong>Agent Status</strong>: See real-time availability</li>
+<li><strong>Agent Performance</strong>: View response rates and statistics</li>
+</ol>
+<h4 id="creating-jobs">Creating Jobs</h4>
+<ol>
+<li><strong>New Job</strong>: Click "Create Job" button</li>
+<li><strong>Fill Details</strong>:</li>
+<li>Job title and type</li>
+<li>Complete address with postcode</li>
+<li>Arrival time and date</li>
+<li>Number of agents required</li>
+<li>Urgency level (Low/Standard/URGENT)</li>
+<li>
+<p>Special instructions</p>
+</li>
+<li>
+<p><strong>Job Assignment</strong>: System automatically notifies available agents</p>
+</li>
+<li><strong>Monitor Responses</strong>: Track agent responses in real-time</li>
+<li><strong>Job Management</strong>: Update status, cancel, or mark as completed</li>
+</ol>
+<h4 id="analytics-and-reporting">Analytics and Reporting</h4>
+<ol>
+<li><strong>Dashboard Metrics</strong>: View key performance indicators</li>
+<li><strong>Agent Analytics</strong>: Monitor individual agent performance</li>
+<li><strong>Job Statistics</strong>: Track job completion rates</li>
+<li><strong>Response Analysis</strong>: Analyze response times by urgency</li>
+</ol>
+<h3 id="agent-user-guide">Agent User Guide</h3>
+<h4 id="getting-started_1">Getting Started</h4>
+<ol>
+<li><strong>Download App</strong>: Access mobile app at your provided URL</li>
+<li><strong>Login</strong>: Use credentials provided by admin</li>
+<li><strong>Setup Profile</strong>: Complete your profile information</li>
+</ol>
+<h4 id="managing-availability">Managing Availability</h4>
+<ol>
+<li><strong>Daily Toggle</strong>: Quick availability toggle on dashboard</li>
+<li><strong>Weekly Planning</strong>: Set availability for next 14 days</li>
+<li><strong>Add Notes</strong>: Include special notes about availability</li>
+<li><strong>Weekly Reminders</strong>: Respond to Sunday evening reminders</li>
+</ol>
+<h4 id="responding-to-jobs">Responding to Jobs</h4>
+<ol>
+<li><strong>Notifications</strong>: Receive instant job notifications</li>
+<li><strong>Job Details</strong>: Review job information, location, and requirements</li>
+<li><strong>Quick Response</strong>: Accept or decline within the app</li>
+<li><strong>Urgent Jobs</strong>: Prioritized notifications for urgent assignments</li>
+</ol>
+<h4 id="profile-and-performance">Profile and Performance</h4>
+<ol>
+<li><strong>View Stats</strong>: Check your acceptance rate and response time</li>
+<li><strong>Update Profile</strong>: Keep contact information current</li>
+<li><strong>Notification Settings</strong>: Manage notification preferences</li>
+</ol>
+<hr />
+<h2 id="api-documentation">API Documentation</h2>
+<h3 id="authentication-endpoints">Authentication Endpoints</h3>
+<h4 id="post-apiauthlogin">POST /api/auth/login</h4>
+<p>Login user and receive JWT token.</p>
+<p><strong>Request Body:</strong>
+<code>json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}</code></p>
+<p><strong>Response:</strong>
+<code>json
+{
+  "access_token": "jwt_token_here",
+  "user": {
+    "id": 1,
+    "email": "user@example.com",
+    "first_name": "John",
+    "last_name": "Doe",
+    "role": "admin"
+  }
+}</code></p>
+<h4 id="post-apiauthlogout">POST /api/auth/logout</h4>
+<p>Logout user and blacklist token.</p>
+<p><strong>Headers:</strong> <code>Authorization: Bearer &lt;token&gt;</code></p>
+<h4 id="get-apiauthme">GET /api/auth/me</h4>
+<p>Get current user information.</p>
+<p><strong>Headers:</strong> <code>Authorization: Bearer &lt;token&gt;</code></p>
+<h3 id="user-management-endpoints">User Management Endpoints</h3>
+<h4 id="get-apiusers">GET /api/users</h4>
+<p>Get all users (admin only).</p>
+<p><strong>Query Parameters:</strong>
+- <code>role</code>: Filter by role (admin/agent)</p>
+<h4 id="post-apiusers">POST /api/users</h4>
+<p>Create new user (admin only).</p>
+<p><strong>Request Body:</strong>
+<code>json
+{
+  "email": "agent@example.com",
+  "password": "password123",
+  "first_name": "Jane",
+  "last_name": "Smith",
+  "role": "agent",
+  "phone": "+44 7700 900123"
+}</code></p>
+<h4 id="put-apiusersid">PUT /api/users/{id}</h4>
+<p>Update user information.</p>
+<h4 id="delete-apiusersid">DELETE /api/users/{id}</h4>
+<p>Delete user (admin only).</p>
+<h3 id="availability-endpoints">Availability Endpoints</h3>
+<h4 id="get-apiavailabilityagent_id">GET /api/availability/{agent_id}</h4>
+<p>Get agent availability.</p>
+<p><strong>Query Parameters:</strong>
+- <code>start_date</code>: Start date (YYYY-MM-DD)
+- <code>end_date</code>: End date (YYYY-MM-DD)</p>
+<h4 id="post-apiavailability">POST /api/availability</h4>
+<p>Set agent availability.</p>
+<p><strong>Request Body:</strong>
+<code>json
+{
+  "agent_id": 1,
+  "start_date": "2024-12-06",
+  "end_date": "2024-12-06",
+  "is_available": true,
+  "notes": "Available all day"
+}</code></p>
+<h4 id="post-apiavailabilitytoggleagent_id">POST /api/availability/toggle/{agent_id}</h4>
+<p>Quick toggle today's availability.</p>
+<h3 id="job-management-endpoints">Job Management Endpoints</h3>
+<h4 id="get-apijobs">GET /api/jobs</h4>
+<p>Get all jobs.</p>
+<p><strong>Query Parameters:</strong>
+- <code>status</code>: Filter by status (open/filled/completed/cancelled)
+- <code>urgency</code>: Filter by urgency level</p>
+<h4 id="post-apijobs">POST /api/jobs</h4>
+<p>Create new job (admin only).</p>
+<p><strong>Request Body:</strong>
+<code>json
+{
+  "title": "Security Guard - Shopping Center",
+  "job_type": "Security",
+  "address": "123 High Street, London, SW1A 1AA",
+  "postcode": "SW1A 1AA",
+  "arrival_time": "2024-12-06 14:00:00",
+  "agents_required": 2,
+  "lead_agent_name": "John Smith",
+  "instructions": "Uniform required. Report to main entrance.",
+  "urgency_level": "URGENT"
+}</code></p>
+<h4 id="put-apijobsid">PUT /api/jobs/{id}</h4>
+<p>Update job information.</p>
+<h4 id="delete-apijobsid">DELETE /api/jobs/{id}</h4>
+<p>Delete job (admin only).</p>
+<h3 id="assignment-endpoints">Assignment Endpoints</h3>
+<h4 id="get-apiassignmentsagentagent_id">GET /api/assignments/agent/{agent_id}</h4>
+<p>Get agent's job assignments.</p>
+<h4 id="post-apiassignmentsidrespond">POST /api/assignments/{id}/respond</h4>
+<p>Agent responds to job assignment.</p>
+<p><strong>Request Body:</strong>
+<code>json
+{
+  "response": "accept"  // or "decline"
+}</code></p>
+<h3 id="notification-endpoints">Notification Endpoints</h3>
+<h4 id="get-apinotifications">GET /api/notifications</h4>
+<p>Get user notifications.</p>
+<p><strong>Query Parameters:</strong>
+- <code>limit</code>: Number of notifications to return
+- <code>unread_only</code>: Return only unread notifications</p>
+<h4 id="post-apinotificationsidread">POST /api/notifications/{id}/read</h4>
+<p>Mark notification as read.</p>
+<h4 id="post-apinotificationsmark-all-read">POST /api/notifications/mark-all-read</h4>
+<p>Mark all notifications as read.</p>
+<h4 id="delete-apinotificationsid">DELETE /api/notifications/{id}</h4>
+<p>Delete notification.</p>
+<h3 id="analytics-endpoints">Analytics Endpoints</h3>
+<h4 id="get-apianalyticsdashboard">GET /api/analytics/dashboard</h4>
+<p>Get dashboard analytics (admin only).</p>
+<p><strong>Response:</strong>
+<code>json
+{
+  "today": {
+    "jobs_scheduled": 5,
+    "filled_jobs": 3,
+    "open_jobs": 2,
+    "available_agents": 12
+  },
+  "this_week": {
+    "total_jobs": 25,
+    "completion_rate": 85
+  },
+  "pending_actions": {
+    "open_jobs": 2,
+    "pending_responses": 3
+  }
+}</code></p>
+<h4 id="get-apianalyticsagents">GET /api/analytics/agents</h4>
+<p>Get agent performance analytics.</p>
+<h4 id="get-apianalyticsjobs">GET /api/analytics/jobs</h4>
+<p>Get job statistics.</p>
+<h4 id="get-apianalyticsresponse-rates">GET /api/analytics/response-rates</h4>
+<p>Get response rate analytics.</p>
+<h3 id="weather-endpoints">Weather Endpoints</h3>
+<h4 id="get-apiweatherforecast">GET /api/weather/forecast</h4>
+<p>Get weather forecast for location.</p>
+<p><strong>Query Parameters:</strong>
+- <code>postcode</code>: UK postcode
+- <code>lat</code>: Latitude (alternative to postcode)
+- <code>lon</code>: Longitude (alternative to postcode)</p>
+<hr />
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<h4 id="backend-issues">Backend Issues</h4>
+<p><strong>Issue: Database connection errors</strong>
+<code>Solution:
+1. Check database file permissions
+2. Verify SQLite installation
+3. Check database path in configuration
+4. Ensure database is initialized</code></p>
+<p><strong>Issue: JWT token errors</strong>
+<code>Solution:
+1. Verify JWT_SECRET_KEY is set
+2. Check token expiration settings
+3. Clear browser localStorage
+4. Restart backend server</code></p>
+<p><strong>Issue: CORS errors</strong>
+<code>Solution:
+1. Verify CORS configuration in main.py
+2. Check frontend API base URL
+3. Ensure backend allows frontend origin
+4. Test with browser dev tools</code></p>
+<h4 id="frontend-issues">Frontend Issues</h4>
+<p><strong>Issue: API connection failed</strong>
+<code>Solution:
+1. Check API base URL in .env file
+2. Verify backend server is running
+3. Test API endpoints directly
+4. Check browser network tab for errors</code></p>
+<p><strong>Issue: Build failures</strong>
+<code>Solution:
+1. Clear node_modules and reinstall
+2. Check Node.js version compatibility
+3. Verify all dependencies are installed
+4. Check for TypeScript errors</code></p>
+<p><strong>Issue: Authentication not working</strong>
+<code>Solution:
+1. Clear browser localStorage
+2. Check JWT token format
+3. Verify API endpoints
+4. Test with different browser</code></p>
+<h3 id="debugging">Debugging</h3>
+<h4 id="backend-debugging">Backend Debugging</h4>
+<p>```bash</p>
+<h1 id="enable-debug-mode">Enable debug mode</h1>
+<p>export FLASK_DEBUG=True
+python src/main.py</p>
+<h1 id="check-logs">Check logs</h1>
+<p>tail -f logs/app.log</p>
+<h1 id="database-inspection">Database inspection</h1>
+<p>sqlite3 v3_services.db
+.tables
+.schema users
+```</p>
+<h4 id="frontend-debugging">Frontend Debugging</h4>
+<p>```bash</p>
+<h1 id="check-console-errors">Check console errors</h1>
+<h1 id="open-browser-dev-tools-console">Open browser dev tools -&gt; Console</h1>
+<h1 id="network-debugging">Network debugging</h1>
+<h1 id="open-browser-dev-tools-network">Open browser dev tools -&gt; Network</h1>
+<h1 id="local-storage-inspection">Local storage inspection</h1>
+<h1 id="application-local-storage">Application -&gt; Local Storage</h1>
+<p>```</p>
+<h3 id="performance-issues">Performance Issues</h3>
+<h4 id="database-performance">Database Performance</h4>
+<p><code>sql
+-- Add indexes for better performance
+CREATE INDEX idx_availability_agent_date ON availability(agent_id, date);
+CREATE INDEX idx_assignments_agent ON assignments(agent_id);
+CREATE INDEX idx_jobs_status ON jobs(status);
+CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);</code></p>
+<h4 id="api-performance">API Performance</h4>
+<p>```python</p>
+<h1 id="enable-response-caching">Enable response caching</h1>
+<p>from flask_caching import Cache
+cache = Cache(app, config={'CACHE_TYPE': 'simple'})</p>
+<p>@cache.cached(timeout=300)
+def get_dashboard_data():
+    # Cached for 5 minutes
+    pass
+```</p>
+<hr />
+<h2 id="maintenance">Maintenance</h2>
+<h3 id="regular-maintenance-tasks">Regular Maintenance Tasks</h3>
+<h4 id="daily-tasks">Daily Tasks</h4>
+<ul>
+<li>Monitor system logs for errors</li>
+<li>Check database size and performance</li>
+<li>Verify notification delivery</li>
+<li>Monitor API response times</li>
+</ul>
+<h4 id="weekly-tasks">Weekly Tasks</h4>
+<ul>
+<li>Review agent performance metrics</li>
+<li>Check job completion rates</li>
+<li>Update system dependencies</li>
+<li>Backup database</li>
+</ul>
+<h4 id="monthly-tasks">Monthly Tasks</h4>
+<ul>
+<li>Security audit and updates</li>
+<li>Performance optimization</li>
+<li>User feedback review</li>
+<li>System capacity planning</li>
+</ul>
+<h3 id="database-maintenance">Database Maintenance</h3>
+<h4 id="backup-procedures">Backup Procedures</h4>
+<p>```bash</p>
+<h1 id="sqlite-backup">SQLite backup</h1>
+<p>cp v3_services.db v3_services_backup_$(date +%Y%m%d).db</p>
+<h1 id="postgresql-backup">PostgreSQL backup</h1>
+<p>pg_dump v3services &gt; v3services_backup_$(date +%Y%m%d).sql
+```</p>
+<h4 id="data-cleanup">Data Cleanup</h4>
+<p>```sql
+-- Remove old notifications (older than 30 days)
+DELETE FROM notifications WHERE created_at &lt; datetime('now', '-30 days');</p>
+<p>-- Remove old blacklisted tokens
+DELETE FROM token_blacklist WHERE created_at &lt; datetime('now', '-7 days');</p>
+<p>-- Archive completed jobs (older than 90 days)
+-- Consider moving to archive table instead of deleting
+```</p>
+<h3 id="security-maintenance">Security Maintenance</h3>
+<h4 id="regular-security-tasks">Regular Security Tasks</h4>
+<ul>
+<li>Update all dependencies</li>
+<li>Review user access permissions</li>
+<li>Monitor failed login attempts</li>
+<li>Check for security vulnerabilities</li>
+</ul>
+<h4 id="security-checklist">Security Checklist</h4>
+<ul>
+<li>[ ] JWT secret key is strong and unique</li>
+<li>[ ] HTTPS enabled in production</li>
+<li>[ ] Database access is restricted</li>
+<li>[ ] API rate limiting is configured</li>
+<li>[ ] Input validation is comprehensive</li>
+<li>[ ] Error messages don't leak sensitive information</li>
+</ul>
+<h3 id="monitoring-and-alerts">Monitoring and Alerts</h3>
+<h4 id="key-metrics-to-monitor">Key Metrics to Monitor</h4>
+<ul>
+<li>API response times</li>
+<li>Database query performance</li>
+<li>User authentication success rate</li>
+<li>Job assignment response rate</li>
+<li>System resource usage</li>
+</ul>
+<h4 id="alert-thresholds">Alert Thresholds</h4>
+<ul>
+<li>API response time &gt; 2 seconds</li>
+<li>Database connection failures</li>
+<li>High error rates (&gt;5%)</li>
+<li>Low agent response rates (&lt;70%)</li>
+<li>System resource usage &gt;80%</li>
+</ul>
+<h3 id="scaling-considerations">Scaling Considerations</h3>
+<h4 id="horizontal-scaling">Horizontal Scaling</h4>
+<ul>
+<li>Load balancer for multiple backend instances</li>
+<li>Database read replicas</li>
+<li>CDN for frontend assets</li>
+<li>Microservices architecture</li>
+</ul>
+<h4 id="vertical-scaling">Vertical Scaling</h4>
+<ul>
+<li>Increase server resources</li>
+<li>Database optimization</li>
+<li>Caching implementation</li>
+<li>Code optimization</li>
+</ul>
+<hr />
+<h2 id="support-and-contact">Support and Contact</h2>
+<h3 id="technical-support">Technical Support</h3>
+<ul>
+<li><strong>Documentation</strong>: This guide and inline code comments</li>
+<li><strong>Issue Tracking</strong>: Use project repository issues</li>
+<li><strong>Emergency Contact</strong>: System administrator</li>
+</ul>
+<h3 id="system-information">System Information</h3>
+<ul>
+<li><strong>Version</strong>: 1.0.0</li>
+<li><strong>Last Updated</strong>: December 2024</li>
+<li><strong>License</strong>: Proprietary - V3 Services Ltd</li>
+<li><strong>Support Level</strong>: Full system support included</li>
+</ul>
+<h3 id="change-management">Change Management</h3>
+<ul>
+<li>All changes should be tested in staging environment</li>
+<li>Database changes require backup before execution</li>
+<li>Frontend changes should be tested across browsers</li>
+<li>API changes require version compatibility checks</li>
+</ul>
+<hr />
+<p><em>This completes the comprehensive deployment and user guide for the V3 Services Field Agent Deployment System. For additional support or questions, please contact the system administrator.</em></p>
+</body></html>

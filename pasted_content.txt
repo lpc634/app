@@ -1,0 +1,81 @@
+Last login: Thu Jun 12 11:53:10 on ttys003
+lancecarstairs@Lances-MacBook-Pro ~ % curl -X POST http://localhost:5001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@v3services.com", "password": "admin123"}'
+
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc0OTcyNjY5NiwianRpIjoiZTY5ODliNWUtMWNiNy00Mzc0LTk1ZDAtNjUwMjJhNmM5NWIzIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6MSwibmJmIjoxNzQ5NzI2Njk2LCJjc3JmIjoiODcwZTQwNDktZTZjOC00Mjk4LThlNmQtYjQ3ZTM5ZmExMTI1IiwiZXhwIjoxNzQ5NzI3NTk2fQ.fhJqnPeM8AbUAjGGJGebuVsi-cKad2CBoowILyKrT8c",
+  "user": {
+    "email": "admin@v3services.com",
+    "first_name": "Admin",
+    "id": 1,
+    "is_active": true,
+    "last_name": "User",
+    "phone": null,
+    "role": "admin"
+  }
+}
+lancecarstairs@Lances-MacBook-Pro ~ % curl -X POST http://localhost:5001/api/jobs \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc0OTcyNjY5NiwianRpIjoiZTY5ODliNWUtMWNiNy00Mzc0LTk1ZDAtNjUwMjJhNmM5NWIzIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6MSwibmJmIjoxNzQ5NzI2Njk2LCJjc3JmIjoiODcwZTQwNDktZTZjOC00Mjk4LThlNmQtYjQ3ZTM5ZmExMTI1IiwiZXhwIjoxNzQ5NzI3NTk2fQ.fhJqnPeM8AbUAjGGJGebuVsi-cKad2CBoowILyKrT8c" \
+  -d '{"title": "Emergency Repair", "description": "Urgent plumbing repair needed", "location": "123 Main St", "urgency": "urgent"}'
+
+{
+  "msg": "Subject must be a string"
+}
+lancecarstairs@Lances-MacBook-Pro ~ % cd ../..
+
+lancecarstairs@Lances-MacBook-Pro / % npx create-react-app v3-services-dashboard 
+cd v3-services-dashboard
+
+Need to install the following packages:
+create-react-app@5.1.0
+Ok to proceed? (y) y
+
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated uid-number@0.0.6: This package is no longer supported.
+npm warn deprecated rimraf@2.7.1: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated fstream-ignore@1.0.5: This package is no longer supported.
+npm warn deprecated fstream@1.0.12: This package is no longer supported.
+npm warn deprecated tar@2.2.2: This version of tar is no longer supported, and will not receive security updates. Please upgrade asap.
+create-react-app is deprecated.
+
+You can find a list of up-to-date React frameworks on react.dev
+For more info see:https://react.dev/link/cra
+
+This error message will only be shown once per install.
+node:fs:1372
+  const result = binding.mkdir(
+                         ^
+
+Error: ENOENT: no such file or directory, mkdir 'v3-services-dashboard'
+    at Object.mkdirSync (node:fs:1372:26)
+    at module.exports.makeDirSync (/Users/lancecarstairs/.npm/_npx/c67e74de0542c87c/node_modules/fs-extra/lib/mkdirs/make-dir.js:23:13)
+    at createApp (/Users/lancecarstairs/.npm/_npx/c67e74de0542c87c/node_modules/create-react-app/createReactApp.js:289:6)
+    at /Users/lancecarstairs/.npm/_npx/c67e74de0542c87c/node_modules/create-react-app/createReactApp.js:255:9
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'mkdir',
+  path: 'v3-services-dashboard'
+}
+
+Node.js v20.15.1
+npm notice
+npm notice New major version of npm available! 10.7.0 -> 11.4.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.4.1
+npm notice To update run: npm install -g npm@11.4.1
+npm notice
+cd: no such file or directory: v3-services-dashboard
+lancecarstairs@Lances-MacBook-Pro / % cd ~
+cd v3-services-system
+pwd
+
+/Users/lancecarstairs/v3-services-system
+lancecarstairs@Lances-MacBook-Pro v3-services-system % # Make sure you're in v3-services-system directory
+npm create vite@latest v3-services-dashboard -- --template react
+cd v3-services-dashboard
+npm install
+
+quote> 

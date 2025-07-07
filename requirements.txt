@@ -1,0 +1,10 @@
+Flask
+python-dotenv
+Flask-JWT-Extended
+Flask-Cors
+Flask-SQLAlchemy
+Flask-APScheduler
+what3words
+pyfcm
+gunicorn
+psycopg2-binary
