@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '../useAuth.jsx';
-import { useToast } from '../use-toast.js';
+import { toast } from "sonner"; // MODIFIED: Import from sonner
 import {
   Briefcase,
   MapPin,
@@ -22,7 +22,7 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true)
   const [respondingTo, setRespondingTo] = useState(null)
   const { user, apiCall } = useAuth()
-  const { toast } = useToast()
+  // REMOVED: const { toast } = useToast()
 
   useEffect(() => {
     fetchAssignments()
@@ -49,19 +49,22 @@ export default function JobsPage() {
         body: JSON.stringify({ response })
       })
 
-      toast({
-        title: response === 'accept' ? "Job Accepted" : "Job Declined",
-        description: response === 'accept'
-          ? "You have accepted this job assignment. Check your email for details."
-          : "You have declined this job assignment.",
-      })
+      // MODIFIED: Replaced toast call with sonner
+      if (response === 'accept') {
+        toast.success("Job Accepted", {
+          description: "You have accepted this job assignment. Check your email for details.",
+        })
+      } else {
+        toast.info("Job Declined", {
+          description: "You have declined this job assignment.",
+        })
+      }
 
       fetchAssignments()
     } catch (error) {
-      toast({
-        title: "Error",
+      // MODIFIED: Replaced toast call with sonner
+      toast.error("Error", {
         description: error.message || "Failed to respond to job",
-        variant: "destructive",
       })
     } finally {
       setRespondingTo(null)
@@ -174,7 +177,6 @@ export default function JobsPage() {
             const isToday = isJobToday(job.arrival_time)
 
             return (
-              // --- MODIFIED: Added 'dashboard-card' class ---
               <Card key={assignment.id} className={`dashboard-card ${isSoon ? 'border-orange-200' : ''}`}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
@@ -275,7 +277,6 @@ export default function JobsPage() {
         </div>
 
         {respondedJobs.length === 0 && pendingJobs.length === 0 ? (
-          // --- MODIFIED: Added 'dashboard-card' class ---
           <Card className="dashboard-card">
             <CardContent className="pt-6">
               <div className="text-center py-8">
@@ -288,7 +289,6 @@ export default function JobsPage() {
             </CardContent>
           </Card>
         ) : respondedJobs.length === 0 ? (
-          // --- MODIFIED: Added 'dashboard-card' class ---
           <Card className="dashboard-card">
             <CardContent className="pt-6">
               <div className="text-center py-6">
@@ -305,7 +305,6 @@ export default function JobsPage() {
             const dateTime = formatDateTime(job.arrival_time)
 
             return (
-              // --- MODIFIED: Added 'dashboard-card' class ---
               <Card key={assignment.id} className="dashboard-card">
                 <CardHeader>
                   <div className="flex items-start justify-between">
