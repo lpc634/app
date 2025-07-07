@@ -9,3 +9,4 @@ pyfcm
 gunicorn
 psycopg2-binary
 pywebpush
+reportlab
