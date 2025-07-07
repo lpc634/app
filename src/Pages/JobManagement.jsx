@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAuth } from '../useAuth.jsx';
-import { useToast } from '../use-toast.js'; 
+import { toast } from 'sonner'; 
 import {
   Plus,
   MapPin,
@@ -32,7 +32,7 @@ export default function JobManagement() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
   const { apiCall } = useAuth()
-  const { toast } = useToast()
+  
 
   const [newJob, setNewJob] = useState({
     title: '',
@@ -95,10 +95,9 @@ export default function JobManagement() {
         body: JSON.stringify(newJob)
       })
 
-      toast({
-        title: "Job Created",
-        description: "New job has been created and notifications sent to available agents.",
-      })
+      toast.success("Job Created", {
+  description: "New job has been created and notifications sent to available agents.",
+})
 
       setShowCreateDialog(false)
       setNewJob({
@@ -114,11 +113,9 @@ export default function JobManagement() {
       })
       fetchJobs()
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create job",
-        variant: "destructive",
-      })
+      toast.error("Error", {
+  description: error.message || "Failed to create job",
+})
     } finally {
       setCreateLoading(false)
     }
@@ -131,18 +128,15 @@ export default function JobManagement() {
         body: JSON.stringify({ status: newStatus })
       })
 
-      toast({
-        title: "Job Updated",
-        description: `Job status changed to ${newStatus}`,
-      })
+      toast.success("Job Updated", {
+  description: `Job status changed to ${newStatus}`,
+})
 
       fetchJobs()
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update job",
-        variant: "destructive",
-      })
+      toast.error("Error", {
+  description: error.message || "Failed to update job",
+})
     }
   }
 
