@@ -1,0 +1,15 @@
+{
+  "short_name": "V3 App",
+  "name": "V3 Services App",
+  "icons": [
+    {
+      "src": "/logo-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#1A1A1A",
+  "background_color": "#111111"
+}
