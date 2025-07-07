@@ -8,3 +8,4 @@ what3words
 pyfcm
 gunicorn
 psycopg2-binary
+pywebpush
