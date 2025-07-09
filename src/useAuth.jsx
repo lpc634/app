@@ -1,16 +1,17 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom' // Add this import
+import { useNavigate } from 'react-router-dom'
 
 const AuthContext = createContext()
 
-const API_BASE_URL = '';
+// This line is now updated to automatically switch between development and production
+const API_BASE_URL = import.meta.env.PROD ? '/api' : 'http://localhost:5001/api';
 
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [token, setToken] = useState(localStorage.getItem('token'))
-  const navigate = useNavigate() // Add this line
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (token) {
@@ -65,14 +66,12 @@ export function AuthProvider({ children }) {
         setUser(user)
         localStorage.setItem('token', access_token)
         
-        // **ADD ROLE-BASED ROUTING HERE** 
-        // Route users based on their role after successful login
         if (user.role === 'agent') {
           navigate('/agent/dashboard')
         } else if (user.role === 'admin' || user.role === 'manager') {
-          navigate('/') // Your existing management dashboard route
+          navigate('/')
         } else {
-          navigate('/') // Fallback to management dashboard
+          navigate('/')
         }
         
         return { success: true }
@@ -103,7 +102,7 @@ export function AuthProvider({ children }) {
       setToken(null)
       setUser(null)
       localStorage.removeItem('token')
-      navigate('/login') // Add this line to redirect to login after logout
+      navigate('/login')
     }
   }
 
@@ -124,7 +123,6 @@ export function AuthProvider({ children }) {
       const data = await response.json()
 
       if (response.status === 401) {
-        // Token expired or invalid
         logout()
         throw new Error('Authentication required')
       }
