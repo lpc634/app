@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 const AuthContext = createContext()
 
 // This line is now updated to automatically switch between development and production
-const API_BASE_URL = import.meta.env.PROD ? '/api' : 'http://localhost:5001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 
 export function AuthProvider({ children }) {

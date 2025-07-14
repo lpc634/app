@@ -20,8 +20,11 @@ const SignUpPage = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            // NOTE: The endpoint is '/api/auth/register'
-            const response = await fetch('/api/auth/register', {
+            // Define the API URL to work in both development and production
+            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+
+            // Use the full, correct URL for the API call
+            const response = await fetch(`${API_BASE_URL}/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
