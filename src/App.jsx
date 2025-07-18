@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth, AuthProvider } from './useAuth';
 import LoginPage from './Pages/LoginPage.jsx';
 import Layout from './Layout';
-import { Toaster as SonnerToaster } from "./components/ui/Toaster";
+import { Toaster as SonnerToaster } from "./components/ui/toaster.jsx";
 import Dashboard from './Pages/Dashboard';
 import CreateJob from './Pages/CreateJob';
 import AgentDashboard from './components/AgentDashboard';
