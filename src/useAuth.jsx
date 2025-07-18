@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom'
 
 const AuthContext = createContext()
 
-// This line is now updated to automatically switch between development and production
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+// This line is now updated to correctly switch between development and production
+const API_BASE_URL = import.meta.env.VITE_API_URL !== undefined 
+  ? import.meta.env.VITE_API_URL
+  : 'http://localhost:5001';
 
 
 export function AuthProvider({ children }) {
@@ -24,7 +26,7 @@ export function AuthProvider({ children }) {
 
   const fetchCurrentUser = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, { // Note: prepended /api here
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
@@ -49,7 +51,7 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, { // Note: prepended /api here
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -87,7 +89,7 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       if (token) {
-        await fetch(`${API_BASE_URL}/auth/logout`, {
+        await fetch(`${API_BASE_URL}/api/auth/logout`, { // Note: prepended /api here
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -107,7 +109,7 @@ export function AuthProvider({ children }) {
   }
 
   const apiCall = async (endpoint, options = {}) => {
-    const url = `${API_BASE_URL}${endpoint}`
+    const url = `${API_BASE_URL}/api${endpoint}` // Note: prepended /api here
     const config = {
       headers: {
         'Content-Type': 'application/json',
@@ -120,7 +122,14 @@ export function AuthProvider({ children }) {
 
     try {
       const response = await fetch(url, config)
-      const data = await response.json()
+      
+      // If the response is not JSON, but we expect it to be, it can cause errors.
+      // Let's handle cases where the body might be empty.
+      const contentType = response.headers.get("content-type");
+      let data;
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+          data = await response.json();
+      }
 
       if (response.status === 401) {
         logout()
@@ -128,7 +137,7 @@ export function AuthProvider({ children }) {
       }
 
       if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`)
+        throw new Error(data?.error || `HTTP error! status: ${response.status}`)
       }
 
       return data
