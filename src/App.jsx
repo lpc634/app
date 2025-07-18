@@ -1,33 +1,33 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth, AuthProvider } from './useAuth';
-import LoginPage from './pages/LoginPage.jsx'; // Forcing Git to see this change
+import LoginPage from './Pages/LoginPage.jsx';
 import Layout from './Layout';
 import { Toaster as SonnerToaster } from "./components/ui/Toaster";
-import Dashboard from './pages/Dashboard';
-import CreateJob from './pages/CreateJob';
+import Dashboard from './Pages/Dashboard';
+import CreateJob from './Pages/CreateJob';
 import AgentDashboard from './components/AgentDashboard';
 // import AvailableJobs from './components/AvailableJobs'; // This component appears unused, can be removed if not needed elsewhere
 import AgentNotifications from './components/AgentNotifications';
 // --- THIS LINE IS MODIFIED ---
-import JobReports from './pages/JobReports'; 
-import DebugPage from './pages/DebugPage';
+import JobReports from './Pages/JobReports'; 
+import DebugPage from './Pages/DebugPage';
 import JobDetails from './components/JobDetails';
 import AgentLayout from './components/AgentLayout';
-import SignUpPage from './pages/SignUpPage';
+import SignUpPage from './Pages/SignUpPage';
 import AgentProfile from './components/AgentProfile';
 import AgentInvoices from './components/AgentInvoices';
 import CreateInvoicePage from './components/CreateInvoicePage';
 import CreateInvoiceFromJobs from './components/CreateInvoiceFromJobs';
 import CreateMiscInvoice from './components/CreateMiscInvoice';
 import ReviewInvoicePage from './components/ReviewInvoicePage';
-import AgentManagement from './pages/AgentManagement';
-import Analytics from './pages/Analytics';
-import AvailabilityPage from './pages/AvailabilityPage';
-import JobManagement from './pages/JobManagement';
-import JobsPage from './pages/JobsPage';
-import NotificationsPage from './pages/NotificationsPage';
-import ProfilePage from './pages/ProfilePage';
-import WeeklyCalendarView from './pages/WeeklyCalendarView';
+import AgentManagement from './Pages/AgentManagement';
+import Analytics from './Pages/Analytics';
+import AvailabilityPage from './Pages/AvailabilityPage';
+import JobManagement from './Pages/JobManagement';
+import JobsPage from './Pages/JobsPage';
+import NotificationsPage from './Pages/NotificationsPage';
+import ProfilePage from './Pages/ProfilePage';
+import WeeklyCalendarView from './Pages/WeeklyCalendarView';
 
 const PlaceholderPage = ({ title }) => (
   <div className="p-6">
