@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "./useAuth.jsx";
 
-// Import the logo with the CORRECT filename
-import V3Logo from './assets/3D GREY.png'; 
+// The logo import has been removed
 
 import { Menu, LogOut, Home, Users, Briefcase, BarChart3 } from 'lucide-react';
 
@@ -58,8 +57,7 @@ export default function Layout({ children }) {
   const SidebarContent = ({ onItemClick = () => {} }) => (
     <div className="flex h-full flex-col">
       <div className="flex h-16 shrink-0 items-center px-6">
-        {/* This part remains the same and will now work */}
-        <img src={V3Logo} alt="V3 Services Logo" className="h-8 w-auto" />
+        {/* The <img> tag that used the logo has been removed from here */}
       </div>
       <div className="flex grow flex-col gap-y-5 overflow-y-auto">
         <NavigationItems onItemClick={onItemClick} />
