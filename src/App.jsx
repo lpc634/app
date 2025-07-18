@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth, AuthProvider } from './useAuth';
-import LoginPage from './pages/LoginPage.jsx';
+import LoginPage from './pages/LoginPage.jsx'; // Forcing Git to see this change
 import Layout from './Layout';
 import { Toaster as SonnerToaster } from "./components/ui/Toaster";
 import Dashboard from './pages/Dashboard';
