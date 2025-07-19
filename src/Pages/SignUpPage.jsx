@@ -3,6 +3,19 @@ import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Shield, Loader2 } from 'lucide-react';
 
+// --- COMPONENT MOVED HERE ---
+// By defining InputField outside of SignUpPage, it won't be re-created on every keystroke.
+const InputField = ({ name, type, placeholder, required = true, group = false, value, onChange }) => (
+    <div className={group ? 'md:col-span-2' : ''}>
+        <label htmlFor={name} className="block text-sm font-medium text-v3-text-light capitalize">{placeholder}</label>
+        <input
+            id={name} name={name} type={type} required={required} value={value}
+            onChange={onChange} placeholder={`Enter ${placeholder.toLowerCase()}`}
+            className="mt-1 block w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+        />
+    </div>
+);
+
 const SignUpPage = () => {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
@@ -20,10 +33,10 @@ const SignUpPage = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            // Define the API URL to work in both development and production
-            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+            // --- API URL LOGIC UPDATED ---
+            // Use the standard Vite way to handle production and development URLs
+            const API_BASE_URL = import.meta.env.PROD ? '/api' : 'http://localhost:5001/api';
 
-            // Use the full, correct URL for the API call
             const response = await fetch(`${API_BASE_URL}/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -42,17 +55,6 @@ const SignUpPage = () => {
         }
     };
 
-    const InputField = ({ name, type, placeholder, required = true, group = false }) => (
-        <div className={group ? 'md:col-span-2' : ''}>
-            <label htmlFor={name} className="block text-sm font-medium text-v3-text-light capitalize">{placeholder}</label>
-            <input
-                id={name} name={name} type={type} required={required} value={formData[name]}
-                onChange={handleChange} placeholder={`Enter ${placeholder.toLowerCase()}`}
-                className="mt-1 block w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
-            />
-        </div>
-    );
-
     return (
         <div className="min-h-screen bg-v3-bg-darkest flex flex-col justify-center py-12 sm:px-6 lg:px-8">
             <div className="sm:mx-auto sm:w-full sm:max-w-3xl">
@@ -68,30 +70,30 @@ const SignUpPage = () => {
                         <div>
                             <h3 className="text-lg font-medium text-v3-text-lightest">Personal & Login Details</h3>
                             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <InputField name="first_name" type="text" placeholder="First Name" />
-                                <InputField name="last_name" type="text" placeholder="Last Name" />
-                                <InputField name="email" type="email" placeholder="Email Address" />
-                                <InputField name="password" type="password" placeholder="Password" />
-                                <InputField name="phone" type="tel" placeholder="Phone Number" group={true}/>
+                                <InputField name="first_name" type="text" placeholder="First Name" value={formData.first_name} onChange={handleChange} />
+                                <InputField name="last_name" type="text" placeholder="Last Name" value={formData.last_name} onChange={handleChange} />
+                                <InputField name="email" type="email" placeholder="Email Address" value={formData.email} onChange={handleChange} />
+                                <InputField name="password" type="password" placeholder="Password" value={formData.password} onChange={handleChange} />
+                                <InputField name="phone" type="tel" placeholder="Phone Number" group={true} value={formData.phone} onChange={handleChange} />
                             </div>
                         </div>
 
                         <div>
                             <h3 className="text-lg font-medium text-v3-text-lightest">Address</h3>
                             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <InputField name="address_line_1" type="text" placeholder="Address Line 1" group={true} />
-                                <InputField name="address_line_2" type="text" placeholder="Address Line 2 (Optional)" required={false} group={true} />
-                                <InputField name="city" type="text" placeholder="City / Town" />
-                                <InputField name="postcode" type="text" placeholder="Postcode" />
+                                <InputField name="address_line_1" type="text" placeholder="Address Line 1" group={true} value={formData.address_line_1} onChange={handleChange} />
+                                <InputField name="address_line_2" type="text" placeholder="Address Line 2 (Optional)" required={false} group={true} value={formData.address_line_2} onChange={handleChange} />
+                                <InputField name="city" type="text" placeholder="City / Town" value={formData.city} onChange={handleChange} />
+                                <InputField name="postcode" type="text" placeholder="Postcode" value={formData.postcode} onChange={handleChange} />
                             </div>
                         </div>
                         
                         <div>
                            <h3 className="text-lg font-medium text-v3-text-lightest">Bank Details for Invoicing</h3>
                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <InputField name="bank_name" type="text" placeholder="Bank Name" />
-                                <InputField name="bank_account_number" type="text" placeholder="Account Number" />
-                                <InputField name="bank_sort_code" type="text" placeholder="Sort Code" group={true}/>
+                                <InputField name="bank_name" type="text" placeholder="Bank Name" value={formData.bank_name} onChange={handleChange} />
+                                <InputField name="bank_account_number" type="text" placeholder="Account Number" value={formData.bank_account_number} onChange={handleChange} />
+                                <InputField name="bank_sort_code" type="text" placeholder="Sort Code" group={true} value={formData.bank_sort_code} onChange={handleChange} />
                            </div>
                         </div>
 
