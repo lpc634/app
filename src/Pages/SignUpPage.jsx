@@ -3,15 +3,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Shield, Loader2 } from 'lucide-react';
 
-// --- COMPONENT MOVED HERE ---
-// By defining InputField outside of SignUpPage, it won't be re-created on every keystroke.
 const InputField = ({ name, type, placeholder, required = true, group = false, value, onChange }) => (
     <div className={group ? 'md:col-span-2' : ''}>
         <label htmlFor={name} className="block text-sm font-medium text-v3-text-light capitalize">{placeholder}</label>
         <input
             id={name} name={name} type={type} required={required} value={value}
             onChange={onChange} placeholder={`Enter ${placeholder.toLowerCase()}`}
-            className="mt-1 block w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+            // This line is now changed to make the text a dark gray color
+            className="mt-1 block w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-gray-900 focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
         />
     </div>
 );
@@ -33,8 +32,6 @@ const SignUpPage = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            // --- API URL LOGIC UPDATED ---
-            // Use the standard Vite way to handle production and development URLs
             const API_BASE_URL = import.meta.env.PROD ? '/api' : 'http://localhost:5001/api';
 
             const response = await fetch(`${API_BASE_URL}/auth/register`, {
