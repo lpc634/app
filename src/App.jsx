@@ -1,3 +1,4 @@
+import AgentProfile from './components/AgentProfile.jsx';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth, AuthProvider } from './useAuth';
 import LoginPage from './Pages/LoginPage.jsx';
@@ -85,7 +86,7 @@ function App() {
             <Route path="/agent/invoices/review" element={<ReviewInvoicePage />} />
             <Route path="/agent/reports" element={<JobReports />} />
             <Route path="/agent/notifications" element={<NotificationsPage />} />
-            <Route path="/agent/profile" element={<ProfilePage />} />
+            <Route path="/agent/profile" element={<AgentProfile />} />
           </Route>
           
           <Route path="*" element={<Navigate to="/login" replace />} />
