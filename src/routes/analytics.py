@@ -116,6 +116,104 @@ def get_agent_metrics():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# NEW: Route for single agent metrics (to fix empty stats)
+@analytics_bp.route('/analytics/agents/<int:agent_id>', methods=['GET'])
+@jwt_required()
+def get_single_agent_metrics(agent_id):
+    """Get performance metrics for a single agent."""
+    try:
+        # Allow agents to access their own metrics; admins for any
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        if not current_user or (current_user.role != 'admin' and current_user.id != agent_id):
+            return jsonify({'error': 'Access denied'}), 403
+        
+        agent = User.query.get(agent_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Agent not found'}), 404
+        
+        # Get date range from query parameters
+        days = request.args.get('days', 30, type=int)
+        end_date = date.today()
+        start_date = end_date - timedelta(days=days)
+        
+        # Get assignments in date range
+        assignments = JobAssignment.query.join(Job).filter(
+            JobAssignment.agent_id == agent.id,
+            Job.arrival_time >= start_date,
+            Job.arrival_time <= end_date
+        ).all()
+        
+        total_assignments = len(assignments)
+        accepted_assignments = len([a for a in assignments if a.status == 'accepted'])
+        declined_assignments = len([a for a in assignments if a.status == 'declined'])
+        pending_assignments = len([a for a in assignments if a.status == 'pending'])
+        
+        # Calculate response rate
+        responded_assignments = accepted_assignments + declined_assignments
+        response_rate = (responded_assignments / total_assignments * 100) if total_assignments > 0 else 0
+        
+        # Calculate acceptance rate
+        acceptance_rate = (accepted_assignments / responded_assignments * 100) if responded_assignments > 0 else 0
+        
+        # Calculate average response time
+        response_times = []
+        for assignment in assignments:
+            if assignment.response_time and assignment.created_at:
+                response_time = (assignment.response_time - assignment.created_at).total_seconds() / 60  # minutes
+                response_times.append(response_time)
+        
+        avg_response_time = sum(response_times) / len(response_times) if response_times else 0
+        
+        # Get availability data
+        availability_records = AgentAvailability.query.filter(
+            AgentAvailability.agent_id == agent.id,
+            AgentAvailability.date >= start_date,
+            AgentAvailability.date <= end_date
+        ).all()
+        
+        total_days = len(availability_records)
+        available_days = len([a for a in assignments if a.is_available and not a.is_away])
+        away_days = len([a for a in availability_records if a.is_away])
+        
+        # Check if availability is stale (no updates in last 7 days)
+        last_availability_update = AgentAvailability.query.filter_by(
+            agent_id=agent.id
+        ).order_by(AgentAvailability.updated_at.desc()).first()
+        
+        is_stale = False
+        if last_availability_update:
+            days_since_update = (datetime.utcnow() - last_availability_update.updated_at).days
+            is_stale = days_since_update > 7
+        else:
+            is_stale = True
+        
+        metrics = {
+            'total_assignments': total_assignments,
+            'accepted_assignments': accepted_assignments,
+            'declined_assignments': declined_assignments,
+            'pending_assignments': pending_assignments,
+            'response_rate': round(response_rate, 1),
+            'acceptance_rate': round(acceptance_rate, 1),
+            'avg_response_time_minutes': round(avg_response_time, 1),
+            'total_days_tracked': total_days,
+            'available_days': available_days,
+            'away_days': away_days,
+            'availability_stale': is_stale
+        }
+        
+        return jsonify({
+            'agent_metrics': metrics,
+            'date_range': {
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat(),
+                'days': days
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @analytics_bp.route('/analytics/jobs', methods=['GET'])
 @jwt_required()
 def get_job_statistics():
@@ -381,4 +479,3 @@ def get_dashboard_summary():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-

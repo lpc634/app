@@ -30,22 +30,29 @@ export default function ProfilePage() {
   const { toast } = useToast()
 
   useEffect(() => {
-    fetchProfile()
-    fetchStats()
-  }, [])
+    if (user) {
+      fetchProfile()
+      fetchStats()
+    }
+  }, [user])  // Depend on user to refetch if changed
 
   const fetchProfile = async () => {
     try {
       setLoading(true)
       const data = await apiCall(`/users/${user.id}`)
-      setProfile(data.user)
+      setProfile(data.user || {})  // Default to empty object if null
       setEditData({
-        first_name: data.user.first_name,
-        last_name: data.user.last_name,
-        phone: data.user.phone || ''
+        first_name: data.user?.first_name || '',
+        last_name: data.user?.last_name || '',
+        phone: data.user?.phone || ''
       })
     } catch (error) {
       console.error('Profile error:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load profile",
+        variant: "destructive"
+      })
     } finally {
       setLoading(false)
     }
@@ -54,9 +61,14 @@ export default function ProfilePage() {
   const fetchStats = async () => {
     try {
       const data = await apiCall(`/analytics/agents/${user.id}`)
-      setStats(data.agent_metrics)
+      setStats(data.agent_metrics || {})  // Default to empty if null
     } catch (error) {
       console.error('Stats error:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load stats",
+        variant: "destructive"
+      })
     }
   }
 
@@ -119,7 +131,7 @@ export default function ProfilePage() {
         </p>
       </div>
 
-      {/* Profile Information */}
+      {/* Personal Information */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -144,9 +156,9 @@ export default function ProfilePage() {
                   onClick={() => {
                     setEditing(false)
                     setEditData({
-                      first_name: profile.first_name,
-                      last_name: profile.last_name,
-                      phone: profile.phone || ''
+                      first_name: profile?.first_name || '',
+                      last_name: profile?.last_name || '',
+                      phone: profile?.phone || ''
                     })
                   }}
                 >
@@ -194,7 +206,7 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-3">
                   <User className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <p className="font-medium">{profile?.first_name} {profile?.last_name}</p>
+                    <p className="font-medium">{profile?.first_name || 'Not provided'} {profile?.last_name || ''}</p>
                     <p className="text-sm text-muted-foreground">Full Name</p>
                   </div>
                 </div>
@@ -202,7 +214,7 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-3">
                   <Mail className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <p className="font-medium">{profile?.email}</p>
+                    <p className="font-medium">{profile?.email || 'Not provided'}</p>
                     <p className="text-sm text-muted-foreground">Email Address</p>
                   </div>
                 </div>
@@ -219,7 +231,7 @@ export default function ProfilePage() {
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="font-medium">
-                      {new Date(profile?.created_at).toLocaleDateString()}
+                      {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Invalid Date'}
                     </p>
                     <p className="text-sm text-muted-foreground">Member Since</p>
                   </div>
@@ -246,28 +258,28 @@ export default function ProfilePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-4 border rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
-                  {stats.acceptance_rate}%
+                  {stats.acceptance_rate || 0}%
                 </div>
                 <p className="text-sm text-muted-foreground">Acceptance Rate</p>
               </div>
               
               <div className="text-center p-4 border rounded-lg">
                 <div className="text-2xl font-bold">
-                  {stats.total_assignments}
+                  {stats.total_assignments || 0}
                 </div>
                 <p className="text-sm text-muted-foreground">Total Jobs</p>
               </div>
               
               <div className="text-center p-4 border rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">
-                  {Math.round(stats.avg_response_time_minutes)}m
+                  {Math.round(stats.avg_response_time_minutes) || 0}m
                 </div>
                 <p className="text-sm text-muted-foreground">Avg Response</p>
               </div>
               
               <div className="text-center p-4 border rounded-lg">
                 <div className="text-2xl font-bold">
-                  {stats.accepted_assignments}
+                  {stats.accepted_assignments || 0}
                 </div>
                 <p className="text-sm text-muted-foreground">Jobs Accepted</p>
               </div>
@@ -357,4 +369,3 @@ export default function ProfilePage() {
     </div>
   )
 }
-
