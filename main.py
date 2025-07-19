@@ -14,7 +14,7 @@ sys.path.insert(0, 'src')
 from flask import Flask, send_from_directory, jsonify
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
-from flask_migrate import Migrate # --- NEW ---
+from flask_migrate import Migrate
 
 # --- Application-specific Imports ---
 from src.models.user import db, User
@@ -44,8 +44,8 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # --- VAPID Keys for Push Notifications ---
-app.config['VAPID_PUBLIC_KEY'] = 'BCVp6sM-3kVT43iVnAUrkXYc2gVdofIMc3tB4p7Q2Qv5G2b5P2iRzBEe-s2w9i5n-8T0aHkXyGNIk2N8yA9fUo8='
-app.config['VAPID_PRIVATE_KEY'] = 'jVpVIp5k2wOgrqI2nvy5kY7rBCEy5d2o1d5sJ6sW1Yg='
+app.config['VAPID_PUBLIC_KEY'] = os.environ.get('VAPID_PUBLIC_KEY', 'BCVp6sM-3kVT43iVnAUrkXYc2gVdofIMc3tB4p7Q2Qv5G2b5P2iRzBEe-s2w9i5n-8T0aHkXyGNIk2N8yA9fUo8=')
+app.config['VAPID_PRIVATE_KEY'] = os.environ.get('VAPID_PRIVATE_KEY', 'jVpVIp5k2wOgrqI2nvy5kY7rBCEy5d2o1d5sJ6sW1Yg=')
 
 # --- Database Configuration for Heroku ---
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -58,6 +58,14 @@ else:
     os.makedirs(db_dir, exist_ok=True)
     app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(db_dir, 'app.db')}"
 
+# --- Email Configuration ---
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+app.config['MAIL_PORT'] = os.environ.get('MAIL_PORT')
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'V3 Services <no-reply@v3-services.com>')
+
 # --- CORS Configuration for Heroku ---
 LIVE_APP_URL = os.environ.get('LIVE_APP_URL')
 origins = ["http://localhost:5173", "http://localhost:5174"]
@@ -66,10 +74,9 @@ if LIVE_APP_URL:
 
 CORS(app, origins=origins, supports_credentials=True, allow_headers=["Content-Type", "Authorization"], methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
-
 # --- Initialize Extensions ---
 db.init_app(app)
-migrate = Migrate(app, db) # --- NEW ---
+migrate = Migrate(app, db)
 jwt = JWTManager(app)
 
 # --- JWT Configuration ---
@@ -94,14 +101,16 @@ app.register_blueprint(utils_bp, url_prefix='/api')
 def serve(path):
     if path and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
-    else:
-        return send_from_directory(app.static_folder, 'index.html')
+    return send_from_directory(app.static_folder, 'index.html')
 
+# --- Error Handler for 500 Errors ---
+@app.errorhandler(500)
+def internal_server_error(e):
+    app.logger.error(f"Server error: {str(e)}")
+    return jsonify({"error": "An internal server error occurred. Please try again."}), 500
 
 # --- App Initialization Block ---
 with app.app_context():
-    # We no longer need db.create_all() here, migrations will handle it.
-    # db.create_all() 
     init_scheduler(app)
 
 # --- Main Execution (Not used by Gunicorn/Heroku) ---

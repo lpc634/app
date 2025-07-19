@@ -5,9 +5,8 @@ const AuthContext = createContext()
 
 // The standard way to set the API URL for production and development in Vite
 const API_BASE_URL = import.meta.env.PROD
-  ? '/api' // Use a relative path for production (Heroku)
+  ? 'https://v3-app-49c3d1eff914.herokuapp.com/api' // Explicit Heroku URL
   : 'http://localhost:5001/api'; // Use the full local URL for development
-
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
