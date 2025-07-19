@@ -11,13 +11,27 @@ from decimal import Decimal
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
+# --- NEW: Added for file uploads ---
+from werkzeug.utils import secure_filename
 
 agent_bp = Blueprint('agent', __name__)
 
-# --- PDF AND EMAIL HELPER FUNCTIONS ---
+# --- NEW: Configuration for file uploads ---
+# IMPORTANT: For Heroku, this saves to a temporary folder. For production,
+# you MUST use a cloud storage service like Amazon S3.
+UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+# --- PDF AND EMAIL HELPER FUNCTIONS (Your original code) ---
 
 def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number):
     """Generates a PDF invoice."""
+    # This function remains unchanged
     file_path = os.path.join(current_app.config['INVOICE_FOLDER'], f"{invoice_number}.pdf")
     
     c = canvas.Canvas(file_path, pagesize=letter)
@@ -92,6 +106,7 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number):
 
 def send_invoice_email(recipient_email, agent_name, pdf_path, invoice_number):
     """Sends the invoice PDF via email."""
+    # This function remains unchanged
     try:
         msg = MIMEMultipart()
         msg['From'] = current_app.config['MAIL_DEFAULT_SENDER'][1]
@@ -119,11 +134,12 @@ def send_invoice_email(recipient_email, agent_name, pdf_path, invoice_number):
         return False
 
 
-# --- EXISTING AGENT ROUTES ---
+# --- EXISTING AGENT ROUTES (Your original code) ---
 
 @agent_bp.route('/agent/dashboard', methods=['GET'])
 @jwt_required()
 def get_agent_dashboard_data():
+    # This route remains unchanged
     """
     Get all necessary data for the agent dashboard in a single request.
     """
@@ -198,6 +214,7 @@ def get_agent_dashboard_data():
 @agent_bp.route('/agent/availability/today', methods=['POST'])
 @jwt_required()
 def toggle_today_availability():
+    # This route remains unchanged
     """Toggle agent's availability for the current day."""
     try:
         current_user_id = get_jwt_identity()
@@ -235,6 +252,8 @@ def toggle_today_availability():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
+# --- UPDATED AND NEW ROUTES ---
+
 @agent_bp.route('/agent/profile', methods=['GET'])
 @jwt_required()
 def get_agent_profile():
@@ -245,6 +264,7 @@ def get_agent_profile():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
+        # --- CHANGE: Added utr_number to the data being sent to the frontend ---
         return jsonify({
             "first_name": user.first_name,
             "last_name": user.last_name,
@@ -257,6 +277,7 @@ def get_agent_profile():
             "bank_name": user.bank_name,
             "bank_account_number": user.bank_account_number,
             "bank_sort_code": user.bank_sort_code,
+            "utr_number": user.utr_number
         }), 200
     except Exception as e:
         return jsonify({"error": "An internal error occurred", "details": str(e)}), 500
@@ -285,6 +306,8 @@ def update_agent_profile():
         user.bank_name = data.get('bank_name', user.bank_name)
         user.bank_account_number = data.get('bank_account_number', user.bank_account_number)
         user.bank_sort_code = data.get('bank_sort_code', user.bank_sort_code)
+        # --- CHANGE: Added utr_number to be updated ---
+        user.utr_number = data.get('utr_number', user.utr_number)
 
         db.session.commit()
         
@@ -293,9 +316,41 @@ def update_agent_profile():
         db.session.rollback()
         return jsonify({"error": "An internal error occurred", "details": str(e)}), 500
 
+# --- NEW: Endpoint for handling document uploads ---
+@agent_bp.route('/agent/upload-documents', methods=['POST'])
+@jwt_required()
+def upload_agent_documents():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Handle ID Document Upload
+    if 'id_document' in request.files:
+        id_file = request.files['id_document']
+        if id_file and allowed_file(id_file.filename):
+            id_filename = secure_filename(f"user_{user.id}_id_{id_file.filename}")
+            id_file.save(os.path.join(UPLOAD_FOLDER, id_filename))
+            user.id_document_url = id_filename
+
+    # Handle SIA Document Upload
+    if 'sia_document' in request.files:
+        sia_file = request.files['sia_document']
+        if sia_file and allowed_file(sia_file.filename):
+            sia_filename = secure_filename(f"user_{user.id}_sia_{sia_file.filename}")
+            sia_file.save(os.path.join(UPLOAD_FOLDER, sia_filename))
+            user.sia_document_url = sia_filename
+            
+    db.session.commit()
+    return jsonify({"message": "Documents uploaded successfully"}), 200
+
+
+# --- The rest of your invoice routes (your original code) ---
+
 @agent_bp.route('/agent/invoices', methods=['GET'])
 @jwt_required()
 def get_agent_invoices():
+    # This route remains unchanged
     """Fetches a list of all invoices for the current agent."""
     try:
         current_user_id = get_jwt_identity()
@@ -320,6 +375,7 @@ def get_agent_invoices():
 @agent_bp.route('/agent/invoiceable-jobs', methods=['GET'])
 @jwt_required()
 def get_invoiceable_jobs():
+    # This route remains unchanged
     """Fetches completed jobs for the current agent that have not yet been invoiced."""
     try:
         current_user_id = get_jwt_identity()
@@ -343,6 +399,7 @@ def get_invoiceable_jobs():
 @agent_bp.route('/agent/invoice', methods=['POST'])
 @jwt_required()
 def create_invoice():
+    # This route remains unchanged
     """
     Creates an invoice from selected jobs, saves it, generates a PDF, and emails it.
     """
@@ -404,7 +461,6 @@ def create_invoice():
         # --- PDF and Emailing ---
         pdf_path = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number)
 
-        # **CORRECTION**: Fixed the typo from agent.first__name to agent.first_name
         email_sent = send_invoice_email(
             recipient_email=agent.email,
             agent_name=f"{agent.first_name} {agent.last_name}",
