@@ -61,7 +61,9 @@ const AgentProfile = () => {
           headers: {} 
         });
       }
-      toast.success('Profile updated successfully!');
+      toast.success('Profile updated successfully! Refreshing to see changes.');
+      // Refresh the page to show new document statuses
+      setTimeout(() => window.location.reload(), 2000);
     } catch (error) {
       toast.error('Failed to update profile', { description: error.message });
     } finally {
@@ -144,6 +146,7 @@ const AgentProfile = () => {
         
         <div className="dashboard-card p-6">
           <h2 className="text-xl font-bold text-v3-text-lightest flex items-center gap-3 mb-6"><FileUp /> Verification Documents</h2>
+          <p className="text-sm text-v3-text-muted mb-6">Your account will be marked as 'Verified' once both documents have been uploaded.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FileInputField 
               name="id_document" 
