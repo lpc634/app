@@ -22,8 +22,8 @@ class User(db.Model):
     bank_sort_code = db.Column(db.String(20))
     fcm_token = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # --- NEW COLUMNS WE ADDED PREVIOUSLY ---
+    
+    # --- NEW COLUMNS ---
     utr_number = db.Column(db.String(50), nullable=True)
     tax_confirmation = db.Column(db.Boolean, default=False)
     id_document_url = db.Column(db.String(255), nullable=True)
@@ -43,10 +43,27 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+    # --- UPDATED to_dict() METHOD ---
     def to_dict(self):
-        return {'id': self.id, 'email': self.email, 'role': self.role, 'first_name': self.first_name, 'last_name': self.last_name, 'phone': self.phone}
-
-# --- RESTORED MODELS ---
+        return {
+            'id': self.id,
+            'email': self.email,
+            'role': self.role,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'phone': self.phone,
+            'address_line_1': self.address_line_1,
+            'address_line_2': self.address_line_2,
+            'city': self.city,
+            'postcode': self.postcode,
+            'bank_name': self.bank_name,
+            'bank_account_number': self.bank_account_number,
+            'bank_sort_code': self.bank_sort_code,
+            'utr_number': self.utr_number,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'id_document_url': self.id_document_url,
+            'sia_document_url': self.sia_document_url
+        }
 
 class Job(db.Model):
     __tablename__ = 'jobs'
@@ -67,7 +84,7 @@ class Job(db.Model):
     number_of_dwellings = db.Column(db.Integer)
     police_liaison_required = db.Column(db.Boolean, default=False)
     what3words_address = db.Column(db.String(100))
-    hourly_rate = db.Column(db.Numeric(10, 2)) # Added missing field
+    hourly_rate = db.Column(db.Numeric(10, 2))
 
     assignments = db.relationship('JobAssignment', back_populates='job', cascade="all, delete-orphan")
     invoice_jobs = db.relationship('InvoiceJob', back_populates='job', cascade="all, delete-orphan")

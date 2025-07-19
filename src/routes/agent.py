@@ -31,7 +31,6 @@ def allowed_file(filename):
 
 def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number):
     """Generates a PDF invoice."""
-    # This function remains unchanged
     file_path = os.path.join(current_app.config['INVOICE_FOLDER'], f"{invoice_number}.pdf")
     
     c = canvas.Canvas(file_path, pagesize=letter)
@@ -106,7 +105,6 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number):
 
 def send_invoice_email(recipient_email, agent_name, pdf_path, invoice_number):
     """Sends the invoice PDF via email."""
-    # This function remains unchanged
     try:
         msg = MIMEMultipart()
         msg['From'] = current_app.config['MAIL_DEFAULT_SENDER'][1]
@@ -139,7 +137,6 @@ def send_invoice_email(recipient_email, agent_name, pdf_path, invoice_number):
 @agent_bp.route('/agent/dashboard', methods=['GET'])
 @jwt_required()
 def get_agent_dashboard_data():
-    # This route remains unchanged
     """
     Get all necessary data for the agent dashboard in a single request.
     """
@@ -214,7 +211,6 @@ def get_agent_dashboard_data():
 @agent_bp.route('/agent/availability/today', methods=['POST'])
 @jwt_required()
 def toggle_today_availability():
-    # This route remains unchanged
     """Toggle agent's availability for the current day."""
     try:
         current_user_id = get_jwt_identity()
@@ -258,63 +254,42 @@ def toggle_today_availability():
 @jwt_required()
 def get_agent_profile():
     """Fetches the full profile for the currently logged-in agent."""
-    try:
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        # --- CHANGE: Added utr_number to the data being sent to the frontend ---
-        return jsonify({
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "email": user.email,
-            "phone": user.phone,
-            "address_line_1": user.address_line_1,
-            "address_line_2": user.address_line_2,
-            "city": user.city,
-            "postcode": user.postcode,
-            "bank_name": user.bank_name,
-            "bank_account_number": user.bank_account_number,
-            "bank_sort_code": user.bank_sort_code,
-            "utr_number": user.utr_number
-        }), 200
-    except Exception as e:
-        return jsonify({"error": "An internal error occurred", "details": str(e)}), 500
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    # The to_dict() method in the User model now returns all necessary data
+    return jsonify(user.to_dict()), 200
 
 @agent_bp.route('/agent/profile', methods=['POST'])
 @jwt_required()
 def update_agent_profile():
     """Updates the profile for the currently logged-in agent."""
-    try:
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-        
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "Request body must be JSON"}), 400
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
 
-        user.first_name = data.get('first_name', user.first_name)
-        user.last_name = data.get('last_name', user.last_name)
-        user.phone = data.get('phone', user.phone)
-        user.address_line_1 = data.get('address_line_1', user.address_line_1)
-        user.address_line_2 = data.get('address_line_2', user.address_line_2)
-        user.city = data.get('city', user.city)
-        user.postcode = data.get('postcode', user.postcode)
-        user.bank_name = data.get('bank_name', user.bank_name)
-        user.bank_account_number = data.get('bank_account_number', user.bank_account_number)
-        user.bank_sort_code = data.get('bank_sort_code', user.bank_sort_code)
-        # --- CHANGE: Added utr_number to be updated ---
-        user.utr_number = data.get('utr_number', user.utr_number)
+    # Update all fields from the form
+    user.first_name = data.get('first_name', user.first_name)
+    user.last_name = data.get('last_name', user.last_name)
+    user.phone = data.get('phone', user.phone)
+    user.address_line_1 = data.get('address_line_1', user.address_line_1)
+    user.address_line_2 = data.get('address_line_2', user.address_line_2)
+    user.city = data.get('city', user.city)
+    user.postcode = data.get('postcode', user.postcode)
+    user.bank_name = data.get('bank_name', user.bank_name)
+    user.bank_account_number = data.get('bank_account_number', user.bank_account_number)
+    user.bank_sort_code = data.get('bank_sort_code', user.bank_sort_code)
+    user.utr_number = data.get('utr_number', user.utr_number)
 
-        db.session.commit()
-        
-        return jsonify({"message": "Profile updated successfully"}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": "An internal error occurred", "details": str(e)}), 500
+    db.session.commit()
+    return jsonify({"message": "Profile updated successfully"}), 200
 
 # --- NEW: Endpoint for handling document uploads ---
 @agent_bp.route('/agent/upload-documents', methods=['POST'])
@@ -350,7 +325,6 @@ def upload_agent_documents():
 @agent_bp.route('/agent/invoices', methods=['GET'])
 @jwt_required()
 def get_agent_invoices():
-    # This route remains unchanged
     """Fetches a list of all invoices for the current agent."""
     try:
         current_user_id = get_jwt_identity()
@@ -375,7 +349,6 @@ def get_agent_invoices():
 @agent_bp.route('/agent/invoiceable-jobs', methods=['GET'])
 @jwt_required()
 def get_invoiceable_jobs():
-    # This route remains unchanged
     """Fetches completed jobs for the current agent that have not yet been invoiced."""
     try:
         current_user_id = get_jwt_identity()
@@ -399,7 +372,6 @@ def get_invoiceable_jobs():
 @agent_bp.route('/agent/invoice', methods=['POST'])
 @jwt_required()
 def create_invoice():
-    # This route remains unchanged
     """
     Creates an invoice from selected jobs, saves it, generates a PDF, and emails it.
     """

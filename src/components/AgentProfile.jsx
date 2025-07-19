@@ -1,53 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
-import { Loader2, User as UserIcon, Landmark, FileUp } from 'lucide-react';
+import { Loader2, User as UserIcon, Landmark, FileUp, CheckCircle } from 'lucide-react';
 
 const AgentProfile = () => {
-  const { apiCall } = useAuth();
-  const [formData, setFormData] = useState({
-    first_name: '', last_name: '', email: '', phone: '',
-    address_line_1: '', address_line_2: '', city: '', postcode: '',
-    bank_name: '', bank_account_number: '', bank_sort_code: '',
-    utr_number: ''
-  });
+  const { user, apiCall } = useAuth();
+  const [formData, setFormData] = useState({});
   const [idFile, setIdFile] = useState(null);
   const [siaFile, setSiaFile] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      // --- NEW: Added a debug message here ---
-      console.log("Attempting to fetch profile data..."); 
-      
-      try {
-        setLoading(true);
-        const data = await apiCall('/agent/profile');
-        console.log("Profile data received:", data); // Let's also log the data we get back
-        setFormData({
-            first_name: data.first_name || '',
-            last_name: data.last_name || '',
-            email: data.email || '',
-            phone: data.phone || '',
-            address_line_1: data.address_line_1 || '',
-            address_line_2: data.address_line_2 || '',
-            city: data.city || '',
-            postcode: data.postcode || '',
-            bank_name: data.bank_name || '',
-            bank_account_number: data.bank_account_number || '',
-            bank_sort_code: data.bank_sort_code || '',
-            utr_number: data.utr_number || ''
-        });
-      } catch (error) {
-        console.error("Failed to load profile:", error); // Log the actual error
-        toast.error('Failed to load profile', { description: error.message });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProfile();
-  }, [apiCall]);
+    // Populate form directly from the complete user object from useAuth
+    if (user) {
+      setFormData({
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        address_line_1: user.address_line_1 || '',
+        address_line_2: user.address_line_2 || '',
+        city: user.city || '',
+        postcode: user.postcode || '',
+        bank_name: user.bank_name || '',
+        bank_account_number: user.bank_account_number || '',
+        bank_sort_code: user.bank_sort_code || '',
+        utr_number: user.utr_number || ''
+      });
+    }
+  }, [user]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -65,11 +46,13 @@ const AgentProfile = () => {
     e.preventDefault();
     setSaving(true);
     try {
+      // Step 1: Update the text-based profile data
       await apiCall('/agent/profile', {
         method: 'POST',
         body: JSON.stringify(formData),
       });
 
+      // Step 2: Upload files if they have been selected
       const uploadData = new FormData();
       if (idFile) uploadData.append('id_document', idFile);
       if (siaFile) uploadData.append('sia_document', siaFile);
@@ -83,6 +66,7 @@ const AgentProfile = () => {
       }
 
       toast.success('Profile updated successfully!');
+      // Consider refreshing user data or prompting a page reload to show new doc statuses
     } catch (error) {
       toast.error('Failed to update profile', { description: error.message });
     } finally {
@@ -103,20 +87,27 @@ const AgentProfile = () => {
     </div>
   );
 
-  const FileInputField = ({ name, label, onChange, fileName }) => (
+  const FileInputField = ({ name, label, onChange, fileName, existingFileUrl }) => (
     <div>
       <label htmlFor={name} className="block text-sm font-medium text-v3-text-light">{label}</label>
-      <div className="mt-1 flex items-center">
-        <label htmlFor={name} className="cursor-pointer bg-v3-bg-dark border border-v3-border rounded-md py-2 px-3 text-sm text-v3-text-lightest hover:bg-v3-bg-light">
-          Choose File
-        </label>
-        <input id={name} name={name} type="file" className="sr-only" onChange={onChange} />
-        {fileName && <span className="ml-3 text-sm text-v3-text-muted">{fileName}</span>}
-      </div>
+      {existingFileUrl ? (
+          <div className="mt-1 flex items-center text-green-400">
+              <CheckCircle className="h-5 w-5 mr-2" />
+              <span>Document Uploaded</span>
+          </div>
+      ) : (
+        <div className="mt-1 flex items-center">
+          <label htmlFor={name} className="cursor-pointer bg-v3-bg-dark border border-v3-border rounded-md py-2 px-3 text-sm text-v3-text-lightest hover:bg-v3-bg-light">
+            Choose File
+          </label>
+          <input id={name} name={name} type="file" className="sr-only" onChange={onChange} />
+          {fileName && <span className="ml-3 text-sm text-v3-text-muted">{fileName}</span>}
+        </div>
+      )}
     </div>
   );
 
-  if (loading) {
+  if (!user) {
     return <div className="text-center p-8"><Loader2 className="h-8 w-8 animate-spin mx-auto text-v3-orange" /></div>;
   }
 
@@ -131,7 +122,7 @@ const AgentProfile = () => {
         <div className="dashboard-card p-6">
           <h2 className="text-xl font-bold text-v3-text-lightest flex items-center gap-3 mb-6"><UserIcon /> Personal Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InputField name="first_name" type="text" label="First Name" />
+             <InputField name="first_name" type="text" label="First Name" />
             <InputField name="last_name" type="text" label="Last Name" />
             <InputField name="email" type="email" label="Email Address" disabled={true} />
             <InputField name="phone" type="tel" label="Phone Number" />
@@ -160,12 +151,14 @@ const AgentProfile = () => {
               label="Passport or Driver's License" 
               onChange={handleIdFileChange}
               fileName={idFile?.name}
+              existingFileUrl={user.id_document_url}
             />
             <FileInputField 
               name="sia_document" 
               label="SIA Badge" 
               onChange={handleSiaFileChange}
               fileName={siaFile?.name}
+              existingFileUrl={user.sia_document_url}
             />
           </div>
         </div>
