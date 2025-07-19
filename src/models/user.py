@@ -23,13 +23,11 @@ class User(db.Model):
     fcm_token = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # --- NEW COLUMNS ---
     utr_number = db.Column(db.String(50), nullable=True)
     tax_confirmation = db.Column(db.Boolean, default=False)
     id_document_url = db.Column(db.String(255), nullable=True)
     sia_document_url = db.Column(db.String(255), nullable=True)
     
-    # --- Relationships ---
     assignments = db.relationship('JobAssignment', back_populates='agent', lazy=True)
     availability = db.relationship('AgentAvailability', back_populates='agent', lazy=True, cascade="all, delete-orphan")
     weekly_availability = db.relationship('AgentWeeklyAvailability', back_populates='agent', uselist=False, cascade="all, delete-orphan")
@@ -43,7 +41,6 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-    # --- UPDATED to_dict() METHOD ---
     def to_dict(self):
         return {
             'id': self.id,

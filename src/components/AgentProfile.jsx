@@ -4,14 +4,13 @@ import { toast } from 'sonner';
 import { Loader2, User as UserIcon, Landmark, FileUp, CheckCircle } from 'lucide-react';
 
 const AgentProfile = () => {
-  const { user, apiCall } = useAuth();
+  const { user, loading, apiCall } = useAuth();
   const [formData, setFormData] = useState({});
   const [idFile, setIdFile] = useState(null);
   const [siaFile, setSiaFile] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // Populate form directly from the complete user object from useAuth
     if (user) {
       setFormData({
         first_name: user.first_name || '',
@@ -46,13 +45,11 @@ const AgentProfile = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      // Step 1: Update the text-based profile data
       await apiCall('/agent/profile', {
         method: 'POST',
         body: JSON.stringify(formData),
       });
 
-      // Step 2: Upload files if they have been selected
       const uploadData = new FormData();
       if (idFile) uploadData.append('id_document', idFile);
       if (siaFile) uploadData.append('sia_document', siaFile);
@@ -64,9 +61,7 @@ const AgentProfile = () => {
           headers: {} 
         });
       }
-
       toast.success('Profile updated successfully!');
-      // Consider refreshing user data or prompting a page reload to show new doc statuses
     } catch (error) {
       toast.error('Failed to update profile', { description: error.message });
     } finally {
@@ -107,8 +102,12 @@ const AgentProfile = () => {
     </div>
   );
 
-  if (!user) {
+  if (loading) {
     return <div className="text-center p-8"><Loader2 className="h-8 w-8 animate-spin mx-auto text-v3-orange" /></div>;
+  }
+
+  if (!user) {
+    return <div className="text-center p-8 text-v3-text-lightest">Error: Could not load user profile. Please try logging in again.</div>;
   }
 
   return (

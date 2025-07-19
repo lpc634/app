@@ -11,7 +11,6 @@ from decimal import Decimal
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
-# --- NEW: Added for file uploads ---
 from werkzeug.utils import secure_filename
 
 agent_bp = Blueprint('agent', __name__)
@@ -141,7 +140,7 @@ def get_agent_dashboard_data():
     Get all necessary data for the agent dashboard in a single request.
     """
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
         user = User.query.get(current_user_id)
 
         if not user or user.role not in ['agent', 'admin']:
@@ -213,7 +212,7 @@ def get_agent_dashboard_data():
 def toggle_today_availability():
     """Toggle agent's availability for the current day."""
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
         data = request.get_json()
         new_status = data.get('status') 
 
@@ -254,7 +253,8 @@ def toggle_today_availability():
 @jwt_required()
 def get_agent_profile():
     """Fetches the full profile for the currently logged-in agent."""
-    current_user_id = get_jwt_identity()
+    # --- FIX: Convert JWT identity string to an integer for the database query ---
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -266,7 +266,8 @@ def get_agent_profile():
 @jwt_required()
 def update_agent_profile():
     """Updates the profile for the currently logged-in agent."""
-    current_user_id = get_jwt_identity()
+    # --- FIX: Convert JWT identity string to an integer for the database query ---
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -275,7 +276,6 @@ def update_agent_profile():
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
-    # Update all fields from the form
     user.first_name = data.get('first_name', user.first_name)
     user.last_name = data.get('last_name', user.last_name)
     user.phone = data.get('phone', user.phone)
@@ -295,7 +295,8 @@ def update_agent_profile():
 @agent_bp.route('/agent/upload-documents', methods=['POST'])
 @jwt_required()
 def upload_agent_documents():
-    current_user_id = get_jwt_identity()
+    # --- FIX: Convert JWT identity string to an integer for the database query ---
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -327,7 +328,7 @@ def upload_agent_documents():
 def get_agent_invoices():
     """Fetches a list of all invoices for the current agent."""
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
         
         invoices = Invoice.query.filter_by(agent_id=current_user_id).order_by(Invoice.issue_date.desc()).all()
         
@@ -351,7 +352,7 @@ def get_agent_invoices():
 def get_invoiceable_jobs():
     """Fetches completed jobs for the current agent that have not yet been invoiced."""
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
         
         invoiced_job_ids_query = db.session.query(InvoiceJob.job_id).join(Invoice).filter(Invoice.agent_id == current_user_id)
         invoiced_job_ids = [item[0] for item in invoiced_job_ids_query.all()]
@@ -376,7 +377,7 @@ def create_invoice():
     Creates an invoice from selected jobs, saves it, generates a PDF, and emails it.
     """
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
         agent = User.query.get(current_user_id)
         if not agent or agent.role != 'agent':
             return jsonify({'error': 'Access denied.'}), 403
