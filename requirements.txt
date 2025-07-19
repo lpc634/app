@@ -16,3 +16,4 @@ reportlab
 Flask-APScheduler
 setuptools>=70.0.0
 wheel>=0.43.0
+Flask-Migrate
