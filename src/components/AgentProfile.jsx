@@ -5,7 +5,6 @@ import { Loader2, User as UserIcon, Landmark, FileUp } from 'lucide-react';
 
 const AgentProfile = () => {
   const { apiCall } = useAuth();
-  // --- CHANGE 1: Added state for all fields, including files ---
   const [formData, setFormData] = useState({
     first_name: '', last_name: '', email: '', phone: '',
     address_line_1: '', address_line_2: '', city: '', postcode: '',
@@ -19,10 +18,13 @@ const AgentProfile = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
+      // --- NEW: Added a debug message here ---
+      console.log("Attempting to fetch profile data..."); 
+      
       try {
         setLoading(true);
         const data = await apiCall('/agent/profile');
-        // --- CHANGE 2: Ensure all form fields are populated from the API, providing fallbacks ---
+        console.log("Profile data received:", data); // Let's also log the data we get back
         setFormData({
             first_name: data.first_name || '',
             last_name: data.last_name || '',
@@ -38,6 +40,7 @@ const AgentProfile = () => {
             utr_number: data.utr_number || ''
         });
       } catch (error) {
+        console.error("Failed to load profile:", error); // Log the actual error
         toast.error('Failed to load profile', { description: error.message });
       } finally {
         setLoading(false);
@@ -49,8 +52,7 @@ const AgentProfile = () => {
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
-
-  // --- CHANGE 3: Added handlers for file inputs ---
+  
   const handleIdFileChange = (e) => {
     setIdFile(e.target.files[0]);
   };
@@ -63,23 +65,19 @@ const AgentProfile = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      // First, update the text-based profile data
       await apiCall('/agent/profile', {
         method: 'POST',
         body: JSON.stringify(formData),
       });
 
-      // Next, upload the files if they have been selected
       const uploadData = new FormData();
       if (idFile) uploadData.append('id_document', idFile);
       if (siaFile) uploadData.append('sia_document', siaFile);
       
       if (idFile || siaFile) {
-        // This uses a new backend endpoint we will create
         await apiCall('/agent/upload-documents', {
           method: 'POST',
           body: uploadData,
-          // Important: Let the browser set the Content-Type header for FormData
           headers: {} 
         });
       }
@@ -105,7 +103,6 @@ const AgentProfile = () => {
     </div>
   );
 
-  // --- CHANGE 4: Added a component for the file input UI ---
   const FileInputField = ({ name, label, onChange, fileName }) => (
     <div>
       <label htmlFor={name} className="block text-sm font-medium text-v3-text-light">{label}</label>
@@ -155,7 +152,6 @@ const AgentProfile = () => {
           </div>
         </div>
         
-        {/* --- CHANGE 5: Added the new document upload section --- */}
         <div className="dashboard-card p-6">
           <h2 className="text-xl font-bold text-v3-text-lightest flex items-center gap-3 mb-6"><FileUp /> Verification Documents</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
