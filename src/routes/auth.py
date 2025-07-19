@@ -10,10 +10,8 @@ auth_bp = Blueprint('auth', __name__)
 # Store blacklisted tokens (in production, use Redis)
 blacklisted_tokens = set()
 
-# --- THIS SECTION IS NOW UPDATED ---
 # List of emails that will be granted the 'admin' role upon registration.
-ADMIN_EMAILS = ['lance@v3-services.com', 'tom@v3-services.com']
-# --- END UPDATE ---
+ADMIN_EMAILS = ['lance@v3-services.com', 'tom@v3-services.com', 'info@v3-services.com']
 
 @auth_bp.route('/auth/register', methods=['POST'])
 def register():
@@ -22,7 +20,6 @@ def register():
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
-    # Define all fields required from the new sign-up form
     required_fields = ['email', 'password', 'first_name', 'last_name', 'phone', 
                        'address_line_1', 'city', 'postcode', 'bank_name', 
                        'bank_account_number', 'bank_sort_code']
@@ -35,8 +32,6 @@ def register():
     if User.query.filter_by(email=email).first():
         return jsonify({"error": "Email address already registered"}), 409
 
-    # Secure Role Assignment Logic
-    # The role is determined by the backend, not the frontend.
     role = 'admin' if email in ADMIN_EMAILS else 'agent'
 
     try:
@@ -47,12 +42,16 @@ def register():
             last_name=data['last_name'],
             phone=data.get('phone'),
             address_line_1=data.get('address_line_1'),
-            address_line_2=data.get('address_line_2'), # Optional field
+            address_line_2=data.get('address_line_2'),
             city=data.get('city'),
             postcode=data.get('postcode'),
             bank_name=data.get('bank_name'),
             bank_account_number=data.get('bank_account_number'),
-            bank_sort_code=data.get('bank_sort_code')
+            bank_sort_code=data.get('bank_sort_code'),
+            utr_number=data.get('utr_number'),
+            tax_confirmation=data.get('tax_confirmation'),
+            # --- CHANGE: Set default verification status ---
+            verification_status='pending'
         )
         new_user.set_password(data['password'])
         
@@ -111,8 +110,9 @@ def logout():
 def refresh():
     """Refresh JWT token."""
     try:
-        current_user_id = get_jwt_identity()
-        user = User.query.get(int(current_user_id))
+        # --- CHANGE: Convert JWT identity string to an integer ---
+        current_user_id = int(get_jwt_identity())
+        user = User.query.get(current_user_id)
         
         if not user:
             return jsonify({'error': 'User not found'}), 404
@@ -135,8 +135,9 @@ def refresh():
 def get_current_user():
     """Get current user information."""
     try:
-        current_user_id = get_jwt_identity()
-        user = User.query.get(int(current_user_id))
+        # --- CHANGE: Convert JWT identity string to an integer ---
+        current_user_id = int(get_jwt_identity())
+        user = User.query.get(current_user_id)
         
         if not user:
             return jsonify({'error': 'User not found'}), 404
@@ -155,13 +156,13 @@ def check_if_token_revoked(jwt_header, jwt_payload):
 @jwt_required()
 def create_cron_token():
     """Create a long-lived token for GitHub Actions cron job (admin only)."""
-    current_user_id = get_jwt_identity()
+    # --- CHANGE: Convert JWT identity string to an integer ---
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     if not user or user.role != 'admin':
         return jsonify({'error': 'Admin access required'}), 403
     
-    # Create token that expires in 1 year
     expires = timedelta(days=365)
     access_token = create_access_token(
         identity=str(user.id),

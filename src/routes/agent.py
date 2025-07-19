@@ -3,6 +3,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
+from email.utils import formataddr
 from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import User, Job, JobAssignment, AgentAvailability, Notification, Invoice, InvoiceJob, db
@@ -15,18 +16,46 @@ from werkzeug.utils import secure_filename
 
 agent_bp = Blueprint('agent', __name__)
 
-# --- NEW: Configuration for file uploads ---
-# IMPORTANT: For Heroku, this saves to a temporary folder. For production,
-# you MUST use a cloud storage service like Amazon S3.
-UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
-
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    """Check if the file extension is allowed."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'pdf', 'jpg', 'jpeg', 'png'}
+
+@agent_bp.route('/agent/upload-documents', methods=['POST'])
+@jwt_required()
+def upload_agent_documents():
+    current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    upload_folder = current_app.config['UPLOAD_FOLDER']
+
+    # Handle ID Document Upload
+    if 'id_document' in request.files:
+        id_file = request.files['id_document']
+        if id_file and allowed_file(id_file.filename):
+            id_filename = secure_filename(f"user_{user.id}_id_{id_file.filename}")
+            id_file.save(os.path.join(upload_folder, id_filename))
+            user.id_document_url = id_filename
+
+    # Handle SIA Document Upload
+    if 'sia_document' in request.files:
+        sia_file = request.files['sia_document']
+        if sia_file and allowed_file(sia_file.filename):
+            sia_filename = secure_filename(f"user_{user.id}_sia_{sia_file.filename}")
+            sia_file.save(os.path.join(upload_folder, sia_filename))
+            user.sia_document_url = sia_filename
+    
+    # Check if the ID document is now present and update status
+    # Note: Automatically setting to 'verified' might not be ideal; consider 'pending' for admin review
+    if user.id_document_url:
+        user.verification_status = 'verified'
+            
+    db.session.commit()
+    return jsonify({"message": "Documents uploaded successfully"}), 200
 
 
-# --- PDF AND EMAIL HELPER FUNCTIONS (Your original code) ---
+# --- PDF AND EMAIL HELPER FUNCTIONS ---
 
 def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number):
     """Generates a PDF invoice."""
@@ -102,13 +131,15 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number):
     c.save()
     return file_path
 
-def send_invoice_email(recipient_email, agent_name, pdf_path, invoice_number):
+def send_invoice_email(recipient_email, agent_name, pdf_path, invoice_number, cc_email=None):
     """Sends the invoice PDF via email."""
     try:
         msg = MIMEMultipart()
-        msg['From'] = current_app.config['MAIL_DEFAULT_SENDER'][1]
+        mail_sender = current_app.config['MAIL_DEFAULT_SENDER']
+        msg['From'] = formataddr(mail_sender) if isinstance(mail_sender, tuple) else mail_sender
         msg['To'] = recipient_email
-        msg['Cc'] = current_app.config['MAIL_DEFAULT_SENDER'][1] # CC the accounts department
+        if cc_email:
+            msg['Cc'] = cc_email
         msg['Subject'] = f"New Invoice Submitted: {invoice_number} from {agent_name}"
         
         body = f"Hello,\n\nPlease find attached the invoice {invoice_number} from {agent_name}.\n\nThank you,\nV3 Services"
@@ -127,11 +158,11 @@ def send_invoice_email(recipient_email, agent_name, pdf_path, invoice_number):
         server.quit()
         return True
     except Exception as e:
-        print(f"Failed to send email: {e}") # Use a proper logger in production
+        current_app.logger.error(f"Failed to send email: {e}")
         return False
 
 
-# --- EXISTING AGENT ROUTES (Your original code) ---
+# --- EXISTING AGENT ROUTES ---
 
 @agent_bp.route('/agent/dashboard', methods=['GET'])
 @jwt_required()
@@ -253,7 +284,6 @@ def toggle_today_availability():
 @jwt_required()
 def get_agent_profile():
     """Fetches the full profile for the currently logged-in agent."""
-    # --- FIX: Convert JWT identity string to an integer for the database query ---
     current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user:
@@ -266,16 +296,23 @@ def get_agent_profile():
 @jwt_required()
 def update_agent_profile():
     """Updates the profile for the currently logged-in agent."""
-    # --- FIX: Convert JWT identity string to an integer for the database query ---
     current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user:
-        return jsonify({"error": "User not found"}), 404
+        return jupytext({"error": "User not found"}), 404
     
     data = request.get_json()
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
+    # Handle potential email change
+    new_email = data.get('email', user.email).lower().strip()
+    if new_email != user.email:
+        if User.query.filter_by(email=new_email).first():
+            return jsonify({"error": "This email address is already in use."}), 409
+        user.email = new_email
+
+    # Update other fields
     user.first_name = data.get('first_name', user.first_name)
     user.last_name = data.get('last_name', user.last_name)
     user.phone = data.get('phone', user.phone)
@@ -291,37 +328,8 @@ def update_agent_profile():
     db.session.commit()
     return jsonify({"message": "Profile updated successfully"}), 200
 
-# --- NEW: Endpoint for handling document uploads ---
-@agent_bp.route('/agent/upload-documents', methods=['POST'])
-@jwt_required()
-def upload_agent_documents():
-    # --- FIX: Convert JWT identity string to an integer for the database query ---
-    current_user_id = int(get_jwt_identity())
-    user = User.query.get(current_user_id)
-    if not user:
-        return jsonify({"error": "User not found"}), 404
 
-    # Handle ID Document Upload
-    if 'id_document' in request.files:
-        id_file = request.files['id_document']
-        if id_file and allowed_file(id_file.filename):
-            id_filename = secure_filename(f"user_{user.id}_id_{id_file.filename}")
-            id_file.save(os.path.join(UPLOAD_FOLDER, id_filename))
-            user.id_document_url = id_filename
-
-    # Handle SIA Document Upload
-    if 'sia_document' in request.files:
-        sia_file = request.files['sia_document']
-        if sia_file and allowed_file(sia_file.filename):
-            sia_filename = secure_filename(f"user_{user.id}_sia_{sia_file.filename}")
-            sia_file.save(os.path.join(UPLOAD_FOLDER, sia_filename))
-            user.sia_document_url = sia_filename
-            
-    db.session.commit()
-    return jsonify({"message": "Documents uploaded successfully"}), 200
-
-
-# --- The rest of your invoice routes (your original code) ---
+# --- The rest of your invoice routes ---
 
 @agent_bp.route('/agent/invoices', methods=['GET'])
 @jwt_required()
@@ -434,15 +442,20 @@ def create_invoice():
         # --- PDF and Emailing ---
         pdf_path = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number)
 
+        # Assume MAIL_DEFAULT_SENDER[1] is the accounts email
+        accounts_email = current_app.config['MAIL_DEFAULT_SENDER'][1] if isinstance(current_app.config['MAIL_DEFAULT_SENDER'], tuple) else current_app.config['MAIL_DEFAULT_SENDER']
         email_sent = send_invoice_email(
-            recipient_email=agent.email,
+            recipient_email=accounts_email,
             agent_name=f"{agent.first_name} {agent.last_name}",
             pdf_path=pdf_path,
-            invoice_number=invoice_number
+            invoice_number=invoice_number,
+            cc_email=agent.email
         )
 
         if not email_sent:
             db.session.rollback()
+            if os.path.exists(pdf_path):
+                os.remove(pdf_path)
             return jsonify({'error': 'Failed to send invoice email. The transaction has been rolled back.'}), 500
 
         # --- Commit Transaction ---
@@ -455,5 +468,7 @@ def create_invoice():
 
     except Exception as e:
         db.session.rollback()
+        if 'pdf_path' in locals() and os.path.exists(pdf_path):
+            os.remove(pdf_path)
         import traceback
         return jsonify({"error": "An internal server error occurred.", "details": traceback.format_exc()}), 500

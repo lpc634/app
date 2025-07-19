@@ -27,6 +27,8 @@ class User(db.Model):
     tax_confirmation = db.Column(db.Boolean, default=False)
     id_document_url = db.Column(db.String(255), nullable=True)
     sia_document_url = db.Column(db.String(255), nullable=True)
+    # --- CHANGE: New column added ---
+    verification_status = db.Column(db.String(20), nullable=False, default='pending')
     
     assignments = db.relationship('JobAssignment', back_populates='agent', lazy=True)
     availability = db.relationship('AgentAvailability', back_populates='agent', lazy=True, cascade="all, delete-orphan")
@@ -59,7 +61,9 @@ class User(db.Model):
             'utr_number': self.utr_number,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'id_document_url': self.id_document_url,
-            'sia_document_url': self.sia_document_url
+            'sia_document_url': self.sia_document_url,
+            # --- CHANGE: New field added ---
+            'verification_status': self.verification_status
         }
 
 class Job(db.Model):
