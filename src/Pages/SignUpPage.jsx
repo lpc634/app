@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { toast } from 'sonner';
-import { Shield, Loader2 } from 'lucide-react';
+import React, 'useState'
+import { useNavigate, Link } from 'react-router-dom'
+import { toast } from 'sonner'
+import { Shield, Loader2 } from 'lucide-react'
 
 const InputField = ({ name, type, placeholder, required = true, group = false, value, onChange }) => (
     <div className={group ? 'md:col-span-2' : ''}>
@@ -9,7 +9,6 @@ const InputField = ({ name, type, placeholder, required = true, group = false, v
         <input
             id={name} name={name} type={type} required={required} value={value}
             onChange={onChange} placeholder={`Enter ${placeholder.toLowerCase()}`}
-            // This line is now changed to make the text a dark gray color
             className="mt-1 block w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-gray-900 focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
         />
     </div>
@@ -17,23 +16,41 @@ const InputField = ({ name, type, placeholder, required = true, group = false, v
 
 const SignUpPage = () => {
     const navigate = useNavigate();
+    // --- CHANGE 1: Added new fields to the form's state ---
     const [formData, setFormData] = useState({
         first_name: '', last_name: '', email: '', password: '', phone: '',
         address_line_1: '', address_line_2: '', city: '', postcode: '',
-        bank_name: '', bank_account_number: '', bank_sort_code: ''
+        bank_name: '', bank_account_number: '', bank_sort_code: '',
+        utr_number: '', 
+        tax_confirmation: false
     });
     const [loading, setLoading] = useState(false);
 
+    // --- CHANGE 2: Updated handleChange to work for both text inputs and checkboxes ---
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value, type, checked } = e.target;
+        setFormData(prevData => ({
+            ...prevData,
+            [name]: type === 'checkbox' ? checked : value
+        }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        // --- CHANGE 3: Added validation to ensure the checkbox is ticked ---
+        if (!formData.tax_confirmation) {
+            toast.error('Confirmation Required', {
+                description: 'You must confirm your tax responsibility to create an account.',
+            });
+            return; 
+        }
+
         setLoading(true);
         try {
             const API_BASE_URL = import.meta.env.PROD ? '/api' : 'http://localhost:5001/api';
 
+            // The new form data will be sent automatically
             const response = await fetch(`${API_BASE_URL}/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -86,13 +103,38 @@ const SignUpPage = () => {
                         </div>
                         
                         <div>
-                           <h3 className="text-lg font-medium text-v3-text-lightest">Bank Details for Invoicing</h3>
+                           <h3 className="text-lg font-medium text-v3-text-lightest">Bank & Tax Details for Invoicing</h3>
                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <InputField name="bank_name" type="text" placeholder="Bank Name" value={formData.bank_name} onChange={handleChange} />
                                 <InputField name="bank_account_number" type="text" placeholder="Account Number" value={formData.bank_account_number} onChange={handleChange} />
-                                <InputField name="bank_sort_code" type="text" placeholder="Sort Code" group={true} value={formData.bank_sort_code} onChange={handleChange} />
+                                <InputField name="bank_sort_code" type="text" placeholder="Sort Code" value={formData.bank_sort_code} onChange={handleChange} />
+                                {/* --- CHANGE 4: Added the UTR Number input field --- */}
+                                <InputField name="utr_number" type="text" placeholder="UTR Number" value={formData.utr_number} onChange={handleChange} />
                            </div>
                         </div>
+
+                        {/* --- CHANGE 5: Added the tax confirmation checkbox --- */}
+                        <div className="space-y-2">
+                            <div className="flex items-start space-x-3">
+                                <input
+                                    id="tax_confirmation"
+                                    name="tax_confirmation"
+                                    type="checkbox"
+                                    checked={formData.tax_confirmation}
+                                    onChange={handleChange}
+                                    className="h-4 w-4 mt-1 rounded border-v3-border text-v3-orange focus:ring-v3-orange"
+                                />
+                                <div className="text-sm">
+                                    <label htmlFor="tax_confirmation" className="font-medium text-v3-text-light">
+                                        Tax & National Insurance Confirmation
+                                    </label>
+                                    <p className="text-v3-text-muted">
+                                        I confirm that I am responsible for any Tax or National Insurance due on all invoices that I have submitted to V3 Services Ltd.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
 
                         <div>
                             <button type="submit" disabled={loading} className="w-full button-refresh flex justify-center py-3">
