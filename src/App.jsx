@@ -1,4 +1,3 @@
-import AgentProfile from './components/AgentProfile.jsx';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth, AuthProvider } from './useAuth';
 import LoginPage from './Pages/LoginPage.jsx';
@@ -9,13 +8,12 @@ import CreateJob from './Pages/CreateJob';
 import AgentDashboard from './components/AgentDashboard';
 // import AvailableJobs from './components/AvailableJobs'; // This component appears unused, can be removed if not needed elsewhere
 import AgentNotifications from './components/AgentNotifications';
-// --- THIS LINE IS MODIFIED ---
 import JobReports from './Pages/JobReports'; 
 import DebugPage from './Pages/DebugPage';
 import JobDetails from './components/JobDetails';
 import AgentLayout from './components/AgentLayout';
 import SignUpPage from './Pages/SignUpPage';
-import AgentProfile from './components/AgentProfile';
+import AgentProfile from './components/AgentProfile.jsx'; // Only one import now
 import AgentInvoices from './components/AgentInvoices';
 import CreateInvoicePage from './components/CreateInvoicePage';
 import CreateInvoiceFromJobs from './components/CreateInvoiceFromJobs';
