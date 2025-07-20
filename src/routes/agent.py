@@ -44,8 +44,9 @@ def upload_agent_documents():
             id_file = request.files['id_document']
             if id_file and allowed_file(id_file.filename):
                 # Send file to your computer
+                agent_name = f"{user.first_name}_{user.last_name}" if user.first_name and user.last_name else f"user_{user.id}"
                 files = {'file': (id_file.filename, id_file.stream, id_file.content_type)}
-                data = {'user_id': user.id, 'file_type': 'id'}
+                data = {'user_id': user.id, 'file_type': 'id', 'agent_name': agent_name}
                 
                 response = requests.post('https://1b069dfae07e.ngrok-free.app/upload', 
                                        files=files, data=data)
@@ -59,8 +60,11 @@ def upload_agent_documents():
             sia_file = request.files['sia_document']
             if sia_file and allowed_file(sia_file.filename):
                 # Send file to your computer
+                agent_name = f"{user.first_name}_{user.last_name}" if user.first_name and user.last_name else f"user_{user.id}"
+
                 files = {'file': (sia_file.filename, sia_file.stream, sia_file.content_type)}
-                data = {'user_id': user.id, 'file_type': 'sia'}
+
+                data = {'user_id': user.id, 'file_type': 'sia', 'agent_name': agent_name}
                 
                 response = requests.post('https://1b069dfae07e.ngrok-free.app/upload', 
                                        files=files, data=data)
