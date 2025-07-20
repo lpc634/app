@@ -26,7 +26,6 @@ def login():
     current_app.logger.info(f"Query done: {datetime.utcnow() - start}")
     if user and user.check_password(data['password']):
         current_app.logger.info(f"Password check done: {datetime.utcnow() - start}")
-        # Ensure the JWT subject is a string
         access_token = create_access_token(identity=str(user.id))
         current_app.logger.info(f"Token created: {datetime.utcnow() - start}")
         return jsonify(access_token=access_token), 200
@@ -36,9 +35,6 @@ def login():
 @jwt_required()
 def change_password():
     current_user_id = get_jwt_identity()
-    # get_jwt_identity() will return the type that was passed to create_access_token(identity=...)
-    # So, if we always use str(user.id), current_user_id will be a string.
-    # To be safe, cast to int for DB lookup.
     user = User.query.get(int(current_user_id)) if current_user_id is not None else None
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -65,7 +61,6 @@ def send_password_reset_email(recipient_email, reset_token):
         msg['To'] = recipient_email
         msg['Subject'] = "Password Reset Request"
         
-        # Customized to your Heroku domain; adjust if needed
         body = f"Hello,\n\nTo reset your password, click the following link:\nhttps://v3-app-49c3d1eff914.herokuapp.com/reset-password?token={reset_token}\n\nIf you did not request this, ignore this email.\n\nThank you,\nV3 Services"
         msg.attach(MIMEText(body, 'plain'))
         
@@ -91,7 +86,6 @@ def forgot_password():
     if not user:
         return jsonify({"message": "If the email exists, a reset link has been sent."}), 200
     
-    # Ensure the JWT subject is a string
     reset_token = create_access_token(identity=str(user.id), expires_delta=timedelta(minutes=30), additional_claims={'type': 'reset'})
     
     if send_password_reset_email(user.email, reset_token):
@@ -117,7 +111,6 @@ def reset_password():
     except Exception as e:
         return jsonify({"error": "Invalid or expired token"}), 401
     
-    # user_id will be a string, so cast to int for DB lookup
     user = User.query.get(int(user_id)) if user_id is not None else None
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -130,8 +123,28 @@ def reset_password():
 @auth_bp.route('/auth/logout', methods=['POST'])
 @jwt_required()
 def logout():
-    # If blocklist implemented, add token to revoked
     return jsonify({"message": "Logged out successfully"}), 200
 
+# ✅ ADDED ROUTE: Get current user info via token
+@auth_bp.route('/auth/me', methods=['GET'])
+@jwt_required()
+def get_current_user():
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(int(user_id))
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        return jsonify({
+            "id": user.id,
+            "email": user.email,
+            "role": user.role
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error in /auth/me: {str(e)}")
+        return jsonify({"error": "Internal Server Error"}), 500
+
 def check_if_token_revoked(jwt_header, jwt_payload):
-    return False  # Placeholder; implement blocklist if needed
+    return False
