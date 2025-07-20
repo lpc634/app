@@ -26,7 +26,8 @@ def login():
     current_app.logger.info(f"Query done: {datetime.utcnow() - start}")
     if user and user.check_password(data['password']):
         current_app.logger.info(f"Password check done: {datetime.utcnow() - start}")
-        access_token = create_access_token(identity=user.id)
+        # Ensure the JWT subject is a string
+        access_token = create_access_token(identity=str(user.id))
         current_app.logger.info(f"Token created: {datetime.utcnow() - start}")
         return jsonify(access_token=access_token), 200
     return jsonify({"msg": "Bad username or password"}), 401
@@ -35,7 +36,10 @@ def login():
 @jwt_required()
 def change_password():
     current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
+    # get_jwt_identity() will return the type that was passed to create_access_token(identity=...)
+    # So, if we always use str(user.id), current_user_id will be a string.
+    # To be safe, cast to int for DB lookup.
+    user = User.query.get(int(current_user_id)) if current_user_id is not None else None
     if not user:
         return jsonify({"error": "User not found"}), 404
     
@@ -87,7 +91,8 @@ def forgot_password():
     if not user:
         return jsonify({"message": "If the email exists, a reset link has been sent."}), 200
     
-    reset_token = create_access_token(identity=user.id, expires_delta=timedelta(minutes=30), additional_claims={'type': 'reset'})
+    # Ensure the JWT subject is a string
+    reset_token = create_access_token(identity=str(user.id), expires_delta=timedelta(minutes=30), additional_claims={'type': 'reset'})
     
     if send_password_reset_email(user.email, reset_token):
         return jsonify({"message": "If the email exists, a reset link has been sent."}), 200
@@ -112,7 +117,8 @@ def reset_password():
     except Exception as e:
         return jsonify({"error": "Invalid or expired token"}), 401
     
-    user = User.query.get(user_id)
+    # user_id will be a string, so cast to int for DB lookup
+    user = User.query.get(int(user_id)) if user_id is not None else None
     if not user:
         return jsonify({"error": "User not found"}), 404
     
