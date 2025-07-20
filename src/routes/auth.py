@@ -11,7 +11,6 @@ import os
 
 auth_bp = Blueprint('auth', __name__)
 
-# Error handler for auth blueprint (returns JSON on exceptions)
 @auth_bp.errorhandler(Exception)
 def handle_auth_error(e):
     current_app.logger.error(f"Auth error: {str(e)}")
@@ -38,17 +37,17 @@ def change_password():
     user = User.query.get(int(current_user_id)) if current_user_id is not None else None
     if not user:
         return jsonify({"error": "User not found"}), 404
-    
+
     data = request.get_json()
     old_password = data.get('old_password')
     new_password = data.get('new_password')
-    
+
     if not old_password or not new_password:
         return jsonify({"error": "Old and new passwords are required"}), 400
-    
+
     if not user.check_password(old_password):
         return jsonify({"error": "Incorrect old password"}), 401
-    
+
     user.set_password(new_password)
     db.session.commit()
     return jsonify({"message": "Password changed successfully"}), 200
@@ -60,10 +59,10 @@ def send_password_reset_email(recipient_email, reset_token):
         msg['From'] = formataddr(mail_sender) if isinstance(mail_sender, tuple) else mail_sender
         msg['To'] = recipient_email
         msg['Subject'] = "Password Reset Request"
-        
+
         body = f"Hello,\n\nTo reset your password, click the following link:\nhttps://v3-app-49c3d1eff914.herokuapp.com/reset-password?token={reset_token}\n\nIf you did not request this, ignore this email.\n\nThank you,\nV3 Services"
         msg.attach(MIMEText(body, 'plain'))
-        
+
         server = smtplib.SMTP(current_app.config['MAIL_SERVER'], current_app.config['MAIL_PORT'])
         if current_app.config['MAIL_USE_TLS']:
             server.starttls()
@@ -81,13 +80,13 @@ def forgot_password():
     email = data.get('email')
     if not email:
         return jsonify({"error": "Email is required"}), 400
-    
+
     user = User.query.filter_by(email=email).first()
     if not user:
         return jsonify({"message": "If the email exists, a reset link has been sent."}), 200
-    
+
     reset_token = create_access_token(identity=str(user.id), expires_delta=timedelta(minutes=30), additional_claims={'type': 'reset'})
-    
+
     if send_password_reset_email(user.email, reset_token):
         return jsonify({"message": "If the email exists, a reset link has been sent."}), 200
     else:
@@ -98,10 +97,10 @@ def reset_password():
     data = request.get_json()
     token = data.get('token')
     new_password = data.get('new_password')
-    
+
     if not token or not new_password:
         return jsonify({"error": "Token and new password are required"}), 400
-    
+
     try:
         verify_jwt_in_request(optional=True, locations=['json'])
         claims = get_jwt()
@@ -110,14 +109,13 @@ def reset_password():
         user_id = claims['sub']
     except Exception as e:
         return jsonify({"error": "Invalid or expired token"}), 401
-    
+
     user = User.query.get(int(user_id)) if user_id is not None else None
     if not user:
         return jsonify({"error": "User not found"}), 404
-    
+
     user.set_password(new_password)
     db.session.commit()
-    
     return jsonify({"message": "Password reset successfully"}), 200
 
 @auth_bp.route('/auth/logout', methods=['POST'])
@@ -125,23 +123,20 @@ def reset_password():
 def logout():
     return jsonify({"message": "Logged out successfully"}), 200
 
-# ✅ ADDED: Get current user info
 @auth_bp.route('/auth/me', methods=['GET'])
 @jwt_required()
 def get_current_user():
     try:
         user_id = get_jwt_identity()
         user = User.query.get(int(user_id))
-
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         return jsonify({
             "id": user.id,
             "email": user.email,
-            "role": user.role
+            "role": user.role  # ⚠️ This will break if `user.role` is None or missing
         }), 200
-
     except Exception as e:
         current_app.logger.error(f"Error in /auth/me: {str(e)}")
         return jsonify({"error": "Internal Server Error"}), 500
