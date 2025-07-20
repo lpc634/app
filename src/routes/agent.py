@@ -1,5 +1,7 @@
+# --- IMPORTS (Added boto3) ---
 import os
 import smtplib
+import boto3
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -20,6 +22,8 @@ def allowed_file(filename):
     """Check if the file extension is allowed."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'pdf', 'jpg', 'jpeg', 'png'}
 
+
+# --- REPLACED FUNCTION: This now uploads to Amazon S3 ---
 @agent_bp.route('/agent/upload-documents', methods=['POST'])
 @jwt_required()
 def upload_agent_documents():
@@ -28,38 +32,71 @@ def upload_agent_documents():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    upload_folder = current_app.config['UPLOAD_FOLDER']
+    if 'id_document' not in request.files and 'sia_document' not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
 
-    # Handle ID Document Upload
-    if 'id_document' in request.files:
-        id_file = request.files['id_document']
-        if id_file and allowed_file(id_file.filename):
-            id_filename = secure_filename(f"user_{user.id}_id_{id_file.filename}")
-            id_file.save(os.path.join(upload_folder, id_filename))
-            user.id_document_url = id_filename
+    # Get S3 config from Heroku environment variables
+    S3_BUCKET = os.environ.get("S3_BUCKET")
+    S3_KEY = os.environ.get("S3_KEY")
+    S3_SECRET = os.environ.get("S3_SECRET")
+    S3_REGION = os.environ.get("S3_REGION")
 
-    # Handle SIA Document Upload
-    if 'sia_document' in request.files:
-        sia_file = request.files['sia_document']
-        if sia_file and allowed_file(sia_file.filename):
-            sia_filename = secure_filename(f"user_{user.id}_sia_{sia_file.filename}")
-            sia_file.save(os.path.join(upload_folder, sia_filename))
-            user.sia_document_url = sia_filename
-    
-    # Check if the ID document is now present and update status
-    # Note: Automatically setting to 'verified' might not be ideal; consider 'pending' for admin review
-    if user.id_document_url:
-        user.verification_status = 'verified'
-            
-    db.session.commit()
-    return jsonify({"message": "Documents uploaded successfully"}), 200
+    # Check if all S3 configurations are present
+    if not all([S3_BUCKET, S3_KEY, S3_SECRET, S3_REGION]):
+        current_app.logger.error("S3 configuration is missing from environment variables.")
+        return jsonify({"error": "Server configuration error for file uploads."}), 500
+        
+    s3 = boto3.client(
+       "s3",
+       aws_access_key_id=S3_KEY,
+       aws_secret_access_key=S3_SECRET
+    )
+
+    try:
+        # Handle ID Document Upload
+        if 'id_document' in request.files:
+            id_file = request.files['id_document']
+            if id_file and allowed_file(id_file.filename):
+                # Create a secure, unique filename in a user-specific folder
+                id_filename = f"user_{user.id}/id_{secure_filename(id_file.filename)}"
+                
+                # Upload to S3
+                s3.upload_fileobj(id_file, S3_BUCKET, id_filename, ExtraArgs={"ContentType": id_file.content_type})
+                
+                # Construct the public URL
+                id_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{id_filename}"
+
+                # Save the permanent URL to the database
+                user.id_document_url = id_url
+                user.verification_status = 'pending' # Set to pending for admin review
+
+        # Handle SIA Document Upload
+        if 'sia_document' in request.files:
+            sia_file = request.files['sia_document']
+            if sia_file and allowed_file(sia_file.filename):
+                sia_filename = f"user_{user.id}/sia_{secure_filename(sia_file.filename)}"
+                s3.upload_fileobj(sia_file, S3_BUCKET, sia_filename, ExtraArgs={"ContentType": sia_file.content_type})
+                sia_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{sia_filename}"
+                user.sia_document_url = sia_url
+                
+        db.session.commit()
+        return jsonify({"message": "Documents uploaded successfully"}), 200
+
+    except Exception as e:
+        current_app.logger.error(f"S3 Upload Error: {e}")
+        return jsonify({"error": "Failed to upload file to storage."}), 500
 
 
 # --- PDF AND EMAIL HELPER FUNCTIONS ---
 
 def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number):
     """Generates a PDF invoice."""
-    file_path = os.path.join(current_app.config['INVOICE_FOLDER'], f"{invoice_number}.pdf")
+    # This function uses a local 'INVOICE_FOLDER', which is temporary on Heroku.
+    # For now this is okay for generating the PDF before emailing it.
+    # A future improvement would be to save these to S3 as well.
+    invoice_folder = os.path.join('/tmp', 'invoices') # Use the /tmp directory
+    os.makedirs(invoice_folder, exist_ok=True)
+    file_path = os.path.join(invoice_folder, f"{invoice_number}.pdf")
     
     c = canvas.Canvas(file_path, pagesize=letter)
     width, height = letter
@@ -87,8 +124,8 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number):
     c.setFont("Helvetica-Bold", 12)
     c.drawRightString(width - inch, y_pos, f"Invoice #: {invoice_number}")
     c.setFont("Helvetica", 12)
-    c.drawRightString(width - inch, y_pos - 15, f"Issue Date: {date.today().strftime('%d/%m/%Y')}")
-    c.drawRightString(width - inch, y_pos - 30, f"Due Date: {(date.today() + timedelta(days=30)).strftime('%d/%m/%Y')}")
+    c.drawRightString(width - inch, y_pos - 15, f"Date: {date.today().strftime('%d/%m/%Y')}")
+    c.drawRightString(width - inch, y_pos - 30, f"Due: {(date.today() + timedelta(days=30)).strftime('%d/%m/%Y')}")
 
 
     # --- Table Header ---
@@ -289,7 +326,6 @@ def get_agent_profile():
     if not user:
         return jsonify({"error": "User not found"}), 404
     
-    # The to_dict() method in the User model now returns all necessary data
     return jsonify(user.to_dict()), 200
 
 @agent_bp.route('/agent/profile', methods=['POST'])
@@ -299,20 +335,18 @@ def update_agent_profile():
     current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user:
-        return jupytext({"error": "User not found"}), 404
+        return jsonify({"error": "User not found"}), 404
     
     data = request.get_json()
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
-    # Handle potential email change
     new_email = data.get('email', user.email).lower().strip()
     if new_email != user.email:
         if User.query.filter_by(email=new_email).first():
             return jsonify({"error": "This email address is already in use."}), 409
         user.email = new_email
 
-    # Update other fields
     user.first_name = data.get('first_name', user.first_name)
     user.last_name = data.get('last_name', user.last_name)
     user.phone = data.get('phone', user.phone)
