@@ -46,10 +46,12 @@ def upload_agent_documents():
         current_app.logger.error("S3 configuration is missing from environment variables.")
         return jsonify({"error": "Server configuration error for file uploads."}), 500
         
+    # --- CHANGE: Added region_name to the client connection ---
     s3 = boto3.client(
-       "s3",
-       aws_access_key_id=S3_KEY,
-       aws_secret_access_key=S3_SECRET
+        "s3",
+        region_name=S3_REGION,
+        aws_access_key_id=S3_KEY,
+        aws_secret_access_key=S3_SECRET
     )
 
     try:
@@ -61,7 +63,7 @@ def upload_agent_documents():
                 id_filename = f"user_{user.id}/id_{secure_filename(id_file.filename)}"
                 
                 # Upload to S3
-                s3.upload_fileobj(id_file, S3_BUCKET, id_filename, ExtraArgs={"ContentType": id_file.content_type})
+                s3.upload_fileobj(id_file, S3_BUCKET, id_filename, ExtraArgs={"ContentType": id_file.content_type, "ACL": "public-read"})
                 
                 # Construct the public URL
                 id_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{id_filename}"
@@ -75,7 +77,7 @@ def upload_agent_documents():
             sia_file = request.files['sia_document']
             if sia_file and allowed_file(sia_file.filename):
                 sia_filename = f"user_{user.id}/sia_{secure_filename(sia_file.filename)}"
-                s3.upload_fileobj(sia_file, S3_BUCKET, sia_filename, ExtraArgs={"ContentType": sia_file.content_type})
+                s3.upload_fileobj(sia_file, S3_BUCKET, sia_filename, ExtraArgs={"ContentType": sia_file.content_type, "ACL": "public-read"})
                 sia_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{sia_filename}"
                 user.sia_document_url = sia_url
                 
