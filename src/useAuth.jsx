@@ -61,21 +61,25 @@ export function AuthProvider({ children }) {
       })
 
       const data = await response.json()
-      console.log('Login response:', response.status, data);
+      console.log('Login response:', response.status, JSON.stringify(data, null, 2));
 
       if (response.ok) {
         const { access_token, user } = data
-        console.log('Parsed data:', { access_token, user });
+        console.log('Parsed data:', { access_token, user: JSON.stringify(user, null, 2) });
         setToken(access_token)
         setUser(user)
         localStorage.setItem('token', access_token)
         
+        console.log('User role check:', user.role);
         if (user.role === 'agent') {
           navigate('/agent/dashboard')
+          console.log('Navigating to /agent/dashboard');
         } else if (user.role === 'admin' || user.role === 'manager') {
           navigate('/')
+          console.log('Navigating to /');
         } else {
           navigate('/')
+          console.log('Navigating to / (default)');
         }
         
         return { success: true }
