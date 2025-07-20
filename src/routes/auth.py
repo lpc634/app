@@ -125,7 +125,7 @@ def reset_password():
 def logout():
     return jsonify({"message": "Logged out successfully"}), 200
 
-# ✅ ADDED ROUTE: Get current user info via token
+# ✅ ADDED: Get current user info
 @auth_bp.route('/auth/me', methods=['GET'])
 @jwt_required()
 def get_current_user():
