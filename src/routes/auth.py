@@ -27,7 +27,8 @@ def login():
         current_app.logger.info(f"Password check done: {datetime.utcnow() - start}")
         access_token = create_access_token(identity=str(user.id))
         current_app.logger.info(f"Token created: {datetime.utcnow() - start}")
-        return jsonify(access_token=access_token), 200
+        # Return both access_token and user data
+        return jsonify({"access_token": access_token, "user": user.to_dict()}), 200
     return jsonify({"msg": "Bad username or password"}), 401
 
 @auth_bp.route('/auth/change-password', methods=['POST'])
@@ -132,13 +133,10 @@ def get_current_user():
         if not user:
             return jsonify({"error": "User not found"}), 404
         
-        print("user.role:", user.role)
-
-
         return jsonify({
             "id": user.id,
             "email": user.email,
-            "role": user.role  # ⚠️ This will break if `user.role` is None or missing
+            "role": user.role if user.role else "unknown"  # Handle None or missing role
         }), 200
     except Exception as e:
         current_app.logger.error(f"Error in /auth/me: {str(e)}")
