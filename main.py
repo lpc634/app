@@ -91,6 +91,10 @@ jwt = JWTManager(app)
 def check_if_token_is_revoked_wrapper(jwt_header, jwt_payload):
     return check_if_token_revoked(jwt_header, jwt_payload)
 
+@app.route('/')
+def home():
+    return "<h1>V3 Services App is Running!</h1>"
+
 # --- Register Blueprints ---
 app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(auth_bp, url_prefix='/api')
