@@ -1,12 +1,14 @@
 from flask import Flask
-from src.models import db
-from src.routes.auth import auth_bp
+from src.extensions import db
+from src.config import Config
 
 def create_app():
     app = Flask(__name__)
-    app.config.from_object("src.config.Config")
-
+    app.config.from_object(Config)
+    
     db.init_app(app)
-    app.register_blueprint(auth_bp, url_prefix='/auth')
 
+    # optionally with app.app_context():
+    #     db.create_all()
+    
     return app
