@@ -24,7 +24,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'pdf', 'jpg', 'jpeg', 'png'}
 
 
-# --- REPLACED FUNCTION: This now uploads to Amazon S3 ---
+# --- REPLACED FUNCTION: This now uploads to your computer ---
 @agent_bp.route('/agent/upload-documents', methods=['POST'])
 @jwt_required()
 def upload_agent_documents():
@@ -36,60 +36,44 @@ def upload_agent_documents():
     if 'id_document' not in request.files and 'sia_document' not in request.files:
         return jsonify({"error": "No file part in the request"}), 400
 
-    # Get S3 config from Heroku environment variables
-    S3_BUCKET = os.environ.get("S3_BUCKET")
-    S3_KEY = os.environ.get("S3_KEY")
-    S3_SECRET = os.environ.get("S3_SECRET")
-    S3_REGION = os.environ.get("S3_REGION")
-
-    # Check if all S3 configurations are present
-    if not all([S3_BUCKET, S3_KEY, S3_SECRET, S3_REGION]):
-        current_app.logger.error("S3 configuration is missing from environment variables.")
-        return jsonify({"error": "Server configuration error for file uploads."}), 500
-        
-    # --- CHANGE: Added region_name to the client connection ---
-    s3 = boto3.client(
-   "s3",
-   region_name=S3_REGION,
-   aws_access_key_id=S3_KEY,
-   aws_secret_access_key=S3_SECRET,
-   config=Config(signature_version='s3v4')  # <-- This line is essential
-)
+    import requests
 
     try:
         # Handle ID Document Upload
         if 'id_document' in request.files:
             id_file = request.files['id_document']
             if id_file and allowed_file(id_file.filename):
-                # Create a secure, unique filename in a user-specific folder
-                id_filename = f"user_{user.id}/id_{secure_filename(id_file.filename)}"
+                # Send file to your computer
+                files = {'file': (id_file.filename, id_file.stream, id_file.content_type)}
+                data = {'user_id': user.id, 'file_type': 'id'}
                 
-                # Upload to S3
-                s3.upload_fileobj(id_file, S3_BUCKET, id_filename, ExtraArgs={"ContentType": id_file.content_type})
+                response = requests.post('https://1b069dfae07e.ngrok-free.app/upload', 
+                                       files=files, data=data)
                 
-                # Construct the public URL
-                id_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{id_filename}"
-
-                # Save the permanent URL to the database
-                user.id_document_url = id_url
-                user.verification_status = 'pending' # Set to pending for admin review
+                if response.status_code == 200:
+                    user.id_document_url = f"user_{user.id}/id_{id_file.filename}"
+                    user.verification_status = 'pending'
 
         # Handle SIA Document Upload
         if 'sia_document' in request.files:
             sia_file = request.files['sia_document']
             if sia_file and allowed_file(sia_file.filename):
-                sia_filename = f"user_{user.id}/sia_{secure_filename(sia_file.filename)}"
-                s3.upload_fileobj(sia_file, S3_BUCKET, sia_filename, ExtraArgs={"ContentType": sia_file.content_type})
-                sia_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{sia_filename}"
-                user.sia_document_url = sia_url
+                # Send file to your computer
+                files = {'file': (sia_file.filename, sia_file.stream, sia_file.content_type)}
+                data = {'user_id': user.id, 'file_type': 'sia'}
+                
+                response = requests.post('https://1b069dfae07e.ngrok-free.app/upload', 
+                                       files=files, data=data)
+                
+                if response.status_code == 200:
+                    user.sia_document_url = f"user_{user.id}/sia_{sia_file.filename}"
                 
         db.session.commit()
         return jsonify({"message": "Documents uploaded successfully"}), 200
 
     except Exception as e:
-        current_app.logger.error(f"S3 Upload Error: {e}")
-        return jsonify({"error": "Failed to upload file to storage."}), 500
-
+        current_app.logger.error(f"Upload Error: {e}")
+        return jsonify({"error": "Failed to upload file."}), 500
 
 # --- PDF AND EMAIL HELPER FUNCTIONS ---
 
