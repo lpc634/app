@@ -1,177 +1,158 @@
-import { createContext, useContext, useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const AuthContext = createContext()
+const AuthContext = createContext(null);
 
 const API_BASE_URL = import.meta.env.PROD
   ? 'https://v3-app-49c3d1eff914.herokuapp.com/api'
-  : 'http://localhost:5001/api'
+  : 'http://localhost:5001/api';
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [token, setToken] = useState(localStorage.getItem('token'))
-  const navigate = useNavigate()
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (token) {
-      fetchCurrentUser()
-    } else {
-      setLoading(false)
+  // This function runs on initial app load to check for an existing session.
+  const fetchCurrentUser = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setLoading(false);
+      return;
     }
-  }, [token])
 
-  useEffect(() => {
-    if (user && !loading) {
-      console.log('User state updated:', user.role);
-      if (user.role === 'agent') {
-        navigate('/agent/dashboard')
-      } else if (user.role === 'admin' || user.role === 'manager') {
-        navigate('/')
-      } else {
-        navigate('/')
-      }
-    }
-  }, [user, loading, navigate]);
-
-  const fetchCurrentUser = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/me`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`,
         },
-        credentials: 'include'
-      })
+      });
 
       if (response.ok) {
-        const data = await response.json()
-        setUser(data.user)
+        const data = await response.json();
+        setUser(data.user);
       } else {
-        logout()
+        // If the token is invalid, clear it
+        localStorage.removeItem('token');
+        setUser(null);
       }
     } catch (error) {
-      console.error('Error fetching current user:', error)
-      logout()
+      console.error('Error fetching current user:', error);
+      localStorage.removeItem('token');
+      setUser(null);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, []);
+
+  // This useEffect runs only once when the AuthProvider is first mounted.
+  useEffect(() => {
+    fetchCurrentUser();
+  }, [fetchCurrentUser]);
+
 
   const login = async (email, password) => {
     try {
-      console.log('Attempting login with email:', email)
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ email, password })
-      })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-      const data = await response.json()
-      console.log('Login response:', response.status, data)
+      const data = await response.json();
 
       if (response.ok) {
-        const { access_token, user } = data
+        const { access_token, user } = data;
+        const parsedUser = typeof user === 'string' ? JSON.parse(user) : user;
 
-        // If user is a string (incorrectly serialized), parse it
-        const parsedUser = typeof user === 'string' ? JSON.parse(user) : user
-
-        setToken(access_token)
-        setUser(parsedUser)
-        localStorage.setItem('token', access_token)
-
-        console.log('User role check:', parsedUser.role)
-        return { success: true }
+        localStorage.setItem('token', access_token);
+        setUser(parsedUser);
+        
+        // Return success and user data so the LoginPage can handle navigation
+        return { success: true, user: parsedUser };
       } else {
-        return { success: false, error: data.error || 'Login failed' }
+        return { success: false, error: data.error || 'Login failed' };
       }
     } catch (error) {
-      console.error('Login error:', error)
-      return { success: false, error: 'Network error. Please try again.' }
+      console.error('Login error:', error);
+      return { success: false, error: 'Network error. Please try again.' };
     }
-  }
+  };
 
-  const logout = async () => {
-    try {
-      if (token) {
-        await fetch(`${API_BASE_URL}/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include'
-        })
-      }
-    } catch (error) {
-      console.error('Logout error:', error)
-    } finally {
-      setToken(null)
-      setUser(null)
-      localStorage.removeItem('token')
-      navigate('/login')
+  const logout = () => {
+    // Clear user state and token from storage. 
+    // The ProtectedRoute will automatically redirect to /login.
+    const token = localStorage.getItem('token');
+    if (token) {
+        // Optional: Call backend logout endpoint, but don't wait for it.
+        fetch(`${API_BASE_URL}/auth/logout`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+        }).catch(err => console.error("Backend logout failed:", err));
     }
-  }
-
+    localStorage.removeItem('token');
+    setUser(null);
+  };
+  
+  // This helper function for making authenticated API calls is well-written.
+  // No changes are needed here, but we will simplify it slightly by getting 
+  // the token directly from localStorage when needed.
   const apiCall = async (endpoint, options = {}) => {
-    const url = `${API_BASE_URL}${endpoint}`
+    const token = localStorage.getItem('token');
+    const url = `${API_BASE_URL}${endpoint}`;
+    
     const config = {
+      ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...options.headers,
         ...(token && { 'Authorization': `Bearer ${token}` }),
-        ...options.headers
       },
-      credentials: 'include',
-      ...options
-    }
+    };
 
     try {
-      const response = await fetch(url, config)
+      const response = await fetch(url, config);
       
-      const contentType = response.headers.get("content-type");
-      let data;
-      if (contentType && contentType.indexOf("application/json") !== -1) {
-          data = await response.json();
+      if (response.status === 401) {
+        // If unauthorized, log the user out.
+        logout();
+        throw new Error('Authentication required');
       }
 
-      if (response.status === 401) {
-        logout()
-        throw new Error('Authentication required')
+      // Handle responses that might not have a JSON body
+      const contentType = response.headers.get("content-type");
+      let data = null;
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
       }
 
       if (!response.ok) {
-        throw new Error(data?.error || `HTTP error! status: ${response.status}`)
+        throw new Error(data?.error || `HTTP error! status: ${response.status}`);
       }
 
-      return data
+      return data;
     } catch (error) {
-      console.error(`API call failed for ${endpoint}:`, error)
-      throw error
+      console.error(`API call failed for ${endpoint}:`, error);
+      throw error;
     }
-  }
+  };
 
   const value = {
     user,
     loading,
     login,
     logout,
-    apiCall
-  }
+    apiCall,
+  };
 
   return (
     <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext)
+  const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
+    throw new Error('useAuth must be used within an AuthProvider');
   }
-  return context
+  return context;
 }
