@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom'
 
 const AuthContext = createContext()
 
-// The standard way to set the API URL for production and development in Vite
 const API_BASE_URL = import.meta.env.PROD
-  ? 'https://v3-app-49c3d1eff914.herokuapp.com/api' // Explicit Heroku URL
-  : 'http://localhost:5001/api'; // Use the full local URL for development
+  ? 'https://v3-app-49c3d1eff914.herokuapp.com/api'
+  : 'http://localhost:5001/api'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -16,12 +15,24 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (token) {
-      // Verify token and get user info
       fetchCurrentUser()
     } else {
       setLoading(false)
     }
   }, [token])
+
+  useEffect(() => {
+    if (user && !loading) {
+      console.log('User state updated:', user.role);
+      if (user.role === 'agent') {
+        navigate('/agent/dashboard')
+      } else if (user.role === 'admin' || user.role === 'manager') {
+        navigate('/')
+      } else {
+        navigate('/')
+      }
+    }
+  }, [user, loading, navigate]);
 
   const fetchCurrentUser = async () => {
     try {
@@ -37,7 +48,6 @@ export function AuthProvider({ children }) {
         const data = await response.json()
         setUser(data.user)
       } else {
-        // Token is invalid
         logout()
       }
     } catch (error) {
@@ -50,7 +60,7 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
-      console.log('Attempting login with email:', email);
+      console.log('Attempting login with email:', email)
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
@@ -61,30 +71,21 @@ export function AuthProvider({ children }) {
       })
 
       const data = await response.json()
-      console.log('Login response:', response.status, JSON.stringify(data, null, 2));
+      console.log('Login response:', response.status, data)
 
       if (response.ok) {
         const { access_token, user } = data
-        console.log('Parsed data:', { access_token, user: JSON.stringify(user, null, 2) });
+
+        // If user is a string (incorrectly serialized), parse it
+        const parsedUser = typeof user === 'string' ? JSON.parse(user) : user
+
         setToken(access_token)
-        setUser(user)
+        setUser(parsedUser)
         localStorage.setItem('token', access_token)
-        
-        console.log('User role check:', user.role);
-        if (user.role === 'agent') {
-          navigate('/agent/dashboard')
-          console.log('Navigating to /agent/dashboard');
-        } else if (user.role === 'admin' || user.role === 'manager') {
-          navigate('/')
-          console.log('Navigating to /');
-        } else {
-          navigate('/')
-          console.log('Navigating to / (default)');
-        }
-        
+
+        console.log('User role check:', parsedUser.role)
         return { success: true }
       } else {
-        console.log('Login failed with error:', data.error || 'Login failed');
         return { success: false, error: data.error || 'Login failed' }
       }
     } catch (error) {
@@ -116,7 +117,7 @@ export function AuthProvider({ children }) {
   }
 
   const apiCall = async (endpoint, options = {}) => {
-    const url = `${API_BASE_URL}${endpoint}` // The /api prefix is now included in API_BASE_URL
+    const url = `${API_BASE_URL}${endpoint}`
     const config = {
       headers: {
         'Content-Type': 'application/json',
