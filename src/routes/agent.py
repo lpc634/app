@@ -2,6 +2,7 @@
 import os
 import smtplib
 import boto3
+from botocore.client import Config
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -48,11 +49,12 @@ def upload_agent_documents():
         
     # --- CHANGE: Added region_name to the client connection ---
     s3 = boto3.client(
-        "s3",
-        region_name=S3_REGION,
-        aws_access_key_id=S3_KEY,
-        aws_secret_access_key=S3_SECRET
-    )
+   "s3",
+   region_name=S3_REGION,
+   aws_access_key_id=S3_KEY,
+   aws_secret_access_key=S3_SECRET,
+   config=Config(signature_version='s3v4')  # <-- This line is essential
+)
 
     try:
         # Handle ID Document Upload
