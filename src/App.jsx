@@ -37,6 +37,7 @@ const PlaceholderPage = ({ title }) => (
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
+  console.log('ProtectedRoute - User:', user); // Debug log to check user state
   if (loading) return <div>Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (allowedRoles && !allowedRoles.includes(user.role)) return <div>Access Denied</div>;
