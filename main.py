@@ -30,6 +30,8 @@ from src.routes.weather import weather_bp
 from src.routes.analytics import analytics_bp
 from src.routes.agent import agent_bp
 from src.routes.utils import utils_bp
+from src.routes.admin import admin_bp
+
 
 # --- Flask App Initialization ---
 static_folder_path = os.path.join(os.path.dirname(__file__), 'dist')
@@ -103,6 +105,7 @@ app.register_blueprint(weather_bp, url_prefix='/api')
 app.register_blueprint(analytics_bp, url_prefix='/api')
 app.register_blueprint(agent_bp, url_prefix='/api')
 app.register_blueprint(utils_bp, url_prefix='/api')
+app.register_blueprint(admin_bp, url_prefix='/api')
 
 # --- Static File Serving for Frontend ---
 @app.route('/', defaults={'path': ''})

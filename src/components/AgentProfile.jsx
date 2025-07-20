@@ -136,7 +136,6 @@ const AgentProfile = () => {
     </div>
   );
 
-
   if (loading) {
     return <div className="text-center p-8"><Loader2 className="h-8 w-8 animate-spin mx-auto text-v3-orange" /></div>;
   }
@@ -153,6 +152,48 @@ const AgentProfile = () => {
       </div>
       
       <form onSubmit={handleSubmit} className="space-y-12">
+        {/* Verification Status Indicator */}
+        <div className="dashboard-card p-6">
+          <div className="flex items-center gap-4">
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+              !user.id_document_url && !user.sia_document_url 
+                ? 'bg-red-500 shadow-lg shadow-red-500/50 animate-pulse' // Neon red - no documents
+                : user.verification_status === 'pending' 
+                ? 'bg-yellow-500 shadow-lg shadow-yellow-500/50 animate-pulse' // Neon yellow - pending
+                : user.verification_status === 'verified'
+                ? 'bg-green-500 shadow-lg shadow-green-500/50' // Neon green - verified
+                : 'bg-red-500 shadow-lg shadow-red-500/50 animate-pulse'
+            }`}>
+              {user.verification_status === 'verified' && (
+                <CheckCircle className="w-4 h-4 text-white" />
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-v3-text-lightest text-lg">
+                Verification Status: {
+                  !user.id_document_url && !user.sia_document_url 
+                    ? 'Documents Required'
+                    : user.verification_status === 'pending' 
+                    ? 'Under Review'
+                    : user.verification_status === 'verified'
+                    ? 'Verified ✓'
+                    : 'Documents Required'
+                }
+              </h3>
+              <p className="text-sm text-v3-text-muted mt-1">
+                {!user.id_document_url && !user.sia_document_url 
+                  ? 'Please upload your identification documents below to begin verification'
+                  : user.verification_status === 'pending' 
+                  ? 'Your documents are being reviewed by our admin team'
+                  : user.verification_status === 'verified'
+                  ? 'Your identity has been successfully verified'
+                  : 'Upload required documents to continue'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="dashboard-card p-6">
           <h2 className="text-xl font-bold text-v3-text-lightest flex items-center gap-3 mb-6"><UserIcon /> Personal Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -179,7 +220,7 @@ const AgentProfile = () => {
         
         <div className="dashboard-card p-6">
           <h2 className="text-xl font-bold text-v3-text-lightest flex items-center gap-3 mb-6"><FileUp /> Verification Documents</h2>
-          <p className="text-sm text-v3-text-muted mb-6">Your account will be marked as 'Pending' until an admin has verified your documents.</p>
+          <p className="text-sm text-v3-text-muted mb-6">Upload clear photos of your documents. Your account will remain pending until admin verification is complete.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FileInputField 
               name="id_document" 
