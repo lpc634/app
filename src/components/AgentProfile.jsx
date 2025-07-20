@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
-import { Loader2, User as UserIcon, Landmark, FileUp, CheckCircle } from 'lucide-react';
+import { Loader2, User as UserIcon, Landmark, FileUp, CheckCircle, Image as ImageIcon } from 'lucide-react';
 
 const AgentProfile = () => {
   const { user, loading, apiCall } = useAuth();
   const [formData, setFormData] = useState({});
+  
+  // State for the file objects themselves
   const [idFile, setIdFile] = useState(null);
   const [siaFile, setSiaFile] = useState(null);
+
+  // --- NEW: State for the image previews ---
+  const [idPreview, setIdPreview] = useState(null);
+  const [siaPreview, setSiaPreview] = useState(null);
+  
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -26,6 +33,9 @@ const AgentProfile = () => {
         bank_sort_code: user.bank_sort_code || '',
         utr_number: user.utr_number || ''
       });
+      // Set existing previews from S3 URLs
+      if (user.id_document_url) setIdPreview(user.id_document_url);
+      if (user.sia_document_url) setSiaPreview(user.sia_document_url);
     }
   }, [user]);
 
@@ -33,36 +43,52 @@ const AgentProfile = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
   
-  const handleIdFileChange = (e) => {
-    setIdFile(e.target.files[0]);
-  };
-
-  const handleSiaFileChange = (e) => {
-    setSiaFile(e.target.files[0]);
+  // --- NEW: Reusable function to handle file selection and create previews ---
+  const handleFileChange = (e, setFile, setPreview) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setFile(null);
+      setPreview(null);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
+    
     try {
+      // First, update the text-based profile data
       await apiCall('/agent/profile', {
         method: 'POST',
         body: JSON.stringify(formData),
       });
 
-      const uploadData = new FormData();
-      if (idFile) uploadData.append('id_document', idFile);
-      if (siaFile) uploadData.append('sia_document', siaFile);
-      
+      // Second, if there are new files, upload them
       if (idFile || siaFile) {
+        const uploadData = new FormData();
+        if (idFile) {
+            uploadData.append('id_document', idFile);
+        }
+        if (siaFile) {
+            uploadData.append('sia_document', siaFile);
+        }
+        
         await apiCall('/agent/upload-documents', {
           method: 'POST',
           body: uploadData,
-          headers: {} 
         });
       }
+      
       toast.success('Profile updated successfully! Refreshing to see changes.');
       setTimeout(() => window.location.reload(), 2000);
+
     } catch (error) {
       toast.error('Failed to update profile', { description: error.message });
     } finally {
@@ -78,30 +104,38 @@ const AgentProfile = () => {
         value={formData[name] || ''}
         onChange={handleChange}
         disabled={disabled || saving}
-        className="mt-1 block w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-gray-900 focus:outline-none focus:ring-v3-orange focus:border-v3-orange disabled:opacity-50"
+        className="mt-1 block w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange disabled:opacity-50"
       />
     </div>
   );
 
-  const FileInputField = ({ name, label, onChange, fileName, existingFileUrl }) => (
+  // --- UPDATED: This component now shows the image preview ---
+  const FileInputField = ({ name, label, onChange, fileName, previewUrl }) => (
     <div>
       <label htmlFor={name} className="block text-sm font-medium text-v3-text-light">{label}</label>
-      {existingFileUrl ? (
-          <div className="mt-1 flex items-center text-green-400">
-              <CheckCircle className="h-5 w-5 mr-2" />
-              <span>Document Uploaded</span>
+      <div className="mt-1">
+        {previewUrl ? (
+          <div className="flex items-center">
+            <img src={previewUrl} alt="Preview" className="h-20 w-auto rounded-md border mr-4" />
+            <label htmlFor={name} className="cursor-pointer text-sm text-v3-orange hover:underline">
+              Change file
+            </label>
+            <input id={name} name={name} type="file" className="sr-only" onChange={onChange} accept="image/*,application/pdf" />
           </div>
-      ) : (
-        <div className="mt-1 flex items-center">
-          <label htmlFor={name} className="cursor-pointer bg-v3-bg-dark border border-v3-border rounded-md py-2 px-3 text-sm text-v3-text-lightest hover:bg-v3-bg-light">
-            Choose File
-          </label>
-          <input id={name} name={name} type="file" className="sr-only" onChange={onChange} />
-          {fileName && <span className="ml-3 text-sm text-v3-text-muted">{fileName}</span>}
-        </div>
-      )}
+        ) : (
+          <div className="flex items-center">
+            <label htmlFor={name} className="cursor-pointer bg-v3-bg-dark border border-v3-border rounded-md py-2 px-3 text-sm text-v3-text-lightest hover:bg-v3-bg-light">
+              <FileUp className="inline-block h-4 w-4 mr-2" />
+              Choose File
+            </label>
+            <input id={name} name={name} type="file" className="sr-only" onChange={onChange} accept="image/*,application/pdf" />
+            {fileName && <span className="ml-3 text-sm text-v3-text-muted">{fileName}</span>}
+          </div>
+        )}
+      </div>
     </div>
   );
+
 
   if (loading) {
     return <div className="text-center p-8"><Loader2 className="h-8 w-8 animate-spin mx-auto text-v3-orange" /></div>;
@@ -124,7 +158,6 @@ const AgentProfile = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <InputField name="first_name" type="text" label="First Name" />
             <InputField name="last_name" type="text" label="Last Name" />
-            {/* --- CHANGE: Email field is no longer disabled --- */}
             <InputField name="email" type="email" label="Email Address" />
             <InputField name="phone" type="tel" label="Phone Number" />
             <InputField name="address_line_1" type="text" label="Address Line 1" />
@@ -146,22 +179,21 @@ const AgentProfile = () => {
         
         <div className="dashboard-card p-6">
           <h2 className="text-xl font-bold text-v3-text-lightest flex items-center gap-3 mb-6"><FileUp /> Verification Documents</h2>
-          {/* --- CHANGE: Text updated to reflect new rule --- */}
-          <p className="text-sm text-v3-text-muted mb-6">Your account will be marked as 'Verified' once your Passport or Driver's License has been uploaded.</p>
+          <p className="text-sm text-v3-text-muted mb-6">Your account will be marked as 'Pending' until an admin has verified your documents.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FileInputField 
               name="id_document" 
               label="Passport or Driver's License" 
-              onChange={handleIdFileChange}
+              onChange={(e) => handleFileChange(e, setIdFile, setIdPreview)}
               fileName={idFile?.name}
-              existingFileUrl={user.id_document_url}
+              previewUrl={idPreview}
             />
             <FileInputField 
               name="sia_document" 
               label="SIA Badge" 
-              onChange={handleSiaFileChange}
+              onChange={(e) => handleFileChange(e, setSiaFile, setSiaPreview)}
               fileName={siaFile?.name}
-              existingFileUrl={user.sia_document_url}
+              previewUrl={siaPreview}
             />
           </div>
         </div>

@@ -91,20 +91,25 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
   
-  // This helper function for making authenticated API calls is well-written.
-  // No changes are needed here, but we will simplify it slightly by getting 
-  // the token directly from localStorage when needed.
+  // --- THIS FUNCTION HAS BEEN UPDATED ---
   const apiCall = async (endpoint, options = {}) => {
     const token = localStorage.getItem('token');
     const url = `${API_BASE_URL}${endpoint}`;
     
+    // Create a base headers object
+    const headers = {
+      ...options.headers,
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+    };
+
+    // Conditionally set Content-Type. Do NOT set it for FormData.
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+
     const config = {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
+      headers: headers,
     };
 
     try {
