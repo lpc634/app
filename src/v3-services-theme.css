@@ -295,3 +295,17 @@ button:has(.lucide-log-out):hover {
   .dashboard-card:hover { transform: translateY(-4px); }
   .button-refresh { padding: 0.4rem 0.8rem; font-size: 0.875rem; }
 }
+
+/* ===== FIX TRANSPARENT CARDS ===== */
+/* Force all Card components to be opaque */
+[data-slot="card"] {
+  background: linear-gradient(135deg, var(--v3-bg-card) 0%, #2A2A2A 100%) !important;
+  border: 1px solid var(--v3-border) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* Additional backup for any cards that slip through */
+.bg-card {
+  background: linear-gradient(135deg, var(--v3-bg-card) 0%, #2A2A2A 100%) !important;
+  border: 1px solid var(--v3-border) !important;
+}
