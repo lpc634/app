@@ -107,10 +107,29 @@ app.register_blueprint(agent_bp, url_prefix='/api')
 app.register_blueprint(utils_bp, url_prefix='/api')
 app.register_blueprint(admin_bp, url_prefix='/api')
 
+# --- Debug Route (add this right after the blueprint registrations) ---
+@app.route('/api/debug/users')
+def debug_users():
+    from src.models.user import User
+    users = User.query.all()
+    user_data = []
+    for user in users:
+        user_data.append({
+            'email': user.email,
+            'role': user.role,
+            'first_name': user.first_name,
+            'last_name': user.last_name
+        })
+    return jsonify({'users': user_data, 'count': len(users)})
+
 # --- Static File Serving for Frontend ---
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
+    # Don't intercept API routes - let blueprints handle them
+    if path.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    
     if path != '' and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
