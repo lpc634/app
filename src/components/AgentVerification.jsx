@@ -12,6 +12,15 @@ import {
   Loader2
 } from 'lucide-react';
 
+// Helper function to get image URLs
+const getImageUrl = (documentUrl) => {
+  if (!documentUrl) return null;
+  
+  // Use the image proxy route we set up in main.py
+  const API_BASE_URL = 'https://v3-app-49c3d1eff914.herokuapp.com/api';
+  return `${API_BASE_URL}/images/${documentUrl}`;
+};
+
 const AgentVerification = () => {
   const { apiCall } = useAuth();
   const [agents, setAgents] = useState([]);
@@ -163,22 +172,28 @@ const AgentVerification = () => {
                   <p className="text-sm text-gray-500">{selectedAgent.email}</p>
                 </div>
 
-                {/* Documents */}
+                {/* Documents - UPDATED SECTION */}
                 <div className="space-y-4">
                   <h4 className="font-medium">Uploaded Documents</h4>
                   
                   {selectedAgent.id_document_url ? (
                     <div className="border rounded-lg p-4">
                       <h5 className="font-medium mb-2">ID Document</h5>
-                      <div className="bg-gray-100 rounded-lg h-40 flex items-center justify-center">
-                        <div className="text-center">
-                          <FileText className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                          <p className="text-sm text-gray-500">Document uploaded</p>
-                          <p className="text-xs text-gray-400 break-all">
-                            {selectedAgent.id_document_url}
-                          </p>
-                        </div>
+                      <div className="border rounded-lg overflow-hidden">
+                        <img 
+                          src={getImageUrl(selectedAgent.id_document_url)} 
+                          alt="ID Document" 
+                          className="w-full h-48 object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => window.open(getImageUrl(selectedAgent.id_document_url), '_blank')}
+                          onError={(e) => {
+                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTkgMTJMMTEgMTRMMTUgMTBNMjEgMTJDMjEgMTYuOTcwNiAxNi45NzA2IDIxIDEyIDIxQzcuMDI5NDQgMjEgMyAxNi45NzA2IDMgMTJDMyA3LjAyOTQ0IDcuMDI5NDQgMyAxMiAzQzE2Ljk3MDYgMyAyMSA3LjAyOTQ0IDIxIDEyWiIgc3Ryb2tlPSIjOTQ5NDk0IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K';
+                            e.target.onerror = null;
+                          }}
+                        />
                       </div>
+                      <p className="text-xs text-gray-500 mt-2 break-all">
+                        Click to view full size • {selectedAgent.id_document_url}
+                      </p>
                     </div>
                   ) : (
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
@@ -192,15 +207,21 @@ const AgentVerification = () => {
                   {selectedAgent.sia_document_url ? (
                     <div className="border rounded-lg p-4">
                       <h5 className="font-medium mb-2">SIA Badge</h5>
-                      <div className="bg-gray-100 rounded-lg h-40 flex items-center justify-center">
-                        <div className="text-center">
-                          <FileText className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                          <p className="text-sm text-gray-500">Document uploaded</p>
-                          <p className="text-xs text-gray-400 break-all">
-                            {selectedAgent.sia_document_url}
-                          </p>
-                        </div>
+                      <div className="border rounded-lg overflow-hidden">
+                        <img 
+                          src={getImageUrl(selectedAgent.sia_document_url)} 
+                          alt="SIA Document" 
+                          className="w-full h-48 object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => window.open(getImageUrl(selectedAgent.sia_document_url), '_blank')}
+                          onError={(e) => {
+                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTkgMTJMMTEgMTRMMTUgMTBNMjEgMTJDMjEgMTYuOTcwNiAxNi45NzA2IDIxIDEyIDIxQzcuMDI5NDQgMjEgMyAxNi45NzA2IDMgMTJDMyA3LjAyOTQ0IDcuMDI5NDQgMyAxMiAzQzE2Ljk3MDYgMyAyMSA3LjAyOTQ0IDIxIDEyWiIgc3Ryb2tlPSIjOTQ5NDk0IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K';
+                            e.target.onerror = null;
+                          }}
+                        />
                       </div>
+                      <p className="text-xs text-gray-500 mt-2 break-all">
+                        Click to view full size • {selectedAgent.sia_document_url}
+                      </p>
                     </div>
                   ) : (
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">

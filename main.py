@@ -122,6 +122,33 @@ def debug_users():
         })
     return jsonify({'users': user_data, 'count': len(users)})
 
+@app.route('/api/images/<path:filename>')
+def serve_uploaded_image(filename):
+    """Proxy images from your local computer via ngrok"""
+    import requests
+    
+    # Your ngrok URL for the file server
+    NGROK_URL = "https://1b069dfae07e.ngrok-free.app"
+    
+    try:
+        # Request the image from your local computer
+        response = requests.get(f"{NGROK_URL}/files/{filename}")
+        
+        if response.status_code == 200:
+            # Return the image with proper headers
+            from flask import Response
+            return Response(
+                response.content,
+                mimetype=response.headers.get('content-type', 'image/jpeg'),
+                headers={'Cache-Control': 'public, max-age=3600'}
+            )
+        else:
+            return jsonify({'error': 'Image not found'}), 404
+            
+    except Exception as e:
+        current_app.logger.error(f"Error serving image {filename}: {e}")
+        return jsonify({'error': 'Failed to load image'}), 500
+
 # --- Static File Serving for Frontend ---
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
