@@ -1,311 +1,414 @@
-/* V3 SERVICES - ENHANCED COMMAND CENTER THEME */
+import { useState, useEffect } from 'react'
+import AgentVerification from '../components/AgentVerification';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useAuth } from '../useAuth.jsx';
+import { 
+  Users, 
+  Search, 
+  Calendar,
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertCircle,
+  Mail,
+  Phone,
+  Shield
+} from 'lucide-react'
 
-/* ===== FONT IMPORT ===== */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+export default function AgentManagement() {
+  const [agents, setAgents] = useState([])
+  const [availableAgents, setAvailableAgents] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [activeTab, setActiveTab] = useState('agents') // 'agents' or 'verification'
+  const [selectedCardFilter, setSelectedCardFilter] = useState(null)
+  const { apiCall } = useAuth()
 
-/* ===== CSS VARIABLES ===== */
-:root {
-  /* Brand Colors */
-  --v3-orange: #FF5722;
-  --v3-orange-dark: #E64A19;
-  --v3-orange-glow: rgba(255, 87, 34, 0.3);
-  --v3-orange-light: rgba(255, 87, 34, 0.1);
-  
-  /* Dark Theme Palette */
-  --v3-bg-darkest: #111111;
-  --v3-bg-dark: #1A1A1A;
-  --v3-bg-card: #242424;
-  --v3-border: #333333;
-  
-  /* Text Colors */
-  --v3-text-lightest: #F5F5F5;
-  --v3-text-light: #CCCCCC;
-  --v3-text-muted: #888888;
-  
-  /* System */
-  --v3-white: #FFFFFF;
-}
+  useEffect(() => {
+    fetchAgents()
+    fetchAvailableAgents()
+  }, [selectedDate])
 
-/* ===== ANIMATIONS ===== */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
-}
+  const fetchAgents = async () => {
+    try {
+      setLoading(true)
+      const data = await apiCall('/users?role=agent')
+      setAgents(data.users || [])
+    } catch (error) {
+      setError('Failed to load agents')
+      console.error('Agents error:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 15px var(--v3-orange-glow); }
-  50% { box-shadow: 0 0 25px var(--v3-orange-glow); }
-}
+  const fetchAvailableAgents = async () => {
+    try {
+      const data = await apiCall(`/agents/available?date=${selectedDate}`)
+      setAvailableAgents(data.available_agents || [])
+    } catch (error) {
+      console.error('Available agents error:', error)
+    }
+  }
 
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
+  const handleCardClick = (filterType) => {
+    // Toggle the filter - if same card is clicked, clear the filter
+    if (selectedCardFilter === filterType) {
+      setSelectedCardFilter(null)
+    } else {
+      setSelectedCardFilter(filterType)
+    }
+  }
 
-@keyframes shimmer {
-  0% { left: -100%; }
-  100% { left: 100%; }
-}
+  const filteredAgents = agents.filter(agent => {
+    // First apply search filter
+    const fullName = `${agent.first_name} ${agent.last_name}`.toLowerCase()
+    const email = agent.email.toLowerCase()
+    const search = searchTerm.toLowerCase()
+    const matchesSearch = fullName.includes(search) || email.includes(search)
+    
+    // Then apply card filter if one is selected
+    if (!selectedCardFilter) {
+      return matchesSearch // No card filter, just return search results
+    }
+    
+    const status = getAvailabilityStatus(agent.id)
+    
+    switch (selectedCardFilter) {
+      case 'total':
+        return matchesSearch // Show all agents
+      case 'available':
+        return matchesSearch && status === 'available'
+      case 'unavailable':
+        return matchesSearch && status !== 'available'
+      default:
+        return matchesSearch
+    }
+  })
 
-/* ===== GLOBAL STYLES ===== */
-body {
-  background: 
-    radial-gradient(circle at 20% 80%, rgba(255, 87, 34, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(255, 87, 34, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(255, 87, 34, 0.05) 0%, transparent 50%),
-    linear-gradient(135deg, var(--v3-bg-darkest) 0%, #0A0A0B 50%, #050505 100%);
-  color: var(--v3-text-light);
-  font-family: 'Inter', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  position: relative;
-  overflow-x: hidden;
-}
+  const getAvailabilityStatus = (agentId) => {
+    const available = availableAgents.find(a => a.id === agentId)
+    return available ? 'available' : 'unavailable'
+  }
 
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-image: 
-    radial-gradient(2px 2px at 20px 30px, rgba(255, 87, 34, 0.4), transparent),
-    radial-gradient(2px 2px at 40px 70px, rgba(255, 87, 34, 0.3), transparent),
-    radial-gradient(1px 1px at 90px 40px, rgba(255, 87, 34, 0.2), transparent),
-    radial-gradient(1px 1px at 130px 80px, rgba(255, 87, 34, 0.1), transparent);
-  background-repeat: repeat;
-  background-size: 200px 200px, 300px 300px, 250px 250px, 350px 350px;
-  animation: gradient-shift 20s ease infinite;
-  opacity: 0.1;
-  z-index: -2;
-  pointer-events: none;
-}
+  const getStatusBadge = (status) => {
+    if (status === 'available') {
+      return <Badge variant="default" className="bg-green-500">Available</Badge>
+    } else {
+      return <Badge variant="secondary">Unavailable</Badge>
+    }
+  }
 
-h1, h2, h3, h4, h5, h6 {
-  color: var(--v3-text-lightest);
-  font-weight: 600;
-}
+  if (loading) {
+    return (
+      <div className="space-y-8 animate-pulse">
+        <div className="h-10 w-48 bg-v3-bg-card rounded-md"></div>
+        <div className="grid gap-6 lg:grid-cols-4">
+          <div className="h-32 bg-v3-bg-card rounded-lg"></div>
+          <div className="h-32 bg-v3-bg-card rounded-lg"></div>
+          <div className="h-32 bg-v3-bg-card rounded-lg"></div>
+          <div className="h-32 bg-v3-bg-card rounded-lg"></div>
+        </div>
+      </div>
+    )
+  }
 
-/* ===== SIDEBAR ENHANCEMENTS ===== */
-.lg\\:w-72 {
-  background: linear-gradient(180deg, var(--v3-bg-dark) 0%, #151515 100%);
-  border-right: 1px solid var(--v3-border);
-  position: relative;
-  overflow: hidden;
-}
+  if (error) {
+    return (
+      <div className="dashboard-card text-center p-8">
+        <AlertCircle className="mx-auto h-16 w-16 text-v3-orange mb-4" />
+        <h2 className="text-xl font-bold mb-2">Error Loading Agents</h2>
+        <p className="text-v3-text-muted mb-6">{error}</p>
+        <Button onClick={fetchAgents} className="button-refresh">
+          Try Again
+        </Button>
+      </div>
+    )
+  }
 
-.lg\\:w-72::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 2px;
-  height: 100%;
-  background: linear-gradient(180deg, transparent, var(--v3-orange), transparent);
-  animation: float 4s ease-in-out infinite;
-  opacity: 0.6;
-}
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Agent Management</h1>
+        <p className="text-muted-foreground">Manage agents and verify their documents</p>
+      </div>
 
-.flex.h-16.shrink-0.items-center {
-  border-bottom: 1px solid var(--v3-border);
-  background: linear-gradient(90deg, transparent, var(--v3-orange-light), transparent);
-  position: relative;
-  text-align: center;
-  justify-content: center;
-}
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('agents')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'agents'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            All Agents
+          </button>
+          <button
+            onClick={() => setActiveTab('verification')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'verification'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Shield className="h-4 w-4" />
+            Verification Queue
+          </button>
+        </nav>
+      </div>
 
-.flex.h-16.shrink-0.items-center::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 50%;
-  height: 1px;
-  background: var(--v3-orange);
-  transform: translateX(-50%);
-  opacity: 0.7;
-}
+      {/* Tab Content */}
+      {activeTab === 'agents' ? (
+        <>
+          {/* Summary Cards */}
+          <div className="grid gap-4 md:grid-cols-4">
+            {/* Total Agents Card */}
+            <Card 
+              className={`cursor-pointer transition-all hover:scale-105 ${
+                selectedCardFilter === 'total' ? 'ring-2 ring-orange-500 bg-orange-50' : 'hover:shadow-lg'
+              }`}
+              onClick={() => handleCardClick('total')}
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Agents</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{agents.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  Registered field agents
+                </p>
+                {selectedCardFilter === 'total' && (
+                  <p className="text-xs text-orange-600 mt-1 font-medium">
+                    ← Click to clear filter
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
-.flex.h-16.shrink-0.items-center img { display: none !important; }
+            {/* Available Today Card */}
+            <Card 
+              className={`cursor-pointer transition-all hover:scale-105 ${
+                selectedCardFilter === 'available' ? 'ring-2 ring-green-500 bg-green-50' : 'hover:shadow-lg'
+              }`}
+              onClick={() => handleCardClick('available')}
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Available Today</CardTitle>
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{availableAgents.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  Ready for deployment
+                </p>
+                {selectedCardFilter === 'available' && (
+                  <p className="text-xs text-green-600 mt-1 font-medium">
+                    ← Click to clear filter
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
-.flex.h-16.shrink-0.items-center::before {
-  content: 'V3 Services Ltd';
-  font-family: 'Inter', sans-serif;
-  font-weight: 800;
-  font-size: 1.5rem;
-  background: linear-gradient(135deg, var(--v3-orange) 0%, #FF7043 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-shadow: 0 0 20px rgba(255, 87, 34, 0.3);
-  letter-spacing: -0.5px;
-  position: relative;
-  z-index: 2;
-}
+            {/* Unavailable Card */}
+            <Card 
+              className={`cursor-pointer transition-all hover:scale-105 ${
+                selectedCardFilter === 'unavailable' ? 'ring-2 ring-red-500 bg-red-50' : 'hover:shadow-lg'
+              }`}
+              onClick={() => handleCardClick('unavailable')}
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Unavailable</CardTitle>
+                <XCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{agents.length - availableAgents.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  Not available today
+                </p>
+                {selectedCardFilter === 'unavailable' && (
+                  <p className="text-xs text-red-600 mt-1 font-medium">
+                    ← Click to clear filter
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
-nav a {
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
+            {/* Response Rate Card (keep as non-clickable) */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Response Rate</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">85%</div>
+                <p className="text-xs text-muted-foreground">
+                  Average this month
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-.bg-primary.text-primary-foreground {
-  background: linear-gradient(135deg, var(--v3-orange) 0%, var(--v3-orange-dark) 100%) !important;
-  color: var(--v3-white) !important;
-  box-shadow: 0 4px 15px rgba(255, 87, 34, 0.3);
-  border: 1px solid rgba(255, 87, 34, 0.4);
-  transform: translateX(4px);
-  animation: float 3s ease-in-out infinite;
-}
+          {/* Filter Status Display */}
+          {selectedCardFilter && (
+            <div className="flex items-center gap-2 p-3 bg-orange-100 rounded-lg">
+              <AlertCircle className="h-4 w-4 text-orange-600" />
+              <span className="text-sm text-orange-800">
+                Showing {selectedCardFilter === 'total' ? 'all agents' : 
+                         selectedCardFilter === 'available' ? 'available agents only' : 
+                         'unavailable agents only'}
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setSelectedCardFilter(null)}
+                className="ml-auto"
+              >
+                Clear Filter
+              </Button>
+            </div>
+          )}
 
-.bg-primary.text-primary-foreground:hover {
-  transform: translateX(8px) scale(1.02);
-  box-shadow: 0 6px 20px rgba(255, 87, 34, 0.4);
-}
+          {/* Filters */}
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search agents by name or email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+          </div>
 
-.text-muted-foreground {
-  color: var(--v3-text-muted) !important;
-  position: relative;
-}
+          {/* Agents Grid */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredAgents.length === 0 ? (
+              <div className="col-span-full">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">No agents found</h3>
+                      <p className="text-muted-foreground">
+                        {searchTerm ? 'Try adjusting your search terms' : 'No agents registered yet'}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              filteredAgents.map((agent) => {
+                const status = getAvailabilityStatus(agent.id)
+                const availabilityData = availableAgents.find(a => a.id === agent.id)
+                
+                return (
+                  <Card key={agent.id}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <CardTitle className="text-lg">
+                            {agent.first_name} {agent.last_name}
+                          </CardTitle>
+                          <CardDescription className="flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            {agent.email}
+                          </CardDescription>
+                          {agent.phone && (
+                            <CardDescription className="flex items-center gap-2">
+                              <Phone className="h-4 w-4" />
+                              {agent.phone}
+                            </CardDescription>
+                          )}
+                        </div>
+                        {getStatusBadge(status)}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-sm font-medium mb-1">Availability Status</p>
+                          <p className="text-sm text-muted-foreground">
+                            {status === 'available' 
+                              ? `Available for ${selectedDate}`
+                              : `Not available for ${selectedDate}`
+                            }
+                          </p>
+                          {availabilityData?.availability?.notes && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Note: {availabilityData.availability.notes}
+                            </p>
+                          )}
+                        </div>
 
-.text-muted-foreground::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 0;
-  height: 2px;
-  background: var(--v3-orange);
-  transform: translateY(-50%);
-  transition: width 0.3s ease;
-}
+                        <div>
+                          <p className="text-sm font-medium mb-1">Account Info</p>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <p>Role: {agent.role}</p>
+                            <p>Joined: {new Date(agent.created_at).toLocaleDateString()}</p>
+                            <p>Last updated: {new Date(agent.updated_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
 
-.text-muted-foreground:hover {
-  color: var(--v3-text-lightest) !important;
-  background: rgba(255, 255, 255, 0.05) !important;
-  transform: translateX(4px);
-}
+                        <div className="flex gap-2 pt-2 border-t">
+                          <Button size="sm" variant="outline" className="flex-1">
+                            View Details
+                          </Button>
+                          <Button size="sm" variant="outline" className="flex-1">
+                            Send Message
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })
+            )}
+          </div>
 
-.text-muted-foreground:hover::before { width: 3px; }
-.border-t { border-top-color: var(--v3-border) !important; background: linear-gradient(135deg, var(--v3-orange-light), transparent); }
-
-/* ===== MAIN CONTENT ===== */
-main {
-  background: 
-    linear-gradient(135deg, rgba(255, 87, 34, 0.08) 0%, transparent 30%),
-    linear-gradient(45deg, rgba(255, 87, 34, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 25% 25%, rgba(255, 87, 34, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 75% 75%, rgba(255, 87, 34, 0.08) 0%, transparent 50%),
-    linear-gradient(180deg, rgba(17, 17, 17, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%);
-  position: relative;
-  min-height: 100vh;
-}
-
-main::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: url('/src/assets/3D GREY.png');
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-size: 50%;
-  opacity: 0.12;
-  pointer-events: none;
-  z-index: -1;
-  animation: float 8s ease-in-out infinite;
-}
-
-main::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: 
-    linear-gradient(rgba(255, 87, 34, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 87, 34, 0.03) 1px, transparent 1px);
-  background-size: 50px 50px;
-  opacity: 0.3;
-  pointer-events: none;
-  z-index: -1;
-}
-
-/* ===== ENHANCED CARDS ===== */
-.dashboard-card {
-  background: linear-gradient(135deg, var(--v3-bg-card) 0%, #2A2A2A 100%) !important;
-  border: 1px solid var(--v3-border) !important;
-  transition: all 0.3s ease !important;
-  position: relative !important;
-  overflow: hidden !important;
-  border-radius: 12px !important;
-}
-
-.dashboard-card:hover {
-  transform: translateY(-8px) !important;
-  border-color: var(--v3-orange) !important;
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4), 0 0 25px rgba(255, 87, 34, 0.3) !important;
-}
-
-main .dashboard-card h3 { color: var(--v3-text-muted) !important; font-weight: 600 !important; font-size: 0.875rem !important; }
-main .dashboard-card .value { color: var(--v3-text-lightest) !important; font-weight: 700 !important; font-size: 1.5rem !important; line-height: 1.2 !important; }
-
-/* ===== BUTTONS ===== */
-.button-refresh {
-  background: linear-gradient(135deg, var(--v3-orange) 0%, var(--v3-orange-dark) 100%);
-  color: var(--v3-white);
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.2s ease-in-out;
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(255, 87, 34, 0.4);
-  box-shadow: 0 4px 15px rgba(255, 87, 34, 0.3);
-}
-
-.button-refresh:hover {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 6px 20px rgba(255, 87, 34, 0.4);
-}
-
-button:has(.lucide-log-out):hover {
-  color: var(--v3-orange) !important;
-  text-shadow: 0 0 8px var(--v3-orange-glow);
-}
-
-/* --- THIS IS THE CORRECTED AND FINAL VERSION OF THE INPUT STYLES --- */
-.v3-input {
-  @apply bg-[var(--v3-bg-dark)] border-[var(--v3-border)] text-[var(--v3-text-lightest)] ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-[var(--v3-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--v3-orange)] focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50;
-}
-
-/* ===== SCROLLBAR ===== */
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: var(--v3-bg-dark); }
-::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--v3-orange), var(--v3-orange-dark)); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--v3-orange); }
-
-/* ===== RESPONSIVE ===== */
-@media (max-width: 768px) {
-  .dashboard-card:hover { transform: translateY(-4px); }
-  .button-refresh { padding: 0.4rem 0.8rem; font-size: 0.875rem; }
-}
-
-/* ===== FIX TRANSPARENT CARDS ===== */
-/* Force all Card components to be opaque */
-[data-slot="card"] {
-  background: linear-gradient(135deg, var(--v3-bg-card) 0%, #2A2A2A 100%) !important;
-  border: 1px solid var(--v3-border) !important;
-  backdrop-filter: blur(10px) !important;
-}
-
-/* Additional backup for any cards that slip through */
-.bg-card {
-  background: linear-gradient(135deg, var(--v3-bg-card) 0%, #2A2A2A 100%) !important;
-  border: 1px solid var(--v3-border) !important;
+          {/* Weekly Calendar View */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Weekly Availability Overview</CardTitle>
+              <CardDescription>
+                Agent availability for the week of {selectedDate}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-muted-foreground">
+                <Calendar className="mx-auto h-12 w-12 mb-4" />
+                <p>Weekly calendar view coming soon</p>
+                <p className="text-sm">This will show a detailed weekly view of all agent availability</p>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <AgentVerification />
+      )}
+    </div>
+  )
 }
