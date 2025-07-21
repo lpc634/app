@@ -1,11 +1,14 @@
 import React, { useEffect } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { Home, ClipboardList, Calendar, Bell, Briefcase, Power, User as UserIcon, FileText as InvoiceIcon } from 'lucide-react';
+// --- 1. IMPORT THE SEARCH ICON ---
+import { Home, ClipboardList, Calendar, Bell, Briefcase, Power, User as UserIcon, FileText as InvoiceIcon, Search as SearchIcon } from 'lucide-react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
 
 const agentNavItems = [
   { name: 'Dashboard', path: '/agent/dashboard', icon: Home },
+  // --- 2. ADD THE NEW NAVIGATION LINK HERE ---
+  { name: 'Vehicle Search', path: '/agent/vehicle-search', icon: SearchIcon },
   { name: 'Available Jobs', path: '/agent/jobs', icon: Briefcase },
   { name: 'Availability', path: '/agent/availability', icon: Calendar },
   { name: 'My Invoices', path: '/agent/invoices', icon: InvoiceIcon },
@@ -28,14 +31,11 @@ function urlBase64ToUint8Array(base64String) {
 
 
 const AgentLayout = () => {
-  // --- MODIFIED: Get user and loading state ---
   const { logout, apiCall, user, loading } = useAuth();
 
-  // useEffect hook to handle push subscription
   useEffect(() => {
-    // --- MODIFIED: Wait for auth to be ready ---
     if (loading || !user) {
-      return; // Do nothing if auth is loading or there's no user
+      return;
     }
 
     const subscribeToPushNotifications = async () => {
@@ -55,7 +55,6 @@ const AgentLayout = () => {
 
       if (subscription === null) {
         try {
-          // Using the known-good test key
           const vapidPublicKey = 'BCVp6sM-3kVT43iVnAUrkXYc2gVdofIMc3tB4p7Q2Qv5G2b5P2iRzBEe-s2w9i5n-8T0aHkXyGNIk2N8yA9fUo8=';
           const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
 
@@ -64,7 +63,6 @@ const AgentLayout = () => {
             applicationServerKey: applicationServerKey
           });
 
-          // Send the new subscription to the backend
           await apiCall('/notifications/subscribe', {
             method: 'POST',
             body: JSON.stringify(subscription),
@@ -85,7 +83,6 @@ const AgentLayout = () => {
     };
     
     subscribeToPushNotifications();
-  // --- MODIFIED: Add user and loading to dependencies ---
   }, [apiCall, user, loading]);
 
   const getNavLinkClass = ({ isActive }) =>

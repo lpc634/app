@@ -5,6 +5,10 @@ from flask import current_app
 
 from alembic import context
 
+# --- ADD THIS LINE TO IMPORT YOUR NEW MODEL ---
+from src.models.vehicle import VehicleSighting
+# ---------------------------------------------
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

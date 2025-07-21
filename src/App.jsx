@@ -6,14 +6,13 @@ import { Toaster as SonnerToaster } from "./components/ui/toaster.jsx";
 import Dashboard from './Pages/Dashboard';
 import CreateJob from './Pages/CreateJob';
 import AgentDashboard from './components/AgentDashboard';
-// import AvailableJobs from './components/AvailableJobs'; // This component appears unused, can be removed if not needed elsewhere
 import AgentNotifications from './components/AgentNotifications';
 import JobReports from './Pages/JobReports'; 
 import DebugPage from './Pages/DebugPage';
 import JobDetails from './components/JobDetails';
 import AgentLayout from './components/AgentLayout';
 import SignUpPage from './Pages/SignUpPage';
-import AgentProfile from './components/AgentProfile.jsx'; // Only one import now
+import AgentProfile from './components/AgentProfile.jsx';
 import AgentInvoices from './components/AgentInvoices';
 import CreateInvoicePage from './components/CreateInvoicePage';
 import CreateInvoiceFromJobs from './components/CreateInvoiceFromJobs';
@@ -27,17 +26,11 @@ import JobsPage from './Pages/JobsPage';
 import NotificationsPage from './Pages/NotificationsPage';
 import ProfilePage from './Pages/ProfilePage';
 import WeeklyCalendarView from './Pages/WeeklyCalendarView';
-
-const PlaceholderPage = ({ title }) => (
-  <div className="p-6">
-    <h1 className="text-3xl font-bold text-white mb-4">{title}</h1>
-    <p className="text-gray-400">This page is under development.</p>
-  </div>
-);
+// --- 1. IMPORT THE NEW PAGE COMPONENT ---
+import VehicleSearchPage from './Pages/VehicleSearchPage.jsx';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
-  console.log('ProtectedRoute - User:', user); // Debug log to check user state
   if (loading) return <div>Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (allowedRoles && !allowedRoles.includes(user.role)) return <div>Access Denied</div>;
@@ -73,8 +66,11 @@ function App() {
           <Route path="/weekly-calendar" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><WeeklyCalendarView /></Layout></ProtectedRoute>} />
           
           {/* Agent Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['agent', 'admin']}><AgentLayout /></ProtectedRoute>}>
+          {/* Admins also have access to this layout, so the route goes here */}
+          <Route element={<ProtectedRoute allowedRoles={['agent', 'admin', 'manager']}><AgentLayout /></ProtectedRoute>}>
             <Route path="/agent/dashboard" element={<AgentDashboard />} />
+            {/* --- 2. ADD THE NEW ROUTE HERE --- */}
+            <Route path="/agent/vehicle-search" element={<VehicleSearchPage />} />
             <Route path="/agent/jobs" element={<JobsPage />} />
             <Route path="/agent/jobs/:jobId" element={<JobDetails />} />
             <Route path="/agent/availability" element={<AvailabilityPage />} />

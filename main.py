@@ -17,7 +17,8 @@ from flask_cors import CORS
 from flask_migrate import Migrate
 
 # --- Application-specific Imports ---
-from src.models.user import db, User
+from src.extensions import db
+from src.models.user import User
 from src.scheduler import init_scheduler
 
 # --- Route Blueprint Imports ---
@@ -31,6 +32,7 @@ from src.routes.analytics import analytics_bp
 from src.routes.agent import agent_bp
 from src.routes.utils import utils_bp
 from src.routes.admin import admin_bp
+from src.routes.vehicles import vehicles_bp
 
 
 # --- Flask App Initialization ---
@@ -46,7 +48,6 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # --- UPLOAD FOLDER CONFIGURATION (FINAL HEROKU FIX) ---
-# Use the /tmp directory, which is guaranteed to be writable on Heroku
 UPLOAD_FOLDER = os.path.join('/tmp', 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -106,6 +107,9 @@ app.register_blueprint(analytics_bp, url_prefix='/api')
 app.register_blueprint(agent_bp, url_prefix='/api')
 app.register_blueprint(utils_bp, url_prefix='/api')
 app.register_blueprint(admin_bp, url_prefix='/api')
+# --- THIS LINE IS NOW UNCOMMENTED ---
+app.register_blueprint(vehicles_bp, url_prefix='/api')
+
 
 # --- Debug Route (add this right after the blueprint registrations) ---
 @app.route('/api/debug/users')
@@ -146,7 +150,7 @@ def serve_uploaded_image(filename):
             return jsonify({'error': 'Image not found'}), 404
             
     except Exception as e:
-        current_app.logger.error(f"Error serving image {filename}: {e}")
+        app.logger.error(f"Error serving image {filename}: {e}")
         return jsonify({'error': 'Failed to load image'}), 500
 
 # --- Static File Serving for Frontend ---

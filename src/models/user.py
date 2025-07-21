@@ -25,7 +25,6 @@ class User(db.Model):
     tax_confirmation = db.Column(db.Boolean, default=False)
     id_document_url = db.Column(db.String(255), nullable=True)
     sia_document_url = db.Column(db.String(255), nullable=True)
-    # --- CHANGE: New column added ---
     verification_status = db.Column(db.String(20), nullable=False, default='pending')
     
     assignments = db.relationship('JobAssignment', back_populates='agent', lazy=True)
@@ -34,6 +33,9 @@ class User(db.Model):
     notifications = db.relationship('Notification', back_populates='user', lazy=True, cascade="all, delete-orphan")
     invoices = db.relationship('Invoice', back_populates='agent', lazy=True)
     push_subscriptions = db.relationship('PushSubscription', back_populates='user', lazy=True, cascade="all, delete-orphan")
+    
+    # --- This relationship connects the User to the new model in a separate file ---
+    vehicle_sightings = db.relationship('VehicleSighting', back_populates='agent', lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -60,7 +62,6 @@ class User(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'id_document_url': self.id_document_url,
             'sia_document_url': self.sia_document_url,
-            # --- CHANGE: New field added ---
             'verification_status': self.verification_status
         }
 
