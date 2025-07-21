@@ -47,7 +47,6 @@ export function AuthProvider({ children }) {
     fetchCurrentUser();
   }, [fetchCurrentUser]);
 
-
   const login = async (email, password) => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -57,18 +56,23 @@ export function AuthProvider({ children }) {
       });
 
       const data = await response.json();
+      
+      console.log('Login response:', data); // Debug log
 
-      if (response.ok) {
+      if (response.ok && data.access_token) {
         const { access_token, user } = data;
-        const parsedUser = typeof user === 'string' ? JSON.parse(user) : user;
-
-        localStorage.setItem('token', access_token);
-        setUser(parsedUser);
         
-        // Return success and user data so the LoginPage can handle navigation
-        return { success: true, user: parsedUser };
+        // Save token
+        localStorage.setItem('token', access_token);
+        console.log('Token saved successfully'); // Debug log
+        
+        // Set user (no need to parse - it's already an object)
+        setUser(user);
+        
+        // Return success
+        return { success: true, user: user };
       } else {
-        return { success: false, error: data.error || 'Login failed' };
+        return { success: false, error: data.msg || data.error || 'Login failed' };
       }
     } catch (error) {
       console.error('Login error:', error);

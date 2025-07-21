@@ -133,11 +133,9 @@ def get_current_user():
         if not user:
             return jsonify({"error": "User not found"}), 404
         
-        return jsonify({
-            "id": user.id,
-            "email": user.email,
-            "role": user.role if user.role else "unknown"  # Handle None or missing role
-        }), 200
+        # Return the complete user object using to_dict() and wrap it in "user" key
+        return jsonify({"user": user.to_dict()}), 200
+        
     except Exception as e:
         current_app.logger.error(f"Error in /auth/me: {str(e)}")
         return jsonify({"error": "Internal Server Error"}), 500
