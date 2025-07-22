@@ -503,3 +503,139 @@ button:has(.lucide-log-out):hover {
     z-index: 10000 !important;
   }
 }
+/* ADD TO THE BOTTOM OF v3-services-theme.css */
+
+/* MAP LAYOUT FIXES - Better mobile form/map balance */
+@media (max-width: 768px) {
+  
+  /* Make the modal use better proportions on mobile */
+  .fixed.inset-0 .bg-v3-bg-darkest {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+  }
+  
+  /* Form area gets 60% of screen on mobile */
+  .fixed.inset-0 .overflow-y-auto:has(.bg-white) {
+    flex: 0 0 60% !important;
+    min-height: 60% !important;
+    max-height: 60% !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* Map gets 40% of screen on mobile */
+  .fixed.inset-0 .overflow-y-auto:has([style*="height"]) {
+    flex: 0 0 40% !important;
+    min-height: 40% !important;
+    max-height: 40% !important;
+  }
+  
+  /* If there's a map container, make it fit properly */
+  .fixed [style*="height: 400px"] {
+    height: 100% !important;
+    max-height: 40vh !important;
+    min-height: 200px !important;
+  }
+  
+  /* Map div specifically */
+  .leaflet-container {
+    height: 100% !important;
+    max-height: 40vh !important;
+    width: 100% !important;
+  }
+  
+  /* Form inputs should be larger on mobile */
+  .fixed input[type="text"],
+  .fixed input[type="search"],
+  .fixed textarea {
+    min-height: 44px !important;
+    font-size: 16px !important;
+  }
+  
+  /* Button improvements */
+  .fixed button {
+    min-height: 44px !important;
+    touch-action: manipulation !important;
+  }
+  
+  /* Better padding for form content */
+  .fixed.inset-0 .bg-white .p-4,
+  .fixed.inset-0 .bg-white .p-6 {
+    padding: 1rem !important;
+  }
+  
+  /* Map controls positioning */
+  .leaflet-control-container {
+    font-size: 14px !important;
+  }
+  
+  .leaflet-control-zoom {
+    margin: 10px !important;
+  }
+}
+
+/* ALTERNATIVE LAYOUT - If you want side-by-side on mobile */
+@media (max-width: 768px) {
+  /* Uncomment this section if you prefer horizontal split */
+  /*
+  .fixed.inset-0 .bg-v3-bg-darkest {
+    display: grid !important;
+    grid-template-rows: auto 1fr !important;
+    grid-template-columns: 1fr 1fr !important;
+    height: 100vh !important;
+  }
+  
+  .fixed.inset-0 .overflow-y-auto:first-of-type {
+    grid-column: 1 / 2 !important;
+    grid-row: 2 / 3 !important;
+  }
+  
+  .fixed.inset-0 .overflow-y-auto:last-of-type {
+    grid-column: 2 / 3 !important;
+    grid-row: 2 / 3 !important;
+  }
+  */
+}
+
+/* SMALL MOBILE SCREENS - Even more compact */
+@media (max-width: 480px) {
+  
+  /* Form gets more space on tiny screens */
+  .fixed.inset-0 .overflow-y-auto:has(.bg-white) {
+    flex: 0 0 70% !important;
+    min-height: 70% !important;
+    max-height: 70% !important;
+  }
+  
+  /* Map gets less space on tiny screens */
+  .fixed.inset-0 .overflow-y-auto:has([style*="height"]) {
+    flex: 0 0 30% !important;
+    min-height: 30% !important;
+    max-height: 30% !important;
+  }
+  
+  .leaflet-container {
+    max-height: 30vh !important;
+    min-height: 150px !important;
+  }
+  
+  /* Smaller padding on very small screens */
+  .fixed.inset-0 .p-4 {
+    padding: 0.75rem !important;
+  }
+}
+
+/* Map button improvements */
+button:has([class*="MapPin"]) {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+@media (max-width: 480px) {
+  button:has([class*="MapPin"]) {
+    font-size: 14px !important;
+    padding: 8px 12px !important;
+  }
+}
