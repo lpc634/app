@@ -1,7 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-// --- 1. IMPORT THE SEARCH ICON ---
-import { Home, ClipboardList, Calendar, Bell, Briefcase, Power, User as UserIcon, FileText as InvoiceIcon, Search as SearchIcon } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+// --- 1. IMPORT THE SEARCH ICON AND MENU ICON ---
+import { Home, ClipboardList, Calendar, Bell, Briefcase, Power, User as UserIcon, FileText as InvoiceIcon, Search as SearchIcon, Menu } from 'lucide-react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
 
@@ -29,9 +31,9 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-
 const AgentLayout = () => {
   const { logout, apiCall, user, loading } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (loading || !user) {
@@ -92,9 +94,94 @@ const AgentLayout = () => {
         : 'text-v3-text-muted hover:bg-v3-bg-dark hover:text-v3-text-lightest'
     }`;
 
+  const SidebarContent = ({ onItemClick = () => {} }) => (
+    <div className="flex h-full flex-col bg-v3-bg-card">
+      {/* Header */}
+      <div className="flex h-16 items-center px-6 border-b border-v3-border">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
+            <span className="font-bold text-white text-lg">V3</span>
+          </div>
+          <span className="font-semibold text-v3-text-lightest">Agent Portal</span>
+        </div>
+      </div>
+      
+      {/* Navigation */}
+      <nav className="flex-1 space-y-2 py-4 px-4">
+        {agentNavItems.map((item) => (
+          <NavLink 
+            key={item.name} 
+            to={item.path} 
+            className={getNavLinkClass}
+            onClick={onItemClick}
+          >
+            <item.icon className="h-4 w-4" />
+            {item.name}
+          </NavLink>
+        ))}
+      </nav>
+      
+      {/* User Profile & Logout */}
+      <div className="border-t border-v3-border p-4">
+        <div className="flex items-center gap-x-3 px-2 py-2 text-sm font-semibold leading-6 mb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-v3-orange text-white font-bold">
+            {user?.first_name?.[0]}{user?.last_name?.[0]}
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-v3-text-lightest">{user?.first_name} {user?.last_name}</p>
+            <p className="text-xs text-v3-text-muted">{user?.email}</p>
+          </div>
+        </div>
+        <button 
+          onClick={() => {
+            logout();
+            onItemClick();
+          }} 
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-red-500 hover:bg-red-900/20 hover:text-red-400 transition-all"
+        >
+          <Power className="h-4 w-4" />
+          Sign Out
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="flex min-h-screen bg-v3-bg-darkest font-sans">
-      <aside className="w-64 flex-col border-r border-v3-border bg-v3-bg-card p-4 hidden md:flex">
+    <div className="min-h-screen bg-v3-bg-darkest font-sans">
+      {/* Mobile Header with Menu Button */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 h-16 bg-v3-bg-card border-b border-v3-border flex items-center justify-between px-4">
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-v3-text-muted hover:text-v3-text-lightest"
+            >
+              <Menu className="h-6 w-6" />
+              <span className="sr-only">Open sidebar</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 p-0">
+            <SidebarContent onItemClick={() => setSidebarOpen(false)} />
+          </SheetContent>
+        </Sheet>
+        
+        {/* Mobile Header Title */}
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded flex items-center justify-center">
+            <span className="font-bold text-white text-xs">V3</span>
+          </div>
+          <span className="font-semibold text-v3-text-lightest">Agent Portal</span>
+        </div>
+        
+        {/* Mobile User Avatar */}
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-v3-orange text-white font-bold text-sm">
+          {user?.first_name?.[0]}{user?.last_name?.[0]}
+        </div>
+      </div>
+
+      {/* Desktop Sidebar */}
+      <aside className="w-64 flex-col border-r border-v3-border bg-v3-bg-card p-4 hidden md:flex fixed inset-y-0 left-0 z-30">
         <div className="flex h-16 items-center px-2">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
@@ -112,15 +199,18 @@ const AgentLayout = () => {
           ))}
         </nav>
         <div className="mt-auto">
-           <button onClick={logout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-red-500 hover:bg-red-900/20 hover:text-red-400 transition-all">
-              <Power className="h-4 w-4" />
-              Sign Out
-           </button>
+          <button onClick={logout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-red-500 hover:bg-red-900/20 hover:text-red-400 transition-all">
+            <Power className="h-4 w-4" />
+            Sign Out
+          </button>
         </div>
       </aside>
 
-      <div className="flex-1 overflow-y-auto">
-        <Outlet />
+      {/* Main Content */}
+      <div className="md:pl-64">
+        <div className="pt-16 md:pt-0">
+          <Outlet />
+        </div>
       </div>
     </div>
   );
