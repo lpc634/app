@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
-import { Home, ClipboardList, Calendar, Bell, Briefcase, Power, User as UserIcon, FileText as InvoiceIcon, Menu, Search } from 'lucide-react';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Home, ClipboardList, Calendar, Bell, Briefcase, Power, User as UserIcon, FileText as InvoiceIcon, Menu, X, Search } from 'lucide-react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const agentNavItems = [
   { name: 'Dashboard', path: '/agent/dashboard', icon: Home },
@@ -17,7 +15,7 @@ const agentNavItems = [
   { name: 'My Profile', path: '/agent/profile', icon: UserIcon },
 ];
 
-// This function is required to format the VAPID key for the browser
+// VAPID function
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -31,37 +29,33 @@ function urlBase64ToUint8Array(base64String) {
 
 const AgentLayout = () => {
   const { logout, apiCall, user, loading } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
-  // useEffect hook to handle push subscription
+  // Close mobile menu when route changes
   useEffect(() => {
-    if (loading || !user) {
-      return;
-    }
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
-    const subscribeToPushNotifications = async () => {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        console.warn("Push notifications are not supported by this browser.");
-        return;
-      }
+  // Push notifications setup
+  useEffect(() => {
+    if (loading || !user) return;
+
+    const setupNotifications = async () => {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
       const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        console.log("Push notification permission not granted.");
-        return;
-      }
+      if (permission !== 'granted') return;
       
       const registration = await navigator.serviceWorker.ready;
       let subscription = await registration.pushManager.getSubscription();
 
-      if (subscription === null) {
+      if (!subscription) {
         try {
           const vapidPublicKey = 'BCVp6sM-3kVT43iVnAUrkXYc2gVdofIMc3tB4p7Q2Qv5G2b5P2iRzBEe-s2w9i5n-8T0aHkXyGNIk2N8yA9fUo8=';
-          const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
-
           subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: applicationServerKey
+            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
           });
 
           await apiCall('/notifications/subscribe', {
@@ -69,109 +63,151 @@ const AgentLayout = () => {
             body: JSON.stringify(subscription),
           });
 
-          toast.success("Notifications Enabled!", {
-            description: "You'll now receive job alerts on this device.",
-          });
+          toast.success("Notifications Enabled!");
         } catch (error) {
-          console.error('Failed to subscribe to push notifications', error);
-          toast.error("Could not enable notifications.", {
-            description: error.message || "An unknown error occurred.",
-          });
+          console.error('Push notification error:', error);
         }
-      } else {
-        console.log("User is already subscribed to push notifications.");
       }
     };
     
-    subscribeToPushNotifications();
+    setupNotifications();
   }, [apiCall, user, loading]);
 
-  const getNavLinkClass = ({ isActive }) =>
-    `flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
-      isActive
-        ? 'bg-v3-orange text-white'
-        : 'text-v3-text-muted hover:bg-v3-bg-dark hover:text-v3-text-lightest'
-    }`;
-
-  // Reusable Sidebar Content component
-  const SidebarContent = ({ onItemClick = () => {} }) => (
-    <div className="flex h-full max-h-screen flex-col bg-v3-bg-card border-r border-v3-border">
-      <div className="flex h-16 items-center px-4 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
-            <span className="font-bold text-white text-lg">V3</span>
-          </div>
-          <span className="font-semibold text-v3-text-lightest">Agent Portal</span>
-        </div>
-      </div>
-      
-      <nav className="flex-1 space-y-2 p-4 overflow-y-auto">
-        {agentNavItems.map((item) => (
-          <NavLink 
-            key={item.name} 
-            to={item.path} 
-            className={getNavLinkClass}
-            onClick={onItemClick}
-          >
-            <item.icon className="h-4 w-4" />
-            {item.name}
-          </NavLink>
-        ))}
-      </nav>
-      
-      <div className="p-4 border-t border-v3-border mt-auto shrink-0">
-        <div className="flex items-center gap-x-3 px-2 py-2 text-sm font-semibold leading-6 mb-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white font-bold shrink-0">
-            {user?.first_name?.[0]}{user?.last_name?.[0]}
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <p className="text-sm font-medium text-v3-text-lightest truncate">{user?.first_name} {user?.last_name}</p>
-            <p className="text-xs text-v3-text-muted truncate">{user?.email}</p>
-          </div>
-        </div>
-        <button 
-          onClick={logout} 
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-red-500 hover:bg-red-900/20 hover:text-red-400 transition-all"
-        >
-          <Power className="h-4 w-4" />
-          Sign Out
-        </button>
-      </div>
-    </div>
-  );
+  const handleMenuClick = (path) => {
+    setMobileMenuOpen(false);
+    navigate(path);
+  };
 
   return (
-    <div className="min-h-screen bg-v3-bg-darkest font-sans">
-        {/* Mobile Header and Menu */}
-        <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-v3-bg-card border-b border-v3-border flex items-center px-4 z-40">
-            <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-                <SheetTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-muted-foreground">
-                        <Menu className="h-6 w-6" />
-                        <span className="sr-only">Open sidebar</span>
-                    </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-72 p-0">
-                    <SidebarContent onItemClick={() => setSidebarOpen(false)} />
-                </SheetContent>
-            </Sheet>
-            <div className="flex-1 text-center font-semibold text-v3-text-lightest">
-                V3 Agent Portal
-            </div>
-            <div className="w-8"></div> {/* Spacer to balance the header */}
-        </header>
+    <div className="min-h-screen bg-v3-bg-darkest">
+      {/* Mobile Header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 bg-v3-bg-card border-b border-v3-border z-50 h-16 flex items-center px-4">
+        <button 
+          onClick={() => setMobileMenuOpen(true)}
+          className="text-v3-text-lightest"
+        >
+          <Menu size={24} />
+        </button>
+        <div className="flex-1 text-center text-v3-text-lightest font-semibold">
+          V3 Agent Portal
+        </div>
+      </div>
 
-        {/* Desktop Sidebar */}
-        <aside className="w-64 fixed inset-y-0 left-0 hidden md:flex">
-            <SidebarContent />
-        </aside>
-
-        {/* Main Content Area */}
-        <main className="md:ml-64 pt-16 md:pt-0">
-            <div className="p-4 sm:p-6 lg:p-8">
-                <Outlet />
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div 
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="absolute left-0 top-0 bottom-0 w-80 bg-v3-bg-card border-r border-v3-border">
+            {/* Mobile Menu Header */}
+            <div className="h-16 flex items-center justify-between px-4 border-b border-v3-border">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
+                  <span className="font-bold text-white text-lg">V3</span>
+                </div>
+                <span className="font-semibold text-v3-text-lightest">Agent Portal</span>
+              </div>
+              <button 
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-v3-text-muted"
+              >
+                <X size={24} />
+              </button>
             </div>
-        </main>
+
+            {/* Mobile Menu Items */}
+            <div className="p-4 space-y-2">
+              {agentNavItems.map((item) => (
+                <button
+                  key={item.name}
+                  onClick={() => handleMenuClick(item.path)}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left text-v3-text-muted hover:bg-v3-bg-dark hover:text-v3-text-lightest transition-all"
+                >
+                  <item.icon size={20} />
+                  {item.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Mobile User Section */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-v3-border">
+              <div className="flex items-center gap-3 mb-4 px-2">
+                <div className="w-10 h-10 bg-v3-orange rounded-full flex items-center justify-center text-white font-bold">
+                  {user?.first_name?.[0]}{user?.last_name?.[0]}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-v3-text-lightest">{user?.first_name} {user?.last_name}</p>
+                  <p className="text-xs text-v3-text-muted">{user?.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-900/20"
+              >
+                <Power size={20} />
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
+      <div className="hidden md:block fixed left-0 top-0 bottom-0 w-64 bg-v3-bg-card border-r border-v3-border">
+        <div className="h-16 flex items-center px-4 border-b border-v3-border">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
+              <span className="font-bold text-white text-lg">V3</span>
+            </div>
+            <span className="font-semibold text-v3-text-lightest">Agent Portal</span>
+          </div>
+        </div>
+
+        <div className="p-4 space-y-2">
+          {agentNavItems.map((item) => (
+            <NavLink
+              key={item.name}
+              to={item.path}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-3 rounded-lg transition-all ${
+                  isActive
+                    ? 'bg-v3-orange text-white'
+                    : 'text-v3-text-muted hover:bg-v3-bg-dark hover:text-v3-text-lightest'
+                }`
+              }
+            >
+              <item.icon size={20} />
+              {item.name}
+            </NavLink>
+          ))}
+        </div>
+
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-v3-border">
+          <div className="flex items-center gap-3 mb-4 px-2">
+            <div className="w-10 h-10 bg-v3-orange rounded-full flex items-center justify-center text-white font-bold">
+              {user?.first_name?.[0]}{user?.last_name?.[0]}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-v3-text-lightest">{user?.first_name} {user?.last_name}</p>
+              <p className="text-xs text-v3-text-muted">{user?.email}</p>
+            </div>
+          </div>
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-900/20"
+          >
+            <Power size={20} />
+            Sign Out
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="md:ml-64 pt-16 md:pt-0">
+        <Outlet />
+      </div>
     </div>
   );
 };
