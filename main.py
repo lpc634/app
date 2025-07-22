@@ -23,6 +23,7 @@ from src.scheduler import init_scheduler
 
 # --- Route Blueprint Imports ---
 from src.routes.user import user_bp
+from src.routes.intelligence import intelligence_bp
 from src.routes.auth import auth_bp, check_if_token_revoked
 from src.routes.availability import availability_bp
 from src.routes.jobs import jobs_bp
@@ -98,6 +99,7 @@ def check_if_token_is_revoked_wrapper(jwt_header, jwt_payload):
 
 # --- Register Blueprints ---
 app.register_blueprint(user_bp, url_prefix='/api')
+app.register_blueprint(intelligence_bp, url_prefix='/api')
 app.register_blueprint(auth_bp, url_prefix='/api')
 app.register_blueprint(availability_bp, url_prefix='/api')
 app.register_blueprint(jobs_bp, url_prefix='/api')
