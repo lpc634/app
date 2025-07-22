@@ -4,13 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "./useAuth.jsx";
 
-import { Menu, LogOut, Home, Users, Briefcase, BarChart3, X } from 'lucide-react';
+// --- 1. IMPORT THE SEARCH ICON ---
+import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Agents', href: '/agents', icon: Users },
   { name: 'Jobs', href: '/jobs', icon: Briefcase },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+  // --- 2. ADD THE NEW NAVIGATION LINK HERE ---
+  { name: 'Vehicle Search', href: '/agent/vehicle-search', icon: Search },
 ];
 
 function NavigationItems({ onItemClick = () => {} }) {
