@@ -503,139 +503,168 @@ button:has(.lucide-log-out):hover {
     z-index: 10000 !important;
   }
 }
-/* ADD TO THE BOTTOM OF v3-services-theme.css */
+/* REPLACE THE PREVIOUS MAP FIXES WITH THIS MORE TARGETED APPROACH */
 
-/* MAP LAYOUT FIXES - Better mobile form/map balance */
+/* TARGET THE SPECIFIC "ADD NEW SIGHTING" MODAL */
 @media (max-width: 768px) {
   
-  /* Make the modal use better proportions on mobile */
-  .fixed.inset-0 .bg-v3-bg-darkest {
-    display: flex !important;
-    flex-direction: column !important;
-    height: 100vh !important;
+  /* Target the specific grid modal layout */
+  .fixed.inset-0 .grid.grid-rows-\[auto_1fr_auto\] {
+    grid-template-rows: auto minmax(0, 2fr) minmax(0, 1fr) auto !important;
   }
   
-  /* Form area gets 60% of screen on mobile */
-  .fixed.inset-0 .overflow-y-auto:has(.bg-white) {
-    flex: 0 0 60% !important;
-    min-height: 60% !important;
-    max-height: 60% !important;
+  /* If the modal has a map, split the middle area */
+  .fixed.inset-0 .grid.grid-rows-\[auto_1fr_auto\]:has(.leaflet-container) {
+    grid-template-rows: auto minmax(300px, 1fr) minmax(200px, 0.6fr) auto !important;
+  }
+  
+  /* Make the form area scrollable and prioritized */
+  .fixed.inset-0 .overflow-y-auto:first-of-type {
+    max-height: 60vh !important;
+    min-height: 300px !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
   }
   
-  /* Map gets 40% of screen on mobile */
-  .fixed.inset-0 .overflow-y-auto:has([style*="height"]) {
-    flex: 0 0 40% !important;
-    min-height: 40% !important;
-    max-height: 40% !important;
-  }
-  
-  /* If there's a map container, make it fit properly */
-  .fixed [style*="height: 400px"] {
-    height: 100% !important;
+  /* Constrain the map area */
+  .fixed.inset-0 .overflow-y-auto:has(.leaflet-container) {
     max-height: 40vh !important;
     min-height: 200px !important;
+    overflow: hidden !important;
   }
   
-  /* Map div specifically */
+  /* Force the map to stay within bounds */
   .leaflet-container {
     height: 100% !important;
-    max-height: 40vh !important;
+    max-height: 35vh !important;
+    min-height: 180px !important;
     width: 100% !important;
   }
   
-  /* Form inputs should be larger on mobile */
-  .fixed input[type="text"],
-  .fixed input[type="search"],
-  .fixed textarea {
+  /* Ensure inputs are accessible */
+  .fixed input, .fixed textarea {
     min-height: 44px !important;
     font-size: 16px !important;
+    padding: 12px !important;
   }
   
-  /* Button improvements */
+  /* Better button sizes */
   .fixed button {
     min-height: 44px !important;
-    touch-action: manipulation !important;
-  }
-  
-  /* Better padding for form content */
-  .fixed.inset-0 .bg-white .p-4,
-  .fixed.inset-0 .bg-white .p-6 {
-    padding: 1rem !important;
-  }
-  
-  /* Map controls positioning */
-  .leaflet-control-container {
-    font-size: 14px !important;
-  }
-  
-  .leaflet-control-zoom {
-    margin: 10px !important;
+    padding: 12px 16px !important;
   }
 }
 
-/* ALTERNATIVE LAYOUT - If you want side-by-side on mobile */
-@media (max-width: 768px) {
-  /* Uncomment this section if you prefer horizontal split */
-  /*
-  .fixed.inset-0 .bg-v3-bg-darkest {
-    display: grid !important;
-    grid-template-rows: auto 1fr !important;
-    grid-template-columns: 1fr 1fr !important;
-    height: 100vh !important;
+/* VERY SMALL SCREENS - Make map even smaller */
+@media (max-width: 480px) {
+  
+  .fixed.inset-0 .grid.grid-rows-\[auto_1fr_auto\]:has(.leaflet-container) {
+    grid-template-rows: auto minmax(350px, 1fr) minmax(150px, 0.4fr) auto !important;
   }
   
   .fixed.inset-0 .overflow-y-auto:first-of-type {
-    grid-column: 1 / 2 !important;
-    grid-row: 2 / 3 !important;
+    max-height: 70vh !important;
   }
   
-  .fixed.inset-0 .overflow-y-auto:last-of-type {
-    grid-column: 2 / 3 !important;
-    grid-row: 2 / 3 !important;
-  }
-  */
-}
-
-/* SMALL MOBILE SCREENS - Even more compact */
-@media (max-width: 480px) {
-  
-  /* Form gets more space on tiny screens */
-  .fixed.inset-0 .overflow-y-auto:has(.bg-white) {
-    flex: 0 0 70% !important;
-    min-height: 70% !important;
-    max-height: 70% !important;
-  }
-  
-  /* Map gets less space on tiny screens */
-  .fixed.inset-0 .overflow-y-auto:has([style*="height"]) {
-    flex: 0 0 30% !important;
-    min-height: 30% !important;
-    max-height: 30% !important;
-  }
-  
-  .leaflet-container {
+  .fixed.inset-0 .overflow-y-auto:has(.leaflet-container) {
     max-height: 30vh !important;
     min-height: 150px !important;
   }
   
-  /* Smaller padding on very small screens */
-  .fixed.inset-0 .p-4 {
-    padding: 0.75rem !important;
+  .leaflet-container {
+    max-height: 25vh !important;
+    min-height: 140px !important;
+  }
+  
+  /* Smaller close button positioning */
+  .fixed .p-2.rounded-full {
+    padding: 8px !important;
   }
 }
 
-/* Map button improvements */
-button:has([class*="MapPin"]) {
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
+/* LANDSCAPE MOBILE - Side by side layout */
+@media (max-width: 768px) and (orientation: landscape) {
+  
+  .fixed.inset-0 .grid.grid-rows-\[auto_1fr_auto\] {
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: auto 1fr auto !important;
+  }
+  
+  /* Header spans both columns */
+  .fixed.inset-0 .grid > div:first-child {
+    grid-column: 1 / -1 !important;
+  }
+  
+  /* Footer spans both columns */
+  .fixed.inset-0 .grid > div:last-child {
+    grid-column: 1 / -1 !important;
+  }
+  
+  /* Form takes left column */
+  .fixed.inset-0 .overflow-y-auto:first-of-type {
+    grid-column: 1 / 2 !important;
+    max-height: 60vh !important;
+  }
+  
+  /* Map takes right column */
+  .fixed.inset-0 .overflow-y-auto:has(.leaflet-container) {
+    grid-column: 2 / 3 !important;
+    max-height: 60vh !important;
+  }
 }
 
-@media (max-width: 480px) {
-  button:has([class*="MapPin"]) {
-    font-size: 14px !important;
-    padding: 8px 12px !important;
+/* SPECIFIC INPUT AND FORM IMPROVEMENTS */
+@media (max-width: 768px) {
+  
+  /* Make form content more touch-friendly */
+  .fixed input[placeholder*="Registration"],
+  .fixed input[placeholder*="Address"],
+  .fixed textarea[placeholder*="Notes"] {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+    padding: 14px !important;
+    border-radius: 8px !important;
+  }
+  
+  /* Better spacing for form elements */
+  .fixed .p-4.sm\:p-6 {
+    padding: 1.5rem !important;
+  }
+  
+  .fixed .space-y-4 > * + * {
+    margin-top: 1rem !important;
+  }
+  
+  /* Map zoom controls repositioning */
+  .leaflet-control-zoom {
+    margin: 8px !important;
+  }
+  
+  .leaflet-control-zoom a {
+    width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 18px !important;
+  }
+}
+
+/* ENSURE MODAL STAYS FIXED AND DOESN'T SCROLL WITH PAGE */
+@media (max-width: 768px) {
+  
+  body:has(.fixed.inset-0) {
+    overflow: hidden !important;
+    position: fixed !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  
+  /* Ensure the modal overlay is truly fixed */
+  .fixed.inset-0.bg-black\/80 {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 9999 !important;
   }
 }
