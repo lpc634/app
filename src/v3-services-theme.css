@@ -309,3 +309,31 @@ button:has(.lucide-log-out):hover {
   background: linear-gradient(135deg, var(--v3-bg-card) 0%, #2A2A2A 100%) !important;
   border: 1px solid var(--v3-border) !important;
 }
+/* MOBILE BACKGROUND FIX - Forces dark background on all mobile agent pages */
+@media (max-width: 768px) {
+  /* Force dark background on mobile main content */
+  .pt-16 {
+    background: var(--v3-bg-darkest) !important;
+    color: var(--v3-text-light) !important;
+    min-height: 100vh !important;
+  }
+  
+  /* Ensure body stays dark on mobile */
+  body {
+    background: var(--v3-bg-darkest) !important;
+  }
+  
+  /* Force all direct children to have transparent background */
+  .pt-16 > * {
+    background: transparent !important;
+  }
+}
+
+/* Additional fix for any white backgrounds */
+@media (max-width: 768px) {
+  div[class*="p-4"]:first-child,
+  div[class*="p-6"]:first-child,
+  div[class*="p-8"]:first-child {
+    background: var(--v3-bg-darkest) !important;
+  }
+}
