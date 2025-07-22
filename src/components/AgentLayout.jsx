@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-// --- 1. IMPORT THE SEARCH ICON AND MENU ICON ---
-import { Home, ClipboardList, Calendar, Bell, Briefcase, Power, User as UserIcon, FileText as InvoiceIcon, Search as SearchIcon, Menu } from 'lucide-react';
+import { Home, ClipboardList, Calendar, Bell, Briefcase, Power, User as UserIcon, FileText as InvoiceIcon, Menu } from 'lucide-react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const agentNavItems = [
   { name: 'Dashboard', path: '/agent/dashboard', icon: Home },
-  // --- 2. ADD THE NEW NAVIGATION LINK HERE ---
-  { name: 'Vehicle Search', path: '/agent/vehicle-search', icon: SearchIcon },
+  { name: 'Vehicle Search', path: '/agent/intelligence', icon: ClipboardList },
   { name: 'Available Jobs', path: '/agent/jobs', icon: Briefcase },
   { name: 'Availability', path: '/agent/availability', icon: Calendar },
   { name: 'My Invoices', path: '/agent/invoices', icon: InvoiceIcon },
@@ -35,6 +33,7 @@ const AgentLayout = () => {
   const { logout, apiCall, user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // useEffect hook to handle push subscription
   useEffect(() => {
     if (loading || !user) {
       return;
@@ -94,14 +93,10 @@ const AgentLayout = () => {
         : 'text-v3-text-muted hover:bg-v3-bg-dark hover:text-v3-text-lightest'
     }`;
 
+  // Sidebar content component
   const SidebarContent = ({ onItemClick = () => {} }) => (
-    <div className="flex h-full flex-col" style={{ 
-      background: 'linear-gradient(135deg, var(--v3-bg-card) 0%, #2A2A2A 100%)',
-      border: '1px solid var(--v3-border)',
-      backdropFilter: 'blur(10px)'
-    }}>
-      {/* Header */}
-      <div className="flex h-16 items-center px-6 border-b border-v3-border">
+    <div className="flex h-full flex-col bg-v3-bg-card">
+      <div className="flex h-16 items-center px-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
             <span className="font-bold text-white text-lg">V3</span>
@@ -110,8 +105,7 @@ const AgentLayout = () => {
         </div>
       </div>
       
-      {/* Navigation */}
-      <nav className="flex-1 space-y-2 py-4 px-4">
+      <nav className="flex-1 space-y-2 p-4">
         {agentNavItems.map((item) => (
           <NavLink 
             key={item.name} 
@@ -125,10 +119,9 @@ const AgentLayout = () => {
         ))}
       </nav>
       
-      {/* User Profile & Logout */}
-      <div className="border-t border-v3-border p-4">
-        <div className="flex items-center gap-x-3 px-2 py-2 text-sm font-semibold leading-6 mb-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-v3-orange text-white font-bold">
+      <div className="p-4 border-t border-v3-border">
+        <div className="flex items-center gap-x-3 px-2 py-2 text-sm font-semibold leading-6 mb-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white font-bold">
             {user?.first_name?.[0]}{user?.last_name?.[0]}
           </div>
           <div className="flex-1">
@@ -137,10 +130,7 @@ const AgentLayout = () => {
           </div>
         </div>
         <button 
-          onClick={() => {
-            logout();
-            onItemClick();
-          }} 
+          onClick={logout} 
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-red-500 hover:bg-red-900/20 hover:text-red-400 transition-all"
         >
           <Power className="h-4 w-4" />
@@ -151,49 +141,27 @@ const AgentLayout = () => {
   );
 
   return (
-    <div className="min-h-screen bg-v3-bg-darkest font-sans">
-      {/* Mobile Header with Menu Button - FIXED POSITION */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 h-16 border-b border-v3-border flex items-center justify-between px-4"
-           style={{ 
-             background: 'linear-gradient(135deg, var(--v3-bg-card) 0%, #2A2A2A 100%)',
-             backdropFilter: 'blur(10px)'
-           }}>
-        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-v3-text-muted hover:text-v3-text-lightest"
-            >
-              <Menu className="h-6 w-6" />
-              <span className="sr-only">Open sidebar</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0">
-            <SidebarContent onItemClick={() => setSidebarOpen(false)} />
-          </SheetContent>
-        </Sheet>
-        
-        {/* Mobile Header Title */}
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded flex items-center justify-center">
-            <span className="font-bold text-white text-xs">V3</span>
-          </div>
-          <span className="font-semibold text-v3-text-lightest">Agent Portal</span>
-        </div>
-        
-        {/* Mobile User Avatar */}
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-v3-orange text-white font-bold text-sm">
-          {user?.first_name?.[0]}{user?.last_name?.[0]}
-        </div>
-      </div>
+    <div className="flex min-h-screen bg-v3-bg-darkest font-sans">
+      {/* Mobile Sidebar */}
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="md:hidden fixed top-4 left-4 z-50 text-muted-foreground"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Menu className="h-6 w-6" />
+            <span className="sr-only">Open sidebar</span>
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-72 p-0">
+          <SidebarContent onItemClick={() => setSidebarOpen(false)} />
+        </SheetContent>
+      </Sheet>
 
       {/* Desktop Sidebar */}
-      <aside className="w-64 flex-col border-r border-v3-border p-4 hidden md:flex fixed inset-y-0 left-0 z-30"
-             style={{ 
-               background: 'linear-gradient(135deg, var(--v3-bg-card) 0%, #2A2A2A 100%)',
-               backdropFilter: 'blur(10px)'
-             }}>
+      <aside className="w-64 flex-col border-r border-v3-border bg-v3-bg-card p-4 hidden md:flex">
         <div className="flex h-16 items-center px-2">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
@@ -218,11 +186,8 @@ const AgentLayout = () => {
         </div>
       </aside>
 
-      {/* Main Content - THIS IS THE KEY FIX */}
-      <div className="md:pl-64">
-        <div className="pt-16 md:pt-0 bg-v3-bg-darkest min-h-screen">
-          <Outlet />
-        </div>
+      <div className="flex-1 overflow-y-auto">
+        <Outlet />
       </div>
     </div>
   );
