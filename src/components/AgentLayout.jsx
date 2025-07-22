@@ -218,9 +218,9 @@ const AgentLayout = () => {
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content - THIS IS THE KEY FIX */}
       <div className="md:pl-64">
-        <div className="pt-16 md:pt-0">
+        <div className="pt-16 md:pt-0 bg-v3-bg-darkest min-h-screen">
           <Outlet />
         </div>
       </div>
