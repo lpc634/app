@@ -4,16 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "./useAuth.jsx";
 
-// --- 1. IMPORT THE SEARCH ICON ---
-import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search } from 'lucide-react';
+import { Menu, LogOut, Home, Users, Briefcase, BarChart3, X } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Agents', href: '/agents', icon: Users },
   { name: 'Jobs', href: '/jobs', icon: Briefcase },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  // --- 2. ADD THE NEW NAVIGATION LINK HERE ---
-  { name: 'Vehicle Search', href: '/agent/vehicle-search', icon: Search },
 ];
 
 function NavigationItems({ onItemClick = () => {} }) {
@@ -31,10 +28,10 @@ function NavigationItems({ onItemClick = () => {} }) {
             to={item.href}
             onClick={onItemClick}
             className={`
-              flex items-center px-3 py-2 rounded-md text-sm font-medium
+              flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors
               ${isActive
                 ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }
             `}
           >
@@ -56,27 +53,40 @@ export default function Layout({ children }) {
   };
 
   const SidebarContent = ({ onItemClick = () => {} }) => (
-    <div className="flex h-full flex-col">
-      <div className="flex h-16 shrink-0 items-center px-6">
-        {/* The <img> tag that used the logo has been removed from here */}
+    <div className="flex h-full flex-col bg-card">
+      {/* Header */}
+      <div className="flex h-16 shrink-0 items-center px-6 border-b">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
+            <span className="font-bold text-white text-lg">V3</span>
+          </div>
+          <span className="font-semibold text-foreground">V3 Services</span>
+        </div>
       </div>
-      <div className="flex grow flex-col gap-y-5 overflow-y-auto">
+      
+      {/* Navigation */}
+      <div className="flex grow flex-col gap-y-5 overflow-y-auto py-4">
         <NavigationItems onItemClick={onItemClick} />
       </div>
+      
+      {/* User Profile & Logout */}
       <div className="border-t p-4">
-        <div className="flex items-center gap-x-3 px-2 py-2 text-sm font-semibold leading-6">
+        <div className="flex items-center gap-x-3 px-2 py-2 text-sm font-semibold leading-6 mb-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white font-bold">
             {user?.first_name?.[0]}{user?.last_name?.[0]}
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-v3-text-lightest">{user?.first_name} {user?.last_name}</p>
-            <p className="text-xs text-v3-text-muted">{user?.email}</p>
+            <p className="text-sm font-medium text-foreground">{user?.first_name} {user?.last_name}</p>
+            <p className="text-xs text-muted-foreground">{user?.email}</p>
           </div>
         </div>
         <Button
           variant="ghost"
-          className="w-full justify-start text-muted-foreground hover:text-primary mt-2"
-          onClick={handleLogout}
+          className="w-full justify-start text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            handleLogout();
+            onItemClick();
+          }}
         >
           <LogOut className="mr-3 h-4 w-4" />
           Sign out
@@ -86,24 +96,38 @@ export default function Layout({ children }) {
   );
 
   return (
-    <div>
-      {/* Mobile Sidebar */}
-      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="lg:hidden fixed top-4 left-4 z-50 text-muted-foreground"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="h-6 w-6" />
-            <span className="sr-only">Open sidebar</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-72 p-0">
-          <SidebarContent onItemClick={() => setSidebarOpen(false)} />
-        </SheetContent>
-      </Sheet>
+    <div className="min-h-screen bg-background">
+      {/* Mobile Header with Menu Button */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-16 bg-card border-b flex items-center justify-between px-4">
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Menu className="h-6 w-6" />
+              <span className="sr-only">Open sidebar</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-72 p-0">
+            <SidebarContent onItemClick={() => setSidebarOpen(false)} />
+          </SheetContent>
+        </Sheet>
+        
+        {/* Mobile Header Title */}
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 bg-gradient-to-r from-orange-500 to-orange-600 rounded flex items-center justify-center">
+            <span className="font-bold text-white text-xs">V3</span>
+          </div>
+          <span className="font-semibold text-foreground">V3 Services</span>
+        </div>
+        
+        {/* Mobile User Avatar */}
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white font-bold text-sm">
+          {user?.first_name?.[0]}{user?.last_name?.[0]}
+        </div>
+      </div>
 
       {/* Desktop Sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
@@ -112,8 +136,9 @@ export default function Layout({ children }) {
 
       {/* Main Content Area */}
       <div className="lg:pl-72">
-        <main className="py-10">
-          <div className="px-4 sm:px-6 lg:px-8">
+        <main className="py-4 lg:py-10">
+          {/* Add top padding on mobile to account for fixed header */}
+          <div className="px-4 sm:px-6 lg:px-8 pt-16 lg:pt-0">
             {children}
           </div>
         </main>
