@@ -186,7 +186,7 @@ const AgentLayout = () => {
         </div>
       </aside>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto md:pt-0 pt-16">
         <Outlet />
       </div>
     </div>
