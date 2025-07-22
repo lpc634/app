@@ -95,7 +95,11 @@ const AgentLayout = () => {
     }`;
 
   const SidebarContent = ({ onItemClick = () => {} }) => (
-    <div className="flex h-full flex-col bg-v3-bg-card">
+    <div className="flex h-full flex-col" style={{ 
+      background: 'linear-gradient(135deg, var(--v3-bg-card) 0%, #2A2A2A 100%)',
+      border: '1px solid var(--v3-border)',
+      backdropFilter: 'blur(10px)'
+    }}>
       {/* Header */}
       <div className="flex h-16 items-center px-6 border-b border-v3-border">
         <div className="flex items-center gap-2">
@@ -148,8 +152,12 @@ const AgentLayout = () => {
 
   return (
     <div className="min-h-screen bg-v3-bg-darkest font-sans">
-      {/* Mobile Header with Menu Button */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 h-16 bg-v3-bg-card border-b border-v3-border flex items-center justify-between px-4">
+      {/* Mobile Header with Menu Button - FIXED POSITION */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 h-16 border-b border-v3-border flex items-center justify-between px-4"
+           style={{ 
+             background: 'linear-gradient(135deg, var(--v3-bg-card) 0%, #2A2A2A 100%)',
+             backdropFilter: 'blur(10px)'
+           }}>
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetTrigger asChild>
             <Button
@@ -181,7 +189,11 @@ const AgentLayout = () => {
       </div>
 
       {/* Desktop Sidebar */}
-      <aside className="w-64 flex-col border-r border-v3-border bg-v3-bg-card p-4 hidden md:flex fixed inset-y-0 left-0 z-30">
+      <aside className="w-64 flex-col border-r border-v3-border p-4 hidden md:flex fixed inset-y-0 left-0 z-30"
+             style={{ 
+               background: 'linear-gradient(135deg, var(--v3-bg-card) 0%, #2A2A2A 100%)',
+               backdropFilter: 'blur(10px)'
+             }}>
         <div className="flex h-16 items-center px-2">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
