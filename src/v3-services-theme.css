@@ -337,3 +337,61 @@ button:has(.lucide-log-out):hover {
     background: var(--v3-bg-darkest) !important;
   }
 }
+/* COGNITO FORM MOBILE FIXES */
+@media (max-width: 768px) {
+  /* Make the modal full screen on mobile */
+  .fixed.inset-0 .bg-v3-bg-darkest {
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+  
+  /* Ensure the form container is properly sized */
+  .overflow-y-auto .bg-white {
+    margin: 0 !important;
+    border-radius: 8px !important;
+    min-height: auto !important;
+  }
+  
+  /* Make Cognito form responsive */
+  .cognito iframe {
+    width: 100% !important;
+    min-height: 600px !important;
+    border: none !important;
+  }
+  
+  /* Fix form padding on mobile */
+  .overflow-y-auto .p-4.sm\\:p-6 {
+    padding: 1rem !important;
+  }
+  
+  /* Ensure form content is scrollable */
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+
+/* Additional Cognito form styling for all screen sizes */
+.cognito {
+  width: 100% !important;
+  min-height: 500px !important;
+}
+
+.cognito iframe {
+  width: 100% !important;
+  min-height: 500px !important;
+  border: none !important;
+}
+
+/* Fix for very small mobile screens */
+@media (max-width: 480px) {
+  .cognito iframe {
+    min-height: 700px !important;
+  }
+  
+  .fixed.inset-0 .p-4 {
+    padding: 0.5rem !important;
+  }
+}
