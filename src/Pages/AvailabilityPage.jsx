@@ -108,7 +108,7 @@ const AvailabilityPage = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-v3-bg-darkest min-h-screen text-v3-text-light">
         <style>{customStyles}</style>
 
         <h1 className="text-3xl font-bold tracking-tight text-v3-text-lightest">My Availability</h1>
