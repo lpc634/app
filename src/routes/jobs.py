@@ -182,78 +182,45 @@ def convert_coords_to_what3words():
 
 # --- Job Routes ---
 
+# [PASTE THIS CODE OVER THE OLD get_jobs FUNCTION]
+
 @jobs_bp.route('/jobs', methods=['GET'])
 @jwt_required()
 def get_jobs():
     """Get list of jobs with pagination. For agents, this is their 'Available Jobs' pool."""
     try:
-        current_user = require_agent_or_admin()
+        current_user = User.query.get(get_jwt_identity())
         if not current_user:
             return jsonify({'error': 'User not found'}), 404
-        
-        # Pagination parameters
+
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
-        per_page = min(per_page, 100)  # Max 100 items per page
-        
+
         if current_user.role == 'agent':
-            available_dates_records = AgentAvailability.query.filter_by(
-                agent_id=current_user.id, 
-                is_available=True, 
-                is_away=False
-            ).all()
-            available_dates = [record.date for record in available_dates_records]
-
-            if not available_dates:
-                return jsonify({'jobs': [], 'total': 0, 'page': page, 'pages': 0}), 200
-
-            assigned_job_ids = [assignment.job_id for assignment in current_user.assignments]
-            
-            query = Job.query.filter(
-                Job.status == 'open',
-                db.func.date(Job.arrival_time).in_(available_dates),
-                ~Job.id.in_(assigned_job_ids)
+            # Agent logic: Get jobs they have been assigned to with a 'pending' status
+            query = Job.query.join(JobAssignment).filter(
+                JobAssignment.agent_id == current_user.id,
+                JobAssignment.status == 'pending'
             ).order_by(Job.arrival_time.asc())
-            
+
         else:  # Admin logic
             status = request.args.get('status')
-            start_date = request.args.get('start_date')
-            end_date = request.args.get('end_date')
-            
             query = Job.query
-            
             if status:
                 query = query.filter(Job.status == status)
-                
-            if start_date:
-                try:
-                    parsed_start = parse(start_date)
-                    query = query.filter(Job.arrival_time >= parsed_start)
-                except ValueError:
-                    return jsonify({'error': 'Invalid start_date format'}), 400
-                    
-            if end_date:
-                try:
-                    parsed_end = parse(end_date)
-                    query = query.filter(Job.arrival_time <= parsed_end)
-                except ValueError:
-                    return jsonify({'error': 'Invalid end_date format'}), 400
-                    
             query = query.order_by(Job.arrival_time.desc())
-        
-        # Apply pagination
+
         paginated = query.paginate(page=page, per_page=per_page, error_out=False)
-        
+
         return jsonify({
             'jobs': [job.to_dict() for job in paginated.items],
             'total': paginated.total,
             'page': page,
-            'pages': paginated.pages,
-            'per_page': per_page
+            'pages': paginated.pages
         }), 200
-        
+
     except Exception as e:
-        logger.error(f"Error fetching jobs: {str(e)}")
+        current_app.logger.error(f"Error fetching jobs: {str(e)}")
         return jsonify({'error': 'Failed to fetch jobs'}), 500
 
 # <<< THIS IS THE ONLY FUNCTION THAT HAS CHANGED >>>
