@@ -18,7 +18,7 @@ const Textarea = (props) => <textarea className="w-full bg-v3-bg-dark border-v3-
 const Button = ({ children, ...props }) => <button className="button-refresh" {...props}>{children}</button>;
 const Select = (props) => <select className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange" {...props} />;
 
-// --- AddSightingModal Component (Moved to top level) ---
+// --- AddSightingModal Component ---
 const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     const { apiCall } = useAuth();
     const [plate, setPlate] = useState('');
@@ -52,12 +52,19 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!plate || !address) {
+            toast.error("Plate and Address are required.");
+            return;
+        }
         setLoading(true);
         try {
             const payload = {
                 registration_plate: plate.toUpperCase(),
-                notes, is_dangerous: isDangerous, address_seen: address,
-                make: selectedMake, model: selectedModel
+                notes,
+                is_dangerous: isDangerous,
+                address_seen: address,
+                make: selectedMake,
+                model: selectedModel
             };
             const newSighting = await apiCall('/vehicles/sightings', {
                 method: 'POST',
@@ -67,7 +74,7 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
             onSightingAdded(newSighting);
             onClose();
         } catch (error) {
-            toast.error("Failed to add sighting.");
+            toast.error("Failed to add sighting.", { description: error.message });
         } finally {
             setLoading(false);
         }
@@ -96,18 +103,17 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 gap-4">
-                            <Select value={selectedMake} onChange={e => setSelectedMake(e.target.value)} required>
+                            <Select value={selectedMake} onChange={e => setSelectedMake(e.target.value)}>
                                 <option value="">Select Make</option>
                                 {makes.map(m => <option key={m} value={m}>{m}</option>)}
                             </Select>
-                            <Select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} required disabled={!selectedMake}>
+                            <Select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} disabled={!selectedMake}>
                                 <option value="">Select Model</option>
                                 {models.map(m => <option key={m} value={m}>{m}</option>)}
                             </Select>
                         </div>
                     )}
-
-                    <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes on interaction, individuals, etc." required />
+                    <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes on interaction, individuals, etc." />
                     <div className="flex items-center gap-3">
                         <input type="checkbox" id="isDangerousModal" checked={isDangerous} onChange={e => setIsDangerous(e.target.checked)} />
                         <label htmlFor="isDangerousModal">Mark as potentially dangerous</label>
@@ -125,7 +131,7 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     );
 };
 
-// --- GroupViewModal Component (Moved to top level) ---
+// --- GroupViewModal Component ---
 const GroupViewModal = ({ isOpen, onClose, groupData }) => {
     if (!isOpen) return null;
     return (
@@ -138,9 +144,9 @@ const GroupViewModal = ({ isOpen, onClose, groupData }) => {
                 <div className="p-6">
                     <p className="text-sm text-v3-text-muted mb-4">The following plates were sighted at the same location and time:</p>
                     <ul className="space-y-2">
-                        {groupData && groupData.map(plate => (
+                        {groupData && groupData.length > 0 ? groupData.map(plate => (
                            <li key={plate} className="bg-v3-bg-dark p-2 rounded-md font-mono">{plate}</li>
-                        ))}
+                        )) : <li className="text-v3-text-muted">No other plates in this group.</li>}
                     </ul>
                 </div>
             </div>
@@ -148,10 +154,8 @@ const GroupViewModal = ({ isOpen, onClose, groupData }) => {
     );
 };
 
-
 // --- VehicleSearchPage Main Component ---
 const VehicleSearchPage = () => {
-
     const [searchPlate, setSearchPlate] = useState('');
     const [sightings, setSightings] = useState([]);
     const [selectedSighting, setSelectedSighting] = useState(null);
@@ -161,7 +165,6 @@ const VehicleSearchPage = () => {
     const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     
-
     const { apiCall } = useAuth();
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
@@ -180,29 +183,28 @@ const VehicleSearchPage = () => {
     };
 
     const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!searchPlate) return;
-    setLoading(true);
-    setHasSearched(true);
-    setError('');
-    setSightings([]);
-    setSelectedSighting(null);
-    try {
-        const data = await apiCall(`/vehicles/${searchPlate.trim().toUpperCase()}`);
-        setSightings(data);
-        if (data.length > 0) {
-            setSelectedSighting(data[0]);
-        } else {
-             setError('No records found for this registration plate.');
-        }
-    } catch (err) {
+        e.preventDefault();
+        if (!searchPlate) return;
+        setLoading(true);
+        setHasSearched(true);
+        setError('');
         setSightings([]);
-        setError(err.message.includes('404') ? 'No records found for this registration plate.' : 'An error occurred while searching.');
-    } finally {
-        setLoading(false);
-    }
-};
-
+        setSelectedSighting(null);
+        try {
+            const data = await apiCall(`/vehicles/${searchPlate.trim().toUpperCase()}`);
+            setSightings(data);
+            if (data.length > 0) {
+                setSelectedSighting(data[0]);
+            } else {
+                 setError('No records found for this registration plate.');
+            }
+        } catch (err) {
+            setSightings([]);
+            setError(err.message.includes('404') ? 'No records found for this registration plate.' : 'An error occurred while searching.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSightingAdded = (newSighting) => {
         if (newSighting.registration_plate === searchPlate.toUpperCase()) {
@@ -210,7 +212,13 @@ const VehicleSearchPage = () => {
         }
     };
     
-    const handleViewGroup = () => setIsGroupModalOpen(true);
+    const handleViewGroup = () => {
+        if (selectedSighting && selectedSighting.group) {
+            setIsGroupModalOpen(true);
+        } else {
+            toast.info("No group data available for this sighting.");
+        }
+    };
 
     useEffect(() => {
         if (hasSearched && !mapInstance.current && mapRef.current) {
@@ -284,7 +292,6 @@ const VehicleSearchPage = () => {
                         </div>
                     </div>
                 ) : (
-                    
                     <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
                         <div className="lg:col-span-1 bg-v3-bg-card rounded-lg flex flex-col overflow-hidden">
                            <div className="p-4 border-b border-v3-border">
@@ -311,7 +318,7 @@ const VehicleSearchPage = () => {
                                  <div className="p-4 border-t border-v3-border">
                                      <div className="flex justify-between items-start mb-4">
                                         <div>
-                                            <h3 className="font-bold text-xl text-v3-text-lightest">{selectedSighting.make} {selectedSighting.model}</h3>
+                                            <h3 className="font-bold text-xl text-v3-text-lightest">{selectedSighting.make || 'N/A'} {selectedSighting.model}</h3>
                                             <p className="font-mono text-lg text-v3-text-light">{selectedSighting.registration_plate}</p>
                                         </div>
                                         <Button onClick={handleViewGroup} className="flex items-center gap-2 text-sm">
