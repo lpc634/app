@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 const agentNavItems = [
   { name: 'Dashboard', path: '/agent/dashboard', icon: Home },
   { name: 'Vehicle Search', path: '/agent/intelligence', icon: Search },
-  { name: 'Available Jobs', path: '/agent/jobs', icon: Briefcase },
+
   { name: 'Availability', path: '/agent/availability', icon: Calendar },
   { name: 'My Invoices', path: '/agent/invoices', icon: InvoiceIcon },
   { name: 'Job Reports', path: '/agent/reports', icon: ClipboardList },
