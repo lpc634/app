@@ -6,23 +6,24 @@
 /* ===== CSS VARIABLES ===== */
 .dark {
   /* Brand Colors */
-  --v3-orange: 255 87 34;
-  --v3-orange-dark: 230 74 25;
-
+  --v3-orange: #FF5722;
+  --v3-orange-dark: #E64A19;
+  --v3-orange-glow: rgba(255, 87, 34, 0.3);
+  --v3-orange-light: rgba(255, 87, 34, 0.1);
+  
   /* Dark Theme Palette */
-  --v3-bg-darkest: 17 17 17;
-  --v3-bg-dark: 26 26 26;
-  --v3-bg-card: 36 36 36;
-  --v3-border: 51 51 51;
-
+  --v3-bg-darkest: #111111;
+  --v3-bg-dark: #1A1A1A;
+  --v3-bg-card: #242424;
+  --v3-border: #333333;
+  
   /* Text Colors */
-  --v3-text-lightest: 245 245 245;
-  --v3-text-light: 204 204 204;
-  --v3-text-muted: 136 136 136;
-
+  --v3-text-lightest: #F5F5F5;
+  --v3-text-light: #CCCCCC;
+  --v3-text-muted: #888888;
+  
   /* System */
-  --v3-white: 255 255 255;
-  --radius: 0.5rem;
+  --v3-white: #FFFFFF;
 }
 
 /* ===== ANIMATIONS ===== */
