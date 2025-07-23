@@ -223,45 +223,7 @@ def get_jobs():
         current_app.logger.error(f"Error fetching jobs: {str(e)}")
         return jsonify({'error': 'Failed to fetch jobs'}), 500
 
-# <<< THIS IS THE ONLY FUNCTION THAT HAS CHANGED >>>
-@jobs_bp.route('/jobs', methods=['GET'])
-@jwt_required()
-def get_jobs():
-    """Get list of jobs with pagination. For agents, this is their 'Available Jobs' pool."""
-    try:
-        current_user = require_agent_or_admin()
-        if not current_user:
-            return jsonify({'error': 'User not found'}), 404
-        
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 20, type=int)
-        
-        if current_user.role == 'agent':
-            # --- THIS IS THE CORRECTED LOGIC FOR AGENTS ---
-            query = Job.query.join(JobAssignment).filter(
-                JobAssignment.agent_id == current_user.id,
-                JobAssignment.status == 'pending'
-            ).order_by(Job.arrival_time.asc())
-            
-        else:  # Admin logic
-            status = request.args.get('status')
-            query = Job.query
-            if status:
-                query = query.filter(Job.status == status)
-            query = query.order_by(Job.arrival_time.desc())
-        
-        paginated = query.paginate(page=page, per_page=per_page, error_out=False)
-        
-        return jsonify({
-            'jobs': [job.to_dict() for job in paginated.items],
-            'total': paginated.total,
-            'page': page,
-            'pages': paginated.pages
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"Error fetching jobs: {str(e)}")
-        return jsonify({'error': 'Failed to fetch jobs'}), 500
+
 
 @jobs_bp.route('/jobs/<int:job_id>', methods=['GET'])
 @jwt_required()
