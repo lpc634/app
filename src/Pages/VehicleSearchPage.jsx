@@ -114,6 +114,7 @@ const VehicleSearchPage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false); // <-- NEW: Track if a search has been made
 
     const { apiCall } = useAuth();
     const mapRef = useRef(null);
@@ -130,7 +131,8 @@ const VehicleSearchPage = () => {
     };
 
     useEffect(() => {
-        if (!mapInstance.current && mapRef.current) {
+        // Initialize map only when it's needed and the ref is ready
+        if (hasSearched && !mapInstance.current && mapRef.current) {
             mapInstance.current = window.L.map(mapRef.current).setView([51.505, -0.09], 6);
             window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance.current);
         }
@@ -154,8 +156,11 @@ const VehicleSearchPage = () => {
             }
             if (locations.length > 0) mapInstance.current.fitBounds(locations, { padding: [50, 50], maxZoom: 14 });
         };
-        updateMap();
-    }, [sightings]);
+
+        if (hasSearched) {
+            updateMap();
+        }
+    }, [sightings, hasSearched]);
 
     useEffect(() => {
         if (selectedSighting && mapInstance.current && markersRef.current[selectedSighting.id]) {
@@ -169,6 +174,7 @@ const VehicleSearchPage = () => {
         e.preventDefault();
         if (!searchPlate) return;
         setLoading(true);
+        setHasSearched(true); // <-- NEW: Set search state to true
         setError('');
         setSightings([]);
         setSelectedSighting(null);
@@ -187,7 +193,7 @@ const VehicleSearchPage = () => {
             setLoading(false);
         }
     };
-
+    
     const handleSightingAdded = (newSighting) => {
         if (newSighting.registration_plate === searchPlate.toUpperCase()) {
             setSightings(prev => [newSighting, ...prev]);
@@ -215,46 +221,59 @@ const VehicleSearchPage = () => {
                     </form>
                 </div>
                 
-                <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
-                    <div className="lg:col-span-1 bg-v3-bg-card rounded-lg flex flex-col overflow-hidden">
-                        <div className="p-4 border-b border-v3-border">
-                             <h2 className="text-lg font-semibold text-v3-text-lightest">
-                                {sightings.length > 0 ? `${sightings.length} Sighting(s) Found` : 'Search Results'}
-                             </h2>
+                {/* --- NEW: Conditional Rendering Logic --- */}
+                {!hasSearched ? (
+                    <div className="flex-grow flex items-center justify-center">
+                        <div className="text-center text-v3-text-muted">
+                            <Search size={48} className="mx-auto mb-4" />
+                            <h2 className="text-xl font-semibold text-v3-text-lightest">Start a Search</h2>
+                            <p>Enter a registration plate to view sighting history.</p>
                         </div>
-                        <div className="flex-grow overflow-y-auto">
-                           {loading && <div className="p-6 text-center text-v3-text-muted">Loading results...</div>}
-                           {error && <div className="p-6 text-center text-v3-text-muted">{error}</div>}
-                           {!loading && !error && sightings.length === 0 && <div className="p-6 text-center text-v3-text-muted">Enter a registration plate to begin.</div>}
+                    </div>
+                ) : (
+                    <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
+                        {/* Sightings List */}
+                        <div className="lg:col-span-1 bg-v3-bg-card rounded-lg flex flex-col overflow-hidden">
+                            <div className="p-4 border-b border-v3-border">
+                                <h2 className="text-lg font-semibold text-v3-text-lightest">
+                                    {sightings.length > 0 ? `${sightings.length} Sighting(s) Found` : 'Search Results'}
+                                </h2>
+                            </div>
+                            <div className="flex-grow overflow-y-auto">
+                               {loading && <div className="p-6 text-center text-v3-text-muted">Loading results...</div>}
+                               {error && <div className="p-6 text-center text-v3-text-muted">{error}</div>}
+                               {!loading && !error && sightings.length === 0 && <div className="p-6 text-center text-v3-text-muted">No results found.</div>}
 
-                            {sightings.map(sighting => (
-                                <div key={sighting.id} onClick={() => setSelectedSighting(sighting)} 
-                                className={`p-4 border-b border-v3-border cursor-pointer hover:bg-v3-bg-dark ${selectedSighting?.id === sighting.id ? 'bg-v3-bg-dark' : ''}`}>
-                                    <div className="flex justify-between items-center">
-                                        <p className="font-bold text-v3-text-lightest">{sighting.address_seen}</p>
-                                        {sighting.is_dangerous && <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-1 rounded-full">DANGER</span>}
+                                {sightings.map(sighting => (
+                                    <div key={sighting.id} onClick={() => setSelectedSighting(sighting)} 
+                                    className={`p-4 border-b border-v3-border cursor-pointer hover:bg-v3-bg-dark ${selectedSighting?.id === sighting.id ? 'bg-v3-bg-dark' : ''}`}>
+                                        <div className="flex justify-between items-center">
+                                            <p className="font-bold text-v3-text-lightest">{sighting.address_seen}</p>
+                                            {sighting.is_dangerous && <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-1 rounded-full">DANGER</span>}
+                                        </div>
+                                        <p className="text-sm text-v3-text-muted">{new Date(sighting.sighted_at).toLocaleString()}</p>
                                     </div>
-                                    <p className="text-sm text-v3-text-muted">{new Date(sighting.sighted_at).toLocaleString()}</p>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
+                        </div>
+                        {/* Map & Details */}
+                        <div className="lg:col-span-2 bg-v3-bg-card rounded-lg flex flex-col overflow-hidden">
+                            <div ref={mapRef} className="flex-grow w-full h-1/2 min-h-[300px]" style={{backgroundColor: '#1a202c'}}></div>
+                            {selectedSighting && (
+                                 <div className="p-4 border-t border-v3-border flex-shrink-0">
+                                     <h3 className="font-bold text-xl text-v3-text-lightest mb-4">Sighting Details</h3>
+                                     {selectedSighting.is_dangerous && (<div className="bg-red-900/50 border border-red-500/50 text-red-300 p-3 rounded-md mb-4 flex items-center gap-3"><AlertTriangle /> <strong>DANGEROUS: Use caution.</strong></div>)}
+                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                                         <div className="flex items-start gap-3"><MapPin className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Location</strong><span className="text-v3-text-muted">{selectedSighting.address_seen}</span></div></div>
+                                         <div className="flex items-start gap-3"><Calendar className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Date</strong><span className="text-v3-text-muted">{new Date(selectedSighting.sighted_at).toLocaleString()}</span></div></div>
+                                         <div className="flex items-start gap-3"><User className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Agent</strong><span className="text-v3-text-muted">{selectedSighting.agent_name}</span></div></div>
+                                         <div className="flex items-start gap-3 md:col-span-2"><NotebookText className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Notes</strong><p className="text-v3-text-muted">{selectedSighting.notes}</p></div></div>
+                                     </div>
+                                 </div>
+                            )}
                         </div>
                     </div>
-                    <div className="lg:col-span-2 bg-v3-bg-card rounded-lg flex flex-col overflow-hidden">
-                        <div ref={mapRef} className="flex-grow w-full h-1/2 min-h-[300px]" style={{backgroundColor: '#1a202c'}}></div>
-                        {selectedSighting && (
-                             <div className="p-4 border-t border-v3-border flex-shrink-0">
-                                 <h3 className="font-bold text-xl text-v3-text-lightest mb-4">Sighting Details</h3>
-                                 {selectedSighting.is_dangerous && (<div className="bg-red-900/50 border border-red-500/50 text-red-300 p-3 rounded-md mb-4 flex items-center gap-3"><AlertTriangle /> <strong>DANGEROUS: Use caution.</strong></div>)}
-                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                                     <div className="flex items-start gap-3"><MapPin className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Location</strong><span className="text-v3-text-muted">{selectedSighting.address_seen}</span></div></div>
-                                     <div className="flex items-start gap-3"><Calendar className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Date</strong><span className="text-v3-text-muted">{new Date(selectedSighting.sighted_at).toLocaleString()}</span></div></div>
-                                     <div className="flex items-start gap-3"><User className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Agent</strong><span className="text-v3-text-muted">{selectedSighting.agent_name}</span></div></div>
-                                     <div className="flex items-start gap-3 md:col-span-2"><NotebookText className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Notes</strong><p className="text-v3-text-muted">{selectedSighting.notes}</p></div></div>
-                                 </div>
-                             </div>
-                        )}
-                    </div>
-                </div>
+                )}
             </div>
         </>
     );
