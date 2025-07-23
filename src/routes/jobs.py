@@ -186,7 +186,7 @@ def convert_coords_to_what3words():
 
 @jobs_bp.route('/jobs', methods=['POST'])
 @jwt_required()
-@validate_json_fields(['title', 'job_type', 'address', 'arrival_time', 'agents_required', 'hourly_rate'])
+@validate_json_fields(['title', 'job_type', 'address', 'arrival_time', 'agents_required'])
 def create_job():
     """Admin creates a new job, and the system assigns it to available agents."""
     try:
@@ -196,6 +196,7 @@ def create_job():
 
         data = request.get_json()
 
+        # Create the job first
         new_job = Job(
             title=data['title'],
             job_type=data['job_type'],
@@ -203,52 +204,81 @@ def create_job():
             postcode=data.get('postcode'),
             arrival_time=parse(data['arrival_time']),
             agents_required=int(data['agents_required']),
-            hourly_rate=float(data['hourly_rate']),
+            hourly_rate=float(data.get('hourly_rate', 0)),
+            lead_agent_name=data.get('lead_agent_name'),
             instructions=data.get('instructions'),
+            urgency_level=data.get('urgency_level', 'Standard'),
             status='open',
             created_by=current_user.id
         )
         db.session.add(new_job)
-        db.session.flush()
+        db.session.flush()  # Get the job ID without committing
 
+        # Find available agents for the job date
         job_date = new_job.arrival_time.date()
-        available_agents = User.query.join(AgentAvailability).filter(
+        
+        # Find agents who are:
+        # 1. Verified
+        # 2. Have availability set to True for that date
+        # 3. Are not away on that date
+        available_agents = db.session.query(User).join(AgentAvailability).filter(
             User.role == 'agent',
-            User.is_verified == True,
+            User.verification_status == 'verified',  # Make sure they're verified
             AgentAvailability.date == job_date,
-            AgentAvailability.is_available == True
+            AgentAvailability.is_available == True,
+            AgentAvailability.is_away == False
         ).all()
         
         if not available_agents:
             db.session.commit()
             return jsonify({
                 'message': 'Job created, but no available agents found for that date.',
-                'job': new_job.to_dict()
+                'job': new_job.to_dict(),
+                'available_agents': 0
             }), 201
 
+        # Create job assignments for available agents
         assigned_agent_ids = []
         for agent in available_agents:
-            assignment = JobAssignment(job_id=new_job.id, agent_id=agent.id, status='pending')
-            db.session.add(assignment)
-            assigned_agent_ids.append(agent.id)
+            # Check if assignment already exists (just in case)
+            existing_assignment = JobAssignment.query.filter_by(
+                job_id=new_job.id, 
+                agent_id=agent.id
+            ).first()
+            
+            if not existing_assignment:
+                assignment = JobAssignment(
+                    job_id=new_job.id, 
+                    agent_id=agent.id, 
+                    status='pending'
+                )
+                db.session.add(assignment)
+                assigned_agent_ids.append(agent.id)
 
-        notification_title = "New Job Available"
-        notification_message = f"A new job, '{new_job.title}', is available for your response."
-        trigger_push_notification_for_users(assigned_agent_ids, notification_title, notification_message)
+        # Send notifications to assigned agents
+        if assigned_agent_ids:
+            notification_title = "New Job Available"
+            notification_message = f"A new job, '{new_job.title}', is available for your response."
+            # Add your notification function here if you have one
+            # trigger_push_notification_for_users(assigned_agent_ids, notification_title, notification_message)
 
         db.session.commit()
 
         return jsonify({
-            'message': f'Job created and assigned to {len(available_agents)} agents.',
-            'job': new_job.to_dict()
+            'message': f'Job created successfully and assigned to {len(assigned_agent_ids)} available agents.',
+            'job': new_job.to_dict(),
+            'assigned_agents': len(assigned_agent_ids),
+            'available_agents': len(available_agents)
         }), 201
 
     except ValueError as ve:
+        db.session.rollback()
         return jsonify({'error': f'Invalid data format: {ve}'}), 400
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error creating job: {str(e)}")
         return jsonify({'error': 'Failed to create job'}), 500
+
 
 @jobs_bp.route('/jobs/<int:job_id>', methods=['PUT'])
 @jwt_required()
@@ -457,21 +487,40 @@ def get_agent_assignments(agent_id):
         if current_user.role == 'agent' and current_user.id != agent_id:
             return jsonify({'error': 'Access denied. You can only view your own assignments.'}), 403
         
+        # Get status filter from query params
+        status_filter = request.args.get('status')
+        
         # Pagination
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
         per_page = min(per_page, 100)
         
-        query = JobAssignment.query.filter_by(agent_id=agent_id)
+        # Build query with proper joins to load job data
+        query = JobAssignment.query.options(db.joinedload(JobAssignment.job)).filter_by(agent_id=agent_id)
+        
+        # Apply status filter if provided
+        if status_filter:
+            query = query.filter(JobAssignment.status == status_filter)
+        
+        # Apply ordering and pagination
         paginated = query.order_by(JobAssignment.created_at.desc()).paginate(
             page=page, 
             per_page=per_page, 
             error_out=False
         )
         
+        # Convert to dict with job details
+        assignments_data = []
+        for assignment in paginated.items:
+            assignment_dict = assignment.to_dict()
+            # Double-check that job_details is included
+            if assignment.job and 'job_details' not in assignment_dict:
+                assignment_dict['job_details'] = assignment.job.to_dict()
+            assignments_data.append(assignment_dict)
+        
         return jsonify({
             'agent_id': agent_id, 
-            'assignments': [assignment.to_dict() for assignment in paginated.items],
+            'assignments': assignments_data,
             'total': paginated.total,
             'page': page,
             'pages': paginated.pages,
@@ -481,6 +530,7 @@ def get_agent_assignments(agent_id):
     except Exception as e:
         logger.error(f"Error fetching assignments: {str(e)}")
         return jsonify({'error': 'Failed to fetch assignments'}), 500
+
 
 @jobs_bp.route('/agent/jobs/completed', methods=['GET'])
 @jwt_required()
@@ -525,3 +575,68 @@ def get_completed_jobs():
     except Exception as e:
         logger.error(f"Error fetching completed jobs: {str(e)}")
         return jsonify({'error': 'Failed to fetch completed jobs'}), 500
+    
+@jobs_bp.route('/debug/availability/<int:agent_id>', methods=['GET'])
+@jwt_required()
+def debug_agent_availability(agent_id):
+    """Debug endpoint to check agent availability."""
+    try:
+        current_user = require_admin()
+        if not current_user:
+            return jsonify({'error': 'Access denied. Admin role required.'}), 403
+        
+        # Get agent info
+        agent = User.query.get(agent_id)
+        if not agent:
+            return jsonify({'error': 'Agent not found'}), 404
+            
+        # Get recent availability records
+        recent_availability = AgentAvailability.query.filter_by(
+            agent_id=agent_id
+        ).order_by(AgentAvailability.date.desc()).limit(10).all()
+        
+        # Get weekly schedule
+        weekly_schedule = AgentWeeklyAvailability.query.filter_by(agent_id=agent_id).first()
+        
+        # Get recent job assignments
+        recent_assignments = JobAssignment.query.filter_by(
+            agent_id=agent_id
+        ).order_by(JobAssignment.created_at.desc()).limit(5).all()
+        
+        return jsonify({
+            'agent': {
+                'id': agent.id,
+                'name': f"{agent.first_name} {agent.last_name}",
+                'email': agent.email,
+                'role': agent.role,
+                'verification_status': agent.verification_status
+            },
+            'recent_availability': [
+                {
+                    'date': avail.date.isoformat(),
+                    'is_available': avail.is_available,
+                    'is_away': avail.is_away,
+                    'notes': avail.notes
+                } for avail in recent_availability
+            ],
+            'weekly_schedule': {
+                'monday': weekly_schedule.monday if weekly_schedule else False,
+                'tuesday': weekly_schedule.tuesday if weekly_schedule else False,
+                'wednesday': weekly_schedule.wednesday if weekly_schedule else False,
+                'thursday': weekly_schedule.thursday if weekly_schedule else False,
+                'friday': weekly_schedule.friday if weekly_schedule else False,
+                'saturday': weekly_schedule.saturday if weekly_schedule else False,
+                'sunday': weekly_schedule.sunday if weekly_schedule else False,
+            } if weekly_schedule else None,
+            'recent_assignments': [
+                {
+                    'id': assign.id,
+                    'job_id': assign.job_id,
+                    'status': assign.status,
+                    'created_at': assign.created_at.isoformat() if assign.created_at else None
+                } for assign in recent_assignments
+            ]
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Debug failed: {str(e)}'}), 500

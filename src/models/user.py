@@ -105,7 +105,16 @@ class JobAssignment(db.Model):
     agent = db.relationship('User', back_populates='assignments')
 
     def to_dict(self):
-        return {'id': self.id, 'job_id': self.job_id, 'agent_id': self.agent_id, 'status': self.status, 'job_details': self.job.to_dict()}
+        # Make sure the job relationship is loaded before calling to_dict()
+        return {
+            'id': self.id, 
+            'job_id': self.job_id, 
+            'agent_id': self.agent_id, 
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'response_time': self.response_time.isoformat() if self.response_time else None,
+            'job_details': self.job.to_dict() if self.job else None  # This was the issue!
+        }
 
 class AgentAvailability(db.Model):
     __tablename__ = 'agent_availability'

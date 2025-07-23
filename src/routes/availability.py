@@ -126,6 +126,7 @@ def set_weekly_schedule(user_id):
     except Exception as e:
         current_app.logger.error(f"Failed to populate daily records for agent {user_id}: {str(e)}")
         return jsonify({'error': 'Weekly schedule was saved, but failed to populate daily records.'}), 500
+    
 # --- Daily Override Routes ---
 @availability_bp.route('/availability/daily/<int:user_id>', methods=['GET'])
 @jwt_required()
