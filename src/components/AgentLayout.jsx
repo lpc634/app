@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Home, ClipboardList, Calendar, Bell, Briefcase, Power, User as UserIcon, FileText as InvoiceIcon, Menu, X, Search } from 'lucide-react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
@@ -15,7 +15,6 @@ const agentNavItems = [
   { name: 'My Profile', path: '/agent/profile', icon: UserIcon },
 ];
 
-// VAPID function
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -31,13 +30,12 @@ const AgentLayout = () => {
   const { logout, apiCall, user, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
-  // Push notifications setup
   useEffect(() => {
     if (loading || !user) return;
 
@@ -91,17 +89,17 @@ const AgentLayout = () => {
         <div className="flex-1 text-center text-v3-text-lightest font-semibold">
           V3 Agent Portal
         </div>
+        <div className="w-8"></div>
       </div>
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="fixed inset-0 z-[100] md:hidden">
           <div 
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/60"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="absolute left-0 top-0 bottom-0 w-80 bg-v3-bg-card border-r border-v3-border">
-            {/* Mobile Menu Header */}
+          <div className="absolute left-0 top-0 bottom-0 w-80 bg-v3-bg-card border-r border-v3-border flex flex-col">
             <div className="h-16 flex items-center justify-between px-4 border-b border-v3-border">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
@@ -117,8 +115,7 @@ const AgentLayout = () => {
               </button>
             </div>
 
-            {/* Mobile Menu Items */}
-            <div className="p-4 space-y-2">
+            <div className="flex-1 p-4 space-y-2 overflow-y-auto">
               {agentNavItems.map((item) => (
                 <button
                   key={item.name}
@@ -131,8 +128,7 @@ const AgentLayout = () => {
               ))}
             </div>
 
-            {/* Mobile User Section */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-v3-border">
+            <div className="p-4 border-t border-v3-border">
               <div className="flex items-center gap-3 mb-4 px-2">
                 <div className="w-10 h-10 bg-v3-orange rounded-full flex items-center justify-center text-white font-bold">
                   {user?.first_name?.[0]}{user?.last_name?.[0]}
@@ -155,7 +151,7 @@ const AgentLayout = () => {
       )}
 
       {/* Desktop Sidebar */}
-      <div className="hidden md:block fixed left-0 top-0 bottom-0 w-64 bg-v3-bg-card border-r border-v3-border">
+      <div className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 bg-v3-bg-card border-r border-v3-border flex-col">
         <div className="h-16 flex items-center px-4 border-b border-v3-border">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
@@ -165,7 +161,7 @@ const AgentLayout = () => {
           </div>
         </div>
 
-        <div className="p-4 space-y-2">
+        <div className="flex-1 p-4 space-y-2 overflow-y-auto">
           {agentNavItems.map((item) => (
             <NavLink
               key={item.name}
@@ -184,7 +180,7 @@ const AgentLayout = () => {
           ))}
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-v3-border">
+        <div className="p-4 border-t border-v3-border">
           <div className="flex items-center gap-3 mb-4 px-2">
             <div className="w-10 h-10 bg-v3-orange rounded-full flex items-center justify-center text-white font-bold">
               {user?.first_name?.[0]}{user?.last_name?.[0]}
@@ -205,9 +201,9 @@ const AgentLayout = () => {
       </div>
 
       {/* Main Content */}
-      <div className="md:ml-64 pt-16 md:pt-0">
+      <main className="md:ml-64 pt-16 md:pt-0">
         <Outlet />
-      </div>
+      </main>
     </div>
   );
 };
