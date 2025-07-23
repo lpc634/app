@@ -623,6 +623,16 @@ button:has(.lucide-log-out):hover {
   box-shadow: 0 0 0 2px var(--v3-orange-glow);
 }
 
+.v3-input-light::placeholder {
+  color: #666666; /* Dark grey for placeholder */
+}
+
+.v3-input-light:focus {
+  outline: none;
+  border-color: var(--v3-orange);
+  box-shadow: 0 0 0 2px var(--v3-orange-glow);
+}
+
 .v3-input-light:focus {
   outline: none;
   border-color: var(--v3-orange);
