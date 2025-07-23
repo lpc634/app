@@ -221,7 +221,8 @@ const VehicleSearchPage = () => {
     };
 
     useEffect(() => {
-        if (hasSearched && !mapInstance.current && mapRef.current) {
+        // Initialize map only if there are sightings
+        if (sightings.length > 0 && !mapInstance.current && mapRef.current) {
             mapInstance.current = window.L.map(mapRef.current).setView([51.505, -0.09], 6);
             window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance.current);
         }
@@ -248,10 +249,11 @@ const VehicleSearchPage = () => {
             }
         };
         
-        if (hasSearched) {
+        // Update map only if there are sightings
+        if (sightings.length > 0) {
             updateMap();
         }
-    }, [sightings, hasSearched]);
+    }, [sightings]);
 
     useEffect(() => {
         if (selectedSighting && mapInstance.current && markersRef.current[selectedSighting.id]) {
@@ -312,26 +314,40 @@ const VehicleSearchPage = () => {
                                 ))}
                            </div>
                         </div>
+
+                        {/* --- THIS ENTIRE SECTION IS NOW CONDITIONAL --- */}
                         <div className="lg:col-span-2 bg-v3-bg-card rounded-lg flex flex-col overflow-hidden">
-                            <div ref={mapRef} className="flex-grow w-full h-1/2 min-h-[300px]" style={{backgroundColor: '#1a202c'}}></div>
-                            {selectedSighting && (
-                                 <div className="p-4 border-t border-v3-border">
-                                     <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h3 className="font-bold text-xl text-v3-text-lightest">{selectedSighting.make || 'N/A'} {selectedSighting.model}</h3>
-                                            <p className="font-mono text-lg text-v3-text-light">{selectedSighting.registration_plate}</p>
+                            {sightings.length > 0 ? (
+                                <>
+                                    <div ref={mapRef} className="flex-grow w-full h-1/2 min-h-[300px]" style={{backgroundColor: '#1a202c'}}></div>
+                                    {selectedSighting && (
+                                        <div className="p-4 border-t border-v3-border">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div>
+                                                    <h3 className="font-bold text-xl text-v3-text-lightest">{selectedSighting.make || 'N/A'} {selectedSighting.model}</h3>
+                                                    <p className="font-mono text-lg text-v3-text-light">{selectedSighting.registration_plate}</p>
+                                                </div>
+                                                <Button onClick={handleViewGroup} className="flex items-center gap-2 text-sm">
+                                                    <Users size={16} /> View Group
+                                                </Button>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                                                <div className="flex items-start gap-3"><MapPin className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Location</strong><span className="text-v3-text-muted">{selectedSighting.address_seen}</span></div></div>
+                                                <div className="flex items-start gap-3"><Calendar className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Date</strong><span className="text-v3-text-muted">{new Date(selectedSighting.sighted_at).toLocaleString()}</span></div></div>
+                                                <div className="flex items-start gap-3"><User className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Agent</strong><span className="text-v3-text-muted">{selectedSighting.agent_name}</span></div></div>
+                                                <div className="flex items-start gap-3 md:col-span-2"><NotebookText className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Notes</strong><p className="text-v3-text-muted">{selectedSighting.notes}</p></div></div>
+                                            </div>
                                         </div>
-                                        <Button onClick={handleViewGroup} className="flex items-center gap-2 text-sm">
-                                            <Users size={16} /> View Group
-                                        </Button>
-                                     </div>
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                                         <div className="flex items-start gap-3"><MapPin className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Location</strong><span className="text-v3-text-muted">{selectedSighting.address_seen}</span></div></div>
-                                         <div className="flex items-start gap-3"><Calendar className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Date</strong><span className="text-v3-text-muted">{new Date(selectedSighting.sighted_at).toLocaleString()}</span></div></div>
-                                         <div className="flex items-start gap-3"><User className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Agent</strong><span className="text-v3-text-muted">{selectedSighting.agent_name}</span></div></div>
-                                         <div className="flex items-start gap-3 md:col-span-2"><NotebookText className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Notes</strong><p className="text-v3-text-muted">{selectedSighting.notes}</p></div></div>
-                                     </div>
-                                 </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="flex-grow flex items-center justify-center text-center text-v3-text-muted p-6">
+                                    <div>
+                                       <MapPin size={48} className="mx-auto mb-4" />
+                                       <h2 className="text-xl font-semibold text-v3-text-lightest">No Location Data</h2>
+                                       <p>The map will be displayed here when a search returns valid sightings.</p>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </div>
