@@ -286,27 +286,32 @@ def create_job():
             status='open'
         )
         db.session.add(new_job)
-        db.session.commit()
+        db.session.commit() # Commit here to get a job ID
 
-        # --- Notification Logic ---
+        # --- Notification and Assignment Logic ---
         job_date = new_job.arrival_time.date()
         day_name = job_date.strftime("%A").lower()
 
-        # 1. Find agents available based on their recurring weekly schedule
         weekly_available_q = AgentWeeklyAvailability.query.filter(getattr(AgentWeeklyAvailability, day_name) == True)
         weekly_available_ids = {a.agent_id for a in weekly_available_q.all()}
         
-        # 2. Find agents with daily overrides for that specific date
         overrides_q = AgentAvailability.query.filter_by(date=job_date).all()
         available_overrides = {a.agent_id for a in overrides_q if a.is_available}
         unavailable_overrides = {a.agent_id for a in overrides_q if not a.is_available}
 
-        # 3. Calculate the final list of agent IDs to notify
         final_available_ids = (weekly_available_ids | available_overrides) - unavailable_overrides
 
         notification_status = "No agents available for this date."
         if final_available_ids:
             agent_ids_to_notify = list(final_available_ids)
+            
+            # --- FIX: Create JobAssignment for each agent ---
+            for agent_id in agent_ids_to_notify:
+                assignment = JobAssignment(job_id=new_job.id, agent_id=agent_id, status='pending')
+                db.session.add(assignment)
+            db.session.commit() # Commit the new assignments
+            # ----------------------------------------------------
+
             title = f"New Job Available: {new_job.title}"
             message = f"A new '{new_job.job_type}' job is available for {job_date.strftime('%d-%b-%Y')}. Tap to view."
             

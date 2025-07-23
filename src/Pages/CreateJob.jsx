@@ -11,42 +11,32 @@ const CreateJob = () => {
     const [formData, setFormData] = useState({
         title: '',
         address: '',
-        postcode: '',
         arrival_time: '',
         agents_required: '1',
         instructions: '',
-        job_type: 'Traveller Eviction', // Default value
-        lead_agent_name: '',
-        number_of_dwellings: '',
-        police_liaison_required: false,
-        urgency_level: 'Standard',
-        what3words_address: '',
     });
 
     const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const payload = {
-                ...formData,
-                agents_required: parseInt(formData.agents_required, 10),
-                number_of_dwellings: formData.number_of_dwellings ? parseInt(formData.number_of_dwellings, 10) : null,
-            };
-            
             const result = await apiCall('/jobs', {
                 method: 'POST',
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    ...formData,
+                    agents_required: parseInt(formData.agents_required, 10),
+                }),
             });
-            
             toast.success('Job Created!', { 
                 description: result.job.notification_status 
             });
-            navigate('/admin/jobs');
+            // --- FIX: Changed redirect path ---
+            navigate('/');
         } catch (error) {
             toast.error('Failed to create job', { description: error.message });
         } finally {
@@ -60,24 +50,20 @@ const CreateJob = () => {
                 <div className="mb-6">
                     <button onClick={() => navigate(-1)} className="flex items-center text-sm font-semibold text-gray-400 hover:text-white">
                         <ArrowLeft size={16} className="mr-2" />
-                        Back to Job Management
+                        Back to Dashboard
                     </button>
                     <h1 className="text-3xl font-bold text-white mt-2">Create New Job</h1>
                     <p className="text-gray-400">This will automatically notify all currently available agents.</p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="bg-v3-bg-card p-6 rounded-lg shadow-lg space-y-6">
+                <form onSubmit={handleSubmit} className="dashboard-card p-6 rounded-lg shadow-lg space-y-6">
                     <div>
                         <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-1">Job Title</label>
                         <input type="text" name="title" id="title" value={formData.title} onChange={handleChange} required className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-v3-orange focus:border-v3-orange" />
                     </div>
-                     <div>
-                        <label htmlFor="address" className="block text-sm font-medium text-gray-300 mb-1">Full Address</label>
-                        <input type="text" name="address" id="address" value={formData.address} onChange={handleChange} required className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-v3-orange focus:border-v3-orange" />
-                    </div>
                     <div>
-                        <label htmlFor="postcode" className="block text-sm font-medium text-gray-300 mb-1">Postcode</label>
-                        <input type="text" name="postcode" id="postcode" value={formData.postcode} onChange={handleChange} required className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-v3-orange focus:border-v3-orange" />
+                        <label htmlFor="address" className="block text-sm font-medium text-gray-300 mb-1">Location / Address</label>
+                        <input type="text" name="address" id="address" value={formData.address} onChange={handleChange} required className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-v3-orange focus:border-v3-orange" />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
