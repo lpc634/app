@@ -31,6 +31,48 @@ def get_next_week_dates():
     next_monday = get_next_monday()
     return [next_monday + timedelta(days=i) for i in range(7)]
 
+# [PASTE THIS NEW FUNCTION INTO YOUR FILE]
+
+def update_daily_availability_from_schedule(agent_id, weekly_schedule_dict):
+    """
+    Populates the AgentAvailability table for the next 60 days based on the
+    recurring weekly schedule.
+    """
+    try:
+        today = date.today()
+        # Loop through the next 60 days
+        for i in range(61):
+            current_date = today + timedelta(days=i)
+            day_name = current_date.strftime("%A").lower()
+            
+            is_scheduled_available = weekly_schedule_dict.get(day_name, False)
+            
+            # Find if a record for this date already exists
+            existing_record = AgentAvailability.query.filter_by(
+                agent_id=agent_id, 
+                date=current_date
+            ).first()
+            
+            if existing_record:
+                # Update only if it was sourced from a schedule, preserving manual overrides
+                if existing_record.source in [None, 'schedule', '']:
+                    existing_record.is_available = is_scheduled_available
+            else:
+                # Create a new record if one doesn't exist
+                new_availability = AgentAvailability(
+                    agent_id=agent_id,
+                    date=current_date,
+                    is_available=is_scheduled_available,
+                    source='schedule'
+                )
+                db.session.add(new_availability)
+        
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error in update_daily_availability_from_schedule for agent {agent_id}: {str(e)}")
+        raise
+
 # --- Weekly Schedule Routes ---
 @availability_bp.route('/availability/weekly/<int:user_id>', methods=['GET'])
 @jwt_required()
@@ -52,6 +94,8 @@ def get_weekly_schedule(user_id):
             'thursday': False, 'friday': False, 'saturday': False, 'sunday': False
         }), 200
 
+# [REPLACE YOUR OLD set_weekly_schedule FUNCTION WITH THIS ONE]
+
 @availability_bp.route('/availability/weekly/<int:user_id>', methods=['POST'])
 @jwt_required()
 def set_weekly_schedule(user_id):
@@ -66,13 +110,22 @@ def set_weekly_schedule(user_id):
         weekly_schedule = AgentWeeklyAvailability(agent_id=user_id)
         db.session.add(weekly_schedule)
     
+    schedule_dict = {}
     for day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']:
         if day in data:
-            setattr(weekly_schedule, day, data[day])
-    
+            is_available = data.get(day, False)
+            setattr(weekly_schedule, day, is_available)
+            schedule_dict[day] = is_available
+            
     db.session.commit()
-    return jsonify({'message': 'Weekly schedule updated successfully'}), 200
-
+    
+    # This is the new part that fixes the issue
+    try:
+        update_daily_availability_from_schedule(user_id, schedule_dict)
+        return jsonify({'message': 'Weekly schedule updated and future availability populated.'}), 200
+    except Exception as e:
+        current_app.logger.error(f"Failed to populate daily records for agent {user_id}: {str(e)}")
+        return jsonify({'error': 'Weekly schedule was saved, but failed to populate daily records.'}), 500
 # --- Daily Override Routes ---
 @availability_bp.route('/availability/daily/<int:user_id>', methods=['GET'])
 @jwt_required()
