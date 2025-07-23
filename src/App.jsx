@@ -7,7 +7,7 @@ import Dashboard from './Pages/Dashboard';
 import CreateJob from './Pages/CreateJob';
 import AgentDashboard from './components/AgentDashboard';
 import AgentNotifications from './components/AgentNotifications';
-import JobReports from './Pages/JobReports'; 
+import JobReports from './Pages/JobReports';
 import DebugPage from './Pages/DebugPage';
 import JobDetails from './components/JobDetails';
 import AgentLayout from './components/AgentLayout';
@@ -26,7 +26,6 @@ import JobsPage from './Pages/JobsPage';
 import NotificationsPage from './Pages/NotificationsPage';
 import ProfilePage from './Pages/ProfilePage';
 import WeeklyCalendarView from './Pages/WeeklyCalendarView';
-// --- 1. IMPORT THE NEW PAGE COMPONENT ---
 import VehicleSearchPage from './Pages/VehicleSearchPage.jsx';
 
 function ProtectedRoute({ children, allowedRoles }) {
@@ -66,11 +65,10 @@ function App() {
           <Route path="/weekly-calendar" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><WeeklyCalendarView /></Layout></ProtectedRoute>} />
           
           {/* Agent Routes */}
-          {/* Admins also have access to this layout, so the route goes here */}
           <Route element={<ProtectedRoute allowedRoles={['agent', 'admin', 'manager']}><AgentLayout /></ProtectedRoute>}>
             <Route path="/agent/dashboard" element={<AgentDashboard />} />
-            {/* --- 2. ADD THE NEW ROUTE HERE --- */}
-            <Route path="/agent/vehicle-search" element={<VehicleSearchPage />} />
+            {/* --- THIS IS THE CORRECTED LINE --- */}
+            <Route path="/agent/intelligence" element={<VehicleSearchPage />} />
             <Route path="/agent/jobs" element={<JobsPage />} />
             <Route path="/agent/jobs/:jobId" element={<JobDetails />} />
             <Route path="/agent/availability" element={<AvailabilityPage />} />
