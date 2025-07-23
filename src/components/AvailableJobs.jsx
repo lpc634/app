@@ -4,20 +4,18 @@ import { toast } from 'sonner';
 import { Loader2, ServerCrash, RefreshCw, AlertCircle, Briefcase, MapPin, Clock, CheckCircle, XCircle } from 'lucide-react';
 
 const AvailableJobs = () => {
-  const [jobs, setJobs] = useState([]);
+  const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { apiCall, user } = useAuth();
 
   const fetchJobs = useCallback(async () => {
-    if (!user) return; // Wait until user is loaded
+    if (!user) return; 
     try {
       setLoading(true);
       setError('');
-      // Corrected API endpoint to fetch assignments for the logged-in agent
-      const data = await apiCall(`/assignments/agent/${user.id}?status=pending`); 
-      // Extract the job details from each assignment
-      setJobs(data.assignments ? data.assignments.map(a => a.job) : []);
+      const data = await apiCall(`/assignments/agent/${user.id}?status=pending`);
+      setAssignments(data.assignments || []);
     } catch (error) {
       setError('Failed to load available jobs. Please try again.');
       console.error('Available Jobs error:', error);
@@ -30,18 +28,9 @@ const AvailableJobs = () => {
     fetchJobs();
   }, [fetchJobs]);
 
-  const handleJobResponse = async (jobId, response) => {
+  const handleJobResponse = async (assignmentId, response) => {
     try {
-      // Find the assignment ID associated with the job ID for the current user
-      const assignmentData = await apiCall(`/assignments/agent/${user.id}?job_id=${jobId}`);
-      const assignment = assignmentData.assignments ? assignmentData.assignments[0] : null;
-
-      if (!assignment) {
-          toast.error("Could not find the assignment to respond to.");
-          return;
-      }
-      
-      await apiCall(`/assignments/${assignment.id}/respond`, {
+      await apiCall(`/assignments/${assignmentId}/respond`, {
           method: 'POST',
           body: JSON.stringify({ response })
       });
@@ -86,7 +75,7 @@ const AvailableJobs = () => {
         </button>
       </div>
 
-      {jobs.length === 0 ? (
+      {assignments.length === 0 ? (
         <div className="dashboard-card text-center p-8">
           <AlertCircle className="mx-auto text-v3-text-muted mb-4" size={48} />
           <h3 className="text-v3-text-lightest text-xl font-semibold mb-2">No Jobs Available</h3>
@@ -94,30 +83,33 @@ const AvailableJobs = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {jobs.map((job) => (
-            <div key={job.id} className="dashboard-card p-6">
-              <div className="flex flex-col sm:flex-row justify-between gap-4">
-                <div className="flex-grow">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Briefcase className="w-6 h-6 text-v3-orange" />
-                    <h3 className="text-v3-text-lightest font-semibold text-lg">{job.title}</h3>
+          {assignments.map((assignment) => {
+            const job = assignment.job_details;
+            return (
+              <div key={assignment.id} className="dashboard-card p-6">
+                <div className="flex flex-col sm:flex-row justify-between gap-4">
+                  <div className="flex-grow">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Briefcase className="w-6 h-6 text-v3-orange" />
+                      <h3 className="text-v3-text-lightest font-semibold text-lg">{job.title}</h3>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-v3-text-muted pl-9">
+                      <span className="flex items-center gap-1.5"><MapPin size={14} />{job.address}</span>
+                      <span className="flex items-center gap-1.5"><Clock size={14} />{new Date(job.arrival_time).toLocaleString('en-GB')}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-v3-text-muted pl-9">
-                    <span className="flex items-center gap-1.5"><MapPin size={14} />{job.address}</span>
-                    <span className="flex items-center gap-1.5"><Clock size={14} />{new Date(job.arrival_time).toLocaleString('en-GB')}</span>
+                  <div className="flex-shrink-0 flex sm:flex-col items-center gap-3">
+                    <button onClick={() => handleJobResponse(assignment.id, 'accepted')} className="button-refresh bg-green-600 hover:bg-green-700 w-full sm:w-32 flex items-center justify-center gap-2">
+                      <CheckCircle size={16} /> Accept
+                    </button>
+                    <button onClick={() => handleJobResponse(assignment.id, 'declined')} className="button-refresh bg-red-600 hover:bg-red-700 w-full sm:w-32 flex items-center justify-center gap-2">
+                      <XCircle size={16} /> Decline
+                    </button>
                   </div>
-                </div>
-                <div className="flex-shrink-0 flex sm:flex-col items-center gap-3">
-                  <button onClick={() => handleJobResponse(job.id, 'accepted')} className="button-refresh bg-green-600 hover:bg-green-700 w-full sm:w-32 flex items-center justify-center gap-2">
-                    <CheckCircle size={16} /> Accept
-                  </button>
-                  <button onClick={() => handleJobResponse(job.id, 'declined')} className="button-refresh bg-red-600 hover:bg-red-700 w-full sm:w-32 flex items-center justify-center gap-2">
-                    <XCircle size={16} /> Decline
-                  </button>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
