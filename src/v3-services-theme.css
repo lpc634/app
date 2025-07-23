@@ -598,3 +598,7 @@ button:has(.lucide-log-out):hover {
     min-height: 600px !important;
   }
 }
+/* FIX FOR TRANSPARENT MOBILE MENU */
+.mobile-menu-panel {
+  background-color: var(--v3-bg-card) !important;
+}

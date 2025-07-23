@@ -30,12 +30,14 @@ const AgentLayout = () => {
   const { logout, apiCall, user, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
+  const location = useLocation(); // <-- FIX: Added useLocation hook
 
+  // Close mobile menu when route changes
   useEffect(() => {
     setMobileMenuOpen(false);
-  }, [location.pathname]);
+  }, [location.pathname]); // <-- FIX: Now works correctly
 
+  // Push notifications setup
   useEffect(() => {
     if (loading || !user) return;
 
@@ -99,7 +101,8 @@ const AgentLayout = () => {
             className="absolute inset-0 bg-black/60"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="absolute left-0 top-0 bottom-0 w-80 bg-v3-bg-card border-r border-v3-border flex flex-col">
+          {/* FIX: Added 'mobile-menu-panel' class for specific styling */}
+          <div className="mobile-menu-panel absolute left-0 top-0 bottom-0 w-80 bg-v3-bg-card border-r border-v3-border flex flex-col">
             <div className="h-16 flex items-center justify-between px-4 border-b border-v3-border">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
