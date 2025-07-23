@@ -4,34 +4,21 @@ import { toast } from 'sonner';
 import { Loader2, Search, AlertTriangle, Send, PlusCircle, X, MapPin, NotebookText, User, Calendar, Users } from 'lucide-react';
 
 // --- MOCK DATA (Car makes and models) ---
-// In a real application, you would fetch this from an API.
 const carData = {
-  "Ford": ["Fiesta", "Focus", "Mustang", "Explorer"],
+  "Ford": ["Fiesta", "Focus", "Mustang", "Explorer", "Transit"],
   "BMW": ["3 Series", "5 Series", "X5", "M3"],
   "Audi": ["A4", "A6", "Q5", "R8"],
-  "Mercedes-Benz": ["C-Class", "E-Class", "S-Class", "G-Class"],
+  "Mercedes-Benz": ["C-Class", "E-Class", "S-Class", "G-Class", "Sprinter"],
   "Vauxhall": ["Corsa", "Astra", "Insignia", "Mokka"]
 };
 
 // --- Reusable UI Components ---
-const Input = (props) => (
-    <input 
-        className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest placeholder-gray-400 focus:outline-none focus:ring-v3-orange focus:border-v3-orange" 
-        {...props} 
-    />
-);
+const Input = (props) => <input className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest placeholder-gray-400 focus:outline-none focus:ring-v3-orange focus:border-v3-orange" {...props} />;
 const Textarea = (props) => <textarea className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest placeholder-gray-400 focus:outline-none focus:ring-v3-orange focus:border-v3-orange" rows="3" {...props} />;
-const Button = ({ children, className, ...props }) => (
-    <button 
-        className={`button-refresh ${className}`} 
-        {...props}
-    >
-        {children}
-    </button>
-);
+const Button = ({ children, ...props }) => <button className="button-refresh" {...props}>{children}</button>;
 const Select = (props) => <select className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange" {...props} />;
 
-// --- AddSightingModal Component ---
+// --- AddSightingModal Component (Moved to top level) ---
 const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     const { apiCall } = useAuth();
     const [plate, setPlate] = useState('');
@@ -39,8 +26,6 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     const [address, setAddress] = useState('');
     const [isDangerous, setIsDangerous] = useState(false);
     const [loading, setLoading] = useState(false);
-    
-    // New state for make/model
     const [makes, setMakes] = useState([]);
     const [models, setModels] = useState([]);
     const [selectedMake, setSelectedMake] = useState('');
@@ -51,7 +36,6 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
         if (isOpen) {
             setMakes(Object.keys(carData));
         } else {
-            // Reset form when modal closes
             setPlate(''); setNotes(''); setAddress(''); setIsDangerous(false);
             setSelectedMake(''); setSelectedModel(''); setIsManualEntry(false);
         }
@@ -68,21 +52,19 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        // Validation logic here...
         setLoading(true);
         try {
             const payload = {
                 registration_plate: plate.toUpperCase(),
-                notes,
-                is_dangerous: isDangerous,
-                address_seen: address,
-                make: selectedMake,
-                model: selectedModel
+                notes, is_dangerous: isDangerous, address_seen: address,
+                make: selectedMake, model: selectedModel
             };
-            // This is where you would make the API call
-            console.log("Submitting:", payload);
+            const newSighting = await apiCall('/vehicles/sightings', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
             toast.success("Sighting added successfully!");
-            onSightingAdded(payload); // We'll simulate this for now
+            onSightingAdded(newSighting);
             onClose();
         } catch (error) {
             toast.error("Failed to add sighting.");
@@ -103,12 +85,10 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <Input value={plate} onChange={e => setPlate(e.target.value)} placeholder="Registration Plate" required />
                     <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="Address or Area Seen" required />
-                    
                     <div className="flex items-center gap-2">
                         <input type="checkbox" id="manualEntry" checked={isManualEntry} onChange={e => setIsManualEntry(e.target.checked)} />
                         <label htmlFor="manualEntry">Make/Model not listed?</label>
                     </div>
-
                     {isManualEntry ? (
                         <div className="grid grid-cols-2 gap-4">
                             <Input value={selectedMake} onChange={e => setSelectedMake(e.target.value)} placeholder="Make" />
@@ -145,8 +125,7 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     );
 };
 
-
-// --- GroupViewModal Component (Placeholder) ---
+// --- GroupViewModal Component (Moved to top level) ---
 const GroupViewModal = ({ isOpen, onClose, groupData }) => {
     if (!isOpen) return null;
     return (
@@ -159,10 +138,9 @@ const GroupViewModal = ({ isOpen, onClose, groupData }) => {
                 <div className="p-6">
                     <p className="text-sm text-v3-text-muted mb-4">The following plates were sighted at the same location and time:</p>
                     <ul className="space-y-2">
-                        {/* This will be populated by real data later */}
-                        <li className="bg-v3-bg-dark p-2 rounded-md font-mono">PLATE-123</li>
-                        <li className="bg-v3-bg-dark p-2 rounded-md font-mono">PLATE-456</li>
-                        <li className="bg-v3-bg-dark p-2 rounded-md font-mono">PLATE-789</li>
+                        {groupData && groupData.map(plate => (
+                           <li key={plate} className="bg-v3-bg-dark p-2 rounded-md font-mono">{plate}</li>
+                        ))}
                     </ul>
                 </div>
             </div>
@@ -173,59 +151,112 @@ const GroupViewModal = ({ isOpen, onClose, groupData }) => {
 
 // --- VehicleSearchPage Main Component ---
 const VehicleSearchPage = () => {
-    // ... (existing state variables)
+
     const [searchPlate, setSearchPlate] = useState('');
     const [sightings, setSightings] = useState([]);
     const [selectedSighting, setSelectedSighting] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [isGroupModalOpen, setIsGroupModalOpen] = useState(false); // New state for group modal
+    const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     
-    // ... (existing refs and functions: apiCall, mapRef, etc.)
+
     const { apiCall } = useAuth();
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
     const markersRef = useRef({});
 
-    // --- MOCK SEARCH FUNCTION ---
-    const handleSearch = async (e) => {
-        e.preventDefault();
-        if (!searchPlate) return;
-        setLoading(true);
-        setHasSearched(true);
-        setError('');
-        
-        // Simulate API call
-        setTimeout(() => {
-            const mockSightings = [
-                { id: 1, registration_plate: searchPlate.toUpperCase(), address_seen: 'Tesco, Camberley', sighted_at: new Date().toISOString(), agent_name: 'John Doe', notes: 'Vehicle was seen with two others.', is_dangerous: true, make: 'Ford', model: 'Transit' },
-                { id: 2, registration_plate: searchPlate.toUpperCase(), address_seen: 'Meadows, Camberley', sighted_at: new Date(Date.now() - 86400000).toISOString(), agent_name: 'Jane Smith', notes: 'Driver was acting suspiciously.', is_dangerous: false, make: 'Ford', model: 'Transit' },
-            ];
-            setSightings(mockSightings);
-            setSelectedSighting(mockSightings[0]);
-            setLoading(false);
-        }, 1000);
+    const getCoordinates = async (address) => {
+        if (!address) return null;
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=gb`);
+            const data = await response.json();
+            if (data && data.length > 0) {
+                return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), displayName: data[0].display_name };
+            }
+            return null;
+        } catch (error) { console.error("Geocoding error:", error); return null; }
     };
 
-    // ... (rest of the component logic)
+    const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchPlate) return;
+    setLoading(true);
+    setHasSearched(true);
+    setError('');
+    setSightings([]);
+    setSelectedSighting(null);
+    try {
+        const data = await apiCall(`/vehicles/${searchPlate.trim().toUpperCase()}`);
+        setSightings(data);
+        if (data.length > 0) {
+            setSelectedSighting(data[0]);
+        } else {
+             setError('No records found for this registration plate.');
+        }
+    } catch (err) {
+        setSightings([]);
+        setError(err.message.includes('404') ? 'No records found for this registration plate.' : 'An error occurred while searching.');
+    } finally {
+        setLoading(false);
+    }
+};
+
+
     const handleSightingAdded = (newSighting) => {
         if (newSighting.registration_plate === searchPlate.toUpperCase()) {
             setSightings(prev => [newSighting, ...prev]);
         }
     };
     
-    // Placeholder function to open group view
-    const handleViewGroup = () => {
-        setIsGroupModalOpen(true);
-    };
+    const handleViewGroup = () => setIsGroupModalOpen(true);
 
+    useEffect(() => {
+        if (hasSearched && !mapInstance.current && mapRef.current) {
+            mapInstance.current = window.L.map(mapRef.current).setView([51.505, -0.09], 6);
+            window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance.current);
+        }
 
+        const updateMap = async () => {
+            if (!mapInstance.current) return;
+            Object.values(markersRef.current).forEach(marker => marker.remove());
+            markersRef.current = {};
+            
+            if (sightings.length === 0) return;
+
+            const locations = [];
+            for (const s of sightings) {
+                const coords = await getCoordinates(s.address_seen);
+                if (coords) {
+                    const marker = window.L.marker([coords.lat, coords.lng]).addTo(mapInstance.current);
+                    marker.bindPopup(`<b>${coords.displayName}</b><br>${new Date(s.sighted_at).toLocaleString()}`);
+                    markersRef.current[s.id] = marker;
+                    locations.push([coords.lat, coords.lng]);
+                }
+            }
+            if (locations.length > 0) {
+                mapInstance.current.fitBounds(locations, { padding: [50, 50], maxZoom: 14 });
+            }
+        };
+        
+        if (hasSearched) {
+            updateMap();
+        }
+    }, [sightings, hasSearched]);
+
+    useEffect(() => {
+        if (selectedSighting && mapInstance.current && markersRef.current[selectedSighting.id]) {
+            const marker = markersRef.current[selectedSighting.id];
+            mapInstance.current.panTo(marker.getLatLng(), { animate: true });
+            marker.openPopup();
+        }
+    }, [selectedSighting]);
+    
     return (
         <>
             <AddSightingModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSightingAdded={handleSightingAdded} />
-            <GroupViewModal isOpen={isGroupModalOpen} onClose={() => setIsGroupModalOpen(false)} />
+            <GroupViewModal isOpen={isGroupModalOpen} onClose={() => setIsGroupModalOpen(false)} groupData={selectedSighting?.group} />
 
             <div className="p-4 sm:p-6 lg:p-8 h-full flex flex-col">
                 <div className="flex justify-between items-center mb-6">
@@ -253,20 +284,27 @@ const VehicleSearchPage = () => {
                         </div>
                     </div>
                 ) : (
+                    
                     <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
-                        {/* Sightings List */}
                         <div className="lg:col-span-1 bg-v3-bg-card rounded-lg flex flex-col overflow-hidden">
-                           {/* ... list header ... */}
+                           <div className="p-4 border-b border-v3-border">
+                                <h2 className="text-lg font-semibold text-v3-text-lightest">
+                                    {loading ? 'Searching...' : sightings.length > 0 ? `${sightings.length} Sighting(s)` : 'No Results'}
+                                </h2>
+                           </div>
                            <div className="flex-grow overflow-y-auto">
-                                {loading ? <div className="p-6 text-center">Loading...</div> : sightings.map(sighting => (
-                                    <div key={sighting.id} onClick={() => setSelectedSighting(sighting)} className={`p-4 border-b border-v3-border cursor-pointer hover:bg-v3-bg-dark ${selectedSighting?.id === sighting.id ? 'bg-v3-bg-dark' : ''}`}>
+                                {loading && <div className="p-6 text-center text-v3-text-muted"><Loader2 className="animate-spin inline-block" /></div>}
+                                {!loading && error && <div className="p-6 text-center text-red-400">{error}</div>}
+                                {!loading && !error && sightings.length === 0 && <div className="p-6 text-center text-v3-text-muted">No sightings found for this plate.</div>}
+                                
+                                {sightings.map(sighting => (
+                                    <div key={sighting.id} onClick={() => setSelectedSighting(sighting)} className={`p-4 border-b border-v3-border cursor-pointer hover:bg-v3-bg-dark ${selectedSighting?.id === sighting.id ? 'bg-v3-orange/20' : ''}`}>
                                         <p className="font-bold">{sighting.address_seen}</p>
                                         <p className="text-sm text-v3-text-muted">{new Date(sighting.sighted_at).toLocaleString()}</p>
                                     </div>
                                 ))}
                            </div>
                         </div>
-                        {/* Map & Details */}
                         <div className="lg:col-span-2 bg-v3-bg-card rounded-lg flex flex-col overflow-hidden">
                             <div ref={mapRef} className="flex-grow w-full h-1/2 min-h-[300px]" style={{backgroundColor: '#1a202c'}}></div>
                             {selectedSighting && (
@@ -280,7 +318,12 @@ const VehicleSearchPage = () => {
                                             <Users size={16} /> View Group
                                         </Button>
                                      </div>
-                                     {/* ... rest of the details */}
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                                         <div className="flex items-start gap-3"><MapPin className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Location</strong><span className="text-v3-text-muted">{selectedSighting.address_seen}</span></div></div>
+                                         <div className="flex items-start gap-3"><Calendar className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Date</strong><span className="text-v3-text-muted">{new Date(selectedSighting.sighted_at).toLocaleString()}</span></div></div>
+                                         <div className="flex items-start gap-3"><User className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Agent</strong><span className="text-v3-text-muted">{selectedSighting.agent_name}</span></div></div>
+                                         <div className="flex items-start gap-3 md:col-span-2"><NotebookText className="text-v3-orange mt-1"/><div><strong className="text-v3-text-light block">Notes</strong><p className="text-v3-text-muted">{selectedSighting.notes}</p></div></div>
+                                     </div>
                                  </div>
                             )}
                         </div>
