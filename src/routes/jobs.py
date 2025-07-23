@@ -182,75 +182,73 @@ def convert_coords_to_what3words():
 
 # --- Job Routes ---
 
-# [PASTE THIS CODE OVER THE OLD get_jobs FUNCTION]
+# [PASTE THIS CODE OVER THE OLD create_job FUNCTION]
 
-@jobs_bp.route('/jobs', methods=['GET'])
+@jobs_bp.route('/jobs', methods=['POST'])
 @jwt_required()
-def get_jobs():
-    """Get list of jobs with pagination. For agents, this is their 'Available Jobs' pool."""
+@validate_json_fields(['title', 'job_type', 'address', 'arrival_time', 'agents_required', 'hourly_rate'])
+def create_job():
+    """Admin creates a new job, and the system assigns it to available agents."""
     try:
-        current_user = User.query.get(get_jwt_identity())
+        current_user = require_admin()
         if not current_user:
-            return jsonify({'error': 'User not found'}), 404
+            return jsonify({'error': 'Access denied. Admin role required.'}), 403
 
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 20, type=int)
+        data = request.get_json()
 
-        if current_user.role == 'agent':
-            # Agent logic: Get jobs they have been assigned to with a 'pending' status
-            query = Job.query.join(JobAssignment).filter(
-                JobAssignment.agent_id == current_user.id,
-                JobAssignment.status == 'pending'
-            ).order_by(Job.arrival_time.asc())
+        new_job = Job(
+            title=data['title'],
+            job_type=data['job_type'],
+            address=data['address'],
+            postcode=data.get('postcode'),
+            arrival_time=parse(data['arrival_time']),
+            agents_required=int(data['agents_required']),
+            hourly_rate=float(data['hourly_rate']),
+            instructions=data.get('instructions'),
+            status='open',
+            created_by=current_user.id
+        )
+        db.session.add(new_job)
+        db.session.flush()
 
-        else:  # Admin logic
-            status = request.args.get('status')
-            query = Job.query
-            if status:
-                query = query.filter(Job.status == status)
-            query = query.order_by(Job.arrival_time.desc())
+        job_date = new_job.arrival_time.date()
+        available_agents = User.query.join(AgentAvailability).filter(
+            User.role == 'agent',
+            User.is_verified == True,
+            AgentAvailability.date == job_date,
+            AgentAvailability.is_available == True
+        ).all()
+        
+        if not available_agents:
+            db.session.commit()
+            return jsonify({
+                'message': 'Job created, but no available agents found for that date.',
+                'job': new_job.to_dict()
+            }), 201
 
-        paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+        assigned_agent_ids = []
+        for agent in available_agents:
+            assignment = JobAssignment(job_id=new_job.id, agent_id=agent.id, status='pending')
+            db.session.add(assignment)
+            assigned_agent_ids.append(agent.id)
+
+        notification_title = "New Job Available"
+        notification_message = f"A new job, '{new_job.title}', is available for your response."
+        trigger_push_notification_for_users(assigned_agent_ids, notification_title, notification_message)
+
+        db.session.commit()
 
         return jsonify({
-            'jobs': [job.to_dict() for job in paginated.items],
-            'total': paginated.total,
-            'page': page,
-            'pages': paginated.pages
-        }), 200
+            'message': f'Job created and assigned to {len(available_agents)} agents.',
+            'job': new_job.to_dict()
+        }), 201
 
+    except ValueError as ve:
+        return jsonify({'error': f'Invalid data format: {ve}'}), 400
     except Exception as e:
-        current_app.logger.error(f"Error fetching jobs: {str(e)}")
-        return jsonify({'error': 'Failed to fetch jobs'}), 500
-
-
-
-@jobs_bp.route('/jobs/<int:job_id>', methods=['GET'])
-@jwt_required()
-def get_job(job_id):
-    """Get job details."""
-    try:
-        current_user = require_agent_or_admin()
-        if not current_user:
-            return jsonify({'error': 'User not found'}), 404
-        
-        job = Job.query.get(job_id)
-        if not job:
-            return jsonify({'error': 'Job not found'}), 404
-        
-        if current_user.role == 'agent':
-            assignment = JobAssignment.query.filter_by(
-                job_id=job_id, 
-                agent_id=current_user.id
-            ).first()
-            if not assignment and job.status != 'open':
-                return jsonify({'error': 'Access denied'}), 403
-        
-        return jsonify({'job': job.to_dict()}), 200
-        
-    except Exception as e:
-        logger.error(f"Error fetching job: {str(e)}")
-        return jsonify({'error': 'Failed to fetch job details'}), 500
+        db.session.rollback()
+        current_app.logger.error(f"Error creating job: {str(e)}")
+        return jsonify({'error': 'Failed to create job'}), 500
 
 @jobs_bp.route('/jobs/<int:job_id>', methods=['PUT'])
 @jwt_required()
