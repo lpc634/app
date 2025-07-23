@@ -220,20 +220,27 @@ const VehicleSearchPage = () => {
         }
     };
 
+    // --- REVISED MAP LOGIC ---
     useEffect(() => {
-        // Initialize map only if there are sightings
-        if (sightings.length > 0 && !mapInstance.current && mapRef.current) {
-            mapInstance.current = window.L.map(mapRef.current).setView([51.505, -0.09], 6);
+        // If we have sightings and a map container, initialize the map
+        if (sightings.length > 0 && mapRef.current && !mapInstance.current) {
+            mapInstance.current = window.L.map(mapRef.current).setView([54.5, -3.5], 6); // UK view
             window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance.current);
         }
 
-        const updateMap = async () => {
+        // If there are no sightings and the map instance exists, destroy it
+        if (sightings.length === 0 && mapInstance.current) {
+            mapInstance.current.remove();
+            mapInstance.current = null;
+        }
+
+        const updateMapMarkers = async () => {
             if (!mapInstance.current) return;
+            
+            // Clear existing markers
             Object.values(markersRef.current).forEach(marker => marker.remove());
             markersRef.current = {};
             
-            if (sightings.length === 0) return;
-
             const locations = [];
             for (const s of sightings) {
                 const coords = await getCoordinates(s.address_seen);
@@ -244,18 +251,20 @@ const VehicleSearchPage = () => {
                     locations.push([coords.lat, coords.lng]);
                 }
             }
+            
+            // Auto-zoom to fit all markers
             if (locations.length > 0) {
                 mapInstance.current.fitBounds(locations, { padding: [50, 50], maxZoom: 14 });
             }
         };
-        
-        // Update map only if there are sightings
+
         if (sightings.length > 0) {
-            updateMap();
+            updateMapMarkers();
         }
     }, [sightings]);
 
     useEffect(() => {
+        // Pan to selected sighting on the map
         if (selectedSighting && mapInstance.current && markersRef.current[selectedSighting.id]) {
             const marker = markersRef.current[selectedSighting.id];
             mapInstance.current.panTo(marker.getLatLng(), { animate: true });
@@ -315,7 +324,6 @@ const VehicleSearchPage = () => {
                            </div>
                         </div>
 
-                        {/* --- THIS ENTIRE SECTION IS NOW CONDITIONAL --- */}
                         <div className="lg:col-span-2 bg-v3-bg-card rounded-lg flex flex-col overflow-hidden">
                             {sightings.length > 0 ? (
                                 <>
