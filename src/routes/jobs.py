@@ -257,109 +257,45 @@ def get_jobs():
         return jsonify({'error': 'Failed to fetch jobs'}), 500
 
 # <<< THIS IS THE ONLY FUNCTION THAT HAS CHANGED >>>
-@jobs_bp.route('/jobs', methods=['POST'])
+@jobs_bp.route('/jobs', methods=['GET'])
 @jwt_required()
-@validate_json_fields(['title', 'address', 'arrival_time'])
-def create_job():
-    """Create new job (admin only) and send notifications to ALL available agents."""
-    current_user = require_admin()
-    if not current_user:
-        return jsonify({'error': 'Access denied. Admin role required.'}), 403
-
-    data = request.get_json()
-    
+def get_jobs():
+    """Get list of jobs. For agents, this is their 'Available Jobs' pool."""
     try:
-        arrival_time = parse(data['arrival_time'])
-    except (ValueError, TypeError):
-        return jsonify({'error': 'Invalid arrival_time format'}), 400
-
-    try:
-        new_job = Job(
-            title=data.get('title'),
-            job_type=data.get('job_type', 'Traveller Eviction'),
-            address=data.get('address'),
-            postcode=data.get('postcode'),
-            arrival_time=arrival_time,
-            agents_required=int(data.get('agents_required', 1)),
-            instructions=data.get('instructions'),
-            created_by=current_user.id,
-            status='open'
-        )
-        db.session.add(new_job)
-        db.session.commit() # Commit here to get a job ID
-
-        # --- Notification and Assignment Logic ---
-        job_date = new_job.arrival_time.date()
-        day_name = job_date.strftime("%A").lower()
-
-        weekly_available_q = AgentWeeklyAvailability.query.filter(getattr(AgentWeeklyAvailability, day_name) == True)
-        weekly_available_ids = {a.agent_id for a in weekly_available_q.all()}
-        
-        overrides_q = AgentAvailability.query.filter_by(date=job_date).all()
-        available_overrides = {a.agent_id for a in overrides_q if a.is_available}
-        unavailable_overrides = {a.agent_id for a in overrides_q if not a.is_available}
-
-        final_available_ids = (weekly_available_ids | available_overrides) - unavailable_overrides
-
-        notification_status = "No agents available for this date."
-        if final_available_ids:
-            agent_ids_to_notify = list(final_available_ids)
-            
-            # --- FIX: Create JobAssignment for each agent ---
-            for agent_id in agent_ids_to_notify:
-                assignment = JobAssignment(job_id=new_job.id, agent_id=agent_id, status='pending')
-                db.session.add(assignment)
-            db.session.commit() # Commit the new assignments
-            # ----------------------------------------------------
-
-            title = f"New Job Available: {new_job.title}"
-            message = f"A new '{new_job.job_type}' job is available for {job_date.strftime('%d-%b-%Y')}. Tap to view."
-            
-            try:
-                trigger_push_notification_for_users(agent_ids_to_notify, title, message)
-                notification_status = f"Notification sent to {len(agent_ids_to_notify)} available agents."
-            except Exception as e:
-                notification_status = f"Job created but notifications failed: {str(e)}"
-                logger.error(f"Notification error: {str(e)}")
-
-        response_data = new_job.to_dict()
-        response_data['notification_status'] = notification_status
-
-        return jsonify({
-            'message': 'Job created successfully!',
-            'job': response_data
-        }), 201
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error creating job: {str(e)}")
-        return jsonify({'error': 'Failed to create job', 'details': str(e)}), 500
-
-@jobs_bp.route('/jobs/<int:job_id>/mark-completed', methods=['POST'])
-@jwt_required()
-def mark_job_completed(job_id):
-    """Debug tool to manually mark a job as completed."""
-    try:
-        current_user = require_admin()
+        current_user = require_agent_or_admin()
         if not current_user:
-            return jsonify({'error': 'Access denied. Admin role required.'}), 403
-
-        job = Job.query.get(job_id)
-        if not job:
-            return jsonify({'error': 'Job not found'}), 404
+            return jsonify({'error': 'User not found'}), 404
+        
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        
+        if current_user.role == 'agent':
+            # --- THIS IS THE CORRECTED LOGIC FOR AGENTS ---
+            # An agent should see jobs that are assigned to them with a 'pending' status.
+            query = Job.query.join(JobAssignment).filter(
+                JobAssignment.agent_id == current_user.id,
+                JobAssignment.status == 'pending'
+            ).order_by(Job.arrival_time.asc())
             
-        job.arrival_time = datetime.utcnow() - timedelta(days=1)
-        job.status = 'completed'
-        db.session.commit()
-
+        else:  # Admin logic remains the same
+            status = request.args.get('status')
+            query = Job.query
+            if status:
+                query = query.filter(Job.status == status)
+            query = query.order_by(Job.arrival_time.desc())
+        
+        paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+        
         return jsonify({
-            'message': f'Job {job.id} - "{job.title}" has been marked as completed.'
+            'jobs': [job.to_dict() for job in paginated.items],
+            'total': paginated.total,
+            'page': page,
+            'pages': paginated.pages
         }), 200
         
     except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error marking job as completed: {str(e)}")
-        return jsonify({'error': 'Failed to mark job as completed'}), 500
+        logger.error(f"Error fetching jobs: {str(e)}")
+        return jsonify({'error': 'Failed to fetch jobs'}), 500
 
 @jobs_bp.route('/jobs/<int:job_id>', methods=['GET'])
 @jwt_required()
