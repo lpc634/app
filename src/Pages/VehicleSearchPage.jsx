@@ -14,10 +14,7 @@ const carData = {
 };
 
 // --- Reusable UI Components ---
-const Input = (props) => <input className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest placeholder-gray-400 focus:outline-none focus:ring-v3-orange focus:border-v3-orange" {...props} />;
-const Textarea = (props) => <textarea className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest placeholder-gray-400 focus:outline-none focus:ring-v3-orange focus:border-v3-orange" rows="3" {...props} />;
-const Button = ({ children, ...props }) => <button className="button-refresh" {...props}>{children}</button>;
-const Select = (props) => <select className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange" {...props} />;
+const Input = (props) => <input className="v3-input-light" {...props} />;
 
 // --- AddSightingModal Component ---
 const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {

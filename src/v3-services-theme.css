@@ -4,7 +4,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 /* ===== CSS VARIABLES ===== */
-:root {
+.dark {
   /* Brand Colors */
   --v3-orange: #FF5722;
   --v3-orange-dark: #E64A19;
@@ -601,4 +601,24 @@ button:has(.lucide-log-out):hover {
 /* FIX FOR TRANSPARENT MOBILE MENU */
 .mobile-menu-panel {
   background-color: var(--v3-bg-card) !important;
+}
+/* ===== CUSTOM INPUT FIELD STYLES ===== */
+.v3-input-light {
+  background-color: var(--v3-white) !important;
+  color: #111111 !important; /* Near-black for strong contrast */
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+  padding: 8px 12px;
+  width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.v3-input-light::placeholder {
+  color: #666666; /* Dark grey for placeholder */
+}
+
+.v3-input-light:focus {
+  outline: none;
+  border-color: var(--v3-orange);
+  box-shadow: 0 0 0 2px var(--v3-orange-glow);
 }
