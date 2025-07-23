@@ -81,18 +81,18 @@ const AgentLayout = () => {
   return (
     <div className="min-h-screen bg-v3-bg-darkest">
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 bg-v3-bg-card border-b border-v3-border z-50 h-16 flex items-center px-4">
-        <button 
-          onClick={() => setMobileMenuOpen(true)}
-          className="text-v3-text-lightest"
-        >
-          <Menu size={24} />
-        </button>
-        <div className="flex-1 text-center text-v3-text-lightest font-semibold">
-          V3 Agent Portal
-        </div>
-        <div className="w-8"></div>
-      </div>
+<div className="md:hidden fixed top-0 left-0 right-0 bg-v3-bg-card border-b border-v3-border z-50 h-16 flex items-center px-4">
+    <button 
+      onClick={() => setMobileMenuOpen(true)}
+      className="text-v3-text-lightest"
+    >
+      <Menu size={24} />
+    </button>
+    <div className="flex-1 text-center text-v3-text-lightest font-semibold">
+      V3 Agent Portal
+    </div>
+    <div className="w-8"></div>
+</div>
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
