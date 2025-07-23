@@ -214,25 +214,28 @@ def get_agent_dashboard_data():
         if availability_today and availability_today.is_available:
             today_status = 'available'
 
-        available_dates_records = AgentAvailability.query.filter_by(
+        # ================================
+        # FIXED LOGIC: Show pending assigned jobs instead of unassigned jobs
+        # ================================
+        
+        # Get pending job assignments for this agent
+        pending_assignments = JobAssignment.query.filter_by(
             agent_id=user.id, 
-            is_available=True, 
-            is_away=False
+            status='pending'
         ).all()
-        available_dates = [record.date for record in available_dates_records]
 
         available_jobs = []
-        if available_dates:
-            assigned_job_ids = [
-                assignment.job_id for assignment in 
-                JobAssignment.query.filter_by(agent_id=user.id).all()
-            ]
-            
-            available_jobs = Job.query.filter(
-                Job.status == 'open',
-                db.func.date(Job.arrival_time).in_(available_dates),
-                ~Job.id.in_(assigned_job_ids)
-            ).order_by(Job.arrival_time.asc()).all()
+        for assignment in pending_assignments:
+            job = Job.query.get(assignment.job_id)
+            if job and job.status == 'open':
+                # Add assignment ID to job data so frontend can respond to it
+                job_dict = job.to_dict()
+                job_dict['assignment_id'] = assignment.id
+                available_jobs.append(job_dict)
+
+        # ================================
+        # END OF FIXED LOGIC
+        # ================================
 
         upcoming_shifts = db.session.query(Job).join(JobAssignment).filter(
             JobAssignment.agent_id == user.id,
@@ -252,11 +255,10 @@ def get_agent_dashboard_data():
             Job.arrival_time <= now
         ).order_by(Job.arrival_time.desc()).all()
 
-
         dashboard_data = {
             'agent_name': full_name,
             'today_status': today_status,
-            'available_jobs': [job.to_dict() for job in available_jobs],
+            'available_jobs': available_jobs,
             'upcoming_shifts': [job.to_dict() for job in upcoming_shifts],
             'completed_jobs': [job.to_dict() for job in completed_jobs],
             'reports_to_file': [job.to_dict() for job in reports_to_file]
