@@ -3,6 +3,33 @@ import { useAuth } from '../useAuth.jsx';
 import { toast } from 'sonner';
 import { Loader2, Search, AlertTriangle, Send, PlusCircle, X, MapPin, NotebookText, User, Calendar } from 'lucide-react';
 
+// --- Reusable Input Component ---
+const Input = ({ className, ...props }) => (
+    <input 
+        className={`w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest placeholder-gray-400 focus:outline-none focus:ring-v3-orange focus:border-v3-orange ${className}`} 
+        {...props} 
+    />
+);
+
+// --- Reusable Textarea Component ---
+const Textarea = ({ className, ...props }) => (
+    <textarea 
+        className={`w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest placeholder-gray-400 focus:outline-none focus:ring-v3-orange focus:border-v3-orange ${className}`} 
+        rows="3" 
+        {...props}
+    />
+);
+
+// --- Reusable Button Component ---
+const Button = ({ children, className, ...props }) => (
+    <button 
+        className={`button-refresh ${className}`} 
+        {...props}
+    >
+        {children}
+    </button>
+);
+
 // --- AddSightingModal Component ---
 const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     const { apiCall } = useAuth();
@@ -14,7 +41,6 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
 
     useEffect(() => {
         if (!isOpen) {
-            // Reset form when modal closes
             setPlate('');
             setNotes('');
             setAddress('');
@@ -34,15 +60,15 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
             const newSighting = await apiCall('/vehicles/sightings', {
                 method: 'POST',
                 body: JSON.stringify({
-                    registration_plate: plate,
-                    notes: notes,
+                    registration_plate: plate.toUpperCase(),
+                    notes,
                     is_dangerous: isDangerous,
                     address_seen: address
                 })
             });
             toast.success(`Sighting for ${newSighting.registration_plate} added successfully!`);
             onSightingAdded(newSighting);
-            onClose(); // Close modal on success
+            onClose();
         } catch (error) {
             toast.error(error.message || "Failed to add sighting.");
         } finally {
@@ -53,26 +79,26 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center">
+        <div className="fixed inset-0 bg-black/70 z-50 flex justify-center items-center p-4">
             <div className="bg-v3-bg-card rounded-lg shadow-xl w-full max-w-lg m-4">
-                <div className="p-6 border-b border-v3-border flex justify-between items-center">
+                <div className="p-4 border-b border-v3-border flex justify-between items-center">
                     <h2 className="text-xl font-bold text-v3-text-lightest">Add New Sighting</h2>
                     <button onClick={onClose} className="text-v3-text-muted hover:text-v3-text-lightest"><X /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <input type="text" value={plate} onChange={e => setPlate(e.target.value.toUpperCase())} placeholder="Registration Plate" className="input-class" required />
-                    <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Address or Area Seen (e.g., 'Tesco, Camberley')" className="input-class" required />
-                    <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes on interaction, individuals, etc." className="input-class" rows="3" required></textarea>
+                    <Input value={plate} onChange={e => setPlate(e.target.value)} placeholder="Registration Plate" required />
+                    <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="Address or Area Seen" required />
+                    <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes on interaction, individuals, etc." required />
                     <div className="flex items-center gap-3">
                         <input type="checkbox" id="isDangerousModal" checked={isDangerous} onChange={e => setIsDangerous(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-v3-orange focus:ring-v3-orange" />
                         <label htmlFor="isDangerousModal" className="text-v3-text-light font-medium">Mark as potentially dangerous</label>
                     </div>
                     <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={onClose} className="button-secondary">Cancel</button>
-                        <button type="submit" className="button-primary flex items-center justify-center gap-2" disabled={loading}>
+                        <Button type="button" onClick={onClose} className="bg-v3-bg-dark hover:bg-v3-bg-darkest">Cancel</Button>
+                        <Button type="submit" className="flex items-center justify-center gap-2" disabled={loading}>
                             {loading ? <Loader2 className="animate-spin" /> : <Send />}
                             Submit Sighting
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>
@@ -111,7 +137,6 @@ const VehicleSearchPage = () => {
 
         const updateMap = async () => {
             if (!mapInstance.current) return;
-            // Clear old markers
             Object.values(markersRef.current).forEach(marker => marker.remove());
             markersRef.current = {};
             
@@ -173,28 +198,24 @@ const VehicleSearchPage = () => {
     return (
         <>
             <AddSightingModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSightingAdded={handleSightingAdded} />
-            <div className="p-6 h-full flex flex-col">
-                {/* Header */}
+            <div className="p-4 sm:p-6 lg:p-8 h-full flex flex-col">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-3xl font-bold tracking-tight text-v3-text-lightest">Vehicle Intelligence</h1>
-                    <button onClick={() => setIsModalOpen(true)} className="button-primary flex items-center gap-2">
+                    <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
                         <PlusCircle size={18} /> Add New Sighting
-                    </button>
+                    </Button>
                 </div>
 
-                {/* Search Bar */}
                 <div className="mb-6">
                     <form onSubmit={handleSearch} className="flex gap-2">
-                        <input type="text" value={searchPlate} onChange={(e) => setSearchPlate(e.target.value)} placeholder="Enter registration plate to search..." className="input-class"/>
-                        <button type="submit" className="button-refresh flex items-center justify-center gap-2 w-32" disabled={loading}>
+                        <Input value={searchPlate} onChange={(e) => setSearchPlate(e.target.value)} placeholder="Enter registration plate..." />
+                        <Button type="submit" className="flex items-center justify-center gap-2 w-32" disabled={loading}>
                             {loading ? <Loader2 className="animate-spin" /> : <><Search size={18}/> Search</>}
-                        </button>
+                        </Button>
                     </form>
                 </div>
                 
-                {/* Content Area */}
                 <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
-                    {/* Sightings List & Details */}
                     <div className="lg:col-span-1 bg-v3-bg-card rounded-lg flex flex-col overflow-hidden">
                         <div className="p-4 border-b border-v3-border">
                              <h2 className="text-lg font-semibold text-v3-text-lightest">
@@ -218,7 +239,6 @@ const VehicleSearchPage = () => {
                             ))}
                         </div>
                     </div>
-                    {/* Map & Selected Sighting Details */}
                     <div className="lg:col-span-2 bg-v3-bg-card rounded-lg flex flex-col overflow-hidden">
                         <div ref={mapRef} className="flex-grow w-full h-1/2 min-h-[300px]" style={{backgroundColor: '#1a202c'}}></div>
                         {selectedSighting && (
