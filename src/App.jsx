@@ -22,7 +22,7 @@ import AgentManagement from './Pages/AgentManagement';
 import Analytics from './Pages/Analytics';
 import AvailabilityPage from './Pages/AvailabilityPage';
 import JobManagement from './Pages/JobManagement';
-import JobsPage from './Pages/JobsPage';
+
 import NotificationsPage from './Pages/NotificationsPage';
 import ProfilePage from './Pages/ProfilePage';
 import WeeklyCalendarView from './Pages/WeeklyCalendarView';
@@ -90,7 +90,7 @@ function App() {
           <Route element={<ProtectedRoute allowedRoles={['agent', 'admin', 'manager']}><AgentLayout /></ProtectedRoute>}>
             <Route path="/agent/dashboard" element={<AgentDashboard />} />
             <Route path="/agent/intelligence" element={<VehicleSearchPage />} />
-            <Route path="/agent/jobs" element={<JobsPage />} />
+            
             <Route path="/agent/jobs/:jobId" element={<JobDetails />} />
             <Route path="/agent/availability" element={<AvailabilityPage />} />
             <Route path="/agent/invoices" element={<AgentInvoices />} />
