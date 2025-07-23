@@ -260,7 +260,7 @@ def get_jobs():
 @jobs_bp.route('/jobs', methods=['GET'])
 @jwt_required()
 def get_jobs():
-    """Get list of jobs. For agents, this is their 'Available Jobs' pool."""
+    """Get list of jobs with pagination. For agents, this is their 'Available Jobs' pool."""
     try:
         current_user = require_agent_or_admin()
         if not current_user:
@@ -271,13 +271,12 @@ def get_jobs():
         
         if current_user.role == 'agent':
             # --- THIS IS THE CORRECTED LOGIC FOR AGENTS ---
-            # An agent should see jobs that are assigned to them with a 'pending' status.
             query = Job.query.join(JobAssignment).filter(
                 JobAssignment.agent_id == current_user.id,
                 JobAssignment.status == 'pending'
             ).order_by(Job.arrival_time.asc())
             
-        else:  # Admin logic remains the same
+        else:  # Admin logic
             status = request.args.get('status')
             query = Job.query
             if status:
