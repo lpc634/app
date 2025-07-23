@@ -7,22 +7,24 @@ const AvailableJobs = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { apiCall, user } = useAuth(); // Added user to get the agent_id
+  const { apiCall, user } = useAuth();
 
   const fetchJobs = useCallback(async () => {
+    if (!user) return; // Wait until user is loaded
     try {
       setLoading(true);
       setError('');
-      // Corrected the API endpoint
-      const data = await apiCall('/jobs'); 
-      setJobs(data.jobs || []);
+      // Corrected API endpoint to fetch assignments for the logged-in agent
+      const data = await apiCall(`/assignments/agent/${user.id}?status=pending`); 
+      // Extract the job details from each assignment
+      setJobs(data.assignments ? data.assignments.map(a => a.job) : []);
     } catch (error) {
       setError('Failed to load available jobs. Please try again.');
       console.error('Available Jobs error:', error);
     } finally {
       setLoading(false);
     }
-  }, [apiCall]);
+  }, [apiCall, user]);
 
   useEffect(() => {
     fetchJobs();
@@ -30,20 +32,22 @@ const AvailableJobs = () => {
 
   const handleJobResponse = async (jobId, response) => {
     try {
-        // Find the specific assignment for the current user
-        const job = jobs.find(j => j.id === jobId);
-        if (!job) {
-            toast.error("Could not find the job to respond to.");
-            return;
-        }
-        
-        await apiCall(`/jobs/${jobId}/respond`, {
-            method: 'POST',
-            body: JSON.stringify({ response }) // Sending accept/decline
-        });
+      // Find the assignment ID associated with the job ID for the current user
+      const assignmentData = await apiCall(`/assignments/agent/${user.id}?job_id=${jobId}`);
+      const assignment = assignmentData.assignments ? assignmentData.assignments[0] : null;
 
-        toast.success(`Job successfully ${response}ed!`);
-        fetchJobs(); // Refresh the list
+      if (!assignment) {
+          toast.error("Could not find the assignment to respond to.");
+          return;
+      }
+      
+      await apiCall(`/assignments/${assignment.id}/respond`, {
+          method: 'POST',
+          body: JSON.stringify({ response })
+      });
+
+      toast.success(`Job successfully ${response}ed!`);
+      fetchJobs();
     } catch (err) {
         toast.error(`Failed to ${response} job`, { description: err.message });
     }
