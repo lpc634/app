@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
     Briefcase, Calendar, ClipboardList, LogOut, Loader2, Power,
-    PowerOff, RefreshCw, MapPin, Clock, CheckCircle, ServerCrash
+    PowerOff, RefreshCw, MapPin, Clock, CheckCircle, XCircle, ServerCrash
 } from 'lucide-react';
 
 const JobListItem = ({ job, children }) => (
@@ -29,6 +29,7 @@ export default function AgentDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isToggling, setIsToggling] = useState(false);
+  const [respondingJobs, setRespondingJobs] = useState(new Set()); // Track which jobs are being responded to
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -65,8 +66,41 @@ export default function AgentDashboard() {
       }
   };
 
-  const handleAcceptJob = async (jobId) => {
-      // Logic for accepting a job
+  // Updated job response handler
+  const handleJobResponse = async (job, response) => {
+    const jobId = job.id;
+    const assignmentId = job.assignment_id;
+    
+    if (!assignmentId) {
+      toast.error('Error: Assignment ID not found');
+      return;
+    }
+
+    // Add this job to the "responding" set to show loading state
+    setRespondingJobs(prev => new Set(prev).add(jobId));
+
+    try {
+      await apiCall(`/assignments/${assignmentId}/respond`, {
+        method: 'POST',
+        body: JSON.stringify({ response })
+      });
+
+      toast.success(`Job successfully ${response}d!`);
+      
+      // Refresh dashboard data to update the UI
+      await fetchData();
+      
+    } catch (err) {
+      console.error('Job response error:', err);
+      toast.error(`Failed to ${response} job`, { description: err.message });
+    } finally {
+      // Remove job from responding set
+      setRespondingJobs(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(jobId);
+        return newSet;
+      });
+    }
   };
 
   if (loading || !dashboardData) {
@@ -135,9 +169,24 @@ export default function AgentDashboard() {
             <div className="px-4 pb-4 space-y-3">
                 {dashboardData.available_jobs && dashboardData.available_jobs.length > 0 ? dashboardData.available_jobs.map(job => (
                     <JobListItem key={job.id} job={job}>
-                        <button onClick={() => handleAcceptJob(job.id)} className="button-refresh bg-green-600 hover:bg-green-700 w-full sm:w-auto flex items-center gap-2">
-                            <CheckCircle size={16} /> Accept
-                        </button>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            <button 
+                                onClick={() => handleJobResponse(job, 'accepted')} 
+                                disabled={respondingJobs.has(job.id)}
+                                className="button-refresh bg-green-600 hover:bg-green-700 flex-1 sm:flex-none sm:w-24 flex items-center justify-center gap-2 text-sm"
+                            >
+                                {respondingJobs.has(job.id) ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle size={14} />}
+                                Accept
+                            </button>
+                            <button 
+                                onClick={() => handleJobResponse(job, 'declined')} 
+                                disabled={respondingJobs.has(job.id)}
+                                className="button-refresh bg-red-600 hover:bg-red-700 flex-1 sm:flex-none sm:w-24 flex items-center justify-center gap-2 text-sm"
+                            >
+                                {respondingJobs.has(job.id) ? <Loader2 className="animate-spin" size={14} /> : <XCircle size={14} />}
+                                Decline
+                            </button>
+                        </div>
                     </JobListItem>
                 )) : <p className="text-v3-text-muted text-center py-4">No new jobs are available for you at this time.</p>}
             </div>
