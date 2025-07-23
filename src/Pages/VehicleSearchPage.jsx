@@ -14,7 +14,12 @@ const carData = {
 };
 
 // --- Reusable UI Components ---
-const Input = (props) => <input className="v3-input-light" {...props} />;
+const Input = (props) => (
+    <input 
+        className="w-full bg-white border border-gray-400 rounded-md shadow-sm py-2 px-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-v3-orange focus:border-transparent" 
+        {...props} 
+    />
+);
 
 // --- AddSightingModal Component ---
 const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {

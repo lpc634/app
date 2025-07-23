@@ -622,3 +622,9 @@ button:has(.lucide-log-out):hover {
   border-color: var(--v3-orange);
   box-shadow: 0 0 0 2px var(--v3-orange-glow);
 }
+
+.v3-input-light:focus {
+  outline: none;
+  border-color: var(--v3-orange);
+  box-shadow: 0 0 0 2px var(--v3-orange-glow);
+}
