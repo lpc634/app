@@ -7,38 +7,34 @@ const AvailableJobs = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [debugInfo, setDebugInfo] = useState(null);
   const { apiCall, user } = useAuth();
 
   const fetchJobs = useCallback(async () => {
-    if (!user) return; 
+    if (!user) {
+      console.log('No user found, skipping fetch');
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       setError('');
       
-      console.log('Fetching assignments for user:', user.id);
+      console.log(`Fetching assignments for user ${user.id}`);
       
       // Fetch pending assignments
       const data = await apiCall(`/assignments/agent/${user.id}?status=pending`);
-      console.log('Assignments response:', data);
+      console.log('API Response:', data);
       
-      // Set assignments
-      setAssignments(data.assignments || []);
+      // Handle the response - we know it has assignments array
+      const assignmentsArray = data?.assignments || [];
       
-      // If no assignments, fetch debug info
-      if (!data.assignments || data.assignments.length === 0) {
-        try {
-          const debugData = await apiCall(`/debug/availability/${user.id}`);
-          setDebugInfo(debugData);
-          console.log('Debug info:', debugData);
-        } catch (debugError) {
-          console.log('Could not fetch debug info:', debugError);
-        }
-      }
+      console.log(`Found ${assignmentsArray.length} assignments`);
+      setAssignments(assignmentsArray);
       
     } catch (error) {
-      setError('Failed to load available jobs. Please try again.');
       console.error('Available Jobs error:', error);
+      setError(`Failed to load available jobs: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -50,14 +46,17 @@ const AvailableJobs = () => {
 
   const handleJobResponse = async (assignmentId, response) => {
     try {
+      console.log(`Responding to assignment ${assignmentId} with ${response}`);
+      
       await apiCall(`/assignments/${assignmentId}/respond`, {
           method: 'POST',
           body: JSON.stringify({ response })
       });
 
-      toast.success(`Job successfully ${response}ed!`);
-      fetchJobs();
+      toast.success(`Job successfully ${response}d!`);
+      fetchJobs(); // Refresh the list
     } catch (err) {
+        console.error('Job response error:', err);
         toast.error(`Failed to ${response} job`, { description: err.message });
     }
   };
@@ -103,47 +102,21 @@ const AvailableJobs = () => {
           <AlertCircle className="mx-auto text-v3-text-muted mb-4" size={48} />
           <h3 className="text-v3-text-lightest text-xl font-semibold mb-2">No Jobs Available</h3>
           <p className="text-v3-text-muted mb-4">There are currently no new jobs requiring your response.</p>
-          
-          {/* Debug Information - Remove this after fixing the issue */}
-          {debugInfo && (
-            <div className="mt-6 p-4 bg-gray-800 rounded-lg text-left text-sm">
-              <h4 className="font-semibold mb-2 text-yellow-400">Debug Info:</h4>
-              <p><strong>Verification Status:</strong> {debugInfo.agent.verification_status}</p>
-              <p><strong>Recent Availability:</strong></p>
-              <ul className="ml-4 list-disc">
-                {debugInfo.recent_availability.map((avail, index) => (
-                  <li key={index}>
-                    {avail.date}: {avail.is_available ? 'Available' : 'Not Available'} 
-                    {avail.is_away && ' (Away)'}
-                  </li>
-                ))}
-              </ul>
-              {debugInfo.weekly_schedule && (
-                <div className="mt-2">
-                  <p><strong>Weekly Schedule:</strong></p>
-                  <p>Mon: {debugInfo.weekly_schedule.monday ? 'Yes' : 'No'}, 
-                     Tue: {debugInfo.weekly_schedule.tuesday ? 'Yes' : 'No'}, 
-                     Wed: {debugInfo.weekly_schedule.wednesday ? 'Yes' : 'No'}, 
-                     Thu: {debugInfo.weekly_schedule.thursday ? 'Yes' : 'No'}, 
-                     Fri: {debugInfo.weekly_schedule.friday ? 'Yes' : 'No'}, 
-                     Sat: {debugInfo.weekly_schedule.saturday ? 'Yes' : 'No'}, 
-                     Sun: {debugInfo.weekly_schedule.sunday ? 'Yes' : 'No'}</p>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       ) : (
         <div className="space-y-4">
           {assignments.map((assignment) => {
-            const job = assignment.job_details;
+            // Safe access to job details with fallbacks
+            const job = assignment?.job_details || {};
             
-            // Check if job_details exists
-            if (!job) {
+            // If no job details, show error state
+            if (!assignment?.job_details) {
               console.error('Assignment missing job_details:', assignment);
               return (
-                <div key={assignment.id} className="dashboard-card p-6 bg-red-900/20 border-red-500">
-                  <p className="text-red-400">Error: Job details not found for assignment {assignment.id}</p>
+                <div key={assignment?.id || 'unknown'} className="dashboard-card p-6 bg-red-900/20 border-red-500">
+                  <p className="text-red-400">
+                    Error: Job details not found for assignment {assignment?.id || 'unknown'}
+                  </p>
                 </div>
               );
             }
@@ -154,16 +127,18 @@ const AvailableJobs = () => {
                   <div className="flex-grow">
                     <div className="flex items-center gap-3 mb-2">
                       <Briefcase className="w-6 h-6 text-v3-orange" />
-                      <h3 className="text-v3-text-lightest font-semibold text-lg">{job.title}</h3>
+                      <h3 className="text-v3-text-lightest font-semibold text-lg">
+                        {job.title || 'Untitled Job'}
+                      </h3>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-v3-text-muted pl-9">
                       <span className="flex items-center gap-1.5">
                         <MapPin size={14} />
-                        {job.address}
+                        {job.address || 'Address not specified'}
                       </span>
                       <span className="flex items-center gap-1.5">
                         <Clock size={14} />
-                        {new Date(job.arrival_time).toLocaleString('en-GB')}
+                        {job.arrival_time ? new Date(job.arrival_time).toLocaleString('en-GB') : 'Time not specified'}
                       </span>
                     </div>
                   </div>
