@@ -28,6 +28,8 @@ def convert_to_3wa():
         lat = float(data['lat'])
         lng = float(data['lng'])
         
+        # Fixed: Use the correct what3words API call format
+        # The convert_to_3wa method expects direct lat, lng parameters
         res = geocoder.convert_to_3wa(lat, lng)
         
         if 'words' in res:
