@@ -1,19 +1,16 @@
-// [PASTE THIS NEW CODE INTO CreateJob.jsx]
-
 import React, { useState } from 'react';
 import { useAuth } from "../useAuth";
 import { toast } from 'sonner';
-import { Briefcase, MapPin, Calendar, Users, DollarSign, MessageSquare, Send, Loader2 } from 'lucide-react';
+import { Briefcase, MapPin, Calendar, Users, MessageSquare, Send, Loader2 } from 'lucide-react';
 
 const CreateJob = () => {
     const { apiCall } = useAuth();
     const [formData, setFormData] = useState({
         title: '',
-        job_type: 'security',
+        job_type: 'Security',
         address: '',
         arrival_time: '',
         agents_required: '1',
-        hourly_rate: '',
         instructions: '',
         urgency_level: 'medium',
     });
@@ -28,8 +25,8 @@ const CreateJob = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            if (parseFloat(formData.hourly_rate) <= 0 || parseInt(formData.agents_required) <= 0) {
-                toast.error("Hourly rate and agents required must be positive numbers.");
+            if (parseInt(formData.agents_required) <= 0) {
+                toast.error("Agents required must be a positive number.");
                 setLoading(false);
                 return;
             }
@@ -44,7 +41,7 @@ const CreateJob = () => {
                 body: JSON.stringify({
                     ...formData,
                     agents_required: parseInt(formData.agents_required, 10),
-                    hourly_rate: parseFloat(formData.hourly_rate),
+                    hourly_rate: 0, // Set to 0 since agents handle their own rates
                 }),
             });
             
@@ -53,9 +50,13 @@ const CreateJob = () => {
             });
             
             setFormData({
-                title: '', job_type: 'security', address: '',
-                arrival_time: '', agents_required: '1', hourly_rate: '',
-                instructions: '', urgency_level: 'medium',
+                title: '', 
+                job_type: 'Security', 
+                address: '',
+                arrival_time: '', 
+                agents_required: '1', 
+                instructions: '', 
+                urgency_level: 'medium',
             });
 
         } catch (err) {
@@ -79,7 +80,15 @@ const CreateJob = () => {
                     <Briefcase className="w-6 h-6 text-v3-orange mt-1" />
                     <div className="flex-grow">
                         <label htmlFor="title" className="block text-sm font-medium text-v3-text-lightest mb-1">Job Title</label>
-                        <input type="text" id="title" name="title" value={formData.title} onChange={handleChange} required className="input-field" placeholder="e.g., Night Shift at Warehouse" />
+                        <input 
+                            type="text" 
+                            id="title" 
+                            name="title" 
+                            value={formData.title} 
+                            onChange={handleChange} 
+                            required 
+                            className="input-field" 
+                        />
                     </div>
                 </div>
 
@@ -87,7 +96,15 @@ const CreateJob = () => {
                     <MapPin className="w-6 h-6 text-v3-orange mt-1" />
                     <div className="flex-grow">
                         <label htmlFor="address" className="block text-sm font-medium text-v3-text-lightest mb-1">Full Address</label>
-                        <input type="text" id="address" name="address" value={formData.address} onChange={handleChange} required className="input-field" placeholder="e.g., 123 Industrial Park, London, W1 1AA" />
+                        <input 
+                            type="text" 
+                            id="address" 
+                            name="address" 
+                            value={formData.address} 
+                            onChange={handleChange} 
+                            required 
+                            className="input-field" 
+                        />
                     </div>
                 </div>
 
@@ -96,7 +113,15 @@ const CreateJob = () => {
                         <Calendar className="w-6 h-6 text-v3-orange mt-1" />
                         <div className="flex-grow">
                             <label htmlFor="arrival_time" className="block text-sm font-medium text-v3-text-lightest mb-1">Arrival Date & Time</label>
-                            <input type="datetime-local" id="arrival_time" name="arrival_time" value={formData.arrival_time} onChange={handleChange} required className="input-field" />
+                            <input 
+                                type="datetime-local" 
+                                id="arrival_time" 
+                                name="arrival_time" 
+                                value={formData.arrival_time} 
+                                onChange={handleChange} 
+                                required 
+                                className="input-field" 
+                            />
                         </div>
                     </div>
                     <div className="flex items-start space-x-4">
@@ -104,29 +129,30 @@ const CreateJob = () => {
                          <div className="flex-grow">
                             <label htmlFor="job_type" className="block text-sm font-medium text-v3-text-lightest mb-1">Job Type</label>
                             <select id="job_type" name="job_type" value={formData.job_type} onChange={handleChange} className="input-field">
-                                <option value="security">Security</option>
-                                <option value="event">Event</option>
-                                <option value="retail">Retail</option>
-                                <option value="corporate">Corporate</option>
+                                <option value="Security">Security</option>
+                                <option value="Traveller Eviction">Traveller Eviction</option>
+                                <option value="Squatter Eviction">Squatter Eviction</option>
+                                <option value="Traveller Serve Notice">Traveller Serve Notice</option>
+                                <option value="Squatter Serve Notice">Squatter Serve Notice</option>
                             </select>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
-                     <div className="flex items-start space-x-4">
-                        <Users className="w-6 h-6 text-v3-orange mt-1" />
-                        <div className="flex-grow">
-                            <label htmlFor="agents_required" className="block text-sm font-medium text-v3-text-lightest mb-1">Agents Required</label>
-                            <input type="number" id="agents_required" name="agents_required" value={formData.agents_required} onChange={handleChange} required className="input-field" min="1" />
-                        </div>
-                    </div>
-                     <div className="flex items-start space-x-4">
-                        <DollarSign className="w-6 h-6 text-v3-orange mt-1" />
-                        <div className="flex-grow">
-                            <label htmlFor="hourly_rate" className="block text-sm font-medium text-v3-text-lightest mb-1">Hourly Rate (£)</label>
-                            <input type="number" id="hourly_rate" name="hourly_rate" value={formData.hourly_rate} onChange={handleChange} required className="input-field" step="0.01" min="0" />
-                        </div>
+                <div className="flex items-start space-x-4">
+                    <Users className="w-6 h-6 text-v3-orange mt-1" />
+                    <div className="flex-grow">
+                        <label htmlFor="agents_required" className="block text-sm font-medium text-v3-text-lightest mb-1">Agents Required</label>
+                        <input 
+                            type="number" 
+                            id="agents_required" 
+                            name="agents_required" 
+                            value={formData.agents_required} 
+                            onChange={handleChange} 
+                            required 
+                            className="input-field" 
+                            min="1" 
+                        />
                     </div>
                 </div>
                 
@@ -134,7 +160,14 @@ const CreateJob = () => {
                     <MessageSquare className="w-6 h-6 text-v3-orange mt-1" />
                     <div className="flex-grow">
                         <label htmlFor="instructions" className="block text-sm font-medium text-v3-text-lightest mb-1">Instructions for Agents</label>
-                        <textarea id="instructions" name="instructions" value={formData.instructions} onChange={handleChange} rows="4" className="input-field" placeholder="e.g., Report to site manager upon arrival. Full uniform required."></textarea>
+                        <textarea 
+                            id="instructions" 
+                            name="instructions" 
+                            value={formData.instructions} 
+                            onChange={handleChange} 
+                            rows="4" 
+                            className="input-field"
+                        ></textarea>
                     </div>
                 </div>
                 
