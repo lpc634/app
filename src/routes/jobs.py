@@ -5,7 +5,6 @@ from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date, timedelta
 from dateutil.parser import parse
-import what3words
 from functools import wraps
 import logging
 
@@ -16,8 +15,6 @@ from src.routes.notifications import trigger_push_notification_for_users
 jobs_bp = Blueprint('jobs', __name__)
 
 # --- Configuration ---
-W3W_API_KEY = '8PARM791' 
-geocoder = what3words.Geocoder(W3W_API_KEY)
 GEOCODING_URL = "https://nominatim.openstreetmap.org/search"
 
 # Weather API Configuration - You'll need to sign up at openweathermap.org for a free API key
@@ -155,30 +152,6 @@ def convert_address_to_coords():
     except Exception as e:
         logger.error(f"Geocoding error: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred during geocoding.'}), 500
-
-@jobs_bp.route('/jobs/convert-coords-to-w3w', methods=['POST'])
-@jwt_required()
-@validate_json_fields(['lat', 'lon'])
-def convert_coords_to_what3words():
-    """Converts latitude/longitude to a what3words address."""
-    data = request.get_json()
-    lat = float(data.get('lat'))
-    lon = float(data.get('lon'))
-    
-    # Validate coordinate ranges
-    if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
-        return jsonify({'error': 'Invalid coordinates. Lat must be between -90 and 90, lon between -180 and 180.'}), 400
-    
-    try:
-        res = geocoder.convert_to_3wa(what3words.Coordinates(lat, lon))
-        if 'words' in res:
-            return jsonify({'w3w_address': res['words']}), 200
-        else:
-            return jsonify({'error': 'Could not convert coordinates.'}), 404
-            
-    except Exception as e:
-        logger.error(f"What3words API error: {str(e)}")
-        return jsonify({'error': 'An error occurred with the what3words service.'}), 503
 
 # --- Job Routes ---
 
