@@ -354,110 +354,144 @@ def delete_job(job_id):
         logger.error(f"Error cancelling job: {str(e)}")
         return jsonify({'error': 'Failed to cancel job'}), 500
 
-@jobs_bp.route('/jobs/<int:job_id>/respond', methods=['POST'])
+@jobs_bp.route('/jobs', methods=['POST'])
 @jwt_required()
-def respond_to_job(job_id):
-    """Agent accepts a job from the available pool."""
+@validate_json_fields(['title', 'job_type', 'address', 'arrival_time', 'agents_required'])
+def create_job():
+    """Admin creates a new job, and the system assigns it to available agents."""
     try:
-        current_user = require_agent_or_admin()
-        if not current_user or current_user.role != 'agent':
-            return jsonify({'error': 'Only agents can respond to jobs'}), 403
-        
-        # Use database locking to prevent race conditions
-        job = Job.query.with_for_update().get(job_id)
-        if not job:
-            return jsonify({'error': 'Job not found'}), 404
-            
-        if job.status != 'open':
-            return jsonify({'error': 'This job is no longer open for applications.'}), 409
+        current_user = require_admin()
+        if not current_user:
+            return jsonify({'error': 'Access denied. Admin role required.'}), 403
 
-        # Check if agent already accepted
-        existing_assignment = JobAssignment.query.filter_by(
-            job_id=job_id, 
-            agent_id=current_user.id
-        ).first()
-        if existing_assignment:
-            return jsonify({'error': 'You have already accepted this job.'}), 409
-        
-        # Check if job is full
-        accepted_count = JobAssignment.query.filter_by(
-            job_id=job_id, 
-            status='accepted'
-        ).count()
-        if accepted_count >= job.agents_required:
-            job.status = 'filled'
+        data = request.get_json()
+
+        # Create the job first
+        new_job = Job(
+            title=data['title'],
+            job_type=data['job_type'],
+            address=data['address'],
+            postcode=data.get('postcode'),
+            arrival_time=parse(data['arrival_time']),
+            agents_required=int(data['agents_required']),
+            hourly_rate=float(data.get('hourly_rate', 0)),
+            lead_agent_name=data.get('lead_agent_name'),
+            instructions=data.get('instructions'),
+            urgency_level=data.get('urgency_level', 'Standard'),
+            status='open',
+            created_by=current_user.id,
+            # Google Maps location fields
+            location_lat=data.get('location_lat'),
+            location_lng=data.get('location_lng'),
+            maps_link=data.get('maps_link')
+        )
+        db.session.add(new_job)
+        db.session.flush()  # Get the job ID without committing
+
+        # Find available agents for the job date
+        job_date = new_job.arrival_time.date()
+        day_of_week = job_date.weekday()  # 0 = Monday, 6 = Sunday
+
+        # Query with fallback to weekly
+        available_agents = db.session.query(User) \
+            .outerjoin(AgentAvailability, and_(AgentAvailability.agent_id == User.id, AgentAvailability.date == job_date)) \
+            .join(AgentWeeklyAvailability, AgentWeeklyAvailability.agent_id == User.id) \
+            .filter(
+                User.role == 'agent',
+                User.verification_status == 'verified',
+                or_(
+                    and_(
+                        AgentAvailability.is_available == True,
+                        AgentAvailability.is_away == False
+                    ),
+                    and_(
+                        AgentAvailability.id.is_(None),
+                        case(
+                            (day_of_week == 0, AgentWeeklyAvailability.monday),
+                            (day_of_week == 1, AgentWeeklyAvailability.tuesday),
+                            (day_of_week == 2, AgentWeeklyAvailability.wednesday),
+                            (day_of_week == 3, AgentWeeklyAvailability.thursday),
+                            (day_of_week == 4, AgentWeeklyAvailability.friday),
+                            (day_of_week == 5, AgentWeeklyAvailability.saturday),
+                            (day_of_week == 6, AgentWeeklyAvailability.sunday),
+                            else_=False
+                        ) == True
+                    )
+                )
+            ).all()
+
+        if not available_agents:
             db.session.commit()
-            return jsonify({'error': 'Job was filled just before you accepted.'}), 409
-        
-        # Create assignment
-        assignment = JobAssignment(
-            job_id=job_id,
-            agent_id=current_user.id,
-            status='accepted',
-            response_time=datetime.utcnow()
-        )
-        db.session.add(assignment)
+            return jsonify({
+                'message': 'Job created, but no available agents found for that date.',
+                'job': new_job.to_dict(),
+                'available_agents': 0
+            }), 201
 
-        # Update job status if full
-        if (accepted_count + 1) >= job.agents_required:
-            job.status = 'filled'
-        
-        # Get weather forecast
-        weather_info = {'forecast': 'Weather information unavailable', 'clothing': 'Please dress appropriately for outdoor work.'}
-        
-        if job.postcode or job.address:
-            # Try to get coordinates from address
+        # Create job assignments for available agents
+        assigned_agent_ids = []
+        for agent in available_agents:
+            # Check if assignment already exists (just in case)
+            existing_assignment = JobAssignment.query.filter_by(
+                job_id=new_job.id, 
+                agent_id=agent.id
+            ).first()
+            
+            if not existing_assignment:
+                assignment = JobAssignment(
+                    job_id=new_job.id, 
+                    agent_id=agent.id, 
+                    status='pending'
+                )
+                db.session.add(assignment)
+                assigned_agent_ids.append(agent.id)
+
+        # Create daily records for these agents if fallback was used
+        if available_agents:
+            for agent in available_agents:
+                daily_avail = AgentAvailability(
+                    agent_id=agent.id,
+                    date=job_date,
+                    is_available=True,
+                    is_away=False
+                )
+                db.session.add(daily_avail)
+
+        # Send notifications to assigned agents
+        if assigned_agent_ids:
+            notification_title = "New Job Available"
+            notification_message = f"A new job, '{new_job.title}', is available for your response."
+            
+            # Include Google Maps link in notification if available
+            if new_job.maps_link:
+                notification_message += f"\n\nNavigation: {new_job.maps_link}"
+            
+            # Uncomment if you have the notification function available
             try:
-                headers = {'User-Agent': 'V3ServicesApp/1.0'}
-                params = {
-                    'q': job.postcode or job.address, 
-                    'format': 'json', 
-                    'countrycodes': 'gb', 
-                    'limit': 1
-                }
-                geo_response = requests.get(GEOCODING_URL, params=params, headers=headers, timeout=5)
-                if geo_response.status_code == 200:
-                    results = geo_response.json()
-                    if results:
-                        lat = float(results[0]['lat'])
-                        lon = float(results[0]['lon'])
-                        weather_info = get_weather_forecast(lat, lon, job.arrival_time)
+                trigger_push_notification_for_users(assigned_agent_ids, notification_title, notification_message)
             except Exception as e:
-                logger.error(f"Error getting weather for job {job_id}: {str(e)}")
-        
-        # Create confirmation notification
-        lead_agent_info = f"Lead Agent: {job.lead_agent_name or 'To be confirmed'}"
-        confirmation_message = (
-            f"CONFIRMED: {job.title}.\n"
-            f"Location: {job.address}\n"
-            f"Arrival: {job.arrival_time.strftime('%Y-%m-%d %H:%M')}\n"
-            f"{lead_agent_info}\n\n"
-            f"Weather: {weather_info['forecast']}\n"
-            f"Clothing: {weather_info['clothing']}\n\n"
-            f"Instructions: {job.instructions or 'See job details'}"
-        )
-        
-        notification = Notification(
-            user_id=current_user.id, 
-            title=f"CONFIRMED: {job.title}", 
-            message=confirmation_message, 
-            type='job_confirmation', 
-            job_id=job.id
-        )
-        db.session.add(notification)
-        
+                logger.warning(f"Failed to send push notifications: {str(e)}")
+
         db.session.commit()
-        
+
+        # Log successful job creation
+        logger.info(f"Job '{new_job.title}' created by admin {current_user.id} and assigned to {len(assigned_agent_ids)} agents")
+
         return jsonify({
-            'message': 'Job accepted successfully', 
-            'assignment': assignment.to_dict(),
-            'weather_info': weather_info
-        }), 200
-        
+            'message': f'Job created successfully and assigned to {len(assigned_agent_ids)} available agents.',
+            'job': new_job.to_dict(),
+            'assigned_agents': len(assigned_agent_ids),
+            'available_agents': len(available_agents)
+        }), 201
+
+    except ValueError as ve:
+        db.session.rollback()
+        logger.error(f"ValueError creating job: {str(ve)}")
+        return jsonify({'error': f'Invalid data format: {ve}'}), 400
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error accepting job: {str(e)}")
-        return jsonify({'error': 'Failed to accept job'}), 500
+        logger.error(f"Error creating job: {str(e)}")
+        return jsonify({'error': 'Failed to create job'}), 500
 
 @jobs_bp.route('/assignments/<int:assignment_id>/respond', methods=['POST'])
 @jwt_required()
