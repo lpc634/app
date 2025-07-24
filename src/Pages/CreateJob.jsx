@@ -51,7 +51,7 @@ const CreateJob = () => {
             
             setFormData({
                 title: '', 
-                job_type: 'Security', 
+                job_type: 'Traveller Eviction', 
                 address: '',
                 arrival_time: '', 
                 agents_required: '1', 
