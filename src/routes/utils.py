@@ -31,13 +31,19 @@ def convert_to_3wa():
         # Log the input for debugging
         current_app.logger.info(f"Converting coordinates: lat={lat}, lng={lng}")
         
-        # Use the correct what3words API format - coordinates as dictionary
-        coordinates = {
-            'lat': lat,
-            'lng': lng
-        }
-        
-        res = geocoder.convert_to_3wa(coordinates)
+        # Try the simplest format first - just pass lat, lng directly
+        try:
+            res = geocoder.convert_to_3wa(lat, lng)
+        except Exception as e1:
+            current_app.logger.info(f"Method 1 failed: {e1}")
+            try:
+                # Try with Coordinates object
+                coordinates = what3words.Coordinates(lat, lng)
+                res = geocoder.convert_to_3wa(coordinates)
+            except Exception as e2:
+                current_app.logger.info(f"Method 2 failed: {e2}")
+                # Try string format as last resort
+                res = geocoder.convert_to_3wa(f"{lat},{lng}")
         
         current_app.logger.info(f"what3words response: {res}")
         
