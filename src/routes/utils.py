@@ -28,16 +28,27 @@ def convert_to_3wa():
         lat = float(data['lat'])
         lng = float(data['lng'])
         
-        # Fixed: Use the correct what3words API call format
-        # The convert_to_3wa method expects direct lat, lng parameters
-        res = geocoder.convert_to_3wa(lat, lng)
+        # Log the input for debugging
+        current_app.logger.info(f"Converting coordinates: lat={lat}, lng={lng}")
         
-        if 'words' in res:
+        # Use the correct what3words API format - coordinates as dictionary
+        coordinates = {
+            'lat': lat,
+            'lng': lng
+        }
+        
+        res = geocoder.convert_to_3wa(coordinates)
+        
+        current_app.logger.info(f"what3words response: {res}")
+        
+        if res and 'words' in res:
             return jsonify({"three_word_address": res['words']})
         else:
+            current_app.logger.error(f"Invalid response from what3words: {res}")
             return jsonify({"error": "Could not convert coordinates to a 3-word address"}), 500
             
-    except (ValueError, TypeError):
+    except (ValueError, TypeError) as e:
+        current_app.logger.error(f"Invalid coordinates: {e}")
         return jsonify({"error": "Invalid latitude or longitude format"}), 400
     except Exception as e:
         # Log the error for debugging
