@@ -150,11 +150,12 @@ const CreateJob = () => {
                                 onChange={handleChange} 
                                 className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
                             >
-                                <option value="Security">Security</option>
+                                
                                 <option value="Traveller Eviction">Traveller Eviction</option>
                                 <option value="Squatter Eviction">Squatter Eviction</option>
                                 <option value="Traveller Serve Notice">Traveller Serve Notice</option>
                                 <option value="Squatter Serve Notice">Squatter Serve Notice</option>
+                                <option value="Security">Security</option>
                             </select>
                         </div>
 
