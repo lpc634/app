@@ -486,7 +486,7 @@ def respond_to_assignment(assignment_id):
         data = request.get_json()
         response = data.get('response')
         
-        if response not in ['accept', 'decline']:
+        if response not in ['accept', 'decline', 'accepted', 'declined']:
             return jsonify({'error': 'Response must be "accept" or "decline"'}), 400
         
         # Get the assignment with job details
@@ -503,11 +503,11 @@ def respond_to_assignment(assignment_id):
             return jsonify({'error': 'This assignment has already been responded to.'}), 409
         
         # Update assignment status
-        assignment.status = 'accepted' if response == 'accept' else 'declined'
+        assignment.status = 'accepted' if response in ['accept', 'accepted'] else 'declined'
         assignment.response_time = datetime.utcnow()
         
         # If accepted, check if job is now full and update job status
-        if response == 'accept':
+        if response in ['accept', 'accepted']:
             job = assignment.job
             accepted_count = JobAssignment.query.filter_by(
                 job_id=job.id, 
