@@ -8,7 +8,6 @@ from dateutil.parser import parse
 import what3words
 from functools import wraps
 import logging
-from src.routes.jobs import jobs_bp
 
 # --- Corrected Imports ---
 from src.models.user import User, Job, JobAssignment, AgentAvailability, AgentWeeklyAvailability, Notification, Invoice, InvoiceJob, db

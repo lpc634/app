@@ -48,7 +48,7 @@ const AvailableJobs = () => {
     try {
       console.log(`Responding to assignment ${assignmentId} with ${response}`);
       
-      await apiCall(`/jobs/${assignmentId}/respond`, {
+      await apiCall(`/assignments/${assignmentId}/respond`, {
           method: 'POST',
           body: JSON.stringify({ response })
       });
