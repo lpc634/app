@@ -173,6 +173,42 @@ def internal_server_error(e):
     app.logger.error(f"Server error: {str(e)}")
     return jsonify({"error": "An internal server error occurred. Please try again."}), 500
 
+def migrate_database():
+    """Add missing columns to the database if they don't exist"""
+    try:
+        from sqlalchemy import text
+        
+        # Check if location_lat column exists
+        result = db.engine.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='jobs' AND column_name='location_lat'
+        """))
+        
+        if not result.fetchone():
+            print("Adding Google Maps fields to jobs table...")
+            
+            # Add the new columns
+            db.engine.execute(text("ALTER TABLE jobs ADD COLUMN location_lat VARCHAR(50);"))
+            db.engine.execute(text("ALTER TABLE jobs ADD COLUMN location_lng VARCHAR(50);"))
+            db.engine.execute(text("ALTER TABLE jobs ADD COLUMN maps_link TEXT;"))
+            
+            print("✅ Added Google Maps fields to database")
+        else:
+            print("✅ Google Maps fields already exist")
+            
+    except Exception as e:
+        if "already exists" in str(e).lower():
+            print("✅ Google Maps fields already exist")
+        else:
+            print(f"⚠️ Migration note: {e}")
+
+# --- App Initialization Block ---
+with app.app_context():
+    db.create_all()  # Create any missing tables
+    migrate_database()  # Add any missing columns
+    init_scheduler(app)
+
 # --- App Initialization Block ---
 with app.app_context():
     init_scheduler(app)

@@ -168,15 +168,36 @@ const CreateJob = () => {
                             Click on the map to mark the exact entrance location. The pin can be dragged to fine-tune the position.
                         </p>
                         {formData.maps_link && (
-                            <div className="mt-3 p-3 bg-green-900/20 border border-green-500/30 rounded-lg">
-                                <p className="text-sm text-green-400 mb-2">
-                                    <strong>✓ Entrance Location Set</strong>
-                                </p>
-                                <p className="text-xs text-v3-text-muted">
-                                    Agents will receive a Google Maps link to navigate directly to this pin location.
-                                </p>
-                            </div>
-                        )}
+    <div className="mt-3 p-4 dashboard-card border border-green-500/30 rounded-lg">
+        <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                <Navigation className="w-4 h-4 text-white" />
+            </div>
+            <div>
+                <h4 className="text-green-400 font-semibold">✓ Entrance Location Set</h4>
+                <p className="text-sm text-v3-text-muted">
+                    Agents will receive a Google Maps link to navigate directly to this location.
+                </p>
+            </div>
+        </div>
+        
+        <div className="flex items-center gap-2 p-3 bg-v3-bg-dark rounded-lg border border-v3-border">
+            <MapPin className="w-4 h-4 text-v3-orange" />
+            <span className="text-sm text-v3-text-lightest">
+                Coordinates: {parseFloat(formData.location_lat).toFixed(6)}, {parseFloat(formData.location_lng).toFixed(6)}
+            </span>
+            <a 
+                href={formData.maps_link} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="ml-auto text-green-400 hover:text-green-300 transition-colors"
+                title="Test navigation link"
+            >
+                <ExternalLink className="w-4 h-4" />
+            </a>
+        </div>
+    </div>
+)}
                     </div>
                     
                     <div className="flex-1 relative">
