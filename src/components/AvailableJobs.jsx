@@ -44,16 +44,16 @@ const AvailableJobs = () => {
     fetchJobs();
   }, [fetchJobs]);
 
-  const handleJobResponse = async (assignmentId, response) => {
+  const handleJobResponse = async (assignment, response) => {
     try {
-      console.log(`Responding to assignment ${assignmentId} with ${response}`);
+      console.log(`Responding to job ${assignment.job_id} (assignment ${assignment.id}) with ${response}`);
       
-      await apiCall(`/assignments/${assignmentId}/respond`, {
+      await apiCall(`/jobs/${assignment.job_id}/respond`, {
           method: 'POST',
           body: JSON.stringify({ response })
       });
 
-      toast.success(`Job successfully ${response}d!`);
+      toast.success(`Job successfully ${response}!`);
       fetchJobs(); // Refresh the list
     } catch (err) {
         console.error('Job response error:', err);
@@ -144,13 +144,13 @@ const AvailableJobs = () => {
                   </div>
                   <div className="flex-shrink-0 flex sm:flex-col items-center gap-3">
                     <button 
-                      onClick={() => handleJobResponse(assignment.id, 'accepted')} 
+                      onClick={() => handleJobResponse(assignment, 'accept')} 
                       className="button-refresh bg-green-600 hover:bg-green-700 w-full sm:w-32 flex items-center justify-center gap-2"
                     >
                       <CheckCircle size={16} /> Accept
                     </button>
                     <button 
-                      onClick={() => handleJobResponse(assignment.id, 'declined')} 
+                      onClick={() => handleJobResponse(assignment, 'decline')} 
                       className="button-refresh bg-red-600 hover:bg-red-700 w-full sm:w-32 flex items-center justify-center gap-2"
                     >
                       <XCircle size={16} /> Decline
