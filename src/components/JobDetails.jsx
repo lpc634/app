@@ -25,7 +25,7 @@ const formatDateTime = (isoString) => {
 };
 
 const JobDetails = () => {
-    // The data fetching logic is unchanged
+    // The data fetching logic is updated
     const { jobId } = useParams();
     const { apiCall } = useAuth();
     const [job, setJob] = useState(null);
@@ -38,7 +38,7 @@ const JobDetails = () => {
                 setLoading(true);
                 setError('');
                 const data = await apiCall(`/jobs/${jobId}`);
-                setJob(data.job);
+                setJob(data); // Changed from setJob(data.job) to setJob(data)
             } catch (err) {
                 setError(err.message || 'Failed to load job details.');
             } finally {
@@ -162,7 +162,7 @@ const JobDetails = () => {
                             <Users className="w-5 h-5 text-v3-orange flex-shrink-0 mt-1"/>
                             <div>
                                 <p className="text-sm text-v3-text-muted">Agents Allocated</p>
-                                <p className="font-semibold text-v3-text-lightest">{job.agents_allocated} of {job.agents_required}</p>
+                                <p className="font-semibold text-v3-text-lightest">{job.agents_allocated || 0} of {job.agents_required}</p>
                             </div>
                         </div>
 
