@@ -153,8 +153,6 @@ def convert_address_to_coords():
         logger.error(f"Geocoding error: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred during geocoding.'}), 500
 
-# [PASTE THIS CODE OVER THE OLD create_job FUNCTION]
-
 @jobs_bp.route('/jobs', methods=['POST'])
 @jwt_required()
 @validate_json_fields(['title', 'job_type', 'address', 'arrival_time', 'agents_required'])
@@ -560,6 +558,34 @@ def get_completed_jobs():
         logger.error(f"Error fetching completed jobs: {str(e)}")
         return jsonify({'error': 'Failed to fetch completed jobs'}), 500
     
+@jobs_bp.route('/jobs/<int:id>', methods=['GET'])
+@jwt_required()
+def get_job_or_assignment(id):
+    """Get job details, accepting either job ID or assignment ID."""
+    user = require_agent_or_admin()
+    if not user:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    # Try as job ID first
+    job = Job.query.get(id)
+    if job:
+        if user.role == 'agent':
+            assignment = JobAssignment.query.filter_by(job_id=id, agent_id=user.id).first()
+            if not assignment:
+                return jsonify({'error': 'Access denied'}), 403
+        return jsonify(job.to_dict()), 200
+
+    # Try as assignment ID
+    assignment = JobAssignment.query.get(id)
+    if not assignment:
+        return jsonify({'error': 'Job not found'}), 404
+
+    if user.role == 'agent' and assignment.agent_id != user.id:
+        return jsonify({'error': 'Access denied'}), 403
+
+    job = assignment.job
+    return jsonify(job.to_dict()), 200
+
 @jobs_bp.route('/debug/availability/<int:agent_id>', methods=['GET'])
 @jwt_required()
 def debug_agent_availability(agent_id):
