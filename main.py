@@ -31,7 +31,7 @@ from src.routes.notifications import notifications_bp
 from src.routes.weather import weather_bp
 from src.routes.analytics import analytics_bp
 from src.routes.agent import agent_bp
-from src.routes.utils import utils_bp
+# REMOVED: from src.routes.utils import utils_bp
 from src.routes.admin import admin_bp
 from src.routes.vehicles import vehicles_bp
 
@@ -107,7 +107,7 @@ app.register_blueprint(notifications_bp, url_prefix='/api')
 app.register_blueprint(weather_bp, url_prefix='/api')
 app.register_blueprint(analytics_bp, url_prefix='/api')
 app.register_blueprint(agent_bp, url_prefix='/api')
-app.register_blueprint(utils_bp, url_prefix='/api')
+# REMOVED: app.register_blueprint(utils_bp, url_prefix='/api')
 app.register_blueprint(admin_bp, url_prefix='/api')
 # --- THIS LINE IS NOW UNCOMMENTED ---
 app.register_blueprint(vehicles_bp, url_prefix='/api')
