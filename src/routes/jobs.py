@@ -474,63 +474,60 @@ def respond_to_job(job_id):
         logger.error(f"Error accepting job: {str(e)}")
         return jsonify({'error': 'Failed to accept job'}), 500
 
-@jobs_bp.route('/assignments/agent/<int:agent_id>', methods=['GET'])
+@jobs_bp.route('/assignments/<int:assignment_id>/respond', methods=['POST'])
 @jwt_required()
-def get_agent_assignments(agent_id):
-    """Get agent's assignments with pagination."""
+def respond_to_assignment(assignment_id):
+    """Agent responds to a job assignment (accept/decline)."""
     try:
         current_user = require_agent_or_admin()
-        if not current_user:
-            return jsonify({'error': 'User not found'}), 404
+        if not current_user or current_user.role != 'agent':
+            return jsonify({'error': 'Only agents can respond to assignments'}), 403
         
-        # Security check: agents can only see their own assignments
-        if current_user.role == 'agent' and current_user.id != agent_id:
-            return jsonify({'error': 'Access denied. You can only view your own assignments.'}), 403
+        data = request.get_json()
+        response = data.get('response')
         
-        # Get status filter from query params
-        status_filter = request.args.get('status')
+        if response not in ['accept', 'decline']:
+            return jsonify({'error': 'Response must be "accept" or "decline"'}), 400
         
-        # Pagination
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 20, type=int)
-        per_page = min(per_page, 100)
+        # Get the assignment with job details
+        assignment = JobAssignment.query.options(db.joinedload(JobAssignment.job)).get(assignment_id)
+        if not assignment:
+            return jsonify({'error': 'Assignment not found'}), 404
         
-        # Build query with proper joins to load job data
-        query = JobAssignment.query.options(db.joinedload(JobAssignment.job)).filter_by(agent_id=agent_id)
+        # Security check: agents can only respond to their own assignments
+        if assignment.agent_id != current_user.id:
+            return jsonify({'error': 'Access denied. You can only respond to your own assignments.'}), 403
         
-        # Apply status filter if provided
-        if status_filter:
-            query = query.filter(JobAssignment.status == status_filter)
+        # Check if assignment is still pending
+        if assignment.status != 'pending':
+            return jsonify({'error': 'This assignment has already been responded to.'}), 409
         
-        # Apply ordering and pagination
-        paginated = query.order_by(JobAssignment.created_at.desc()).paginate(
-            page=page, 
-            per_page=per_page, 
-            error_out=False
-        )
+        # Update assignment status
+        assignment.status = 'accepted' if response == 'accept' else 'declined'
+        assignment.response_time = datetime.utcnow()
         
-        # Convert to dict with job details
-        assignments_data = []
-        for assignment in paginated.items:
-            assignment_dict = assignment.to_dict()
-            # Double-check that job_details is included
-            if assignment.job and 'job_details' not in assignment_dict:
-                assignment_dict['job_details'] = assignment.job.to_dict()
-            assignments_data.append(assignment_dict)
+        # If accepted, check if job is now full and update job status
+        if response == 'accept':
+            job = assignment.job
+            accepted_count = JobAssignment.query.filter_by(
+                job_id=job.id, 
+                status='accepted'
+            ).count()
+            
+            if accepted_count >= job.agents_required:
+                job.status = 'filled'
+        
+        db.session.commit()
         
         return jsonify({
-            'agent_id': agent_id, 
-            'assignments': assignments_data,
-            'total': paginated.total,
-            'page': page,
-            'pages': paginated.pages,
-            'per_page': per_page
+            'message': f'Assignment {response}ed successfully',
+            'assignment': assignment.to_dict()
         }), 200
         
     except Exception as e:
-        logger.error(f"Error fetching assignments: {str(e)}")
-        return jsonify({'error': 'Failed to fetch assignments'}), 500
-
+        db.session.rollback()
+        logger.error(f"Error responding to assignment: {str(e)}")
+        return jsonify({'error': 'Failed to respond to assignment'}), 500
 
 @jobs_bp.route('/agent/jobs/completed', methods=['GET'])
 @jwt_required()
