@@ -70,109 +70,140 @@ const CreateJob = () => {
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">Create a New Job</h1>
-                <p className="text-muted-foreground">Fill out the details below to create and assign a new job.</p>
+            <div className="mb-8 text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-v3-orange/10 rounded-full mb-4">
+                    <Briefcase className="w-8 h-8 text-v3-orange" />
+                </div>
+                <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-v3-text-lightest to-v3-orange bg-clip-text text-transparent">Create a New Job</h1>
+                <p className="text-muted-foreground mt-2">Fill out the details below to create and assign a new job to available agents.</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="dashboard-card p-6 space-y-6">
-                <div className="flex items-start space-x-4">
-                    <Briefcase className="w-6 h-6 text-v3-orange mt-1" />
-                    <div className="flex-grow">
-                        <label htmlFor="title" className="block text-sm font-medium text-v3-text-lightest mb-1">Job Title</label>
-                        <input 
-                            type="text" 
-                            id="title" 
-                            name="title" 
-                            value={formData.title} 
-                            onChange={handleChange} 
-                            required 
-                            className="input-field" 
-                        />
+            <form onSubmit={handleSubmit} className="dashboard-card p-8 space-y-8 shadow-2xl border border-v3-border/50">
+                <div className="group">
+                    <div className="flex items-start space-x-4 p-4 rounded-lg border border-transparent group-hover:border-v3-orange/20 transition-all duration-200">
+                        <div className="flex items-center justify-center w-10 h-10 bg-v3-orange/10 rounded-lg group-hover:bg-v3-orange/20 transition-colors">
+                            <Briefcase className="w-5 h-5 text-v3-orange" />
+                        </div>
+                        <div className="flex-grow">
+                            <label htmlFor="title" className="block text-sm font-semibold text-v3-text-lightest mb-2">Job Title</label>
+                            <input 
+                                type="text" 
+                                id="title" 
+                                name="title" 
+                                value={formData.title} 
+                                onChange={handleChange} 
+                                required 
+                                className="input-field focus:ring-2 focus:ring-v3-orange/50 focus:border-v3-orange transition-all" 
+                            />
+                        </div>
                     </div>
                 </div>
 
-                <div className="flex items-start space-x-4">
-                    <MapPin className="w-6 h-6 text-v3-orange mt-1" />
-                    <div className="flex-grow">
-                        <label htmlFor="address" className="block text-sm font-medium text-v3-text-lightest mb-1">Full Address</label>
-                        <input 
-                            type="text" 
-                            id="address" 
-                            name="address" 
-                            value={formData.address} 
-                            onChange={handleChange} 
-                            required 
-                            className="input-field" 
-                        />
+                <div className="group">
+                    <div className="flex items-start space-x-4 p-4 rounded-lg border border-transparent group-hover:border-v3-orange/20 transition-all duration-200">
+                        <div className="flex items-center justify-center w-10 h-10 bg-v3-orange/10 rounded-lg group-hover:bg-v3-orange/20 transition-colors">
+                            <MapPin className="w-5 h-5 text-v3-orange" />
+                        </div>
+                        <div className="flex-grow">
+                            <label htmlFor="address" className="block text-sm font-semibold text-v3-text-lightest mb-2">Full Address</label>
+                            <input 
+                                type="text" 
+                                id="address" 
+                                name="address" 
+                                value={formData.address} 
+                                onChange={handleChange} 
+                                required 
+                                className="input-field focus:ring-2 focus:ring-v3-orange/50 focus:border-v3-orange transition-all" 
+                            />
+                        </div>
                     </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
-                    <div className="flex items-start space-x-4">
-                        <Calendar className="w-6 h-6 text-v3-orange mt-1" />
-                        <div className="flex-grow">
-                            <label htmlFor="arrival_time" className="block text-sm font-medium text-v3-text-lightest mb-1">Arrival Date & Time</label>
-                            <input 
-                                type="datetime-local" 
-                                id="arrival_time" 
-                                name="arrival_time" 
-                                value={formData.arrival_time} 
-                                onChange={handleChange} 
-                                required 
-                                className="input-field" 
-                            />
+                    <div className="group">
+                        <div className="flex items-start space-x-4 p-4 rounded-lg border border-transparent group-hover:border-v3-orange/20 transition-all duration-200">
+                            <div className="flex items-center justify-center w-10 h-10 bg-v3-orange/10 rounded-lg group-hover:bg-v3-orange/20 transition-colors">
+                                <Calendar className="w-5 h-5 text-v3-orange" />
+                            </div>
+                            <div className="flex-grow">
+                                <label htmlFor="arrival_time" className="block text-sm font-semibold text-v3-text-lightest mb-2">Arrival Date & Time</label>
+                                <input 
+                                    type="datetime-local" 
+                                    id="arrival_time" 
+                                    name="arrival_time" 
+                                    value={formData.arrival_time} 
+                                    onChange={handleChange} 
+                                    required 
+                                    className="input-field focus:ring-2 focus:ring-v3-orange/50 focus:border-v3-orange transition-all" 
+                                />
+                            </div>
                         </div>
                     </div>
-                    <div className="flex items-start space-x-4">
-                        <Briefcase className="w-6 h-6 text-v3-orange mt-1" />
-                         <div className="flex-grow">
-                            <label htmlFor="job_type" className="block text-sm font-medium text-v3-text-lightest mb-1">Job Type</label>
-                            <select id="job_type" name="job_type" value={formData.job_type} onChange={handleChange} className="input-field">
-                                <option value="Security">Security</option>
-                                <option value="Traveller Eviction">Traveller Eviction</option>
-                                <option value="Squatter Eviction">Squatter Eviction</option>
-                                <option value="Traveller Serve Notice">Traveller Serve Notice</option>
-                                <option value="Squatter Serve Notice">Squatter Serve Notice</option>
-                            </select>
+                    <div className="group">
+                        <div className="flex items-start space-x-4 p-4 rounded-lg border border-transparent group-hover:border-v3-orange/20 transition-all duration-200">
+                            <div className="flex items-center justify-center w-10 h-10 bg-v3-orange/10 rounded-lg group-hover:bg-v3-orange/20 transition-colors">
+                                <Briefcase className="w-5 h-5 text-v3-orange" />
+                            </div>
+                             <div className="flex-grow">
+                                <label htmlFor="job_type" className="block text-sm font-semibold text-v3-text-lightest mb-2">Job Type</label>
+                                <select id="job_type" name="job_type" value={formData.job_type} onChange={handleChange} className="input-field focus:ring-2 focus:ring-v3-orange/50 focus:border-v3-orange transition-all">
+                                    <option value="Security">Security</option>
+                                    <option value="Traveller Eviction">Traveller Eviction</option>
+                                    <option value="Squatter Eviction">Squatter Eviction</option>
+                                    <option value="Traveller Serve Notice">Traveller Serve Notice</option>
+                                    <option value="Squatter Serve Notice">Squatter Serve Notice</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex items-start space-x-4">
-                    <Users className="w-6 h-6 text-v3-orange mt-1" />
-                    <div className="flex-grow">
-                        <label htmlFor="agents_required" className="block text-sm font-medium text-v3-text-lightest mb-1">Agents Required</label>
-                        <input 
-                            type="number" 
-                            id="agents_required" 
-                            name="agents_required" 
-                            value={formData.agents_required} 
-                            onChange={handleChange} 
-                            required 
-                            className="input-field" 
-                            min="1" 
-                        />
+                <div className="group max-w-md">
+                    <div className="flex items-start space-x-4 p-4 rounded-lg border border-transparent group-hover:border-v3-orange/20 transition-all duration-200">
+                        <div className="flex items-center justify-center w-10 h-10 bg-v3-orange/10 rounded-lg group-hover:bg-v3-orange/20 transition-colors">
+                            <Users className="w-5 h-5 text-v3-orange" />
+                        </div>
+                        <div className="flex-grow">
+                            <label htmlFor="agents_required" className="block text-sm font-semibold text-v3-text-lightest mb-2">Agents Required</label>
+                            <input 
+                                type="number" 
+                                id="agents_required" 
+                                name="agents_required" 
+                                value={formData.agents_required} 
+                                onChange={handleChange} 
+                                required 
+                                className="input-field focus:ring-2 focus:ring-v3-orange/50 focus:border-v3-orange transition-all" 
+                                min="1" 
+                            />
+                        </div>
                     </div>
                 </div>
                 
-                <div className="flex items-start space-x-4">
-                    <MessageSquare className="w-6 h-6 text-v3-orange mt-1" />
-                    <div className="flex-grow">
-                        <label htmlFor="instructions" className="block text-sm font-medium text-v3-text-lightest mb-1">Instructions for Agents</label>
-                        <textarea 
-                            id="instructions" 
-                            name="instructions" 
-                            value={formData.instructions} 
-                            onChange={handleChange} 
-                            rows="4" 
-                            className="input-field"
-                        ></textarea>
+                <div className="group">
+                    <div className="flex items-start space-x-4 p-4 rounded-lg border border-transparent group-hover:border-v3-orange/20 transition-all duration-200">
+                        <div className="flex items-center justify-center w-10 h-10 bg-v3-orange/10 rounded-lg group-hover:bg-v3-orange/20 transition-colors mt-1">
+                            <MessageSquare className="w-5 h-5 text-v3-orange" />
+                        </div>
+                        <div className="flex-grow">
+                            <label htmlFor="instructions" className="block text-sm font-semibold text-v3-text-lightest mb-2">Instructions for Agents</label>
+                            <textarea 
+                                id="instructions" 
+                                name="instructions" 
+                                value={formData.instructions} 
+                                onChange={handleChange} 
+                                rows="4" 
+                                className="input-field focus:ring-2 focus:ring-v3-orange/50 focus:border-v3-orange transition-all resize-none"
+                            ></textarea>
+                        </div>
                     </div>
                 </div>
                 
-                <div className="pt-4 border-t border-v3-border flex justify-end">
-                    <button type="submit" className="button-refresh w-full sm:w-auto flex items-center justify-center gap-2" disabled={loading}>
+                <div className="pt-6 border-t border-v3-border/50 flex justify-end">
+                    <button 
+                        type="submit" 
+                        className="button-refresh bg-gradient-to-r from-v3-orange to-orange-600 hover:from-v3-orange/90 hover:to-orange-600/90 w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-3 rounded-lg font-semibold text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200" 
+                        disabled={loading}
+                    >
                         {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                         {loading ? 'Creating Job...' : 'Create & Assign Job'}
                     </button>
