@@ -13,7 +13,6 @@ import {
     Info,
     FileText,
     Navigation,
-    DollarSign,
     AlertCircle
 } from 'lucide-react';
 
@@ -91,7 +90,7 @@ const JobDetails = () => {
             `https://www.google.com/maps/dir/?api=1&destination=${job.location_lat},${job.location_lng}` : 
             `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address)}`);
 
-    // --- UPDATED LAYOUT WITH MORE FIELDS ---
+    // --- UPDATED LAYOUT WITH MORE FIELDS, REMOVED HOURLY RATE ---
     return (
         <main className="p-4 sm:p-6 lg:p-8 bg-v3-bg-darkest min-h-screen text-v3-text-light">
             <div className="mb-6">
@@ -120,23 +119,13 @@ const JobDetails = () => {
                                 <p className="whitespace-pre-wrap text-v3-text-light">{job.instructions || "No specific instructions provided."}</p>
                             </div>
 
-                            {/* New: Urgency and Rate */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="bg-v3-bg-darker p-4 rounded-lg">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <AlertCircle className="w-5 h-5 text-v3-orange" />
-                                        <h3 className="font-semibold text-v3-text-lightest">Urgency Level</h3>
-                                    </div>
-                                    <p className="text-v3-text-light capitalize">{job.urgency_level || 'Standard'}</p>
+                            {/* New: Urgency */}
+                            <div className="bg-v3-bg-darker p-4 rounded-lg">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <AlertCircle className="w-5 h-5 text-v3-orange" />
+                                    <h3 className="font-semibold text-v3-text-lightest">Urgency Level</h3>
                                 </div>
-                                
-                                <div className="bg-v3-bg-darker p-4 rounded-lg">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <DollarSign className="w-5 h-5 text-v3-orange" />
-                                        <h3 className="font-semibold text-v3-text-lightest">Hourly Rate</h3>
-                                    </div>
-                                    <p className="text-v3-text-light">£{job.hourly_rate?.toFixed(2) || 'N/A'}</p>
-                                </div>
+                                <p className="text-v3-text-light capitalize">{job.urgency_level || 'Standard'}</p>
                             </div>
                         </div>
                     </div>
