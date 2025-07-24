@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from "../useAuth";
 import { toast } from 'sonner';
-import { Briefcase, MapPin, Calendar, Users, MessageSquare, Send, Loader2, Navigation, X } from 'lucide-react';
+import { Briefcase, MapPin, Calendar, Users, MessageSquare, Send, Loader2, Navigation, X, ExternalLink } from 'lucide-react';
 
 const CreateJob = () => {
     const { apiCall } = useAuth();
@@ -12,7 +12,9 @@ const CreateJob = () => {
         arrival_time: '',
         agents_required: '1',
         instructions: '',
-        what3words_address: '',
+        location_lat: '',
+        location_lng: '',
+        maps_link: '',
         urgency_level: 'medium',
     });
     const [loading, setLoading] = useState(false);
@@ -61,27 +63,25 @@ const CreateJob = () => {
         }
     };
 
+    const generateGoogleMapsLink = (lat, lng) => {
+        // Generate Google Maps link that opens in phone's navigation app
+        return `https://www.google.com/maps?q=${lat},${lng}&z=18`;
+    };
+
     const handleMapClick = async (lat, lng) => {
         setSelectedLocation({ lat, lng });
         
-        // Convert to What3Words using your backend API
-        try {
-            const response = await apiCall('/what3words/convert-to-3wa', {
-                method: 'POST',
-                body: JSON.stringify({ lat, lng })
-            });
-            
-            if (response.three_word_address) {
-                setFormData(prev => ({ 
-                    ...prev, 
-                    what3words_address: response.three_word_address 
-                }));
-                toast.success(`Location set: ${response.three_word_address}`);
-            }
-        } catch (error) {
-            console.error('What3Words error:', error);
-            toast.error("Failed to get What3Words address");
-        }
+        // Generate Google Maps link
+        const mapsLink = generateGoogleMapsLink(lat, lng);
+        
+        setFormData(prev => ({ 
+            ...prev, 
+            location_lat: lat.toString(),
+            location_lng: lng.toString(),
+            maps_link: mapsLink
+        }));
+        
+        toast.success(`Entrance location set! Google Maps link generated.`);
     };
 
     const MapModal = () => {
@@ -167,10 +167,15 @@ const CreateJob = () => {
                         <p className="text-xs text-v3-text-muted">
                             Click on the map to mark the exact entrance location. The pin can be dragged to fine-tune the position.
                         </p>
-                        {formData.what3words_address && (
-                            <p className="text-sm text-green-400 mt-2">
-                                <strong>What3Words:</strong> {formData.what3words_address}
-                            </p>
+                        {formData.maps_link && (
+                            <div className="mt-3 p-3 bg-green-900/20 border border-green-500/30 rounded-lg">
+                                <p className="text-sm text-green-400 mb-2">
+                                    <strong>✓ Entrance Location Set</strong>
+                                </p>
+                                <p className="text-xs text-v3-text-muted">
+                                    Agents will receive a Google Maps link to navigate directly to this pin location.
+                                </p>
+                            </div>
                         )}
                     </div>
                     
@@ -184,7 +189,7 @@ const CreateJob = () => {
                         <div className="absolute bottom-4 right-4 bg-v3-bg-card border border-v3-border rounded-lg p-3 max-w-xs">
                             <p className="text-xs text-v3-text-muted">
                                 Use satellite view to identify the correct entrance. 
-                                The What3Words location will be automatically generated.
+                                Agents will get a Google Maps link to navigate here.
                             </p>
                         </div>
                     </div>
@@ -228,7 +233,9 @@ const CreateJob = () => {
                 arrival_time: '', 
                 agents_required: '1', 
                 instructions: '', 
-                what3words_address: '',
+                location_lat: '',
+                location_lng: '',
+                maps_link: '',
                 urgency_level: 'medium',
             });
             setSelectedLocation(null);
@@ -308,18 +315,26 @@ const CreateJob = () => {
                                     Select Entrance Location
                                 </button>
                                 
-                                {formData.what3words_address && (
+                                {formData.maps_link && (
                                     <div className="flex items-center gap-2 px-3 py-2 bg-green-900/20 border border-green-500/30 rounded-lg">
                                         <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                                        <span className="text-sm text-green-400 font-mono">
-                                            {formData.what3words_address}
+                                        <span className="text-sm text-green-400">
+                                            Navigation link ready
                                         </span>
+                                        <a 
+                                            href={formData.maps_link} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-green-400 hover:text-green-300"
+                                        >
+                                            <ExternalLink className="w-4 h-4" />
+                                        </a>
                                     </div>
                                 )}
                             </div>
                             
                             <p className="text-xs text-v3-text-muted">
-                                Select the exact entrance location for agents to find the precise meeting point using What3Words.
+                                Select the exact entrance location for agents to navigate to the precise meeting point using Google Maps.
                             </p>
                         </div>
                     </div>

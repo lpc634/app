@@ -85,12 +85,28 @@ class Job(db.Model):
     police_liaison_required = db.Column(db.Boolean, default=False)
     what3words_address = db.Column(db.String(100))
     hourly_rate = db.Column(db.Numeric(10, 2))
+    # NEW LOCATION FIELDS - Add these 3 lines
+    location_lat = db.Column(db.String(20))
+    location_lng = db.Column(db.String(20)) 
+    maps_link = db.Column(db.String(500))
 
     assignments = db.relationship('JobAssignment', back_populates='job', cascade="all, delete-orphan")
     invoice_jobs = db.relationship('InvoiceJob', back_populates='job', cascade="all, delete-orphan")
 
     def to_dict(self):
-        return {'id': self.id, 'title': self.title, 'job_type': self.job_type, 'address': self.address, 'postcode': self.postcode, 'arrival_time': self.arrival_time.isoformat(), 'agents_required': self.agents_required, 'what3words_address': self.what3words_address}
+        return {
+            'id': self.id, 
+            'title': self.title, 
+            'job_type': self.job_type, 
+            'address': self.address, 
+            'postcode': self.postcode, 
+            'arrival_time': self.arrival_time.isoformat(), 
+            'agents_required': self.agents_required, 
+            'what3words_address': self.what3words_address,
+            'location_lat': self.location_lat,
+            'location_lng': self.location_lng,
+            'maps_link': self.maps_link
+        }
 
 class JobAssignment(db.Model):
     __tablename__ = 'job_assignments'

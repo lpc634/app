@@ -198,19 +198,22 @@ def create_job():
 
         # Create the job first
         new_job = Job(
-            title=data['title'],
-            job_type=data['job_type'],
-            address=data['address'],
-            postcode=data.get('postcode'),
-            arrival_time=parse(data['arrival_time']),
-            agents_required=int(data['agents_required']),
-            hourly_rate=float(data.get('hourly_rate', 0)),
-            lead_agent_name=data.get('lead_agent_name'),
-            instructions=data.get('instructions'),
-            urgency_level=data.get('urgency_level', 'Standard'),
-            status='open',
-            created_by=current_user.id
-        )
+    title=data['title'],
+    job_type=data['job_type'],
+    address=data['address'],
+    postcode=data.get('postcode'),
+    arrival_time=parse(data['arrival_time']),
+    agents_required=int(data['agents_required']),
+    hourly_rate=float(data.get('hourly_rate', 0)),
+    lead_agent_name=data.get('lead_agent_name'),
+    instructions=data.get('instructions'),
+    urgency_level=data.get('urgency_level', 'Standard'),
+    status='open',
+    created_by=current_user.id,
+    location_lat=data.get('location_lat'),
+    location_lng=data.get('location_lng'),
+    maps_link=data.get('maps_link')
+)
         db.session.add(new_job)
         db.session.flush()  # Get the job ID without committing
 
