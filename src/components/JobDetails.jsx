@@ -11,7 +11,10 @@ import {
     Users, 
     Shield,
     Info,
-    FileText
+    FileText,
+    Navigation,
+    DollarSign,
+    AlertCircle
 } from 'lucide-react';
 
 // This helper function is unchanged
@@ -25,7 +28,7 @@ const formatDateTime = (isoString) => {
 };
 
 const JobDetails = () => {
-    // The data fetching logic is updated
+    // The data fetching logic is unchanged
     const { jobId } = useParams();
     const { apiCall } = useAuth();
     const [job, setJob] = useState(null);
@@ -38,7 +41,7 @@ const JobDetails = () => {
                 setLoading(true);
                 setError('');
                 const data = await apiCall(`/jobs/${jobId}`);
-                setJob(data); // Changed from setJob(data.job) to setJob(data)
+                setJob(data);
             } catch (err) {
                 setError(err.message || 'Failed to load job details.');
             } finally {
@@ -82,7 +85,13 @@ const JobDetails = () => {
 
     const { date, time } = formatDateTime(job.arrival_time);
 
-    // --- NEW LAYOUT STARTS HERE ---
+    // Generate navigation link if not provided
+    const navigationLink = job.maps_link || 
+        (job.location_lat && job.location_lng ? 
+            `https://www.google.com/maps/dir/?api=1&destination=${job.location_lat},${job.location_lng}` : 
+            `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address)}`);
+
+    // --- UPDATED LAYOUT WITH MORE FIELDS ---
     return (
         <main className="p-4 sm:p-6 lg:p-8 bg-v3-bg-darkest min-h-screen text-v3-text-light">
             <div className="mb-6">
@@ -102,10 +111,32 @@ const JobDetails = () => {
                             <p className="text-orange-100 text-lg capitalize">{job.job_type}</p>
                         </div>
                         
-                        <div className="p-6">
-                            <h2 className="text-xl font-bold text-v3-text-lightest mb-4">Job Briefing & Instructions</h2>
-                            <div className="prose prose-invert prose-p:text-v3-text-light prose-headings:text-v3-text-lightest max-w-none">
-                                <p className="whitespace-pre-wrap">{job.instructions || "No specific instructions provided."}</p>
+                        <div className="p-6 space-y-6">
+                            <div>
+                                <h2 className="text-xl font-bold text-v3-text-lightest mb-4 flex items-center gap-2">
+                                    <Info className="w-5 h-5 text-v3-orange" />
+                                    Job Briefing & Instructions
+                                </h2>
+                                <p className="whitespace-pre-wrap text-v3-text-light">{job.instructions || "No specific instructions provided."}</p>
+                            </div>
+
+                            {/* New: Urgency and Rate */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-v3-bg-darker p-4 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <AlertCircle className="w-5 h-5 text-v3-orange" />
+                                        <h3 className="font-semibold text-v3-text-lightest">Urgency Level</h3>
+                                    </div>
+                                    <p className="text-v3-text-light capitalize">{job.urgency_level || 'Standard'}</p>
+                                </div>
+                                
+                                <div className="bg-v3-bg-darker p-4 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <DollarSign className="w-5 h-5 text-v3-orange" />
+                                        <h3 className="font-semibold text-v3-text-lightest">Hourly Rate</h3>
+                                    </div>
+                                    <p className="text-v3-text-light">£{job.hourly_rate?.toFixed(2) || 'N/A'}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -144,7 +175,16 @@ const JobDetails = () => {
                             <MapPin className="w-5 h-5 text-v3-orange flex-shrink-0 mt-1"/>
                             <div>
                                 <p className="text-sm text-v3-text-muted">Location</p>
-                                <p className="font-semibold text-v3-text-lightest">{job.address}</p>
+                                <p className="font-semibold text-v3-text-lightest mb-2">{job.address}</p>
+                                <a 
+                                    href={navigationLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="button-refresh flex items-center gap-2 w-fit"
+                                >
+                                    <Navigation size={16} />
+                                    Navigate to Entrance
+                                </a>
                             </div>
                         </div>
                         
