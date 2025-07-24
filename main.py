@@ -212,6 +212,7 @@ with app.app_context():
 # --- App Initialization Block ---
 with app.app_context():
     init_scheduler(app)
+    db.create_all()
 
 # --- Main Execution (Not used by Gunicorn/Heroku) ---
 if __name__ == '__main__':

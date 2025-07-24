@@ -153,8 +153,6 @@ def convert_address_to_coords():
         logger.error(f"Geocoding error: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred during geocoding.'}), 500
 
-# --- Job Routes ---
-
 # [PASTE THIS CODE OVER THE OLD create_job FUNCTION]
 
 @jobs_bp.route('/jobs', methods=['POST'])
