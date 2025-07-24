@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from "../useAuth";
 import { toast } from 'sonner';
 import { Briefcase, MapPin, Calendar, Users, MessageSquare, Send, Loader2, Navigation, X } from 'lucide-react';
@@ -20,6 +20,11 @@ const CreateJob = () => {
     const [mapCenter, setMapCenter] = useState({ lat: 51.5074, lng: -0.1278 }); // London default
     const [selectedLocation, setSelectedLocation] = useState(null);
     const [mapLoading, setMapLoading] = useState(false);
+    
+    // Refs for Leaflet map
+    const mapRef = useRef(null);
+    const mapInstance = useRef(null);
+    const markerRef = useRef(null);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -56,74 +61,86 @@ const CreateJob = () => {
         }
     };
 
-    const handleMapClick = async (event) => {
-        const lat = event.latLng.lat();
-        const lng = event.latLng.lng();
-        
+    const handleMapClick = async (lat, lng) => {
         setSelectedLocation({ lat, lng });
         
-        // Convert to What3Words
+        // Convert to What3Words using your backend API
         try {
-            const response = await apiCall('/jobs/convert-coords-to-w3w', {
+            const response = await apiCall('/what3words/convert-to-3wa', {
                 method: 'POST',
-                body: JSON.stringify({ lat, lon: lng })
+                body: JSON.stringify({ lat, lng })
             });
             
-            if (response.w3w_address) {
+            if (response.three_word_address) {
                 setFormData(prev => ({ 
                     ...prev, 
-                    what3words_address: response.w3w_address 
+                    what3words_address: response.three_word_address 
                 }));
-                toast.success(`Location set: ${response.w3w_address}`);
+                toast.success(`Location set: ${response.three_word_address}`);
             }
         } catch (error) {
+            console.error('What3Words error:', error);
             toast.error("Failed to get What3Words address");
         }
     };
 
     const MapModal = () => {
-        React.useEffect(() => {
-            if (showMap && window.google) {
-                const map = new window.google.maps.Map(document.getElementById('location-map'), {
-                    center: mapCenter,
-                    zoom: 18,
-                    mapTypeId: 'satellite' // Satellite view for better entrance identification
-                });
+        useEffect(() => {
+            if (showMap && mapRef.current && !mapInstance.current) {
+                // Initialize Leaflet map
+                mapInstance.current = window.L.map(mapRef.current).setView([mapCenter.lat, mapCenter.lng], 18);
+                
+                // Add satellite tiles (Esri World Imagery)
+                window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                }).addTo(mapInstance.current);
 
-                // Add marker for selected location
-                let marker = null;
+                // Add initial marker if location is selected
                 if (selectedLocation) {
-                    marker = new window.google.maps.Marker({
-                        position: selectedLocation,
-                        map: map,
-                        draggable: true,
-                        title: 'Job Entrance Location'
-                    });
+                    markerRef.current = window.L.marker([selectedLocation.lat, selectedLocation.lng], {
+                        draggable: true
+                    }).addTo(mapInstance.current);
 
-                    marker.addListener('dragend', (event) => {
-                        handleMapClick(event);
+                    // Handle marker drag
+                    markerRef.current.on('dragend', function(e) {
+                        const position = e.target.getLatLng();
+                        handleMapClick(position.lat, position.lng);
                     });
                 }
 
-                // Add click listener to map
-                map.addListener('click', (event) => {
-                    if (marker) marker.setMap(null);
+                // Handle map clicks
+                mapInstance.current.on('click', function(e) {
+                    const { lat, lng } = e.latlng;
                     
-                    marker = new window.google.maps.Marker({
-                        position: event.latLng,
-                        map: map,
-                        draggable: true,
-                        title: 'Job Entrance Location'
+                    // Remove existing marker
+                    if (markerRef.current) {
+                        mapInstance.current.removeLayer(markerRef.current);
+                    }
+                    
+                    // Add new marker
+                    markerRef.current = window.L.marker([lat, lng], {
+                        draggable: true
+                    }).addTo(mapInstance.current);
+
+                    // Handle marker drag
+                    markerRef.current.on('dragend', function(e) {
+                        const position = e.target.getLatLng();
+                        handleMapClick(position.lat, position.lng);
                     });
 
-                    marker.addListener('dragend', (event) => {
-                        handleMapClick(event);
-                    });
-
-                    handleMapClick(event);
+                    handleMapClick(lat, lng);
                 });
             }
         }, [showMap, mapCenter]);
+
+        // Cleanup map when modal closes
+        useEffect(() => {
+            if (!showMap && mapInstance.current) {
+                mapInstance.current.remove();
+                mapInstance.current = null;
+                markerRef.current = null;
+            }
+        }, [showMap]);
 
         if (!showMap) return null;
 
@@ -159,7 +176,7 @@ const CreateJob = () => {
                     
                     <div className="flex-1 relative">
                         <div 
-                            id="location-map" 
+                            ref={mapRef}
                             className="w-full h-full rounded-b-lg"
                             style={{ minHeight: '400px' }}
                         />
@@ -224,17 +241,6 @@ const CreateJob = () => {
             setLoading(false);
         }
     };
-
-    // Load Google Maps API
-    React.useEffect(() => {
-        if (!window.google && !window.googleMapsLoading) {
-            window.googleMapsLoading = true;
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBK5TbeUdIq7mGdBjUySwHqJBQQqV7UhJw&libraries=places`;
-            script.async = true;
-            document.head.appendChild(script);
-        }
-    }, []);
 
     return (
         <main className="min-h-screen bg-v3-bg-darkest">
