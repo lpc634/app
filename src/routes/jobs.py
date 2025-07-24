@@ -198,22 +198,23 @@ def create_job():
 
         # Create the job first
         new_job = Job(
-    title=data['title'],
-    job_type=data['job_type'],
-    address=data['address'],
-    postcode=data.get('postcode'),
-    arrival_time=parse(data['arrival_time']),
-    agents_required=int(data['agents_required']),
-    hourly_rate=float(data.get('hourly_rate', 0)),
-    lead_agent_name=data.get('lead_agent_name'),
-    instructions=data.get('instructions'),
-    urgency_level=data.get('urgency_level', 'Standard'),
-    status='open',
-    created_by=current_user.id,
-    location_lat=data.get('location_lat'),
-    location_lng=data.get('location_lng'),
-    maps_link=data.get('maps_link')
-)
+            title=data['title'],
+            job_type=data['job_type'],
+            address=data['address'],
+            postcode=data.get('postcode'),
+            arrival_time=parse(data['arrival_time']),
+            agents_required=int(data['agents_required']),
+            hourly_rate=float(data.get('hourly_rate', 0)),
+            lead_agent_name=data.get('lead_agent_name'),
+            instructions=data.get('instructions'),
+            urgency_level=data.get('urgency_level', 'Standard'),
+            status='open',
+            created_by=current_user.id,
+            # Google Maps location fields
+            location_lat=data.get('location_lat'),
+            location_lng=data.get('location_lng'),
+            maps_link=data.get('maps_link')
+        )
         db.session.add(new_job)
         db.session.flush()  # Get the job ID without committing
 
@@ -262,10 +263,21 @@ def create_job():
         if assigned_agent_ids:
             notification_title = "New Job Available"
             notification_message = f"A new job, '{new_job.title}', is available for your response."
-            # Add your notification function here if you have one
-            # trigger_push_notification_for_users(assigned_agent_ids, notification_title, notification_message)
+            
+            # Include Google Maps link in notification if available
+            if new_job.maps_link:
+                notification_message += f"\n\nNavigation: {new_job.maps_link}"
+            
+            # Uncomment if you have the notification function available
+            try:
+                trigger_push_notification_for_users(assigned_agent_ids, notification_title, notification_message)
+            except Exception as e:
+                logger.warning(f"Failed to send push notifications: {str(e)}")
 
         db.session.commit()
+
+        # Log successful job creation
+        logger.info(f"Job '{new_job.title}' created by admin {current_user.id} and assigned to {len(assigned_agent_ids)} agents")
 
         return jsonify({
             'message': f'Job created successfully and assigned to {len(assigned_agent_ids)} available agents.',
@@ -276,10 +288,11 @@ def create_job():
 
     except ValueError as ve:
         db.session.rollback()
+        logger.error(f"ValueError creating job: {str(ve)}")
         return jsonify({'error': f'Invalid data format: {ve}'}), 400
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Error creating job: {str(e)}")
+        logger.error(f"Error creating job: {str(e)}")
         return jsonify({'error': 'Failed to create job'}), 500
 
 
