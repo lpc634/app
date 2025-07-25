@@ -95,17 +95,24 @@ class Job(db.Model):
 
     def to_dict(self):
         # Get weather information using the improved function
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"Job.to_dict() called for job {self.id}: {self.title}")
+        logger.info(f"Job address: {self.address}")
+        logger.info(f"Job coordinates: lat={self.location_lat}, lng={self.location_lng}")
+        
         weather_info = None
         try:
             from src.routes.jobs import get_weather_for_job
+            logger.info(f"Calling get_weather_for_job for job {self.id}")
             weather_info = get_weather_for_job(self)
+            logger.info(f"Weather info returned: {weather_info}")
         except Exception as e:
             # Log the error for debugging
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error getting weather for job {self.id}: {str(e)}")
+            logger.error(f"Error getting weather for job {self.id}: {str(e)}", exc_info=True)
             weather_info = {
-                'forecast': 'Weather information unavailable',
+                'forecast': 'Weather information unavailable - error occurred',
                 'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
             }
         

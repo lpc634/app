@@ -78,34 +78,35 @@ def get_weather_forecast(lat, lon, arrival_time):
     """Get weather forecast for a specific location and time."""
     # If no coordinates provided, return fallback
     if not lat or not lon:
+        logger.warning(f"Weather forecast: No coordinates provided (lat={lat}, lon={lon})")
         return {
             'forecast': 'Weather information unavailable - no location coordinates',
             'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
         }
     
-    try:
-        # Skip if API key is not configured - provide helpful fallback
-        if WEATHER_API_KEY == 'YOUR_API_KEY_HERE':
-            logger.warning("Weather API key not configured")
-            # Provide location-based guidance instead of weather
-            import datetime
-            current_month = datetime.datetime.now().month
-            
-            # Seasonal clothing recommendations for UK
-            if current_month in [12, 1, 2]:  # Winter
-                seasonal_clothing = "Winter clothing recommended: Heavy coat, gloves, and warm layers."
-            elif current_month in [3, 4, 5]:  # Spring  
-                seasonal_clothing = "Spring clothing recommended: Light jacket or layers for changing weather."
-            elif current_month in [6, 7, 8]:  # Summer
-                seasonal_clothing = "Summer clothing recommended: Light, breathable work clothes."
-            else:  # Autumn
-                seasonal_clothing = "Autumn clothing recommended: Warm jacket and layers."
-            
-            return {
-                'forecast': f'Weather API unavailable - Check current conditions for coordinates {lat:.3f}, {lon:.3f}',
-                'clothing': seasonal_clothing
-            }
+    # Check API key configuration
+    if not WEATHER_API_KEY or WEATHER_API_KEY == 'YOUR_API_KEY_HERE':
+        logger.warning(f"Weather API key not configured. Current value: {'NOT_SET' if not WEATHER_API_KEY else 'DEFAULT_PLACEHOLDER'}")
+        # Provide location-based guidance instead of weather
+        import datetime
+        current_month = datetime.datetime.now().month
         
+        # Seasonal clothing recommendations for UK
+        if current_month in [12, 1, 2]:  # Winter
+            seasonal_clothing = "Winter clothing recommended: Heavy coat, gloves, and warm layers."
+        elif current_month in [3, 4, 5]:  # Spring  
+            seasonal_clothing = "Spring clothing recommended: Light jacket or layers for changing weather."
+        elif current_month in [6, 7, 8]:  # Summer
+            seasonal_clothing = "Summer clothing recommended: Light, breathable work clothes."
+        else:  # Autumn
+            seasonal_clothing = "Autumn clothing recommended: Warm jacket and layers."
+        
+        return {
+            'forecast': f'Weather API key not configured - Location: {lat:.3f}, {lon:.3f}',
+            'clothing': seasonal_clothing
+        }
+    
+    try:
         # OpenWeatherMap API call
         params = {
             'lat': lat,
@@ -115,15 +116,68 @@ def get_weather_forecast(lat, lon, arrival_time):
             'cnt': 40  # Get 5 days of forecast (8 forecasts per day)
         }
         
-        response = requests.get(WEATHER_API_URL, params=params, timeout=5)
+        logger.info(f"Making weather API request to {WEATHER_API_URL} with params: lat={lat}, lon={lon}")
+        
+        response = requests.get(WEATHER_API_URL, params=params, timeout=10)
+        
+        # Log detailed response information
+        logger.info(f"Weather API response status: {response.status_code}")
+        
+        if response.status_code == 401:
+            logger.error("Weather API: Invalid API key (401 Unauthorized)")
+            return {
+                'forecast': 'Weather API error - Invalid API key',
+                'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+            }
+        elif response.status_code == 429:
+            logger.error("Weather API: Rate limit exceeded (429 Too Many Requests)")
+            return {
+                'forecast': 'Weather API error - Rate limit exceeded',
+                'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+            }
+        elif response.status_code == 404:
+            logger.error(f"Weather API: Location not found (404) for coordinates {lat}, {lon}")
+            return {
+                'forecast': f'Weather API error - Location not found for {lat:.3f}, {lon:.3f}',
+                'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+            }
+        
         response.raise_for_status()
         
-        data = response.json()
+        try:
+            data = response.json()
+        except ValueError as e:
+            logger.error(f"Weather API: Invalid JSON response: {str(e)}")
+            logger.error(f"Response content: {response.text[:500]}...")
+            return {
+                'forecast': 'Weather API error - Invalid response format',
+                'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+            }
+        
+        # Check if API returned an error in the JSON
+        if 'cod' in data and str(data['cod']) != '200':
+            error_msg = data.get('message', 'Unknown API error')
+            logger.error(f"Weather API error in response: {data['cod']} - {error_msg}")
+            return {
+                'forecast': f'Weather API error - {error_msg}',
+                'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+            }
+        
+        # Check if we have forecast data
+        if 'list' not in data or not data['list']:
+            logger.error("Weather API: No forecast data in response")
+            logger.error(f"Response data keys: {list(data.keys())}")
+            return {
+                'forecast': 'Weather API error - No forecast data available',
+                'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+            }
         
         # Find the forecast closest to arrival time
         arrival_timestamp = arrival_time.timestamp()
         closest_forecast = None
         min_time_diff = float('inf')
+        
+        logger.info(f"Looking for forecast closest to arrival time: {arrival_time} (timestamp: {arrival_timestamp})")
         
         for forecast in data['list']:
             forecast_timestamp = forecast['dt']
@@ -136,6 +190,8 @@ def get_weather_forecast(lat, lon, arrival_time):
         if closest_forecast:
             temp = closest_forecast['main']['temp']
             description = closest_forecast['weather'][0]['description']
+            
+            logger.info(f"Weather forecast found: {description}, {temp}°C")
             
             # Generate clothing recommendation based on temperature
             if temp < 5:
@@ -153,36 +209,137 @@ def get_weather_forecast(lat, lon, arrival_time):
                 'forecast': f"{description.capitalize()}, {temp}°C",
                 'clothing': clothing
             }
+        else:
+            logger.error("Weather API: No suitable forecast found for the arrival time")
+            return {
+                'forecast': 'Weather API error - No forecast available for requested time',
+                'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+            }
         
+    except requests.exceptions.Timeout as e:
+        logger.error(f"Weather API timeout error: {str(e)}")
+        return {
+            'forecast': 'Weather API error - Request timeout',
+            'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+        }
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"Weather API connection error: {str(e)}")
+        return {
+            'forecast': 'Weather API error - Connection failed',
+            'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+        }
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"Weather API HTTP error: {str(e)} - Response: {e.response.text if e.response else 'No response'}")
+        return {
+            'forecast': f'Weather API HTTP error - {e.response.status_code if e.response else "Unknown"}',
+            'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+        }
     except requests.exceptions.RequestException as e:
-        logger.error(f"Weather API error: {str(e)}")
+        logger.error(f"Weather API request error: {str(e)}")
+        return {
+            'forecast': 'Weather API error - Request failed',
+            'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+        }
     except Exception as e:
-        logger.error(f"Error getting weather forecast: {str(e)}")
-    
-    # Fallback if weather API fails
-    return {
-        'forecast': 'Weather information unavailable',
-        'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
-    }
+        logger.error(f"Weather API unexpected error: {str(e)}", exc_info=True)
+        return {
+            'forecast': 'Weather API error - Unexpected error occurred',
+            'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+        }
 
 def get_weather_for_job(job):
     """Get weather forecast for a job, handling both coordinates and address."""
+    logger.info(f"get_weather_for_job called for job {job.id}")
     lat, lon = None, None
     
     # Try to use existing coordinates first
     if job.location_lat and job.location_lng:
         try:
             lat, lon = float(job.location_lat), float(job.location_lng)
-        except (ValueError, TypeError):
+            logger.info(f"Using existing coordinates: lat={lat}, lon={lon}")
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Failed to convert existing coordinates: {e}")
             pass
     
     # If no coordinates, try to geocode the address
     if not lat or not lon:
         if job.address:
+            logger.info(f"No coordinates available, geocoding address: {job.address}")
             lat, lon = geocode_address(job.address)
+            logger.info(f"Geocoded coordinates: lat={lat}, lon={lon}")
+        else:
+            logger.warning("No address available for geocoding")
     
     # Get weather forecast using coordinates
-    return get_weather_forecast(lat, lon, job.arrival_time)
+    logger.info(f"Calling get_weather_forecast with lat={lat}, lon={lon}, arrival_time={job.arrival_time}")
+    result = get_weather_forecast(lat, lon, job.arrival_time)
+    logger.info(f"get_weather_forecast returned: {result}")
+    return result
+
+# --- Weather Testing Routes ---
+@jobs_bp.route('/debug/weather-test', methods=['GET'])
+@jwt_required()
+def debug_weather_test():
+    """Debug endpoint to test weather API configuration."""
+    try:
+        current_user = require_admin()
+        if not current_user:
+            return jsonify({'error': 'Access denied. Admin role required.'}), 403
+        
+        # Test coordinates (Camberley, Surrey)
+        test_lat = 51.349
+        test_lon = -0.727
+        test_time = datetime.utcnow()
+        
+        # Check API key status
+        api_key_status = "NOT_SET" if not WEATHER_API_KEY else ("DEFAULT_PLACEHOLDER" if WEATHER_API_KEY == 'YOUR_API_KEY_HERE' else "CONFIGURED")
+        api_key_prefix = WEATHER_API_KEY[:8] + "..." if WEATHER_API_KEY and len(WEATHER_API_KEY) > 8 else WEATHER_API_KEY
+        
+        logger.info(f"Weather API debug test - API Key Status: {api_key_status}")
+        logger.info(f"API Key prefix: {api_key_prefix}")
+        
+        # Test weather function
+        weather_result = get_weather_forecast(test_lat, test_lon, test_time)
+        
+        # Also test the job flow
+        test_job_result = None
+        try:
+            # Create a mock job object for testing
+            class MockJob:
+                def __init__(self):
+                    self.id = 'test'
+                    self.address = '11 Berkshire Road, Camberley, Surrey'
+                    self.location_lat = None
+                    self.location_lng = None
+                    self.arrival_time = test_time
+            
+            mock_job = MockJob()
+            test_job_result = get_weather_for_job(mock_job)
+            logger.info(f"Test job weather result: {test_job_result}")
+        except Exception as e:
+            test_job_result = {'error': str(e)}
+            logger.error(f"Test job weather error: {str(e)}")
+        
+        return jsonify({
+            'test_coordinates': {'lat': test_lat, 'lon': test_lon},
+            'api_key_status': api_key_status,
+            'api_key_prefix': api_key_prefix,
+            'api_url': WEATHER_API_URL,
+            'direct_weather_test': weather_result,
+            'job_flow_test': test_job_result,
+            'environment': {
+                'heroku_config_check': 'Run: heroku config --app v3-app | grep OPENWEATHER'
+            },
+            'setup_instructions': {
+                'step1': 'Get free API key from https://openweathermap.org/api',
+                'step2': 'Set environment variable: heroku config:set OPENWEATHER_API_KEY=your_key_here --app v3-app',
+                'step3': 'Restart the app: heroku restart --app v3-app'
+            }
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Weather debug test error: {str(e)}")
+        return jsonify({'error': f'Debug test failed: {str(e)}'}), 500
 
 # --- Geocoding Routes ---
 @jobs_bp.route('/jobs/convert-address', methods=['POST'])
