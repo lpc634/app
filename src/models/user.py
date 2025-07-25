@@ -116,6 +116,9 @@ class Job(db.Model):
                 'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
             }
         
+        # Calculate agents allocated by counting accepted assignments
+        agents_allocated = len([a for a in self.assignments if a.status == 'accepted'])
+        
         return {
             'id': self.id, 
             'title': self.title, 
@@ -124,6 +127,7 @@ class Job(db.Model):
             'postcode': self.postcode, 
             'arrival_time': self.arrival_time.isoformat(), 
             'agents_required': self.agents_required, 
+            'agents_allocated': agents_allocated,
             'lead_agent_name': self.lead_agent_name,
             'instructions': self.instructions,
             'urgency_level': self.urgency_level,
