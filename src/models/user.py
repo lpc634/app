@@ -218,6 +218,18 @@ class Invoice(db.Model):
     agent = db.relationship('User', back_populates='invoices')
     jobs = db.relationship('InvoiceJob', back_populates='invoice', cascade="all, delete-orphan")
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'agent_id': self.agent_id,
+            'invoice_number': self.invoice_number,
+            'issue_date': self.issue_date.isoformat() if self.issue_date else None,
+            'due_date': self.due_date.isoformat() if self.due_date else None,
+            'total_amount': float(self.total_amount) if self.total_amount else 0.0,
+            'status': self.status,
+            'jobs': [job.to_dict() for job in self.jobs] if self.jobs else []
+        }
+
 class InvoiceJob(db.Model):
     __tablename__ = 'invoice_jobs'
     id = db.Column(db.Integer, primary_key=True)
@@ -227,6 +239,16 @@ class InvoiceJob(db.Model):
     hourly_rate_at_invoice = db.Column(db.Numeric(10, 2))
     invoice = db.relationship('Invoice', back_populates='jobs')
     job = db.relationship('Job', back_populates='invoice_jobs')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'invoice_id': self.invoice_id,
+            'job_id': self.job_id,
+            'hours_worked': float(self.hours_worked) if self.hours_worked else 0.0,
+            'hourly_rate_at_invoice': float(self.hourly_rate_at_invoice) if self.hourly_rate_at_invoice else 0.0,
+            'job': self.job.to_dict() if self.job else None
+        }
 
 class PushSubscription(db.Model):
     __tablename__ = 'push_subscriptions'

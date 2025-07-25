@@ -27,6 +27,7 @@ import NotificationsPage from './Pages/NotificationsPage';
 import ProfilePage from './Pages/ProfilePage';
 import WeeklyCalendarView from './Pages/WeeklyCalendarView';
 import VehicleSearchPage from './Pages/VehicleSearchPage.jsx';
+import UpdateInvoicePage from './components/UpdateInvoicePage';
 
 // --- NEW: Root Redirect Component ---
 // This component will handle the logic for the root path
@@ -98,7 +99,8 @@ function App() {
             <Route path="/agent/invoices/new" element={<CreateInvoicePage />} />
             <Route path="/agent/invoices/new/from-jobs" element={<CreateInvoiceFromJobs />} />
             <Route path="/agent/invoices/new/misc" element={<CreateMiscInvoice />} />
-            <Route path="/agent/invoices/review" element={<ReviewInvoicePage />} />
+            <Route path="/agent/invoices/update/:invoiceId" element={<UpdateInvoicePage />} />
+            <Route path="/agent/invoices/review/:invoiceId" element={<ReviewInvoicePage />} />
             <Route path="/agent/reports" element={<JobReports />} />
             <Route path="/agent/notifications" element={<NotificationsPage />} />
             <Route path="/agent/profile" element={<AgentProfile />} />

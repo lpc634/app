@@ -368,15 +368,7 @@ def get_agent_invoices():
         
         invoices = Invoice.query.filter_by(agent_id=current_user_id).order_by(Invoice.issue_date.desc()).all()
         
-        invoice_list = [{
-            "id": inv.id,
-            "invoice_number": inv.invoice_number,
-            "issue_date": inv.issue_date.isoformat(),
-            "due_date": inv.due_date.isoformat(),
-            "total_amount": float(inv.total_amount),
-            "status": inv.status,
-            "pdf_url": f"/api/invoices/{inv.invoice_number}.pdf"
-        } for inv in invoices]
+        invoice_list = [invoice.to_dict() for invoice in invoices]
         
         return jsonify(invoice_list), 200
 
@@ -500,3 +492,133 @@ def create_invoice():
             os.remove(pdf_path)
         import traceback
         return jsonify({"error": "An internal server error occurred.", "details": traceback.format_exc()}), 500
+
+@agent_bp.route('/agent/invoices/<int:invoice_id>', methods=['PUT'])
+@jwt_required()
+def update_invoice(invoice_id):
+    """Update a draft invoice with hours and rate, then finalize and send it."""
+    try:
+        current_user_id = int(get_jwt_identity())
+        user = User.query.get(current_user_id)
+        if not user or user.role != 'agent':
+            return jsonify({'error': 'Access denied. Agent role required.'}), 403
+        
+        data = request.get_json()
+        hours_worked = data.get('hours_worked')
+        hourly_rate = data.get('hourly_rate')
+        
+        if not hours_worked or not hourly_rate:
+            return jsonify({'error': 'Hours worked and hourly rate are required'}), 400
+        
+        # Find the invoice
+        invoice = Invoice.query.get(invoice_id)
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+        
+        # Security check: agents can only update their own invoices
+        if invoice.agent_id != current_user_id:
+            return jsonify({'error': 'Access denied. You can only update your own invoices.'}), 403
+        
+        # Check if invoice is in draft status
+        if invoice.status != 'draft':
+            return jsonify({'error': 'Only draft invoices can be updated'}), 400
+        
+        # Update the invoice job with hours and rate
+        invoice_job = InvoiceJob.query.filter_by(invoice_id=invoice.id).first()
+        if not invoice_job:
+            return jsonify({'error': 'Invoice job not found'}), 404
+        
+        invoice_job.hours_worked = Decimal(str(hours_worked))
+        invoice_job.hourly_rate_at_invoice = Decimal(str(hourly_rate))
+        
+        # Calculate total amount
+        total_amount = Decimal(str(hours_worked)) * Decimal(str(hourly_rate))
+        invoice.total_amount = total_amount
+        invoice.status = 'sent'
+        invoice.issue_date = date.today()
+        
+        db.session.commit()
+        
+        # Generate PDF and send email
+        try:
+            # Get job details for the invoice
+            job = invoice_job.job
+            jobs_data = [{
+                'job_id': job.id,
+                'title': job.title,
+                'address': job.address,
+                'arrival_time': job.arrival_time,
+                'hours_worked': float(hours_worked),
+                'hourly_rate': float(hourly_rate),
+                'subtotal': float(total_amount)
+            }]
+            
+            # Generate PDF
+            pdf_path = generate_invoice_pdf(user, jobs_data, float(total_amount), invoice.invoice_number)
+            
+            # Send email to agent and tom@v3-services.com
+            send_invoice_email(
+                recipient_email=user.email,
+                agent_name=f"{user.first_name} {user.last_name}",
+                pdf_path=pdf_path,
+                invoice_number=invoice.invoice_number,
+                cc_email='tom@v3-services.com'
+            )
+            
+            # Clean up the temporary PDF file
+            try:
+                os.remove(pdf_path)
+            except:
+                pass  # Don't fail if cleanup fails
+                
+        except Exception as e:
+            current_app.logger.error(f"Failed to generate PDF or send email for invoice {invoice.invoice_number}: {str(e)}")
+            # Don't fail the invoice update if PDF/email fails
+            pass
+        
+        return jsonify({
+            'message': 'Invoice updated and sent successfully',
+            'invoice': invoice.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating invoice: {str(e)}")
+        return jsonify({'error': 'Failed to update invoice'}), 500
+
+@agent_bp.route('/agent/invoices/<int:invoice_id>', methods=['GET'])
+@jwt_required()
+def get_invoice_details(invoice_id):
+    """Get specific invoice details for updating."""
+    try:
+        current_user_id = int(get_jwt_identity())
+        user = User.query.get(current_user_id)
+        if not user or user.role != 'agent':
+            return jsonify({'error': 'Access denied. Agent role required.'}), 403
+        
+        # Find the invoice
+        invoice = Invoice.query.get(invoice_id)
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+        
+        # Security check: agents can only view their own invoices
+        if invoice.agent_id != current_user_id:
+            return jsonify({'error': 'Access denied. You can only view your own invoices.'}), 403
+        
+        # Get the invoice job details
+        invoice_job = InvoiceJob.query.filter_by(invoice_id=invoice.id).first()
+        if not invoice_job:
+            return jsonify({'error': 'Invoice job not found'}), 404
+        
+        # Get job details
+        job = invoice_job.job
+        
+        return jsonify({
+            'invoice': invoice.to_dict(),
+            'job': job.to_dict() if job else None,
+            'invoice_job': invoice_job.to_dict()
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching invoice details: {str(e)}")
+        return jsonify({'error': 'Failed to fetch invoice details'}), 500
