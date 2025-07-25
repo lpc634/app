@@ -6,6 +6,7 @@ import { useAuth } from "./useAuth.jsx";
 
 // --- 1. IMPORT THE SEARCH ICON ---
 import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search } from 'lucide-react';
+import logo from './assets/new_logo.png';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
@@ -59,9 +60,7 @@ export default function Layout({ children }) {
     <div className="flex h-full flex-col bg-card">
       {/* Header */}
       <div className="flex h-20 items-center p-4 gap-x-4 border-b">
-        <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
-          <span className="font-bold text-white text-xl">V3</span>
-        </div>
+        <img src={logo} alt="Company Name Logo" className="h-8 w-auto" />
         <span className="font-semibold text-2xl text-foreground">V3 Services</span>
       </div>
       

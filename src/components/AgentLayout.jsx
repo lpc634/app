@@ -4,6 +4,7 @@ import { Home, ClipboardList, Calendar, Bell, Briefcase, Power, User as UserIcon
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
 import '../styles/agent-mobile.css';
+import logo from '../assets/new_logo.png';
 
 const agentNavItems = [
   { name: 'Dashboard', path: '/agent/dashboard', icon: Home },
@@ -90,9 +91,7 @@ const AgentLayout = () => {
         >
           <Menu size={24} />
         </button>
-        <div className="agent-mobile-title">
-          V3 Agent Portal
-        </div>
+        <img src={logo} alt="Company Name Logo" className="h-9 w-auto mx-auto" />
         <div className="w-11"></div>
       </div>
 
@@ -162,9 +161,7 @@ const AgentLayout = () => {
       <div className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 bg-v3-bg-card border-r border-v3-border flex-col">
         <div className="h-16 flex items-center px-4 border-b border-v3-border">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
-              <span className="font-bold text-white text-lg">V3</span>
-            </div>
+            <img src={logo} alt="Company Name Logo" className="h-8 w-auto" />
             <span className="font-semibold text-v3-text-lightest">Agent Portal</span>
           </div>
         </div>

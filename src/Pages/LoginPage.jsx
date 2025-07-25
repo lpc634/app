@@ -7,6 +7,7 @@ import { Label } from '../components/ui/label';
 import { Alert, AlertDescription } from '../components/ui/alert'
 import { Loader2, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom'; // 1. Import Link
+import logo from '../assets/new_logo.png';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -29,10 +30,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-v3-bg-darkest">
       <div className="dashboard-card w-full max-w-md">
+        <img src={logo} alt="Company Name Logo" className="mx-auto mb-6 h-16 w-auto" />
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-v3-orange to-v3-orange-dark shadow-lg shadow-v3-orange-glow">
-            <Shield className="h-8 w-8 text-white" />
-          </div>
           <CardTitle className="text-2xl font-bold text-v3-text-lightest">V3 Services Portal</CardTitle>
           <CardDescription className="text-v3-text-muted">
             Sign in to access your dashboard
