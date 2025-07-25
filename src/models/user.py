@@ -94,20 +94,20 @@ class Job(db.Model):
     invoice_jobs = db.relationship('InvoiceJob', back_populates='job', cascade="all, delete-orphan")
 
     def to_dict(self):
+        # Get weather information using the improved function
         weather_info = None
-        if self.location_lat and self.location_lng:
-            try:
-                from src.routes.jobs import get_weather_forecast
-                weather_info = get_weather_forecast(
-                    float(self.location_lat), 
-                    float(self.location_lng), 
-                    self.arrival_time
-                )
-            except Exception:
-                weather_info = {
-                    'forecast': 'Weather information unavailable',
-                    'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
-                }
+        try:
+            from src.routes.jobs import get_weather_for_job
+            weather_info = get_weather_for_job(self)
+        except Exception as e:
+            # Log the error for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error getting weather for job {self.id}: {str(e)}")
+            weather_info = {
+                'forecast': 'Weather information unavailable',
+                'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+            }
         
         return {
             'id': self.id, 

@@ -57,9 +57,55 @@ def validate_json_fields(required_fields):
         return decorated_function
     return decorator
 
+def geocode_address(address):
+    """Convert address to coordinates using OpenStreetMap Nominatim."""
+    try:
+        headers = {'User-Agent': 'V3ServicesApp/1.0'}
+        params = {'q': address, 'format': 'json', 'countrycodes': 'gb', 'limit': 1}
+        response = requests.get(GEOCODING_URL, params=params, headers=headers, timeout=10)
+        response.raise_for_status()
+        results = response.json()
+        
+        if results:
+            location = results[0]
+            return float(location['lat']), float(location['lon'])
+    except Exception as e:
+        logger.error(f"Geocoding error for address '{address}': {str(e)}")
+    
+    return None, None
+
 def get_weather_forecast(lat, lon, arrival_time):
     """Get weather forecast for a specific location and time."""
+    # If no coordinates provided, return fallback
+    if not lat or not lon:
+        return {
+            'forecast': 'Weather information unavailable - no location coordinates',
+            'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+        }
+    
     try:
+        # Skip if API key is not configured - provide helpful fallback
+        if WEATHER_API_KEY == 'YOUR_API_KEY_HERE':
+            logger.warning("Weather API key not configured")
+            # Provide location-based guidance instead of weather
+            import datetime
+            current_month = datetime.datetime.now().month
+            
+            # Seasonal clothing recommendations for UK
+            if current_month in [12, 1, 2]:  # Winter
+                seasonal_clothing = "Winter clothing recommended: Heavy coat, gloves, and warm layers."
+            elif current_month in [3, 4, 5]:  # Spring  
+                seasonal_clothing = "Spring clothing recommended: Light jacket or layers for changing weather."
+            elif current_month in [6, 7, 8]:  # Summer
+                seasonal_clothing = "Summer clothing recommended: Light, breathable work clothes."
+            else:  # Autumn
+                seasonal_clothing = "Autumn clothing recommended: Warm jacket and layers."
+            
+            return {
+                'forecast': f'Weather API unavailable - Check current conditions for coordinates {lat:.3f}, {lon:.3f}',
+                'clothing': seasonal_clothing
+            }
+        
         # OpenWeatherMap API call
         params = {
             'lat': lat,
@@ -118,6 +164,25 @@ def get_weather_forecast(lat, lon, arrival_time):
         'forecast': 'Weather information unavailable',
         'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
     }
+
+def get_weather_for_job(job):
+    """Get weather forecast for a job, handling both coordinates and address."""
+    lat, lon = None, None
+    
+    # Try to use existing coordinates first
+    if job.location_lat and job.location_lng:
+        try:
+            lat, lon = float(job.location_lat), float(job.location_lng)
+        except (ValueError, TypeError):
+            pass
+    
+    # If no coordinates, try to geocode the address
+    if not lat or not lon:
+        if job.address:
+            lat, lon = geocode_address(job.address)
+    
+    # Get weather forecast using coordinates
+    return get_weather_forecast(lat, lon, job.arrival_time)
 
 # --- Geocoding Routes ---
 @jobs_bp.route('/jobs/convert-address', methods=['POST'])
