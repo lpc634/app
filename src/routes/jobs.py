@@ -623,10 +623,12 @@ def create_job():
 
         # Create job assignments for available agents
         assigned_agent_ids = []
-        logger.info(f"Creating job assignments for {len(available_agents)} available agents")
+        print(f"[DEBUG] Creating job assignments for {len(available_agents)} available agents")
+        logger.error(f"[DEBUG] Creating job assignments for {len(available_agents)} available agents")
         
         for agent in available_agents:
-            logger.info(f"Processing agent {agent.id} for job assignment")
+            print(f"[DEBUG] Processing agent {agent.id} for job assignment")
+            logger.error(f"[DEBUG] Processing agent {agent.id} for job assignment")
             # Check if assignment already exists (just in case)
             existing_assignment = JobAssignment.query.filter_by(
                 job_id=new_job.id, 
@@ -641,11 +643,14 @@ def create_job():
                 )
                 db.session.add(assignment)
                 assigned_agent_ids.append(agent.id)
-                logger.info(f"Created job assignment for agent {agent.id}")
+                print(f"[DEBUG] Created job assignment for agent {agent.id}")
+                logger.error(f"[DEBUG] Created job assignment for agent {agent.id}")
             else:
-                logger.warning(f"Assignment already exists for agent {agent.id}, skipping")
+                print(f"[DEBUG] Assignment already exists for agent {agent.id}, skipping")
+                logger.error(f"[DEBUG] Assignment already exists for agent {agent.id}, skipping")
         
-        logger.info(f"Total assigned agent IDs: {assigned_agent_ids}")
+        print(f"[DEBUG] Total assigned agent IDs: {assigned_agent_ids}")
+        logger.error(f"[DEBUG] Total assigned agent IDs: {assigned_agent_ids}")
 
         # Create daily records for these agents if fallback was used
         if available_agents:
@@ -660,7 +665,8 @@ def create_job():
 
         # Create notifications for assigned agents
         if assigned_agent_ids:
-            logger.info(f"Creating notifications for {len(assigned_agent_ids)} assigned agents: {assigned_agent_ids}")
+            print(f"[DEBUG] Creating notifications for {len(assigned_agent_ids)} assigned agents: {assigned_agent_ids}")
+            logger.error(f"[DEBUG] Creating notifications for {len(assigned_agent_ids)} assigned agents: {assigned_agent_ids}")
             notification_title = "New Job Available"
             notification_message = f"A new job, '{new_job.title}', is available for your response."
             
