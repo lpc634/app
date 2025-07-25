@@ -640,6 +640,7 @@ def create_job():
 
         # Create notifications for assigned agents
         if assigned_agent_ids:
+            logger.info(f"Creating notifications for {len(assigned_agent_ids)} assigned agents: {assigned_agent_ids}")
             notification_title = "New Job Available"
             notification_message = f"A new job, '{new_job.title}', is available for your response."
             
@@ -648,23 +649,46 @@ def create_job():
                 notification_message += f"\n\nNavigation: {new_job.maps_link}"
             
             # Create database notification records for each assigned agent
+            notifications_created = 0
             for agent_id in assigned_agent_ids:
-                notification = Notification(
-                    user_id=agent_id,
-                    title=notification_title,
-                    message=notification_message,
-                    type='job_assignment',
-                    job_id=new_job.id
-                )
-                db.session.add(notification)
+                try:
+                    logger.info(f"Creating notification for agent {agent_id} for job {new_job.id}")
+                    notification = Notification(
+                        user_id=agent_id,
+                        title=notification_title,
+                        message=notification_message,
+                        type='job_assignment',
+                        job_id=new_job.id
+                    )
+                    db.session.add(notification)
+                    notifications_created += 1
+                    logger.info(f"Successfully added notification to session for agent {agent_id}")
+                except Exception as e:
+                    logger.error(f"Failed to create notification for agent {agent_id}: {str(e)}")
+            
+            logger.info(f"Created {notifications_created} notifications, about to commit to database")
             
             # Send push notifications
             try:
                 trigger_push_notification_for_users(assigned_agent_ids, notification_title, notification_message)
             except Exception as e:
                 logger.warning(f"Failed to send push notifications: {str(e)}")
+        else:
+            logger.warning("No assigned agent IDs found, skipping notification creation")
 
-        db.session.commit()
+        try:
+            logger.info("Attempting to commit job creation and notifications to database")
+            db.session.commit()
+            logger.info("Successfully committed to database")
+            
+            # Verify notifications were actually saved
+            if assigned_agent_ids:
+                saved_notifications = Notification.query.filter_by(job_id=new_job.id).count()
+                logger.info(f"Verification: Found {saved_notifications} notifications in database for job {new_job.id}")
+        except Exception as e:
+            logger.error(f"Database commit failed: {str(e)}")
+            db.session.rollback()
+            raise
 
         # Log successful job creation
         logger.info(f"Job '{new_job.title}' created by admin {current_user.id} and assigned to {len(assigned_agent_ids)} agents")
