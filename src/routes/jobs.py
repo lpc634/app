@@ -586,8 +586,7 @@ def create_job():
             .join(AgentWeeklyAvailability, AgentWeeklyAvailability.agent_id == User.id) \
             .filter(
                 User.role == 'agent',
-                User.verification_status == 'verified',
-                or_(
+                or_( 
                     and_(
                         AgentAvailability.is_available == True,
                         AgentAvailability.is_away == False
