@@ -13,7 +13,12 @@ import {
     Info,
     FileText,
     Navigation,
-    AlertCircle
+    AlertCircle,
+    Cloud,
+    Thermometer,
+    ShirtIcon,
+    Phone,
+    Mail
 } from 'lucide-react';
 
 // This helper function is unchanged
@@ -111,15 +116,61 @@ const JobDetails = () => {
                         </div>
                         
                         <div className="p-6 space-y-6">
+                            {/* Enhanced Instructions */}
                             <div>
                                 <h2 className="text-xl font-bold text-v3-text-lightest mb-4 flex items-center gap-2">
                                     <Info className="w-5 h-5 text-v3-orange" />
                                     Job Briefing & Instructions
                                 </h2>
-                                <p className="whitespace-pre-wrap text-v3-text-light">{job.instructions || "No specific instructions provided."}</p>
+                                <div className="bg-v3-bg-darker p-4 rounded-lg border-l-4 border-v3-orange">
+                                    <p className="whitespace-pre-wrap text-v3-text-light leading-relaxed text-base">
+                                        {job.instructions || "No specific instructions provided."}
+                                    </p>
+                                </div>
                             </div>
 
-                            {/* New: Urgency */}
+                            {/* Weather Forecast & Clothing */}
+                            {(job.weather_forecast || job.clothing_recommendation) && (
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    {job.weather_forecast && (
+                                        <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Cloud className="w-5 h-5 text-blue-400" />
+                                                <h3 className="font-semibold text-blue-300">Weather Forecast</h3>
+                                            </div>
+                                            <p className="text-blue-100">{job.weather_forecast}</p>
+                                        </div>
+                                    )}
+
+                                    {job.clothing_recommendation && (
+                                        <div className="bg-green-900/20 border border-green-500/30 p-4 rounded-lg">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <ShirtIcon className="w-5 h-5 text-green-400" />
+                                                <h3 className="font-semibold text-green-300">Clothing Recommendation</h3>
+                                            </div>
+                                            <p className="text-green-100">{job.clothing_recommendation}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Lead Agent Information */}
+                            {job.lead_agent_name && (
+                                <div className="bg-v3-bg-darker p-4 rounded-lg border border-v3-border">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Shield className="w-5 h-5 text-v3-orange" />
+                                        <h3 className="font-semibold text-v3-text-lightest">Lead Agent</h3>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <p className="text-v3-text-light font-medium">{job.lead_agent_name}</p>
+                                        <p className="text-sm text-v3-text-muted">
+                                            This agent will coordinate the operation and provide guidance on site.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Urgency Level */}
                             <div className="bg-v3-bg-darker p-4 rounded-lg">
                                 <div className="flex items-center gap-2 mb-2">
                                     <AlertCircle className="w-5 h-5 text-v3-orange" />
@@ -177,15 +228,14 @@ const JobDetails = () => {
                             </div>
                         </div>
                         
-                        {job.lead_agent_name && (
-                            <div className="flex items-start gap-4">
-                                <Shield className="w-5 h-5 text-v3-orange flex-shrink-0 mt-1"/>
-                                <div>
-                                    <p className="text-sm text-v3-text-muted">Lead Agent</p>
-                                    <p className="font-semibold text-v3-text-lightest">{job.lead_agent_name}</p>
-                                </div>
+                        {/* Job Type */}
+                        <div className="flex items-start gap-4">
+                            <FileText className="w-5 h-5 text-v3-orange flex-shrink-0 mt-1"/>
+                            <div>
+                                <p className="text-sm text-v3-text-muted">Job Type</p>
+                                <p className="font-semibold text-v3-text-lightest capitalize">{job.job_type}</p>
                             </div>
-                        )}
+                        </div>
 
                         <div className="flex items-start gap-4">
                             <Users className="w-5 h-5 text-v3-orange flex-shrink-0 mt-1"/>
@@ -195,7 +245,30 @@ const JobDetails = () => {
                             </div>
                         </div>
 
-                        <div className="pt-5 border-t border-v3-border">
+                        {/* Additional Information */}
+                        <div className="pt-5 border-t border-v3-border space-y-4">
+                            <h3 className="font-semibold text-v3-text-lightest">Additional Information</h3>
+                            
+                            {job.hourly_rate && (
+                                <div className="flex items-start gap-4">
+                                    <Thermometer className="w-5 h-5 text-v3-orange flex-shrink-0 mt-1"/>
+                                    <div>
+                                        <p className="text-sm text-v3-text-muted">Hourly Rate</p>
+                                        <p className="font-semibold text-v3-text-lightest">£{job.hourly_rate}/hour</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {job.what3words_address && (
+                                <div className="flex items-start gap-4">
+                                    <MapPin className="w-5 h-5 text-v3-orange flex-shrink-0 mt-1"/>
+                                    <div>
+                                        <p className="text-sm text-v3-text-muted">What3Words</p>
+                                        <p className="font-semibold text-v3-text-lightest">{job.what3words_address}</p>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex items-start gap-4">
                                 <FileText className="w-5 h-5 text-v3-orange flex-shrink-0 mt-1"/>
                                 <div>

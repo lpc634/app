@@ -94,6 +94,21 @@ class Job(db.Model):
     invoice_jobs = db.relationship('InvoiceJob', back_populates='job', cascade="all, delete-orphan")
 
     def to_dict(self):
+        weather_info = None
+        if self.location_lat and self.location_lng:
+            try:
+                from src.routes.jobs import get_weather_forecast
+                weather_info = get_weather_forecast(
+                    float(self.location_lat), 
+                    float(self.location_lng), 
+                    self.arrival_time
+                )
+            except Exception:
+                weather_info = {
+                    'forecast': 'Weather information unavailable',
+                    'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+                }
+        
         return {
             'id': self.id, 
             'title': self.title, 
@@ -110,7 +125,9 @@ class Job(db.Model):
             'what3words_address': self.what3words_address,
             'location_lat': self.location_lat,
             'location_lng': self.location_lng,
-            'maps_link': self.maps_link
+            'maps_link': self.maps_link,
+            'weather_forecast': weather_info['forecast'] if weather_info else None,
+            'clothing_recommendation': weather_info['clothing'] if weather_info else None
         }
 
 class JobAssignment(db.Model):
