@@ -571,6 +571,8 @@ def create_job():
         # Find available agents for the job date
         job_date = new_job.arrival_time.date()
         day_of_week = job_date.weekday()  # 0 = Monday, 6 = Sunday
+        
+        logger.info(f"Looking for available agents for job date: {job_date} (day_of_week: {day_of_week})")
 
         # Query with fallback to weekly
         available_agents = db.session.query(User) \
@@ -600,7 +602,10 @@ def create_job():
                 )
             ).all()
 
+        logger.info(f"Found {len(available_agents)} available agents: {[agent.id for agent in available_agents]}")
+
         if not available_agents:
+            logger.warning("No available agents found for the job date - returning early without creating notifications")
             db.session.commit()
             return jsonify({
                 'message': 'Job created, but no available agents found for that date.',
@@ -610,7 +615,10 @@ def create_job():
 
         # Create job assignments for available agents
         assigned_agent_ids = []
+        logger.info(f"Creating job assignments for {len(available_agents)} available agents")
+        
         for agent in available_agents:
+            logger.info(f"Processing agent {agent.id} for job assignment")
             # Check if assignment already exists (just in case)
             existing_assignment = JobAssignment.query.filter_by(
                 job_id=new_job.id, 
@@ -625,6 +633,11 @@ def create_job():
                 )
                 db.session.add(assignment)
                 assigned_agent_ids.append(agent.id)
+                logger.info(f"Created job assignment for agent {agent.id}")
+            else:
+                logger.warning(f"Assignment already exists for agent {agent.id}, skipping")
+        
+        logger.info(f"Total assigned agent IDs: {assigned_agent_ids}")
 
         # Create daily records for these agents if fallback was used
         if available_agents:
