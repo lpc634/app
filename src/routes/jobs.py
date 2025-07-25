@@ -678,7 +678,8 @@ def create_job():
             notifications_created = 0
             for agent_id in assigned_agent_ids:
                 try:
-                    logger.info(f"Creating notification for agent {agent_id} for job {new_job.id}")
+                    print(f"[DEBUG] Creating notification for agent {agent_id} for job {new_job.id}")
+                    logger.error(f"[DEBUG] Creating notification for agent {agent_id} for job {new_job.id}")
                     notification = Notification(
                         user_id=agent_id,
                         title=notification_title,
@@ -688,11 +689,14 @@ def create_job():
                     )
                     db.session.add(notification)
                     notifications_created += 1
-                    logger.info(f"Successfully added notification to session for agent {agent_id}")
+                    print(f"[DEBUG] Successfully added notification to session for agent {agent_id}")
+                    logger.error(f"[DEBUG] Successfully added notification to session for agent {agent_id}")
                 except Exception as e:
-                    logger.error(f"Failed to create notification for agent {agent_id}: {str(e)}")
+                    print(f"[DEBUG] Failed to create notification for agent {agent_id}: {str(e)}")
+                    logger.error(f"[DEBUG] Failed to create notification for agent {agent_id}: {str(e)}")
             
-            logger.info(f"Created {notifications_created} notifications, about to commit to database")
+            print(f"[DEBUG] Created {notifications_created} notifications, about to commit to database")
+            logger.error(f"[DEBUG] Created {notifications_created} notifications, about to commit to database")
             
             # Send push notifications
             try:
@@ -703,16 +707,20 @@ def create_job():
             logger.warning("No assigned agent IDs found, skipping notification creation")
 
         try:
-            logger.info("Attempting to commit job creation and notifications to database")
+            print("[DEBUG] Attempting to commit job creation and notifications to database")
+            logger.error("[DEBUG] Attempting to commit job creation and notifications to database")
             db.session.commit()
-            logger.info("Successfully committed to database")
+            print("[DEBUG] Successfully committed to database")
+            logger.error("[DEBUG] Successfully committed to database")
             
             # Verify notifications were actually saved
             if assigned_agent_ids:
                 saved_notifications = Notification.query.filter_by(job_id=new_job.id).count()
-                logger.info(f"Verification: Found {saved_notifications} notifications in database for job {new_job.id}")
+                print(f"[DEBUG] Verification: Found {saved_notifications} notifications in database for job {new_job.id}")
+                logger.error(f"[DEBUG] Verification: Found {saved_notifications} notifications in database for job {new_job.id}")
         except Exception as e:
-            logger.error(f"Database commit failed: {str(e)}")
+            print(f"[DEBUG] Database commit failed: {str(e)}")
+            logger.error(f"[DEBUG] Database commit failed: {str(e)}")
             db.session.rollback()
             raise
 
