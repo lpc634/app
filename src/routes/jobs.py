@@ -9,6 +9,7 @@ from functools import wraps
 import logging
 
 # --- Corrected Imports ---
+from sqlalchemy import and_, or_, case
 from src.models.user import User, Job, JobAssignment, AgentAvailability, AgentWeeklyAvailability, Notification, Invoice, InvoiceJob, db
 from src.routes.notifications import trigger_push_notification_for_users
 
