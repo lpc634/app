@@ -1,6 +1,7 @@
 import os
 import requests
 import json
+import calendar
 from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date, timedelta
@@ -88,8 +89,7 @@ def get_weather_forecast(lat, lon, arrival_time):
     if not WEATHER_API_KEY or WEATHER_API_KEY == 'YOUR_API_KEY_HERE':
         logger.warning(f"Weather API key not configured. Current value: {'NOT_SET' if not WEATHER_API_KEY else 'DEFAULT_PLACEHOLDER'}")
         # Provide location-based guidance instead of weather
-        import datetime
-        current_month = datetime.datetime.now().month
+        current_month = datetime.utcnow().month
         
         # Seasonal clothing recommendations for UK
         if current_month in [12, 1, 2]:  # Winter
@@ -196,7 +196,6 @@ def get_weather_forecast(lat, lon, arrival_time):
         if days_from_now > 5:
             logger.warning(f"Job is {days_from_now} days away, beyond 5-day forecast limit")
             # Provide seasonal guidance for future jobs
-            import calendar
             job_month = arrival_date.month
             job_day_name = calendar.day_name[arrival_date.weekday()]
             
