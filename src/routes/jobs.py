@@ -179,19 +179,64 @@ def get_weather_forecast(lat, lon, arrival_time):
         
         logger.info(f"Looking for forecast closest to arrival time: {arrival_time} (timestamp: {arrival_timestamp})")
         
-        for forecast in data['list']:
+        # Log the available forecast range
+        if data['list']:
+            first_forecast = datetime.fromtimestamp(data['list'][0]['dt'])
+            last_forecast = datetime.fromtimestamp(data['list'][-1]['dt'])
+            logger.info(f"Available forecast range: {first_forecast} to {last_forecast}")
+            logger.info(f"Total forecast entries: {len(data['list'])}")
+        
+        # Check if arrival time is within forecast range
+        arrival_date = arrival_time.date()
+        today = datetime.utcnow().date()
+        days_from_now = (arrival_date - today).days
+        
+        logger.info(f"Job date: {arrival_date}, Today: {today}, Days from now: {days_from_now}")
+        
+        if days_from_now > 5:
+            logger.warning(f"Job is {days_from_now} days away, beyond 5-day forecast limit")
+            # Provide seasonal guidance for future jobs
+            import calendar
+            job_month = arrival_date.month
+            job_day_name = calendar.day_name[arrival_date.weekday()]
+            
+            # UK seasonal clothing recommendations
+            if job_month in [12, 1, 2]:  # Winter
+                seasonal_clothing = "Winter clothing likely needed: Heavy coat, gloves, and warm layers."
+            elif job_month in [3, 4, 5]:  # Spring  
+                seasonal_clothing = "Spring clothing likely needed: Light jacket or layers for variable weather."
+            elif job_month in [6, 7, 8]:  # Summer
+                seasonal_clothing = "Summer clothing likely needed: Light, breathable work clothes."
+            else:  # Autumn
+                seasonal_clothing = "Autumn clothing likely needed: Warm jacket and layers."
+            
+            return {
+                'forecast': f'Weather forecast unavailable - Job is {days_from_now} days away ({job_day_name} {arrival_date.strftime("%d %b %Y")})',
+                'clothing': f'{seasonal_clothing} Check forecast closer to the job date.'
+            }
+        
+        for i, forecast in enumerate(data['list']):
             forecast_timestamp = forecast['dt']
+            forecast_datetime = datetime.fromtimestamp(forecast_timestamp)
             time_diff = abs(forecast_timestamp - arrival_timestamp)
+            
+            # Log first few and closest matches for debugging
+            if i < 3 or time_diff < min_time_diff:
+                logger.info(f"Forecast {i}: {forecast_datetime} (timestamp: {forecast_timestamp}), diff: {time_diff/3600:.1f} hours")
             
             if time_diff < min_time_diff:
                 min_time_diff = time_diff
                 closest_forecast = forecast
         
         if closest_forecast:
+            forecast_datetime = datetime.fromtimestamp(closest_forecast['dt'])
             temp = closest_forecast['main']['temp']
             description = closest_forecast['weather'][0]['description']
+            time_diff_hours = min_time_diff / 3600
             
-            logger.info(f"Weather forecast found: {description}, {temp}°C")
+            logger.info(f"Selected forecast: {forecast_datetime} for job at {arrival_time}")
+            logger.info(f"Time difference: {time_diff_hours:.1f} hours")
+            logger.info(f"Weather forecast: {description}, {temp}°C")
             
             # Generate clothing recommendation based on temperature
             if temp < 5:
@@ -205,8 +250,15 @@ def get_weather_forecast(lat, lon, arrival_time):
             else:
                 clothing = "Light, breathable work clothes recommended."
             
+            # Format the forecast with date info for clarity
+            forecast_date_str = forecast_datetime.strftime('%a %d %b')
+            if time_diff_hours <= 3:
+                date_indicator = f" (for {forecast_date_str})"
+            else:
+                date_indicator = f" (closest available: {forecast_date_str})"
+            
             return {
-                'forecast': f"{description.capitalize()}, {temp}°C",
+                'forecast': f"{description.capitalize()}, {temp}°C{date_indicator}",
                 'clothing': clothing
             }
         else:
@@ -289,7 +341,13 @@ def debug_weather_test():
         # Test coordinates (Camberley, Surrey)
         test_lat = 51.349
         test_lon = -0.727
-        test_time = datetime.utcnow()
+        
+        # Test with both current time and future time
+        current_time = datetime.utcnow()
+        future_time = current_time + timedelta(days=3)  # 3 days from now
+        far_future_time = current_time + timedelta(days=180)  # 6 months from now
+        
+        test_time = current_time
         
         # Check API key status
         api_key_status = "NOT_SET" if not WEATHER_API_KEY else ("DEFAULT_PLACEHOLDER" if WEATHER_API_KEY == 'YOUR_API_KEY_HERE' else "CONFIGURED")
@@ -298,22 +356,24 @@ def debug_weather_test():
         logger.info(f"Weather API debug test - API Key Status: {api_key_status}")
         logger.info(f"API Key prefix: {api_key_prefix}")
         
-        # Test weather function
-        weather_result = get_weather_forecast(test_lat, test_lon, test_time)
+        # Test weather function with multiple time scenarios
+        current_weather = get_weather_forecast(test_lat, test_lon, current_time)
+        future_weather = get_weather_forecast(test_lat, test_lon, future_time)
+        far_future_weather = get_weather_forecast(test_lat, test_lon, far_future_time)
         
-        # Also test the job flow
+        # Also test the job flow with current time
         test_job_result = None
         try:
             # Create a mock job object for testing
             class MockJob:
-                def __init__(self):
+                def __init__(self, arrival_time):
                     self.id = 'test'
                     self.address = '11 Berkshire Road, Camberley, Surrey'
                     self.location_lat = None
                     self.location_lng = None
-                    self.arrival_time = test_time
+                    self.arrival_time = arrival_time
             
-            mock_job = MockJob()
+            mock_job = MockJob(current_time)
             test_job_result = get_weather_for_job(mock_job)
             logger.info(f"Test job weather result: {test_job_result}")
         except Exception as e:
@@ -325,15 +385,25 @@ def debug_weather_test():
             'api_key_status': api_key_status,
             'api_key_prefix': api_key_prefix,
             'api_url': WEATHER_API_URL,
-            'direct_weather_test': weather_result,
-            'job_flow_test': test_job_result,
-            'environment': {
-                'heroku_config_check': 'Run: heroku config --app v3-app | grep OPENWEATHER'
+            'weather_tests': {
+                'current_time': {
+                    'time': current_time.strftime('%Y-%m-%d %H:%M:%S'),
+                    'result': current_weather
+                },
+                'future_3days': {
+                    'time': future_time.strftime('%Y-%m-%d %H:%M:%S'),
+                    'result': future_weather
+                },
+                'far_future_6months': {
+                    'time': far_future_time.strftime('%Y-%m-%d %H:%M:%S'),
+                    'result': far_future_weather
+                }
             },
-            'setup_instructions': {
-                'step1': 'Get free API key from https://openweathermap.org/api',
-                'step2': 'Set environment variable: heroku config:set OPENWEATHER_API_KEY=your_key_here --app v3-app',
-                'step3': 'Restart the app: heroku restart --app v3-app'
+            'job_flow_test': test_job_result,
+            'forecast_limits': {
+                'openweathermap_limit': '5 days maximum',
+                'current_date': current_time.strftime('%Y-%m-%d'),
+                'note': 'Jobs beyond 5 days will show seasonal recommendations'
             }
         }), 200
         
@@ -568,7 +638,7 @@ def create_job():
                 )
                 db.session.add(daily_avail)
 
-        # Send notifications to assigned agents
+        # Create notifications for assigned agents
         if assigned_agent_ids:
             notification_title = "New Job Available"
             notification_message = f"A new job, '{new_job.title}', is available for your response."
@@ -577,7 +647,18 @@ def create_job():
             if new_job.maps_link:
                 notification_message += f"\n\nNavigation: {new_job.maps_link}"
             
-            # Uncomment if you have the notification function available
+            # Create database notification records for each assigned agent
+            for agent_id in assigned_agent_ids:
+                notification = Notification(
+                    user_id=agent_id,
+                    title=notification_title,
+                    message=notification_message,
+                    type='job_assignment',
+                    job_id=new_job.id
+                )
+                db.session.add(notification)
+            
+            # Send push notifications
             try:
                 trigger_push_notification_for_users(assigned_agent_ids, notification_title, notification_message)
             except Exception as e:

@@ -202,6 +202,18 @@ class Notification(db.Model):
     job_id = db.Column(db.Integer, db.ForeignKey('jobs.id'))
     user = db.relationship('User', back_populates='notifications')
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'title': self.title,
+            'message': self.message,
+            'is_read': self.is_read,
+            'sent_at': self.sent_at.isoformat() if self.sent_at else None,
+            'type': self.type,
+            'job_id': self.job_id
+        }
+
 class Invoice(db.Model):
     __tablename__ = 'invoices'
     id = db.Column(db.Integer, primary_key=True)

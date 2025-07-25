@@ -96,9 +96,7 @@ def get_notifications():
     """Get user notifications."""
     current_user_id = get_jwt_identity()
     notifications = Notification.query.filter_by(user_id=current_user_id).order_by(Notification.sent_at.desc()).limit(50).all()
-    # This part needs a to_dict() method on the Notification model if you want it to work
-    # For now, we'll return a simple list.
-    return jsonify([{'title': n.title, 'message': n.message, 'sent_at': n.sent_at} for n in notifications])
+    return jsonify([n.to_dict() for n in notifications])
 
 
 @notifications_bp.route('/notifications/<int:notification_id>/read', methods=['PUT'])
@@ -110,3 +108,13 @@ def mark_notification_read(notification_id):
     notification.is_read = True
     db.session.commit()
     return jsonify({'message': 'Notification marked as read'}), 200
+
+@notifications_bp.route('/notifications/<int:notification_id>', methods=['DELETE'])
+@jwt_required()
+def delete_notification(notification_id):
+    """Delete a notification."""
+    current_user_id = get_jwt_identity()
+    notification = Notification.query.filter_by(id=notification_id, user_id=current_user_id).first_or_404()
+    db.session.delete(notification)
+    db.session.commit()
+    return jsonify({'message': 'Notification deleted successfully'}), 200
