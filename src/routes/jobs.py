@@ -540,11 +540,16 @@ def delete_job(job_id):
 def create_job():
     """Admin creates a new job, and the system assigns it to available agents."""
     try:
+        print("[DEBUG] create_job function called")
+        logger.error("[DEBUG] create_job function called")
+        
         current_user = require_admin()
         if not current_user:
             return jsonify({'error': 'Access denied. Admin role required.'}), 403
 
         data = request.get_json()
+        print(f"[DEBUG] Job data received: {data.get('title', 'NO_TITLE')}")
+        logger.error(f"[DEBUG] Job data received: {data.get('title', 'NO_TITLE')}")
 
         # Create the job first
         new_job = Job(
@@ -572,7 +577,8 @@ def create_job():
         job_date = new_job.arrival_time.date()
         day_of_week = job_date.weekday()  # 0 = Monday, 6 = Sunday
         
-        logger.info(f"Looking for available agents for job date: {job_date} (day_of_week: {day_of_week})")
+        print(f"[DEBUG] Looking for available agents for job date: {job_date} (day_of_week: {day_of_week})")
+        logger.error(f"[DEBUG] Looking for available agents for job date: {job_date} (day_of_week: {day_of_week})")
 
         # Query with fallback to weekly
         available_agents = db.session.query(User) \
@@ -602,10 +608,12 @@ def create_job():
                 )
             ).all()
 
-        logger.info(f"Found {len(available_agents)} available agents: {[agent.id for agent in available_agents]}")
+        print(f"[DEBUG] Found {len(available_agents)} available agents: {[agent.id for agent in available_agents]}")
+        logger.error(f"[DEBUG] Found {len(available_agents)} available agents: {[agent.id for agent in available_agents]}")
 
         if not available_agents:
-            logger.warning("No available agents found for the job date - returning early without creating notifications")
+            print("[DEBUG] No available agents found for the job date - returning early without creating notifications")
+            logger.error("[DEBUG] No available agents found for the job date - returning early without creating notifications")
             db.session.commit()
             return jsonify({
                 'message': 'Job created, but no available agents found for that date.',
