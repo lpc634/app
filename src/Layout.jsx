@@ -13,8 +13,7 @@ const navigation = [
   { name: 'Agents', href: '/agents', icon: Users },
   { name: 'Jobs', href: '/jobs', icon: Briefcase },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  // --- 2. ADD THE NEW NAVIGATION LINK HERE ---
-  { name: 'Vehicle Search', href: '/agent/vehicle-search', icon: Search },
+  { name: 'Vehicle Search', href: '/admin/vehicle-search', icon: Search },
 ];
 
 function NavigationItems({ onItemClick = () => {} }) {
