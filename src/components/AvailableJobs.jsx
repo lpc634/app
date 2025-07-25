@@ -98,10 +98,19 @@ const AvailableJobs = () => {
       </div>
 
       {assignments.length === 0 ? (
-        <div className="dashboard-card text-center p-8">
-          <AlertCircle className="mx-auto text-v3-text-muted mb-4" size={48} />
-          <h3 className="text-v3-text-lightest text-xl font-semibold mb-2">No Jobs Available</h3>
-          <p className="text-v3-text-muted mb-4">There are currently no new jobs requiring your response.</p>
+        <div className="agent-mobile-card">
+          <div className="agent-mobile-card-content text-center py-8">
+            <AlertCircle className="mx-auto mb-4 text-v3-orange" size={48} />
+            <h3 className="agent-mobile-card-title mb-2">No Jobs Available</h3>
+            <p className="text-v3-text-muted mb-4">There are currently no new jobs requiring your response.</p>
+            <button 
+              onClick={fetchJobs} 
+              className="agent-mobile-button agent-mobile-button-primary"
+            >
+              <RefreshCw size={16} />
+              Refresh
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
@@ -122,40 +131,37 @@ const AvailableJobs = () => {
             }
             
             return (
-              <div key={assignment.id} className="dashboard-card p-6">
-                <div className="flex flex-col sm:flex-row justify-between gap-4">
-                  <div className="flex-grow">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Briefcase className="w-6 h-6 text-v3-orange" />
-                      <h3 className="text-v3-text-lightest font-semibold text-lg">
-                        {job.title || 'Untitled Job'}
-                      </h3>
+              <div key={assignment.id} className="agent-job-card">
+                <div className="agent-job-card-header">
+                  <h3 className="agent-job-card-title">
+                    {job.title || 'Untitled Job'}
+                  </h3>
+                  <div className="agent-job-card-meta">
+                    <div className="agent-job-card-meta-item">
+                      <MapPin className="agent-job-card-meta-icon" />
+                      <span>{job.address || 'Address not specified'}</span>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-v3-text-muted pl-9">
-                      <span className="flex items-center gap-1.5">
-                        <MapPin size={14} />
-                        {job.address || 'Address not specified'}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <Clock size={14} />
-                        {job.arrival_time ? new Date(job.arrival_time).toLocaleString('en-GB') : 'Time not specified'}
-                      </span>
+                    <div className="agent-job-card-meta-item">
+                      <Clock className="agent-job-card-meta-icon" />
+                      <span>{job.arrival_time ? new Date(job.arrival_time).toLocaleString('en-GB') : 'Time not specified'}</span>
                     </div>
                   </div>
-                  <div className="flex-shrink-0 flex sm:flex-col items-center gap-3">
-                    <button 
-                      onClick={() => handleJobResponse(assignment, 'accept')} 
-                      className="button-refresh bg-green-600 hover:bg-green-700 w-full sm:w-32 flex items-center justify-center gap-2"
-                    >
-                      <CheckCircle size={16} /> Accept
-                    </button>
-                    <button 
-                      onClick={() => handleJobResponse(assignment, 'decline')} 
-                      className="button-refresh bg-red-600 hover:bg-red-700 w-full sm:w-32 flex items-center justify-center gap-2"
-                    >
-                      <XCircle size={16} /> Decline
-                    </button>
-                  </div>
+                </div>
+                <div className="agent-job-actions">
+                  <button 
+                    onClick={() => handleJobResponse(assignment, 'accept')} 
+                    className="agent-mobile-button agent-mobile-button-success"
+                  >
+                    <CheckCircle size={16} />
+                    Accept
+                  </button>
+                  <button 
+                    onClick={() => handleJobResponse(assignment, 'decline')} 
+                    className="agent-mobile-button agent-mobile-button-danger"
+                  >
+                    <XCircle size={16} />
+                    Decline
+                  </button>
                 </div>
               </div>
             );

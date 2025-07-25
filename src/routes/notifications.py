@@ -51,11 +51,19 @@ def subscribe():
 # --- Helper function to send notifications using Web Push ---
 def trigger_push_notification_for_users(user_ids, title, message):
     """
-    Fetches subscriptions for a list of user IDs and sends a push notification.
+    Send push notifications to users using both legacy Web Push and new FCM system
     """
     if not isinstance(user_ids, list):
         user_ids = [user_ids]
+    
+    # Legacy Web Push notifications (for backward compatibility)
+    _send_legacy_web_push(user_ids, title, message)
+    
+    # New FCM push notifications
+    _send_fcm_notifications(user_ids, title, message)
 
+def _send_legacy_web_push(user_ids, title, message):
+    """Legacy Web Push implementation"""
     subscriptions = PushSubscription.query.filter(PushSubscription.user_id.in_(user_ids)).all()
     
     # Prepare data payload
@@ -69,7 +77,7 @@ def trigger_push_notification_for_users(user_ids, title, message):
     vapid_claims = {"sub": "mailto:your_email@example.com"} # Change this to your admin email
 
     if not vapid_private_key:
-        print("Warning: VAPID_PRIVATE_KEY is not set. Cannot send push notifications.")
+        print("Warning: VAPID_PRIVATE_KEY is not set. Cannot send legacy web push notifications.")
         return
 
     for sub in subscriptions:
@@ -87,6 +95,25 @@ def trigger_push_notification_for_users(user_ids, title, message):
             if ex.response and ex.response.status_code == 410:
                  db.session.delete(sub)
                  db.session.commit()
+
+def _send_fcm_notifications(user_ids, title, message):
+    """Send FCM push notifications"""
+    try:
+        from src.routes.fcm_notifications import send_job_notification_to_agents
+        
+        result = send_job_notification_to_agents(
+            agent_ids=user_ids,
+            job_title=title,
+            job_message=message,
+            job_data={'notification_source': 'job_assignment'}
+        )
+        
+        print(f"FCM notifications sent: {result}")
+        
+    except Exception as e:
+        print(f"FCM notification error: {str(e)}")
+        import logging
+        logging.error(f"FCM notification error: {str(e)}")
 
 
 # --- Existing Routes (you can keep them or refactor later) ---

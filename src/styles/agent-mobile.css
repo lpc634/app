@@ -1,0 +1,570 @@
+/* 
+ * V3 SERVICES - AGENT MOBILE-FIRST STYLES
+ * This file contains mobile-optimized styles specifically for agent-facing components
+ * It uses the same CSS variables as the main theme but with mobile-first responsive design
+ */
+
+/* ===== MOBILE-FIRST AGENT CONTAINER ===== */
+.agent-mobile-container {
+  min-height: 100vh;
+  background: var(--v3-bg-darkest);
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+}
+
+/* ===== MOBILE NAVIGATION ===== */
+.agent-mobile-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4rem;
+  background: var(--v3-bg-card);
+  border-bottom: 1px solid var(--v3-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  z-index: 50;
+}
+
+.agent-mobile-menu-button {
+  background: none;
+  border: none;
+  color: var(--v3-text-lightest);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.agent-mobile-menu-button:hover {
+  background: var(--v3-bg-dark);
+}
+
+.agent-mobile-title {
+  color: var(--v3-text-lightest);
+  font-weight: 600;
+  font-size: 1.1rem;
+  text-align: center;
+  flex: 1;
+}
+
+/* ===== MOBILE MENU OVERLAY ===== */
+.agent-mobile-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+}
+
+.agent-mobile-menu-overlay.active {
+  display: block;
+}
+
+.agent-mobile-menu-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.agent-mobile-menu-panel {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 20rem;
+  max-width: 85vw;
+  background: var(--v3-bg-card);
+  border-right: 1px solid var(--v3-border);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+}
+
+.agent-mobile-menu-panel.active {
+  transform: translateX(0);
+}
+
+.agent-mobile-menu-header {
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--v3-border);
+}
+
+.agent-mobile-menu-close {
+  background: none;
+  border: none;
+  color: var(--v3-text-muted);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.agent-mobile-menu-items {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.agent-mobile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0.75rem;
+  border-radius: 0.5rem;
+  color: var(--v3-text-muted);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  margin-bottom: 0.25rem;
+}
+
+.agent-mobile-menu-item:hover,
+.agent-mobile-menu-item.active {
+  background: var(--v3-bg-dark);
+  color: var(--v3-text-lightest);
+}
+
+/* ===== MOBILE MAIN CONTENT ===== */
+.agent-mobile-main {
+  padding-top: 4rem;
+  min-height: 100vh;
+  background: var(--v3-bg-darkest);
+}
+
+.agent-mobile-content {
+  padding: 1rem;
+  max-width: 100%;
+}
+
+/* ===== MOBILE CARDS ===== */
+.agent-mobile-card {
+  background: var(--v3-bg-card);
+  border: 1px solid var(--v3-border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.agent-mobile-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.agent-mobile-card-title {
+  color: var(--v3-text-lightest);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.agent-mobile-card-subtitle {
+  color: var(--v3-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.agent-mobile-card-content {
+  color: var(--v3-text-light);
+  line-height: 1.6;
+}
+
+/* ===== MOBILE JOB CARDS ===== */
+.agent-job-card {
+  background: var(--v3-bg-dark);
+  border: 1px solid var(--v3-border);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  transition: all 0.2s ease;
+}
+
+.agent-job-card:hover {
+  background: var(--v3-bg-card);
+  border-color: var(--v3-orange);
+  box-shadow: 0 4px 12px var(--v3-orange-glow);
+}
+
+.agent-job-card-header {
+  margin-bottom: 1rem;
+}
+
+.agent-job-card-title {
+  color: var(--v3-text-lightest);
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.agent-job-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.agent-job-card-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--v3-text-muted);
+  font-size: 0.875rem;
+}
+
+.agent-job-card-meta-icon {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+.agent-job-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* ===== MOBILE BUTTONS ===== */
+.agent-mobile-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  font-size: 1rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+  line-height: 1.2;
+}
+
+.agent-mobile-button-primary {
+  background: linear-gradient(135deg, var(--v3-orange) 0%, var(--v3-orange-dark) 100%);
+  color: white;
+  box-shadow: 0 2px 8px var(--v3-orange-glow);
+}
+
+.agent-mobile-button-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--v3-orange-glow);
+}
+
+.agent-mobile-button-secondary {
+  background: var(--v3-bg-dark);
+  color: var(--v3-text-lightest);
+  border: 1px solid var(--v3-border);
+}
+
+.agent-mobile-button-secondary:hover {
+  background: var(--v3-bg-card);
+  border-color: var(--v3-orange);
+}
+
+.agent-mobile-button-success {
+  background: #10b981;
+  color: white;
+}
+
+.agent-mobile-button-success:hover {
+  background: #059669;
+}
+
+.agent-mobile-button-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.agent-mobile-button-danger:hover {
+  background: #dc2626;
+}
+
+.agent-mobile-button-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ===== MOBILE ACTION BUTTONS ===== */
+.agent-job-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.agent-job-actions .agent-mobile-button {
+  flex: 1;
+  font-size: 0.875rem;
+  padding: 0.75rem 1rem;
+}
+
+/* ===== MOBILE STATUS INDICATORS ===== */
+.agent-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--v3-bg-card);
+  border: 1px solid var(--v3-border);
+  border-radius: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.agent-status-dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.agent-status-dot.available {
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.agent-status-dot.unavailable {
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+}
+
+.agent-status-text {
+  flex: 1;
+  color: var(--v3-text-lightest);
+  font-weight: 500;
+}
+
+.agent-status-toggle {
+  min-width: 120px;
+}
+
+/* ===== MOBILE FORMS ===== */
+.agent-mobile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.agent-mobile-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.agent-mobile-form-label {
+  color: var(--v3-text-lightest);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.agent-mobile-form-input {
+  padding: 0.875rem;
+  border: 1px solid var(--v3-border);
+  border-radius: 0.5rem;
+  background: var(--v3-bg-dark);
+  color: var(--v3-text-lightest);
+  font-size: 1rem;
+  min-height: 44px;
+}
+
+.agent-mobile-form-input:focus {
+  outline: none;
+  border-color: var(--v3-orange);
+  box-shadow: 0 0 0 2px var(--v3-orange-glow);
+}
+
+.agent-mobile-form-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+/* ===== MOBILE LOADING STATES ===== */
+.agent-mobile-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--v3-text-muted);
+}
+
+.agent-mobile-loading-spinner {
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+.agent-mobile-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: #ef4444;
+}
+
+.agent-mobile-error-icon {
+  margin-bottom: 1rem;
+  color: var(--v3-orange);
+}
+
+.agent-mobile-error-title {
+  color: var(--v3-text-lightest);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.agent-mobile-error-message {
+  color: var(--v3-text-muted);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+/* ===== MOBILE SPACING UTILITIES ===== */
+.agent-mobile-section {
+  margin-bottom: 2rem;
+}
+
+.agent-mobile-section-title {
+  color: var(--v3-text-lightest);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.agent-mobile-section-subtitle {
+  color: var(--v3-text-muted);
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+/* ===== MOBILE RESPONSIVE BREAKPOINTS ===== */
+/* Small phones */
+@media (max-width: 375px) {
+  .agent-mobile-content {
+    padding: 0.75rem;
+  }
+  
+  .agent-job-card {
+    padding: 1rem;
+  }
+  
+  .agent-mobile-button {
+    font-size: 0.875rem;
+    padding: 0.75rem 1rem;
+  }
+}
+
+/* Large phones and small tablets */
+@media (min-width: 768px) {
+  .agent-mobile-content {
+    padding: 1.5rem;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  
+  .agent-mobile-card {
+    padding: 1.5rem;
+  }
+  
+  .agent-job-card {
+    padding: 1.5rem;
+  }
+  
+  .agent-job-actions {
+    flex-direction: row;
+  }
+  
+  .agent-job-card-meta {
+    flex-direction: row;
+    gap: 1rem;
+  }
+}
+
+/* Desktop override - hide mobile styles on larger screens */
+@media (min-width: 1024px) {
+  .agent-mobile-header {
+    display: none;
+  }
+  
+  .agent-mobile-main {
+    padding-top: 0;
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+  .agent-mobile-button,
+  .agent-job-card,
+  .agent-mobile-menu-panel {
+    transition: none;
+  }
+  
+  .agent-mobile-loading-spinner {
+    animation: none;
+  }
+}
+
+/* ===== HIGH CONTRAST MODE ===== */
+@media (prefers-contrast: high) {
+  .agent-mobile-card,
+  .agent-job-card {
+    border-width: 2px;
+  }
+  
+  .agent-mobile-button {
+    border-width: 2px;
+    border-style: solid;
+  }
+  
+  .agent-mobile-button-primary {
+    border-color: var(--v3-orange);
+  }
+  
+  .agent-mobile-button-secondary {
+    border-color: var(--v3-text-lightest);
+  }
+}
+
+/* ===== FOCUS STYLES FOR KEYBOARD NAVIGATION ===== */
+.agent-mobile-button:focus,
+.agent-mobile-menu-button:focus,
+.agent-mobile-menu-item:focus,
+.agent-mobile-form-input:focus {
+  outline: 2px solid var(--v3-orange);
+  outline-offset: 2px;
+}
+
+/* ===== ANIMATION KEYFRAMES ===== */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

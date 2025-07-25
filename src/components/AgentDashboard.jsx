@@ -11,15 +11,21 @@ import {
 } from 'lucide-react';
 
 const JobListItem = ({ job, children }) => (
-    <div className="bg-v3-bg-dark p-4 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div>
-            <p className="font-semibold text-v3-text-lightest">{job.title}</p>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-v3-text-muted mt-1">
-                <span className="flex items-center gap-1.5"><MapPin size={14} />{job.address}</span>
-                <span className="flex items-center gap-1.5"><Clock size={14} />{new Date(job.arrival_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+    <div className="agent-job-card">
+        <div className="agent-job-card-header">
+            <h3 className="agent-job-card-title">{job.title}</h3>
+            <div className="agent-job-card-meta">
+                <div className="agent-job-card-meta-item">
+                    <MapPin className="agent-job-card-meta-icon" />
+                    <span>{job.address}</span>
+                </div>
+                <div className="agent-job-card-meta-item">
+                    <Clock className="agent-job-card-meta-icon" />
+                    <span>{new Date(job.arrival_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
             </div>
         </div>
-        <div className="w-full sm:w-auto flex-shrink-0">{children}</div>
+        <div className="agent-job-card-actions">{children}</div>
     </div>
 );
 
@@ -104,19 +110,32 @@ export default function AgentDashboard() {
   };
 
   if (loading || !dashboardData) {
-    return <div className="p-8 text-center text-v3-text-muted"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></div>;
+    return (
+      <div className="agent-mobile-content">
+        <div className="agent-mobile-loading">
+          <Loader2 className="agent-mobile-loading-spinner" size={32} />
+          <p>Loading your dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
      return (
-        <div className="p-8 text-center text-red-500">
-            <ServerCrash className="h-12 w-12 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">Connection Error</h2>
-            <p className="mb-4">{error}</p>
-            <button onClick={fetchData} className="button-refresh flex items-center gap-2 mx-auto">
-                <RefreshCw size={16} /> Try Again
-            </button>
-        </div>
+       <div className="agent-mobile-content">
+         <div className="agent-mobile-error">
+           <ServerCrash className="agent-mobile-error-icon" size={48} />
+           <h2 className="agent-mobile-error-title">Connection Error</h2>
+           <p className="agent-mobile-error-message">{error}</p>
+           <button 
+             onClick={fetchData} 
+             className="agent-mobile-button agent-mobile-button-primary"
+           >
+             <RefreshCw size={16} /> 
+             Try Again
+           </button>
+         </div>
+       </div>
      );
   }
 
@@ -139,74 +158,122 @@ export default function AgentDashboard() {
   `;
 
   return (
-    <main className="p-4 sm:p-6 lg:p-8 space-y-6 bg-v3-bg-darkest min-h-screen text-v3-text-light">
+    <div className="agent-mobile-content">
       <style>{neonGlowStyles}</style>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-v3-text-lightest">Action Center</h1>
-          <p className="text-v3-text-muted">Welcome back, {dashboardData?.agent_name}.</p>
+      
+      {/* Header Section */}
+      <div className="agent-mobile-section">
+        <h1 className="agent-mobile-section-title">
+          <Briefcase size={24} />
+          Action Center
+        </h1>
+        <p className="agent-mobile-section-subtitle">
+          Welcome back, {dashboardData?.agent_name}. Stay connected with your job assignments.
+        </p>
+      </div>
+      {/* Status Section */}
+      <div className="agent-status-indicator">
+        <div className={`agent-status-dot ${dashboardData.today_status === 'available' ? 'available' : 'unavailable'}`}></div>
+        <div className="agent-status-text">
+          You are currently <span className={`${dashboardData.today_status === 'available' ? 'text-green-400 text-glow-green' : 'text-red-400 text-glow-red'}`}>{dashboardData.today_status}</span> for jobs today.
         </div>
-         <button onClick={logout} className="button-refresh bg-red-600 hover:bg-red-700 flex items-center gap-2">
-            <LogOut size={16} /> Sign Out
+        <button 
+          onClick={handleToggleAvailability} 
+          disabled={isToggling} 
+          className={`agent-mobile-button agent-status-toggle ${
+            dashboardData.today_status === 'available' 
+              ? 'agent-mobile-button-danger' 
+              : 'agent-mobile-button-success'
+          } ${isToggling ? 'agent-mobile-button-disabled' : ''}`}
+        >
+          {isToggling ? (
+            <Loader2 className="agent-mobile-loading-spinner" size={16} />
+          ) : (
+            dashboardData.today_status === 'available' ? <PowerOff size={16} /> : <Power size={16} />
+          )}
+          {isToggling ? 'Updating...' : (dashboardData.today_status === 'available' ? 'Go Offline' : 'Go Online')}
         </button>
       </div>
-      <div className="dashboard-card p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-3">
-                {/* --- MODIFIED: Added the new red glow class for the dot --- */}
-                <div className={`w-3 h-3 rounded-full ${dashboardData.today_status === 'available' ? 'dot-glow-green' : 'dot-glow-red'}`}></div>
-                <p className="font-bold text-lg text-v3-text-lightest">
-                    You are currently <span className={`${dashboardData.today_status === 'available' ? 'text-green-400 text-glow-green' : 'text-red-400 text-glow-red'}`}>{dashboardData.today_status}</span> for jobs today.
-                </p>
-            </div>
-            <Button onClick={handleToggleAvailability} disabled={isToggling} className="button-refresh w-full sm:w-auto">
-                {isToggling ? <Loader2 className="animate-spin" /> : (dashboardData.today_status === 'available' ? <PowerOff className="mr-2" /> : <Power className="mr-2" />)}
-                {isToggling ? 'Updating...' : (dashboardData.today_status === 'available' ? 'Go Offline' : 'Go Online')}
-            </Button>
-      </div>
-      <div className="space-y-6">
-        <div className="dashboard-card">
-            <div className="p-4"><h2 className="text-lg font-semibold flex items-center gap-2"><Briefcase /> Available Jobs</h2></div>
-            <div className="px-4 pb-4 space-y-3">
-                {dashboardData.available_jobs && dashboardData.available_jobs.length > 0 ? dashboardData.available_jobs.map(job => (
-                    <JobListItem key={job.id} job={job}>
-                        <div className="flex gap-2 w-full sm:w-auto">
-                            <button 
-                                onClick={() => handleJobResponse(job, 'accepted')} 
-                                disabled={respondingJobs.has(job.id)}
-                                className="button-refresh bg-green-600 hover:bg-green-700 flex-1 sm:flex-none sm:w-24 flex items-center justify-center gap-2 text-sm"
-                            >
-                                {respondingJobs.has(job.id) ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle size={14} />}
-                                Accept
-                            </button>
-                            <button 
-                                onClick={() => handleJobResponse(job, 'declined')} 
-                                disabled={respondingJobs.has(job.id)}
-                                className="button-refresh bg-red-600 hover:bg-red-700 flex-1 sm:flex-none sm:w-24 flex items-center justify-center gap-2 text-sm"
-                            >
-                                {respondingJobs.has(job.id) ? <Loader2 className="animate-spin" size={14} /> : <XCircle size={14} />}
-                                Decline
-                            </button>
-                        </div>
-                    </JobListItem>
-                )) : <p className="text-v3-text-muted text-center py-4">No new jobs are available for you at this time.</p>}
-            </div>
-        </div>
-        {dashboardData.upcoming_shifts && dashboardData.upcoming_shifts.length > 0 && (
-             <div className="dashboard-card">
-                <div className="p-4"><h2 className="text-lg font-semibold flex items-center gap-2"><Calendar /> My Upcoming Shifts</h2></div>
-                <div className="px-4 pb-4 space-y-3">
-                     {dashboardData.upcoming_shifts.map(job => (
-                        <Link to={`/agent/jobs/${job.id}`} key={job.id} className="block bg-v3-bg-dark p-3 rounded-lg hover:bg-v3-bg-card transition-colors cursor-pointer">
-                            <p className="font-semibold text-v3-text-lightest">{job.title}</p>
-                            <p className="text-sm text-v3-text-muted">
-                                {new Date(job.arrival_time).toLocaleDateString('en-GB', { dateStyle: 'full' })} at {new Date(job.arrival_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                        </Link>
-                     ))}
+      {/* Available Jobs Section */}
+      <div className="agent-mobile-section">
+        <h2 className="agent-mobile-section-title">
+          <Briefcase size={20} />
+          Available Jobs
+        </h2>
+        
+        {dashboardData.available_jobs && dashboardData.available_jobs.length > 0 ? (
+          <div className="space-y-4">
+            {dashboardData.available_jobs.map(job => (
+              <JobListItem key={job.id} job={job}>
+                <div className="agent-job-actions">
+                  <button 
+                    onClick={() => handleJobResponse(job, 'accepted')} 
+                    disabled={respondingJobs.has(job.id)}
+                    className={`agent-mobile-button agent-mobile-button-success ${
+                      respondingJobs.has(job.id) ? 'agent-mobile-button-disabled' : ''
+                    }`}
+                  >
+                    {respondingJobs.has(job.id) ? (
+                      <Loader2 className="agent-mobile-loading-spinner" size={16} />
+                    ) : (
+                      <CheckCircle size={16} />
+                    )}
+                    Accept
+                  </button>
+                  <button 
+                    onClick={() => handleJobResponse(job, 'declined')} 
+                    disabled={respondingJobs.has(job.id)}
+                    className={`agent-mobile-button agent-mobile-button-danger ${
+                      respondingJobs.has(job.id) ? 'agent-mobile-button-disabled' : ''
+                    }`}
+                  >
+                    {respondingJobs.has(job.id) ? (
+                      <Loader2 className="agent-mobile-loading-spinner" size={16} />
+                    ) : (
+                      <XCircle size={16} />
+                    )}
+                    Decline
+                  </button>
                 </div>
+              </JobListItem>
+            ))}
+          </div>
+        ) : (
+          <div className="agent-mobile-card">
+            <div className="agent-mobile-card-content text-center py-8">
+              <Briefcase className="mx-auto mb-4 text-v3-text-muted" size={32} />
+              <p className="text-v3-text-muted">No new jobs are available for you at this time.</p>
+              <p className="text-sm text-v3-text-muted mt-2">Check back later or ensure your availability is set to online.</p>
             </div>
+          </div>
         )}
       </div>
-    </main>
+      {/* Upcoming Shifts Section */}
+      {dashboardData.upcoming_shifts && dashboardData.upcoming_shifts.length > 0 && (
+        <div className="agent-mobile-section">
+          <h2 className="agent-mobile-section-title">
+            <Calendar size={20} />
+            My Upcoming Shifts
+          </h2>
+          
+          <div className="space-y-3">
+            {dashboardData.upcoming_shifts.map(job => (
+              <Link 
+                to={`/agent/jobs/${job.id}`} 
+                key={job.id} 
+                className="agent-mobile-card block hover:border-v3-orange transition-colors"
+              >
+                <div className="agent-mobile-card-header">
+                  <h3 className="agent-mobile-card-title">{job.title}</h3>
+                  <p className="agent-mobile-card-subtitle">
+                    {new Date(job.arrival_time).toLocaleDateString('en-GB', { dateStyle: 'full' })} at {new Date(job.arrival_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

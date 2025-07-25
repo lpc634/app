@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Home, ClipboardList, Calendar, Bell, Briefcase, Power, User as UserIcon, FileText as InvoiceIcon, Menu, X, Search } from 'lucide-react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
+import '../styles/agent-mobile.css';
 
 const agentNavItems = [
   { name: 'Dashboard', path: '/agent/dashboard', icon: Home },
@@ -79,82 +80,86 @@ const AgentLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-v3-bg-darkest">
+    <div className="agent-mobile-container">
       {/* Mobile Header */}
-<div className="md:hidden fixed top-0 left-0 right-0 bg-v3-bg-card border-b border-v3-border z-50 h-16 flex items-center px-4">
-    <button 
-      onClick={() => setMobileMenuOpen(true)}
-      className="text-v3-text-lightest"
-    >
-      <Menu size={24} />
-    </button>
-    <div className="flex-1 text-center text-v3-text-lightest font-semibold">
-      V3 Agent Portal
-    </div>
-    <div className="w-8"></div>
-</div>
+      <div className="agent-mobile-header lg:hidden">
+        <button 
+          onClick={() => setMobileMenuOpen(true)}
+          className="agent-mobile-menu-button"
+          aria-label="Open navigation menu"
+        >
+          <Menu size={24} />
+        </button>
+        <div className="agent-mobile-title">
+          V3 Agent Portal
+        </div>
+        <div className="w-11"></div>
+      </div>
 
       {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[100] md:hidden">
-          <div 
-            className="absolute inset-0 bg-black/60"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          {/* FIX: Added 'mobile-menu-panel' class for specific styling */}
-          <div className="mobile-menu-panel absolute left-0 top-0 bottom-0 w-80 bg-v3-bg-card border-r border-v3-border flex flex-col">
-            <div className="h-16 flex items-center justify-between px-4 border-b border-v3-border">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
-                  <span className="font-bold text-white text-lg">V3</span>
-                </div>
-                <span className="font-semibold text-v3-text-lightest">Agent Portal</span>
+      <div className={`agent-mobile-menu-overlay lg:hidden ${mobileMenuOpen ? 'active' : ''}`}>
+        <div 
+          className="agent-mobile-menu-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+        <div className={`agent-mobile-menu-panel ${mobileMenuOpen ? 'active' : ''}`}>
+          <div className="agent-mobile-menu-header">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
+                <span className="font-bold text-white text-lg">V3</span>
               </div>
-              <button 
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-v3-text-muted"
-              >
-                <X size={24} />
-              </button>
+              <span className="font-semibold text-v3-text-lightest">Agent Portal</span>
             </div>
+            <button 
+              onClick={() => setMobileMenuOpen(false)}
+              className="agent-mobile-menu-close"
+              aria-label="Close navigation menu"
+            >
+              <X size={24} />
+            </button>
+          </div>
 
-            <div className="flex-1 p-4 space-y-2 overflow-y-auto">
-              {agentNavItems.map((item) => (
+          <div className="agent-mobile-menu-items">
+            {agentNavItems.map((item, index) => {
+              const isActive = location.pathname === item.path;
+              return (
                 <button
                   key={item.name}
                   onClick={() => handleMenuClick(item.path)}
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left text-v3-text-muted hover:bg-v3-bg-dark hover:text-v3-text-lightest transition-all"
+                  className={`agent-mobile-menu-item ${isActive ? 'active' : ''}`}
+                  role="menuitem"
+                  tabIndex={mobileMenuOpen ? 0 : -1}
                 >
                   <item.icon size={20} />
                   {item.name}
                 </button>
-              ))}
-            </div>
+              );
+            })}
+          </div>
 
-            <div className="p-4 border-t border-v3-border">
-              <div className="flex items-center gap-3 mb-4 px-2">
-                <div className="w-10 h-10 bg-v3-orange rounded-full flex items-center justify-center text-white font-bold">
-                  {user?.first_name?.[0]}{user?.last_name?.[0]}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-v3-text-lightest">{user?.first_name} {user?.last_name}</p>
-                  <p className="text-xs text-v3-text-muted">{user?.email}</p>
-                </div>
+          <div className="p-4 border-t border-v3-border">
+            <div className="flex items-center gap-3 mb-4 px-2">
+              <div className="w-10 h-10 bg-v3-orange rounded-full flex items-center justify-center text-white font-bold">
+                {user?.first_name?.[0]}{user?.last_name?.[0]}
               </div>
-              <button
-                onClick={logout}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-900/20"
-              >
-                <Power size={20} />
-                Sign Out
-              </button>
+              <div>
+                <p className="text-sm font-medium text-v3-text-lightest">{user?.first_name} {user?.last_name}</p>
+                <p className="text-xs text-v3-text-muted">{user?.email}</p>
+              </div>
             </div>
+            <button
+              onClick={logout}
+              className="agent-mobile-button agent-mobile-button-danger w-full"
+            >
+              <Power size={20} />
+              Sign Out
+            </button>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Desktop Sidebar */}
-      <div className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 bg-v3-bg-card border-r border-v3-border flex-col">
+      {/* Desktop Sidebar - Hidden on mobile, shown on large screens */}
+      <div className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 bg-v3-bg-card border-r border-v3-border flex-col">
         <div className="h-16 flex items-center px-4 border-b border-v3-border">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
@@ -170,7 +175,7 @@ const AgentLayout = () => {
               key={item.name}
               to={item.path}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-3 rounded-lg transition-all ${
+                `flex items-center gap-3 px-3 py-3 rounded-lg transition-all min-h-[44px] ${
                   isActive
                     ? 'bg-v3-orange text-white'
                     : 'text-v3-text-muted hover:bg-v3-bg-dark hover:text-v3-text-lightest'
@@ -195,7 +200,7 @@ const AgentLayout = () => {
           </div>
           <button
             onClick={logout}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-900/20"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-900/20 min-h-[44px]"
           >
             <Power size={20} />
             Sign Out
@@ -204,7 +209,7 @@ const AgentLayout = () => {
       </div>
 
       {/* Main Content */}
-      <main className="md:ml-64 pt-16 md:pt-0">
+      <main className="agent-mobile-main lg:ml-64 lg:pt-0">
         <Outlet />
       </main>
     </div>

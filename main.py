@@ -28,6 +28,7 @@ from src.routes.auth import auth_bp, check_if_token_revoked
 from src.routes.availability import availability_bp
 from src.routes.jobs import jobs_bp
 from src.routes.notifications import notifications_bp
+from src.routes.fcm_notifications import fcm_bp
 from src.routes.weather import weather_bp
 from src.routes.analytics import analytics_bp
 from src.routes.agent import agent_bp
@@ -104,6 +105,7 @@ app.register_blueprint(auth_bp, url_prefix='/api')
 app.register_blueprint(availability_bp, url_prefix='/api')
 app.register_blueprint(jobs_bp, url_prefix='/api')
 app.register_blueprint(notifications_bp, url_prefix='/api')
+app.register_blueprint(fcm_bp, url_prefix='/api')
 app.register_blueprint(weather_bp, url_prefix='/api')
 app.register_blueprint(analytics_bp, url_prefix='/api')
 app.register_blueprint(agent_bp, url_prefix='/api')

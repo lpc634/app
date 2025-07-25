@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '../useAuth.jsx';
 import { useToast } from '../use-toast.js';
+import FCMNotificationSetup from '../components/FCMNotificationSetup.jsx';
 import { 
   Bell, 
   CheckCircle, 
@@ -28,7 +29,7 @@ export default function NotificationsPage() {
     try {
       setLoading(true)
       const data = await apiCall('/notifications')
-      setNotifications(data.notifications || [])
+      setNotifications(Array.isArray(data) ? data : (data.notifications || []))
     } catch (error) {
       console.error('Notifications error:', error)
     } finally {
@@ -256,29 +257,22 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      {/* Notification Settings */}
+      {/* FCM Push Notification Setup */}
+      <FCMNotificationSetup />
+
+      {/* Legacy Notification Settings */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
-            Notification Settings
+            Additional Settings
           </CardTitle>
           <CardDescription>
-            Manage how you receive notifications
+            Configure other notification preferences
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Push Notifications</p>
-                <p className="text-sm text-muted-foreground">
-                  Receive instant notifications for new job assignments
-                </p>
-              </div>
-              <Badge variant="default">Enabled</Badge>
-            </div>
-            
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">Weekly Reminders</p>
@@ -294,6 +288,16 @@ export default function NotificationsPage() {
                 <p className="font-medium">Job Reminders</p>
                 <p className="text-sm text-muted-foreground">
                   Receive reminders before your scheduled jobs
+                </p>
+              </div>
+              <Badge variant="default">Enabled</Badge>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Email Notifications</p>
+                <p className="text-sm text-muted-foreground">
+                  Receive important updates via email
                 </p>
               </div>
               <Badge variant="default">Enabled</Badge>
