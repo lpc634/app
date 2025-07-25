@@ -154,7 +154,137 @@ def convert_address_to_coords():
         logger.error(f"Geocoding error: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred during geocoding.'}), 500
 
+@jobs_bp.route('/jobs', methods=['POST'])
+@jwt_required()
+@validate_json_fields(['title', 'job_type', 'address', 'arrival_time', 'agents_required'])
+def create_job():
+    """Admin creates a new job, and the system assigns it to available agents."""
+    try:
+        current_user = require_admin()
+        if not current_user:
+            return jsonify({'error': 'Access denied. Admin role required.'}), 403
 
+        data = request.get_json()
+
+        # Create the job first
+        new_job = Job(
+            title=data['title'],
+            job_type=data['job_type'],
+            address=data['address'],
+            postcode=data.get('postcode'),
+            arrival_time=parse(data['arrival_time']),
+            agents_required=int(data['agents_required']),
+            hourly_rate=float(data.get('hourly_rate', 0)),
+            lead_agent_name=data.get('lead_agent_name'),
+            instructions=data.get('instructions'),
+            urgency_level=data.get('urgency_level', 'Standard'),
+            status='open',
+            created_by=current_user.id,
+            # Google Maps location fields
+            location_lat=data.get('location_lat'),
+            location_lng=data.get('location_lng'),
+            maps_link=data.get('maps_link')
+        )
+        db.session.add(new_job)
+        db.session.flush()  # Get the job ID without committing
+
+        # Find available agents for the job date
+        job_date = new_job.arrival_time.date()
+        day_of_week = job_date.weekday()  # 0 = Monday, 6 = Sunday
+
+        # Get all verified agents
+        all_agents = User.query.filter_by(role='agent', verification_status='verified').all()
+
+        available_agents = []
+        for agent in all_agents:
+            # Check if agent has daily override for this date
+            daily_override = AgentAvailability.query.filter_by(
+                agent_id=agent.id, 
+                date=job_date
+            ).first()
+            
+            if daily_override:
+                # Use daily override setting
+                if daily_override.is_available and not daily_override.is_away:
+                    available_agents.append(agent)
+            else:
+                # No daily override, check weekly schedule
+                weekly_schedule = AgentWeeklyAvailability.query.filter_by(agent_id=agent.id).first()
+                if weekly_schedule:
+                    day_available = {
+                        0: weekly_schedule.monday,
+                        1: weekly_schedule.tuesday, 
+                        2: weekly_schedule.wednesday,
+                        3: weekly_schedule.thursday,
+                        4: weekly_schedule.friday,
+                        5: weekly_schedule.saturday,
+                        6: weekly_schedule.sunday
+                    }.get(day_of_week, False)
+                    
+                    if day_available:
+                        available_agents.append(agent)
+        
+        if not available_agents:
+            db.session.commit()
+            return jsonify({
+                'message': 'Job created, but no available agents found for that date.',
+                'job': new_job.to_dict(),
+                'available_agents': 0
+            }), 201
+
+        # Create job assignments for available agents
+        assigned_agent_ids = []
+        for agent in available_agents:
+            # Check if assignment already exists (just in case)
+            existing_assignment = JobAssignment.query.filter_by(
+                job_id=new_job.id, 
+                agent_id=agent.id
+            ).first()
+            
+            if not existing_assignment:
+                assignment = JobAssignment(
+                    job_id=new_job.id, 
+                    agent_id=agent.id, 
+                    status='pending'
+                )
+                db.session.add(assignment)
+                assigned_agent_ids.append(agent.id)
+
+        # Send notifications to assigned agents
+        if assigned_agent_ids:
+            notification_title = "New Job Available"
+            notification_message = f"A new job, '{new_job.title}', is available for your response."
+            
+            # Include Google Maps link in notification if available
+            if new_job.maps_link:
+                notification_message += f"\n\nNavigation: {new_job.maps_link}"
+            
+            # Uncomment if you have the notification function available
+            try:
+                trigger_push_notification_for_users(assigned_agent_ids, notification_title, notification_message)
+            except Exception as e:
+                logger.warning(f"Failed to send push notifications: {str(e)}")
+
+        db.session.commit()
+
+        # Log successful job creation
+        logger.info(f"Job '{new_job.title}' created by admin {current_user.id} and assigned to {len(assigned_agent_ids)} agents")
+
+        return jsonify({
+            'message': f'Job created successfully and assigned to {len(assigned_agent_ids)} available agents.',
+            'job': new_job.to_dict(),
+            'assigned_agents': len(assigned_agent_ids),
+            'available_agents': len(available_agents)
+        }), 201
+
+    except ValueError as ve:
+        db.session.rollback()
+        logger.error(f"ValueError creating job: {str(ve)}")
+        return jsonify({'error': f'Invalid data format: {ve}'}), 400
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating job: {str(e)}")
+        return jsonify({'error': 'Failed to create job'}), 500
 
 
 @jobs_bp.route('/jobs/<int:job_id>', methods=['PUT'])
