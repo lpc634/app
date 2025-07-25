@@ -127,18 +127,10 @@ class Job(db.Model):
             'postcode': self.postcode, 
             'arrival_time': self.arrival_time.isoformat(), 
             'agents_required': self.agents_required, 
-            'agents_allocated': agents_allocated,
-            'lead_agent_name': self.lead_agent_name,
-            'instructions': self.instructions,
-            'urgency_level': self.urgency_level,
-            'status': self.status,
-            'hourly_rate': float(self.hourly_rate) if self.hourly_rate else None,
             'what3words_address': self.what3words_address,
             'location_lat': self.location_lat,
             'location_lng': self.location_lng,
-            'maps_link': self.maps_link,
-            'weather_forecast': weather_info['forecast'] if weather_info else None,
-            'clothing_recommendation': weather_info['clothing'] if weather_info else None
+            'maps_link': self.maps_link
         }
 
 class JobAssignment(db.Model):
@@ -202,18 +194,6 @@ class Notification(db.Model):
     job_id = db.Column(db.Integer, db.ForeignKey('jobs.id'))
     user = db.relationship('User', back_populates='notifications')
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'title': self.title,
-            'message': self.message,
-            'is_read': self.is_read,
-            'sent_at': self.sent_at.isoformat() if self.sent_at else None,
-            'type': self.type,
-            'job_id': self.job_id
-        }
-
 class Invoice(db.Model):
     __tablename__ = 'invoices'
     id = db.Column(db.Integer, primary_key=True)
@@ -243,3 +223,4 @@ class PushSubscription(db.Model):
     subscription_json = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user = db.relationship('User', back_populates='push_subscriptions', lazy=True)
+    
