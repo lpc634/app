@@ -27,8 +27,8 @@ class User(db.Model):
     sia_document_url = db.Column(db.String(255), nullable=True)
     verification_status = db.Column(db.String(20), nullable=False, default='pending')
     
-    # S3 file storage for agent documents - COMMENTED OUT UNTIL MIGRATION
-    # document_files = db.Column(db.JSON, nullable=True)  # Store file metadata as JSON
+    # S3 file storage for agent documents
+    document_files = db.Column(db.JSON, nullable=True)  # Store file metadata as JSON
     
     assignments = db.relationship('JobAssignment', back_populates='agent', lazy=True)
     availability = db.relationship('AgentAvailability', back_populates='agent', lazy=True, cascade="all, delete-orphan")
@@ -65,8 +65,8 @@ class User(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'id_document_url': self.id_document_url,
             'sia_document_url': self.sia_document_url,
-            'verification_status': self.verification_status
-            # 'document_files': self.document_files  # COMMENTED OUT UNTIL MIGRATION
+            'verification_status': self.verification_status,
+            'document_files': self.document_files
         }
 
 class Job(db.Model):
@@ -220,8 +220,8 @@ class Invoice(db.Model):
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
     status = db.Column(db.String(20), default='draft')
     
-    # S3 file storage for invoice PDFs - COMMENTED OUT UNTIL MIGRATION
-    # pdf_file_url = db.Column(db.String(500), nullable=True)  # S3 key for the PDF file
+    # S3 file storage for invoice PDFs
+    pdf_file_url = db.Column(db.String(500), nullable=True)  # S3 key for the PDF file
     
     agent = db.relationship('User', back_populates='invoices')
     jobs = db.relationship('InvoiceJob', back_populates='invoice', cascade="all, delete-orphan")
@@ -235,7 +235,7 @@ class Invoice(db.Model):
             'due_date': self.due_date.isoformat() if self.due_date else None,
             'total_amount': float(self.total_amount) if self.total_amount else 0.0,
             'status': self.status,
-            # 'pdf_file_url': self.pdf_file_url,  # COMMENTED OUT UNTIL MIGRATION
+            'pdf_file_url': self.pdf_file_url,
             'jobs': [job.to_dict() for job in self.jobs] if self.jobs else []
         }
 

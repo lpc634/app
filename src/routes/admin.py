@@ -114,20 +114,7 @@ def get_agent_documents_admin(agent_id):
         
         documents = []
         
-        # Check if database migration has been run (document_files field exists)
-        if not hasattr(agent, 'document_files'):
-            return jsonify({
-                "agent_info": {
-                    "id": agent.id,
-                    "name": f"{agent.first_name} {agent.last_name}",
-                    "email": agent.email,
-                    "verification_status": agent.verification_status
-                },
-                "documents": [],
-                "s3_documents": [],
-                "total_count": 0,
-                "message": "S3 document storage not yet available. Database migration required."
-            }), 200
+        # S3 document storage is now available
         
         # Get documents from database metadata
         if agent.document_files:
@@ -192,12 +179,7 @@ def get_invoice_pdf_admin(invoice_id):
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404
         
-        # Check if database migration has been run (pdf_file_url field exists)
-        if not hasattr(invoice, 'pdf_file_url'):
-            return jsonify({
-                'error': 'S3 PDF storage not yet available',
-                'message': 'Database migration required. Please contact administrator.'
-            }), 503
+        # S3 PDF storage is now available
 
         if not invoice.pdf_file_url:
             return jsonify({'error': 'PDF not available for this invoice'}), 404
@@ -242,12 +224,7 @@ def delete_agent_document_admin(agent_id, document_type):
         if not agent or agent.role != 'agent':
             return jsonify({'error': 'Agent not found'}), 404
         
-        # Check if database migration has been run (document_files field exists)
-        if not hasattr(agent, 'document_files'):
-            return jsonify({
-                'error': 'S3 document storage not yet available',
-                'message': 'Database migration required. Please contact administrator.'
-            }), 503
+        # S3 document storage is now available
 
         if not agent.document_files:
             return jsonify({'error': 'No documents found for this agent'}), 404
