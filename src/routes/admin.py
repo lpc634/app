@@ -116,29 +116,7 @@ def get_agent_documents_admin(agent_id):
         
         # S3 document storage is now available
         
-        # Get documents from database metadata
-        if agent.document_files:
-            document_files = agent.document_files
-            if isinstance(document_files, str):
-                document_files = json.loads(document_files)
-            
-            for doc in document_files:
-                # Generate temporary signed URL for admin access
-                signed_url = s3_client.generate_presigned_url(
-                    doc['file_key'], 
-                    expiration=7200  # 2 hours for admin review
-                )
-                
-                if signed_url:
-                    documents.append({
-                        'filename': doc.get('filename'),
-                        'original_filename': doc.get('original_filename'),
-                        'document_type': doc.get('document_type'),
-                        'upload_date': doc.get('upload_date'),
-                        'file_size': doc.get('file_size'),
-                        'download_url': signed_url,
-                        'file_key': doc.get('file_key')
-                    })
+        # S3 document storage temporarily disabled - field removed from database
         
         # Also get documents from S3 directly to ensure completeness
         s3_documents = s3_client.list_agent_documents(agent_id)
@@ -226,10 +204,12 @@ def delete_agent_document_admin(agent_id, document_type):
         
         # S3 document storage is now available
 
-        if not agent.document_files:
+        # S3 document storage temporarily disabled
+        if False:  # not agent.document_files:
             return jsonify({'error': 'No documents found for this agent'}), 404
         
-        document_files = agent.document_files
+        # document_files = agent.document_files
+        return jsonify({'error': 'Document deletion temporarily unavailable'}), 503
         if isinstance(document_files, str):
             document_files = json.loads(document_files)
         

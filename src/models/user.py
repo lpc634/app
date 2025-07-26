@@ -27,8 +27,6 @@ class User(db.Model):
     sia_document_url = db.Column(db.String(255), nullable=True)
     verification_status = db.Column(db.String(20), nullable=False, default='pending')
     
-    # S3 file storage for agent documents
-    document_files = db.Column(db.JSON, nullable=True)  # Store file metadata as JSON
     
     assignments = db.relationship('JobAssignment', back_populates='agent', lazy=True)
     availability = db.relationship('AgentAvailability', back_populates='agent', lazy=True, cascade="all, delete-orphan")
@@ -66,7 +64,6 @@ class User(db.Model):
             'id_document_url': self.id_document_url,
             'sia_document_url': self.sia_document_url,
             'verification_status': self.verification_status,
-            'document_files': self.document_files
         }
 
 class Job(db.Model):

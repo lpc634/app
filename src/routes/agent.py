@@ -127,23 +127,7 @@ def upload_agent_document():
         if not upload_result.get('success'):
             return jsonify({"error": upload_result.get('error', 'Upload failed')}), 500
 
-        # Update user's document files metadata
-        if not user.document_files:
-            user.document_files = []
-        elif isinstance(user.document_files, str):
-            user.document_files = json.loads(user.document_files)
-
-        # Add new document to the list
-        document_metadata = {
-            'file_key': upload_result['file_key'],
-            'filename': upload_result['filename'],
-            'original_filename': upload_result['original_filename'],
-            'document_type': document_type,
-            'upload_date': upload_result['upload_date'],
-            'file_size': upload_result.get('file_size')
-        }
-        
-        user.document_files.append(document_metadata)
+        # S3 document storage temporarily disabled - field removed from database
         user.verification_status = 'pending'  # Reset verification status
         
         db.session.commit()
@@ -176,7 +160,8 @@ def get_agent_documents():
 
         documents = []
         
-        if user.document_files:
+        # S3 document storage temporarily disabled
+        if False:  # user.document_files:
             document_files = user.document_files
             if isinstance(document_files, str):
                 document_files = json.loads(document_files)
@@ -222,7 +207,8 @@ def delete_agent_document(document_type):
 
         # Document files functionality is now available
 
-        if not user.document_files:
+        # S3 document storage temporarily disabled
+        if True:  # not user.document_files:
             return jsonify({"error": "No documents found"}), 404
 
         document_files = user.document_files
@@ -247,7 +233,7 @@ def delete_agent_document(document_type):
         
         if delete_success:
             # Update user's document list
-            user.document_files = updated_documents
+            # user.document_files = updated_documents
             db.session.commit()
             
             return jsonify({
