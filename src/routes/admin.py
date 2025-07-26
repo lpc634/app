@@ -6,8 +6,59 @@ from src.utils.s3_client import s3_client
 from datetime import datetime, date
 import json
 import logging
+import requests
 
 admin_bp = Blueprint('admin', __name__)
+
+def handle_legacy_document_access(file_key):
+    """
+    Handle access to legacy documents stored in the old system
+    
+    Args:
+        file_key (str): Legacy file key (e.g., 'user_2/id_20250312_154622.jpg')
+        
+    Returns:
+        dict: Result with success status and URL or error message
+    """
+    try:
+        # The legacy system uses ngrok to serve files
+        NGROK_URL = "https://1b069dfae07e.ngrok-free.app"
+        
+        # Convert the file key to the expected format for the legacy system
+        legacy_url = f"{NGROK_URL}/files/{file_key}"
+        
+        # Test if the file exists by making a HEAD request
+        response = requests.head(legacy_url, timeout=10)
+        
+        if response.status_code == 200:
+            return {
+                'success': True,
+                'url': legacy_url,
+                'expires_in': 3600,  # Legacy URLs don't expire, but we set this for consistency
+                'is_legacy': True
+            }
+        else:
+            return {
+                'success': False,
+                'error': f'Legacy document not found (HTTP {response.status_code})'
+            }
+            
+    except requests.exceptions.Timeout:
+        return {
+            'success': False,
+            'error': 'Legacy document service is not responding'
+        }
+    except requests.exceptions.ConnectionError:
+        return {
+            'success': False,
+            'error': 'Cannot connect to legacy document service'
+        }
+    except Exception as e:
+        current_app.logger.error(f"Error accessing legacy document {file_key}: {str(e)}")
+        return {
+            'success': False,
+            'error': 'Error accessing legacy document'
+        }
 
 @admin_bp.route('/admin/agents/verification-pending', methods=['GET'])
 @jwt_required()
@@ -247,6 +298,253 @@ def delete_agent_document_admin(agent_id, document_type):
         db.session.rollback()
         current_app.logger.error(f"Error deleting agent document (admin): {str(e)}")
         return jsonify({'error': 'Failed to delete document'}), 500
+
+# ADMIN DOCUMENT REVIEW ENDPOINTS - Complete document management system
+
+@admin_bp.route('/admin/agents/documents', methods=['GET'])
+@jwt_required()
+def get_all_agents_documents():
+    """Get all agents with their document status and metadata for admin review."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get all agents
+        agents = User.query.filter_by(role='agent').order_by(User.created_at.desc()).all()
+        
+        agents_data = []
+        for agent in agents:
+            # Get documents from S3
+            s3_documents = s3_client.list_agent_documents(agent.id)
+            
+            # Count documents by type
+            document_counts = {}
+            for doc in s3_documents:
+                doc_type = doc.get('metadata', {}).get('document_type', 'unknown')
+                document_counts[doc_type] = document_counts.get(doc_type, 0) + 1
+            
+            # Also check for legacy documents stored in the old system
+            legacy_documents = []
+            if agent.id_document_url:
+                legacy_documents.append({
+                    'file_key': agent.id_document_url,
+                    'filename': agent.id_document_url.split('/')[-1] if '/' in agent.id_document_url else agent.id_document_url,
+                    'size': 0,  # Unknown size for legacy documents
+                    'last_modified': agent.created_at.isoformat() if agent.created_at else None,
+                    'metadata': {
+                        'document_type': 'id_card',
+                        'original_filename': agent.id_document_url.split('/')[-1] if '/' in agent.id_document_url else agent.id_document_url,
+                        'upload_date': agent.created_at.isoformat() if agent.created_at else None
+                    },
+                    'is_legacy': True
+                })
+            
+            if agent.sia_document_url:
+                legacy_documents.append({
+                    'file_key': agent.sia_document_url,
+                    'filename': agent.sia_document_url.split('/')[-1] if '/' in agent.sia_document_url else agent.sia_document_url,
+                    'size': 0,  # Unknown size for legacy documents
+                    'last_modified': agent.created_at.isoformat() if agent.created_at else None,
+                    'metadata': {
+                        'document_type': 'sia_license',
+                        'original_filename': agent.sia_document_url.split('/')[-1] if '/' in agent.sia_document_url else agent.sia_document_url,
+                        'upload_date': agent.created_at.isoformat() if agent.created_at else None
+                    },
+                    'is_legacy': True
+                })
+            
+            # Combine S3 and legacy documents
+            all_documents = s3_documents + legacy_documents
+            
+            agent_data = {
+                'id': agent.id,
+                'name': f"{agent.first_name} {agent.last_name}",
+                'email': agent.email,
+                'verification_status': agent.verification_status,
+                'created_at': agent.created_at.isoformat() if agent.created_at else None,
+                'document_count': len(all_documents),
+                'document_types': list(document_counts.keys()),
+                'has_id_document': agent.id_document_url is not None,
+                'has_sia_document': agent.sia_document_url is not None,
+                'documents_metadata': all_documents
+            }
+            agents_data.append(agent_data)
+        
+        # Log admin access
+        current_app.logger.info(f"Admin {current_user.email} accessed all agents documents overview")
+        
+        return jsonify({
+            'agents': agents_data,
+            'total_agents': len(agents_data)
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching all agents documents: {e}")
+        return jsonify({'error': 'Failed to fetch agents documents'}), 500
+
+@admin_bp.route('/admin/agents/<int:agent_id>/verify', methods=['POST'])
+@jwt_required()
+def verify_agent_documents(agent_id):
+    """Approve or reject agent documents with detailed tracking."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        action = data.get('action')  # 'approve' or 'reject'
+        notes = data.get('notes', '')
+        document_feedback = data.get('document_feedback', {})
+        
+        if action not in ['approve', 'reject']:
+            return jsonify({'error': 'Invalid action. Must be approve or reject'}), 400
+        
+        agent = User.query.get(agent_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Agent not found'}), 404
+        
+        # Update verification status with detailed tracking
+        old_status = agent.verification_status
+        if action == 'approve':
+            agent.verification_status = 'verified'
+        else:
+            agent.verification_status = 'rejected'
+        
+        # Add verification tracking details
+        agent.verification_notes = notes
+        agent.verified_by = current_user.id
+        agent.verified_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        # Log the verification action
+        current_app.logger.info(
+            f"Admin {current_user.email} {action}d agent {agent.email} "
+            f"(ID: {agent_id}) - Status changed from {old_status} to {agent.verification_status}"
+        )
+        
+        # TODO: Send notification to agent about verification status
+        # This would integrate with your notification system
+        
+        return jsonify({
+            'message': f"Agent {agent.first_name} {agent.last_name} has been {action}d",
+            'agent': agent.to_dict(),
+            'verification_details': {
+                'action': action,
+                'admin_email': current_user.email,
+                'timestamp': datetime.utcnow().isoformat(),
+                'notes': notes,
+                'document_feedback': document_feedback
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error verifying agent documents: {e}")
+        return jsonify({'error': 'Failed to verify agent'}), 500
+
+@admin_bp.route('/admin/documents/pending', methods=['GET'])
+@jwt_required()
+def get_pending_documents():
+    """Get all documents that require admin review."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get agents with pending verification status
+        pending_agents = User.query.filter(
+            User.role == 'agent',
+            User.verification_status.in_(['pending', 'rejected'])
+        ).order_by(User.created_at.desc()).all()
+        
+        pending_documents = []
+        for agent in pending_agents:
+            s3_documents = s3_client.list_agent_documents(agent.id)
+            
+            if s3_documents or agent.id_document_url or agent.sia_document_url:
+                agent_data = {
+                    'agent_id': agent.id,
+                    'agent_name': f"{agent.first_name} {agent.last_name}",
+                    'agent_email': agent.email,
+                    'verification_status': agent.verification_status,
+                    'created_at': agent.created_at.isoformat() if agent.created_at else None,
+                    'documents': s3_documents,
+                    'document_count': len(s3_documents)
+                }
+                pending_documents.append(agent_data)
+        
+        return jsonify({
+            'pending_documents': pending_documents,
+            'total_pending': len(pending_documents)
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching pending documents: {e}")
+        return jsonify({'error': 'Failed to fetch pending documents'}), 500
+
+@admin_bp.route('/admin/documents/<file_key>/preview', methods=['GET'])
+@jwt_required()
+def get_document_preview_url(file_key):
+    """Generate secure preview URL for document viewing."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Decode the file key (replace __ with /)
+        actual_file_key = file_key.replace('__', '/')
+        
+        # Check if this is a legacy document (stored in old format)
+        if actual_file_key.startswith('user_'):
+            # Legacy document - try to serve from the legacy system or convert to S3
+            legacy_url_result = handle_legacy_document_access(actual_file_key)
+            if legacy_url_result['success']:
+                # Log admin document access
+                current_app.logger.info(f"Admin {current_user.email} accessed legacy document: {actual_file_key}")
+                return jsonify({
+                    'preview_url': legacy_url_result['url'],
+                    'expires_in': legacy_url_result.get('expires_in', 3600),
+                    'file_key': file_key,
+                    'success': True,
+                    'is_legacy': True
+                }), 200
+            else:
+                current_app.logger.error(f"Failed to access legacy document {actual_file_key}: {legacy_url_result['error']}")
+                return jsonify({'error': legacy_url_result['error']}), 404
+        
+        # Use the new secure document URL function for S3 documents
+        url_result = s3_client.get_secure_document_url(
+            actual_file_key,
+            expiration=3600
+        )
+        
+        if not url_result['success']:
+            current_app.logger.error(f"Failed to get secure URL for {actual_file_key}: {url_result['error']}")
+            return jsonify({'error': url_result['error']}), 404 if 'not found' in url_result['error'] else 500
+        
+        # Log admin document access
+        current_app.logger.info(f"Admin {current_user.email} accessed document preview: {actual_file_key}")
+        
+        return jsonify({
+            'preview_url': url_result['url'],
+            'expires_in': url_result['expires_in'],
+            'file_key': file_key,
+            'success': True
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error generating document preview URL: {e}")
+        return jsonify({'error': 'Failed to generate preview URL'}), 500
 
 # NEW ROUTES - These fix the 404 errors from your console
 @admin_bp.route('/agents/available', methods=['GET'])

@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "./useAuth.jsx";
 
 // --- 1. IMPORT THE SEARCH ICON ---
-import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search } from 'lucide-react';
+import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search, FileText } from 'lucide-react';
 import logo from './assets/new_logo.png';
 
 const navigation = [
@@ -14,14 +14,21 @@ const navigation = [
   { name: 'Jobs', href: '/jobs', icon: Briefcase },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Vehicle Search', href: '/admin/vehicle-search', icon: Search },
+  { name: 'Document Review', href: '/admin/documents', icon: FileText, adminOnly: true },
 ];
 
 function NavigationItems({ onItemClick = () => {} }) {
   const location = useLocation();
+  const { user } = useAuth();
 
   return (
     <nav className="flex-1 space-y-2 px-4">
       {navigation.map((item) => {
+        // Hide admin-only items for non-admin users
+        if (item.adminOnly && user?.role !== 'admin') {
+          return null;
+        }
+
         const isActive = location.pathname === item.href;
         const Icon = item.icon;
 

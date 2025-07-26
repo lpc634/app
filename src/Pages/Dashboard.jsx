@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../useAuth.jsx';
 import { Link } from 'react-router-dom';
 import { 
@@ -9,15 +10,21 @@ import {
   Users, 
   Clock,
   RefreshCw,
-  ServerCrash
+  ServerCrash,
+  FileText,
+  AlertTriangle,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 
 export default function Dashboard() {
   const [liveJobs, setLiveJobs] = useState([]);
   const [availableAgents, setAvailableAgents] = useState([]);
+  const [pendingDocuments, setPendingDocuments] = useState([]);
+  const [documentStats, setDocumentStats] = useState({ pending: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { apiCall } = useAuth();
+  const { apiCall, user } = useAuth();
 
   const fetchData = async () => {
     try {
@@ -29,10 +36,29 @@ export default function Dashboard() {
       const today = new Date().toISOString().split('T')[0];
       const agentsPromise = apiCall(`/agents/available?date=${today}`);
 
-      const [jobsResponse, agentsResponse] = await Promise.all([jobsPromise, agentsPromise]);
+      // Only fetch document data for admin users
+      const promises = [jobsPromise, agentsPromise];
+      if (user?.role === 'admin') {
+        promises.push(apiCall('/admin/documents/pending'));
+        promises.push(apiCall('/admin/agents/documents'));
+      }
+
+      const responses = await Promise.all(promises);
       
-      setLiveJobs(jobsResponse.jobs || []);
-      setAvailableAgents(agentsResponse.available_agents || []);
+      setLiveJobs(responses[0].jobs || []);
+      setAvailableAgents(responses[1].available_agents || []);
+
+      // Handle document data for admin users
+      if (user?.role === 'admin' && responses.length > 2) {
+        setPendingDocuments(responses[2].pending_documents || []);
+        const agentsData = responses[3].agents || [];
+        const stats = agentsData.reduce((acc, agent) => {
+          acc.total++;
+          if (agent.verification_status === 'pending') acc.pending++;
+          return acc;
+        }, { pending: 0, total: 0 });
+        setDocumentStats(stats);
+      }
 
     } catch (error) {
       setError('Failed to load dashboard data. Please try again.');
@@ -87,8 +113,63 @@ export default function Dashboard() {
         </Link>
       </div>
 
+      {/* Document Review Section - Only for Admin Users */}
+      {user?.role === 'admin' && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Pending Reviews</p>
+                  <p className="text-2xl font-bold text-yellow-600">{documentStats.pending}</p>
+                </div>
+                <Clock className="h-8 w-8 text-yellow-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Agents</p>
+                  <p className="text-2xl font-bold text-blue-600">{documentStats.total}</p>
+                </div>
+                <Users className="h-8 w-8 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Documents</p>
+                  <p className="text-2xl font-bold text-purple-600">{pendingDocuments.reduce((acc, agent) => acc + agent.document_count, 0)}</p>
+                </div>
+                <FileText className="h-8 w-8 text-purple-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <Link to="/admin/documents" className="block">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Review Center</p>
+                    <p className="text-sm text-blue-600 hover:text-blue-800">View All →</p>
+                  </div>
+                  <AlertTriangle className="h-8 w-8 text-orange-600" />
+                </div>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+        <div className={user?.role === 'admin' ? "lg:col-span-2" : "lg:col-span-2"}>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -150,6 +231,45 @@ export default function Dashboard() {
                 </div>
             </CardContent>
           </Card>
+          
+          {/* Recent Document Reviews - Only for Admin */}
+          {user?.role === 'admin' && pendingDocuments.length > 0 && (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Recent Submissions
+                </CardTitle>
+                <CardDescription>Latest agent document uploads</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {pendingDocuments.slice(0, 5).map((agent, index) => (
+                    <div key={agent.agent_id} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                        <span className="text-sm font-medium">{agent.agent_name}</span>
+                      </div>
+                      <Badge 
+                        variant="outline" 
+                        className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200"
+                      >
+                        {agent.document_count} docs
+                      </Badge>
+                    </div>
+                  ))}
+                  {pendingDocuments.length > 5 && (
+                    <Link 
+                      to="/admin/documents" 
+                      className="text-sm text-blue-600 hover:text-blue-800 block text-center pt-2"
+                    >
+                      View {pendingDocuments.length - 5} more →
+                    </Link>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

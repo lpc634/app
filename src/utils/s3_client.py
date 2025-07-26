@@ -261,6 +261,62 @@ class S3Client:
             logger.error(f"Error generating presigned URL: {str(e)}")
             return None
 
+    def get_secure_document_url(self, file_key, expiration=3600):
+        """
+        Generate a secure URL for document viewing with proper error handling
+        
+        Args:
+            file_key (str): S3 object key
+            expiration (int): URL expiration time in seconds (default: 1 hour)
+            
+        Returns:
+            dict: Result with success status and URL or error message
+        """
+        if not self.configured:
+            return {
+                'success': False, 
+                'error': f'S3 storage not configured: {self.error_message}'
+            }
+        
+        try:
+            # First check if the object exists
+            self.s3_client.head_object(Bucket=self.bucket_name, Key=file_key)
+            
+            # Generate presigned URL
+            url = self.generate_presigned_url(file_key, expiration)
+            
+            if url:
+                return {
+                    'success': True,
+                    'url': url,
+                    'expires_in': expiration
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'Failed to generate secure URL'
+                }
+                
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            if error_code == '404':
+                return {
+                    'success': False,
+                    'error': 'Document not found in storage'
+                }
+            else:
+                logger.error(f"Error accessing document {file_key}: {str(e)}")
+                return {
+                    'success': False,
+                    'error': f'Storage error: {error_code}'
+                }
+        except Exception as e:
+            logger.error(f"Unexpected error getting document URL: {str(e)}")
+            return {
+                'success': False,
+                'error': 'Unexpected error accessing document'
+            }
+
     def list_agent_documents(self, agent_id):
         """
         List all documents for a specific agent

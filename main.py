@@ -137,32 +137,23 @@ def debug_users():
         })
     return jsonify({'users': user_data, 'count': len(users)})
 
+# Legacy image serving endpoint - DEPRECATED
+# This endpoint is deprecated in favor of secure S3 URLs and admin document preview
+# Keeping for backwards compatibility but should be removed in future versions
 @app.route('/api/images/<path:filename>')
 def serve_uploaded_image(filename):
-    """Proxy images from your local computer via ngrok"""
-    import requests
+    """
+    DEPRECATED: Legacy image serving endpoint
+    Use /api/admin/documents/{file_key}/preview instead for secure document access
+    """
+    app.logger.warning(f"DEPRECATED: /api/images/{filename} accessed - use admin document preview instead")
     
-    # Your ngrok URL for the file server
-    NGROK_URL = "https://1b069dfae07e.ngrok-free.app"
-    
-    try:
-        # Request the image from your local computer
-        response = requests.get(f"{NGROK_URL}/files/{filename}")
-        
-        if response.status_code == 200:
-            # Return the image with proper headers
-            from flask import Response
-            return Response(
-                response.content,
-                mimetype=response.headers.get('content-type', 'image/jpeg'),
-                headers={'Cache-Control': 'public, max-age=3600'}
-            )
-        else:
-            return jsonify({'error': 'Image not found'}), 404
-            
-    except Exception as e:
-        app.logger.error(f"Error serving image {filename}: {e}")
-        return jsonify({'error': 'Failed to load image'}), 500
+    # Redirect to proper error message
+    return jsonify({
+        'error': 'This endpoint is deprecated. Please use the admin document preview system.',
+        'deprecated': True,
+        'migration_note': 'Use /api/admin/documents/{file_key}/preview for secure document access'
+    }), 410  # HTTP 410 Gone
 
 # --- Static File Serving for Frontend ---
 @app.route('/', defaults={'path': ''})
