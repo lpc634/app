@@ -13,7 +13,7 @@ class VehicleSighting(db.Model):
     agent_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     # This relationship connects back to the User model
-    agent = db.relationship('User', back_populates='vehicle_sightings')
+    agent = db.relationship('User', backref='vehicle_sightings')
 
     def to_dict(self):
         return {
