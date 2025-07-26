@@ -98,7 +98,12 @@ def upload_agent_document():
         if not user or user.role != 'agent':
             return jsonify({"error": "Access denied. Agent role required."}), 403
 
-        # Document files functionality is now available
+        # Check if S3 is properly configured
+        if not s3_client.is_configured():
+            return jsonify({
+                "error": "File upload service not available", 
+                "details": "S3 storage not configured properly"
+            }), 503
 
         if 'file' not in request.files:
             return jsonify({"error": "No file provided"}), 400
@@ -125,12 +130,23 @@ def upload_agent_document():
         )
 
         if not upload_result.get('success'):
-            return jsonify({"error": upload_result.get('error', 'Upload failed')}), 500
+            error_msg = upload_result.get('error', 'Upload failed')
+            current_app.logger.error(f"S3 upload failed for user {user.id}: {error_msg}")
+            return jsonify({"error": error_msg}), 500
 
         # S3 document storage temporarily disabled - field removed from database
         user.verification_status = 'pending'  # Reset verification status
         
         db.session.commit()
+
+        # Extract document metadata from upload result
+        document_metadata = {
+            'filename': upload_result.get('filename'),
+            'original_filename': upload_result.get('original_filename'),
+            'document_type': document_type,
+            'upload_date': upload_result.get('upload_date'),
+            'file_size': upload_result.get('file_size')
+        }
 
         return jsonify({
             "message": "Document uploaded successfully",
@@ -141,6 +157,36 @@ def upload_agent_document():
         db.session.rollback()
         current_app.logger.error(f"Error uploading agent document: {str(e)}")
         return jsonify({"error": "Failed to upload document"}), 500
+
+@agent_bp.route('/agent/s3-status', methods=['GET'])
+@jwt_required()
+def check_s3_status():
+    """
+    Check S3 configuration status for debugging
+    """
+    try:
+        current_user_id = int(get_jwt_identity())
+        user = User.query.get(current_user_id)
+        
+        if not user or user.role != 'agent':
+            return jsonify({"error": "Access denied. Agent role required."}), 403
+        
+        if s3_client.is_configured():
+            connection_test = s3_client.test_connection()
+            return jsonify({
+                "configured": True,
+                "connection_test": connection_test,
+                "bucket": s3_client.bucket_name
+            }), 200
+        else:
+            return jsonify({
+                "configured": False,
+                "error": s3_client.get_configuration_error()
+            }), 200
+            
+    except Exception as e:
+        current_app.logger.error(f"Error checking S3 status: {str(e)}")
+        return jsonify({"error": "Failed to check S3 status"}), 500
 
 @agent_bp.route('/agent/documents', methods=['GET'])
 @jwt_required()

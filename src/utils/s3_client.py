@@ -10,20 +10,84 @@ logger = logging.getLogger(__name__)
 
 class S3Client:
     def __init__(self):
+        # Validate AWS environment variables first
+        self.aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
+        self.aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+        self.aws_region = os.getenv('AWS_S3_REGION')
+        self.bucket_name = os.getenv('AWS_S3_BUCKET')
+        
+        # Check if all required credentials are available
+        missing_vars = []
+        if not self.aws_access_key_id:
+            missing_vars.append('AWS_ACCESS_KEY_ID')
+        if not self.aws_secret_access_key:
+            missing_vars.append('AWS_SECRET_ACCESS_KEY')
+        if not self.aws_region:
+            missing_vars.append('AWS_S3_REGION')
+        if not self.bucket_name:
+            missing_vars.append('AWS_S3_BUCKET')
+        
+        if missing_vars:
+            error_msg = f"Missing AWS environment variables: {', '.join(missing_vars)}"
+            logger.error(error_msg)
+            self.s3_client = None
+            self.configured = False
+            self.error_message = error_msg
+            return
+        
         try:
             self.s3_client = boto3.client(
                 's3',
-                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-                region_name=os.getenv('AWS_S3_REGION')
+                aws_access_key_id=self.aws_access_key_id,
+                aws_secret_access_key=self.aws_secret_access_key,
+                region_name=self.aws_region
             )
-            self.bucket_name = os.getenv('AWS_S3_BUCKET')
+            self.configured = True
+            self.error_message = None
+            logger.info(f"S3 client initialized successfully for bucket: {self.bucket_name}")
         except NoCredentialsError:
-            logger.error("AWS credentials not found")
-            raise
+            error_msg = "AWS credentials not found or invalid"
+            logger.error(error_msg)
+            self.s3_client = None
+            self.configured = False
+            self.error_message = error_msg
         except Exception as e:
-            logger.error(f"Error initializing S3 client: {str(e)}")
-            raise
+            error_msg = f"Error initializing S3 client: {str(e)}"
+            logger.error(error_msg)
+            self.s3_client = None
+            self.configured = False
+            self.error_message = error_msg
+
+    def is_configured(self):
+        """Check if S3 client is properly configured"""
+        return self.configured
+    
+    def get_configuration_error(self):
+        """Get the configuration error message if any"""
+        return self.error_message
+    
+    def test_connection(self):
+        """Test S3 connection by checking bucket access"""
+        if not self.configured:
+            return {'success': False, 'error': self.error_message}
+        
+        try:
+            # Try to get bucket location (requires minimal permissions)
+            response = self.s3_client.get_bucket_location(Bucket=self.bucket_name)
+            return {'success': True, 'message': 'S3 connection successful', 'bucket_region': response.get('LocationConstraint', 'us-east-1')}
+        except ClientError as e:
+            # If bucket location fails, try a simple head bucket operation
+            try:
+                self.s3_client.head_bucket(Bucket=self.bucket_name)
+                return {'success': True, 'message': 'S3 connection successful (limited permissions)'}
+            except ClientError as head_error:
+                error_msg = f"S3 connection test failed: {str(head_error)}"
+                logger.error(error_msg)
+                return {'success': False, 'error': error_msg}
+        except Exception as e:
+            error_msg = f"S3 connection test error: {str(e)}"
+            logger.error(error_msg)
+            return {'success': False, 'error': error_msg}
 
     def upload_agent_document(self, agent_id, file, file_type):
         """
@@ -37,6 +101,13 @@ class S3Client:
         Returns:
             dict: Upload result with file URL and metadata
         """
+        # Check if S3 is properly configured
+        if not self.configured:
+            return {
+                'success': False, 
+                'error': f'S3 storage not configured: {self.error_message}'
+            }
+        
         try:
             # Validate file type
             allowed_extensions = {'pdf', 'jpg', 'jpeg', 'png'}
@@ -101,6 +172,13 @@ class S3Client:
         Returns:
             dict: Upload result with file URL and metadata
         """
+        # Check if S3 is properly configured
+        if not self.configured:
+            return {
+                'success': False, 
+                'error': f'S3 storage not configured: {self.error_message}'
+            }
+        
         try:
             # Generate filename if not provided
             if not filename:
@@ -168,6 +246,10 @@ class S3Client:
         Returns:
             str: Presigned URL or None if error
         """
+        if not self.configured:
+            logger.error(f"Cannot generate presigned URL: {self.error_message}")
+            return None
+        
         try:
             response = self.s3_client.generate_presigned_url(
                 'get_object',
@@ -189,6 +271,10 @@ class S3Client:
         Returns:
             list: List of document metadata
         """
+        if not self.configured:
+            logger.error(f"Cannot list documents: {self.error_message}")
+            return []
+        
         try:
             prefix = f"agents/{agent_id}/documents/"
             response = self.s3_client.list_objects_v2(
@@ -229,6 +315,10 @@ class S3Client:
         Returns:
             bool: True if successful, False otherwise
         """
+        if not self.configured:
+            logger.error(f"Cannot delete file: {self.error_message}")
+            return False
+        
         try:
             self.s3_client.delete_object(
                 Bucket=self.bucket_name,
@@ -251,5 +341,25 @@ class S3Client:
         }
         return content_types.get(file_extension.lower(), 'application/octet-stream')
 
-# Global S3 client instance
-s3_client = S3Client()
+# Global S3 client instance - initialization will not raise exceptions
+try:
+    s3_client = S3Client()
+except Exception as e:
+    logger.error(f"Failed to initialize global S3 client: {str(e)}")
+    # Create a dummy client that always returns configuration errors
+    class DummyS3Client:
+        def __init__(self, error):
+            self.configured = False
+            self.error_message = str(error)
+        def is_configured(self): return False
+        def get_configuration_error(self): return self.error_message
+        def test_connection(self): return {'success': False, 'error': self.error_message}
+        def upload_agent_document(self, *args, **kwargs): 
+            return {'success': False, 'error': f'S3 not configured: {self.error_message}'}
+        def upload_invoice_pdf(self, *args, **kwargs): 
+            return {'success': False, 'error': f'S3 not configured: {self.error_message}'}
+        def generate_presigned_url(self, *args, **kwargs): return None
+        def list_agent_documents(self, *args, **kwargs): return []
+        def delete_file(self, *args, **kwargs): return False
+    
+    s3_client = DummyS3Client(e)
