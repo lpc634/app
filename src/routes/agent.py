@@ -10,12 +10,15 @@ from email.utils import formataddr
 from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import User, Job, JobAssignment, AgentAvailability, Notification, Invoice, InvoiceJob, db
+from src.utils.s3_client import s3_client
 from datetime import datetime, date, time, timedelta
 from decimal import Decimal
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from werkzeug.utils import secure_filename
+import json
+import logging
 
 agent_bp = Blueprint('agent', __name__)
 
@@ -79,13 +82,184 @@ def upload_agent_documents():
         current_app.logger.error(f"Upload Error: {e}")
         return jsonify({"error": "Failed to upload file."}), 500
 
+# --- NEW S3-BASED FILE UPLOAD ENDPOINTS ---
+
+@agent_bp.route('/agent/upload-document', methods=['POST'])
+@jwt_required()
+def upload_agent_document():
+    """
+    Upload agent identification documents to S3 (GDPR compliant)
+    Supports PDF, JPG, PNG files for ID cards, passports, driver licenses, etc.
+    """
+    try:
+        current_user_id = int(get_jwt_identity())
+        user = User.query.get(current_user_id)
+        
+        if not user or user.role != 'agent':
+            return jsonify({"error": "Access denied. Agent role required."}), 403
+
+        if 'file' not in request.files:
+            return jsonify({"error": "No file provided"}), 400
+
+        file = request.files['file']
+        document_type = request.form.get('document_type', 'general')
+
+        if file.filename == '':
+            return jsonify({"error": "No file selected"}), 400
+
+        if not allowed_file(file.filename):
+            return jsonify({"error": "File type not allowed. Only PDF, JPG, JPEG, PNG files are accepted."}), 400
+
+        # Validate document type
+        valid_document_types = ['id_card', 'passport', 'driver_license', 'sia_license', 'other']
+        if document_type not in valid_document_types:
+            document_type = 'other'
+
+        # Upload to S3
+        upload_result = s3_client.upload_agent_document(
+            agent_id=user.id,
+            file=file,
+            file_type=document_type
+        )
+
+        if not upload_result.get('success'):
+            return jsonify({"error": upload_result.get('error', 'Upload failed')}), 500
+
+        # Update user's document files metadata
+        if not user.document_files:
+            user.document_files = []
+        elif isinstance(user.document_files, str):
+            user.document_files = json.loads(user.document_files)
+
+        # Add new document to the list
+        document_metadata = {
+            'file_key': upload_result['file_key'],
+            'filename': upload_result['filename'],
+            'original_filename': upload_result['original_filename'],
+            'document_type': document_type,
+            'upload_date': upload_result['upload_date'],
+            'file_size': upload_result.get('file_size')
+        }
+        
+        user.document_files.append(document_metadata)
+        user.verification_status = 'pending'  # Reset verification status
+        
+        db.session.commit()
+
+        return jsonify({
+            "message": "Document uploaded successfully",
+            "document": document_metadata
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error uploading agent document: {str(e)}")
+        return jsonify({"error": "Failed to upload document"}), 500
+
+@agent_bp.route('/agent/documents', methods=['GET'])
+@jwt_required()
+def get_agent_documents():
+    """
+    Get list of all documents uploaded by the current agent
+    Returns secure temporary URLs for document access
+    """
+    try:
+        current_user_id = int(get_jwt_identity())
+        user = User.query.get(current_user_id)
+        
+        if not user or user.role != 'agent':
+            return jsonify({"error": "Access denied. Agent role required."}), 403
+
+        documents = []
+        
+        if user.document_files:
+            document_files = user.document_files
+            if isinstance(document_files, str):
+                document_files = json.loads(document_files)
+            
+            for doc in document_files:
+                # Generate temporary signed URL for secure access
+                signed_url = s3_client.generate_presigned_url(
+                    doc['file_key'], 
+                    expiration=3600  # 1 hour expiration
+                )
+                
+                if signed_url:
+                    documents.append({
+                        'filename': doc.get('filename'),
+                        'original_filename': doc.get('original_filename'),
+                        'document_type': doc.get('document_type'),
+                        'upload_date': doc.get('upload_date'),
+                        'file_size': doc.get('file_size'),
+                        'download_url': signed_url  # Temporary signed URL
+                    })
+
+        return jsonify({
+            "documents": documents,
+            "total_count": len(documents)
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching agent documents: {str(e)}")
+        return jsonify({"error": "Failed to fetch documents"}), 500
+
+@agent_bp.route('/agent/documents/<document_type>', methods=['DELETE'])
+@jwt_required()
+def delete_agent_document(document_type):
+    """
+    Delete a specific document type (GDPR compliance)
+    """
+    try:
+        current_user_id = int(get_jwt_identity())
+        user = User.query.get(current_user_id)
+        
+        if not user or user.role != 'agent':
+            return jsonify({"error": "Access denied. Agent role required."}), 403
+
+        if not user.document_files:
+            return jsonify({"error": "No documents found"}), 404
+
+        document_files = user.document_files
+        if isinstance(document_files, str):
+            document_files = json.loads(document_files)
+
+        # Find and remove the document
+        document_to_delete = None
+        updated_documents = []
+        
+        for doc in document_files:
+            if doc.get('document_type') == document_type:
+                document_to_delete = doc
+            else:
+                updated_documents.append(doc)
+
+        if not document_to_delete:
+            return jsonify({"error": "Document not found"}), 404
+
+        # Delete from S3
+        delete_success = s3_client.delete_file(document_to_delete['file_key'])
+        
+        if delete_success:
+            # Update user's document list
+            user.document_files = updated_documents
+            db.session.commit()
+            
+            return jsonify({
+                "message": f"Document of type '{document_type}' deleted successfully"
+            }), 200
+        else:
+            return jsonify({"error": "Failed to delete document from storage"}), 500
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting agent document: {str(e)}")
+        return jsonify({"error": "Failed to delete document"}), 500
+
 # --- PDF AND EMAIL HELPER FUNCTIONS ---
 
-def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number):
-    """Generates a PDF invoice."""
-    # This function uses a local 'INVOICE_FOLDER', which is temporary on Heroku.
-    # For now this is okay for generating the PDF before emailing it.
-    # A future improvement would be to save these to S3 as well.
+def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_to_s3=True):
+    """Generates a PDF invoice and optionally uploads to S3."""
+    # This function generates the PDF locally first, then uploads to S3
     invoice_folder = os.path.join('/tmp', 'invoices') # Use the /tmp directory
     os.makedirs(invoice_folder, exist_ok=True)
     file_path = os.path.join(invoice_folder, f"{invoice_number}.pdf")
@@ -158,6 +332,27 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number):
     c.drawString(inch, inch, "Thank you for your service. Please direct any questions to accounts@v3-services.com.")
     
     c.save()
+    
+    # Upload to S3 if requested
+    if upload_to_s3:
+        try:
+            with open(file_path, 'rb') as pdf_file:
+                # Extract invoice ID from invoice number for folder organization
+                invoice_id = invoice_number  # You may want to pass actual invoice ID instead
+                upload_result = s3_client.upload_invoice_pdf(
+                    invoice_id=invoice_id,
+                    pdf_data=pdf_file,
+                    filename=f"{invoice_number}.pdf"
+                )
+                
+                if upload_result.get('success'):
+                    current_app.logger.info(f"Invoice PDF {invoice_number} uploaded to S3 successfully")
+                    return file_path, upload_result.get('file_key')
+                else:
+                    current_app.logger.error(f"Failed to upload invoice PDF to S3: {upload_result.get('error')}")
+        except Exception as e:
+            current_app.logger.error(f"Error uploading invoice PDF to S3: {str(e)}")
+    
     return file_path
 
 def send_invoice_email(recipient_email, agent_name, pdf_path, invoice_number, cc_email=None):
@@ -460,7 +655,15 @@ def create_invoice():
             db.session.add(invoice_job_link)
             
         # --- PDF and Emailing ---
-        pdf_path = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number)
+        pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True)
+        
+        # Handle different return formats (with or without S3 upload)
+        if isinstance(pdf_result, tuple):
+            pdf_path, s3_file_key = pdf_result
+            # Store S3 file key in database
+            new_invoice.pdf_file_url = s3_file_key
+        else:
+            pdf_path = pdf_result
 
         # Assume MAIL_DEFAULT_SENDER[1] is the accounts email
         accounts_email = current_app.config['MAIL_DEFAULT_SENDER'][1] if isinstance(current_app.config['MAIL_DEFAULT_SENDER'], tuple) else current_app.config['MAIL_DEFAULT_SENDER']
@@ -553,8 +756,17 @@ def update_invoice(invoice_id):
                 'subtotal': float(total_amount)
             }]
             
-            # Generate PDF
-            pdf_path = generate_invoice_pdf(user, jobs_data, float(total_amount), invoice.invoice_number)
+            # Generate PDF and upload to S3
+            pdf_result = generate_invoice_pdf(user, jobs_data, float(total_amount), invoice.invoice_number, upload_to_s3=True)
+            
+            # Handle different return formats
+            if isinstance(pdf_result, tuple):
+                pdf_path, s3_file_key = pdf_result
+                # Update invoice with S3 file key
+                invoice.pdf_file_url = s3_file_key
+                db.session.commit()  # Save the S3 file key
+            else:
+                pdf_path = pdf_result
             
             # Send email to agent and tom@v3-services.com
             send_invoice_email(
