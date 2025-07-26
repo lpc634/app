@@ -98,6 +98,13 @@ def upload_agent_document():
         if not user or user.role != 'agent':
             return jsonify({"error": "Access denied. Agent role required."}), 403
 
+        # Check if database migration has been run (document_files field exists)
+        if not hasattr(user, 'document_files'):
+            return jsonify({
+                "error": "S3 document storage not yet available", 
+                "message": "Database migration required. Please contact administrator."
+            }), 503
+
         if 'file' not in request.files:
             return jsonify({"error": "No file provided"}), 400
 
@@ -170,6 +177,14 @@ def get_agent_documents():
         if not user or user.role != 'agent':
             return jsonify({"error": "Access denied. Agent role required."}), 403
 
+        # Check if database migration has been run (document_files field exists)
+        if not hasattr(user, 'document_files'):
+            return jsonify({
+                "documents": [],
+                "total_count": 0,
+                "message": "S3 document storage not yet available. Database migration required."
+            }), 200
+
         documents = []
         
         if user.document_files:
@@ -215,6 +230,13 @@ def delete_agent_document(document_type):
         
         if not user or user.role != 'agent':
             return jsonify({"error": "Access denied. Agent role required."}), 403
+
+        # Check if database migration has been run (document_files field exists)
+        if not hasattr(user, 'document_files'):
+            return jsonify({
+                "error": "S3 document storage not yet available",
+                "message": "Database migration required. Please contact administrator."
+            }), 503
 
         if not user.document_files:
             return jsonify({"error": "No documents found"}), 404
@@ -660,8 +682,9 @@ def create_invoice():
         # Handle different return formats (with or without S3 upload)
         if isinstance(pdf_result, tuple):
             pdf_path, s3_file_key = pdf_result
-            # Store S3 file key in database
-            new_invoice.pdf_file_url = s3_file_key
+            # Store S3 file key in database (if field exists)
+            if hasattr(new_invoice, 'pdf_file_url'):
+                new_invoice.pdf_file_url = s3_file_key
         else:
             pdf_path = pdf_result
 
@@ -762,9 +785,10 @@ def update_invoice(invoice_id):
             # Handle different return formats
             if isinstance(pdf_result, tuple):
                 pdf_path, s3_file_key = pdf_result
-                # Update invoice with S3 file key
-                invoice.pdf_file_url = s3_file_key
-                db.session.commit()  # Save the S3 file key
+                # Update invoice with S3 file key (if field exists)
+                if hasattr(invoice, 'pdf_file_url'):
+                    invoice.pdf_file_url = s3_file_key
+                    db.session.commit()  # Save the S3 file key
             else:
                 pdf_path = pdf_result
             
