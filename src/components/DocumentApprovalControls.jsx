@@ -163,12 +163,12 @@ const DocumentApprovalControls = ({
               </div>
             )}
 
-            {/* Previous Notes */}
-            {agent?.verification_notes && (
+            {/* Previous Notes - Temporarily disabled until database migration */}
+            {false && (
               <div>
                 <h3 className="text-sm font-medium text-gray-900 mb-2">Previous Notes</h3>
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">{agent.verification_notes}</p>
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">Notes will be available after database migration</p>
                 </div>
               </div>
             )}

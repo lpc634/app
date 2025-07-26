@@ -408,17 +408,12 @@ def verify_agent_documents(agent_id):
         if not agent or agent.role != 'agent':
             return jsonify({'error': 'Agent not found'}), 404
         
-        # Update verification status with detailed tracking
+        # Update verification status
         old_status = agent.verification_status
         if action == 'approve':
             agent.verification_status = 'verified'
         else:
             agent.verification_status = 'rejected'
-        
-        # Add verification tracking details
-        agent.verification_notes = notes
-        agent.verified_by = current_user.id
-        agent.verified_at = datetime.utcnow()
         
         db.session.commit()
         

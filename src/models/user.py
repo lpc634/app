@@ -26,9 +26,6 @@ class User(db.Model):
     id_document_url = db.Column(db.String(255), nullable=True)
     sia_document_url = db.Column(db.String(255), nullable=True)
     verification_status = db.Column(db.String(20), nullable=False, default='pending')
-    verification_notes = db.Column(db.Text, nullable=True)  # Admin notes for verification
-    verified_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # Admin who verified
-    verified_at = db.Column(db.DateTime, nullable=True)  # When verification was done
     
     
     assignments = db.relationship('JobAssignment', back_populates='agent', lazy=True)
@@ -39,7 +36,8 @@ class User(db.Model):
     push_subscriptions = db.relationship('PushSubscription', back_populates='user', lazy=True, cascade="all, delete-orphan")
     
     # --- This relationship connects the User to the new model in a separate file ---
-    vehicle_sightings = db.relationship('VehicleSighting', back_populates='agent', lazy=True)
+    # Temporarily disabled to prevent model loading issues
+    # vehicle_sightings = db.relationship('VehicleSighting', back_populates='agent', lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -67,9 +65,6 @@ class User(db.Model):
             'id_document_url': self.id_document_url,
             'sia_document_url': self.sia_document_url,
             'verification_status': self.verification_status,
-            'verification_notes': self.verification_notes,
-            'verified_by': self.verified_by,
-            'verified_at': self.verified_at.isoformat() if self.verified_at else None,
         }
 
 class Job(db.Model):

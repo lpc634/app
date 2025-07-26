@@ -209,20 +209,20 @@ const AgentVerificationCard = ({ agent, onViewDocument, onVerifyAgent }) => {
           </Alert>
         )}
 
-        {/* Verification Notes */}
-        {agent.verification_notes && (
+        {/* Verification Notes - Temporarily disabled until database migration */}
+        {false && (
           <div className="p-3 bg-gray-50 rounded-lg">
             <h4 className="text-sm font-medium text-gray-900 mb-1">Admin Notes</h4>
-            <p className="text-sm text-gray-700">{agent.verification_notes}</p>
+            <p className="text-sm text-gray-700">Notes will be available after database migration</p>
           </div>
         )}
 
         {/* Action Buttons */}
         <div className="flex items-center justify-between pt-4 border-t">
           <div className="text-sm text-gray-600">
-            {agent.verified_at && (
+            {agent.verification_status === 'verified' && (
               <span>
-                Verified: {new Date(agent.verified_at).toLocaleDateString()}
+                Status: Verified
               </span>
             )}
           </div>
