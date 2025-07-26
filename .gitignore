@@ -1,5 +1,6 @@
 *.exe
 .DS_Store
+
 # Dependencies
 /node_modules
 
@@ -7,5 +8,39 @@
 /build
 /dist
 
-# Environment variables
+# Environment variables and secrets
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Database
+/database/*.db
+/database/*.db-journal
+
+# Uploads and temporary files
+/uploads/*
+/invoices/*
+/tmp/*
+
+# Logs
+*.log
+logs/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# OS generated files
+Thumbs.db
+ehthumbs.db

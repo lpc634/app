@@ -58,8 +58,8 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 # --- AWS S3 Configuration ---
 app.config['AWS_ACCESS_KEY_ID'] = os.environ.get('AWS_ACCESS_KEY_ID')
 app.config['AWS_SECRET_ACCESS_KEY'] = os.environ.get('AWS_SECRET_ACCESS_KEY')
-app.config['AWS_S3_BUCKET'] = os.environ.get('AWS_S3_BUCKET', 'v3-uploads-lance-0720')
-app.config['AWS_S3_REGION'] = os.environ.get('AWS_S3_REGION', 'eu-north-1')
+app.config['AWS_S3_BUCKET'] = os.environ.get('AWS_S3_BUCKET')
+app.config['AWS_S3_REGION'] = os.environ.get('AWS_S3_REGION')
 # --------------------------------
 
 # --- VAPID Keys for Push Notifications ---
