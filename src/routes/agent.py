@@ -12,7 +12,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import User, Job, JobAssignment, AgentAvailability, Notification, Invoice, InvoiceJob, db
 from src.utils.s3_client import s3_client
 from datetime import datetime, date, time, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
@@ -297,107 +297,183 @@ def delete_agent_document(document_type):
 
 def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_to_s3=True):
     """Generates a PDF invoice and uploads to S3 for in-app access."""
-    # This function generates the PDF locally first, then uploads to S3
-    invoice_folder = os.path.join('/tmp', 'invoices') # Use the /tmp directory
-    os.makedirs(invoice_folder, exist_ok=True)
-    file_path = os.path.join(invoice_folder, f"{invoice_number}.pdf")
+    import traceback
     
-    c = canvas.Canvas(file_path, pagesize=letter)
-    width, height = letter
-
-    # --- Header ---
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(inch, height - inch, "V3 Services Ltd.")
-    c.setFont("Helvetica", 12)
-    c.drawString(inch, height - inch - 20, "123 Innovation Drive, Tech Park, London, EC1V 2NX")
-    
-    c.setFont("Helvetica-Bold", 20)
-    c.drawRightString(width - inch, height - inch, "INVOICE")
-
-    # --- Agent and Invoice Details ---
-    y_pos = height - 2 * inch
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(inch, y_pos, "Bill To:")
-    c.setFont("Helvetica", 12)
-    c.drawString(inch, y_pos - 20, f"{agent.first_name} {agent.last_name}")
-    c.drawString(inch, y_pos - 35, agent.address_line_1)
-    if agent.address_line_2:
-        c.drawString(inch, y_pos - 50, agent.address_line_2)
-    c.drawString(inch, y_pos - 65, f"{agent.city}, {agent.postcode}")
-
-    c.setFont("Helvetica-Bold", 12)
-    c.drawRightString(width - inch, y_pos, f"Invoice #: {invoice_number}")
-    c.setFont("Helvetica", 12)
-    c.drawRightString(width - inch, y_pos - 15, f"Date: {date.today().strftime('%d/%m/%Y')}")
-    c.drawRightString(width - inch, y_pos - 30, f"Due: {(date.today() + timedelta(days=30)).strftime('%d/%m/%Y')}")
-
-
-    # --- Table Header ---
-    y_pos -= 100
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(inch, y_pos, "Job Date")
-    c.drawString(inch * 2.5, y_pos, "Job Description")
-    c.drawString(inch * 5.5, y_pos, "Hours")
-    c.drawString(inch * 6.5, y_pos, "Rate")
-    c.drawRightString(width - inch, y_pos, "Amount")
-    c.line(inch, y_pos - 10, width - inch, y_pos - 10)
-
-    # --- Table Rows ---
-    y_pos -= 30
-    c.setFont("Helvetica", 10)
-    for job_item in jobs_data:
-        job = job_item['job']
-        hours = job_item['hours']
-        rate = Decimal(job.hourly_rate)
-        amount = Decimal(str(hours)) * rate
+    try:
+        current_app.logger.info(f"PDF GENERATION START: Creating PDF for invoice {invoice_number}")
+        current_app.logger.info(f"PDF GENERATION: Agent ID {agent.id}, jobs count: {len(jobs_data)}, total: {total_amount}")
         
-        c.drawString(inch, y_pos, job.arrival_time.strftime('%d/%m/%Y'))
-        c.drawString(inch * 2.5, y_pos, job.title)
-        c.drawString(inch * 5.5, y_pos, str(hours))
-        c.drawString(inch * 6.5, y_pos, f"£{rate:.2f}")
-        c.drawRightString(width - inch, y_pos, f"£{amount:.2f}")
-        y_pos -= 20
+        # This function generates the PDF locally first, then uploads to S3
+        invoice_folder = os.path.join('/tmp', 'invoices') # Use the /tmp directory
+        os.makedirs(invoice_folder, exist_ok=True)
+        file_path = os.path.join(invoice_folder, f"{invoice_number}.pdf")
+        
+        current_app.logger.info(f"PDF GENERATION: Creating PDF at path: {file_path}")
+        
+        c = canvas.Canvas(file_path, pagesize=letter)
+        width, height = letter
 
-    # --- Total ---
-    y_pos -= 20
-    c.line(inch * 5, y_pos, width - inch, y_pos)
-    c.setFont("Helvetica-Bold", 12)
-    c.drawRightString(width - inch - 80, y_pos + 10, "Total:")
-    c.drawRightString(width - inch, y_pos + 10, f"£{total_amount:.2f}")
+        # --- Header ---
+        current_app.logger.info("PDF GENERATION: Drawing header")
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(inch, height - inch, "V3 Services Ltd.")
+        c.setFont("Helvetica", 12)
+        c.drawString(inch, height - inch - 20, "123 Innovation Drive, Tech Park, London, EC1V 2NX")
+        
+        c.setFont("Helvetica-Bold", 20)
+        c.drawRightString(width - inch, height - inch, "INVOICE")
 
-    # --- Footer ---
-    c.setFont("Helvetica-Oblique", 9)
-    c.drawString(inch, inch, "Thank you for your service. Please direct any questions to accounts@v3-services.com.")
-    
-    c.save()
-    
-    # Always upload to S3 for in-app access
-    if upload_to_s3:
-        try:
-            # Upload PDF to S3 with proper organization: /invoices/{agent_id}/{invoice_number}.pdf
-            upload_result = s3_client.upload_invoice_pdf(
-                agent_id=agent.id,
-                invoice_number=invoice_number,
-                pdf_data=file_path,  # Pass file path directly
-                filename=f"{invoice_number}.pdf"
-            )
+        # --- Agent and Invoice Details ---
+        current_app.logger.info("PDF GENERATION: Drawing agent details")
+        y_pos = height - 2 * inch
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(inch, y_pos, "Bill To:")
+        c.setFont("Helvetica", 12)
+        
+        # Handle potential None values in agent data
+        first_name = agent.first_name or ""
+        last_name = agent.last_name or ""
+        address_line_1 = agent.address_line_1 or "Address not provided"
+        address_line_2 = agent.address_line_2 or ""
+        city = agent.city or "City not provided"
+        postcode = agent.postcode or "Postcode not provided"
+        
+        c.drawString(inch, y_pos - 20, f"{first_name} {last_name}")
+        c.drawString(inch, y_pos - 35, address_line_1)
+        if address_line_2:
+            c.drawString(inch, y_pos - 50, address_line_2)
+        c.drawString(inch, y_pos - 65, f"{city}, {postcode}")
+
+        c.setFont("Helvetica-Bold", 12)
+        c.drawRightString(width - inch, y_pos, f"Invoice #: {invoice_number}")
+        c.setFont("Helvetica", 12)
+        c.drawRightString(width - inch, y_pos - 15, f"Date: {date.today().strftime('%d/%m/%Y')}")
+        c.drawRightString(width - inch, y_pos - 30, f"Due: {(date.today() + timedelta(days=30)).strftime('%d/%m/%Y')}")
+
+        # --- Table Header ---
+        current_app.logger.info("PDF GENERATION: Drawing table header")
+        y_pos -= 100
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(inch, y_pos, "Job Date")
+        c.drawString(inch * 2.5, y_pos, "Job Description")
+        c.drawString(inch * 5.5, y_pos, "Hours")
+        c.drawString(inch * 6.5, y_pos, "Rate")
+        c.drawRightString(width - inch, y_pos, "Amount")
+        c.line(inch, y_pos - 10, width - inch, y_pos - 10)
+
+        # --- Table Rows ---
+        current_app.logger.info("PDF GENERATION: Drawing table rows")
+        y_pos -= 30
+        c.setFont("Helvetica", 10)
+        
+        for i, job_item in enumerate(jobs_data):
+            current_app.logger.info(f"PDF GENERATION: Processing job {i+1}/{len(jobs_data)}")
             
-            if upload_result.get('success'):
-                current_app.logger.info(f"Invoice PDF {invoice_number} uploaded to S3 successfully: {upload_result.get('file_key')}")
-                # Clean up local file after successful upload
-                try:
-                    os.remove(file_path)
-                except:
-                    pass
-                return file_path, upload_result.get('file_key')
+            job = job_item['job']
+            hours = job_item.get('hours', 0)
+            
+            # Handle rate from job_item first, fallback to job.hourly_rate
+            if 'rate' in job_item:
+                rate_value = job_item['rate']
             else:
-                current_app.logger.error(f"Failed to upload invoice PDF to S3: {upload_result.get('error')}")
+                rate_value = job.hourly_rate
+            
+            current_app.logger.info(f"PDF GENERATION: Job {i+1} - hours: {hours} (type: {type(hours)}), rate: {rate_value} (type: {type(rate_value)})")
+            
+            try:
+                # Convert to consistent types for calculations
+                hours_decimal = Decimal(str(hours))
+                rate_decimal = Decimal(str(rate_value))
+                amount_decimal = hours_decimal * rate_decimal
+                
+                current_app.logger.info(f"PDF GENERATION: Job {i+1} - Converted to Decimal - hours: {hours_decimal}, rate: {rate_decimal}, amount: {amount_decimal}")
+                
+                # Format for display
+                hours_str = f"{float(hours_decimal):.1f}"
+                rate_str = f"£{float(rate_decimal):.2f}"
+                amount_str = f"£{float(amount_decimal):.2f}"
+                
+                # Handle job date safely
+                job_date = job.arrival_time.strftime('%d/%m/%Y') if job.arrival_time else "Date not set"
+                job_title = job.title or "Job title not provided"
+                
+                c.drawString(inch, y_pos, job_date)
+                c.drawString(inch * 2.5, y_pos, job_title)
+                c.drawString(inch * 5.5, y_pos, hours_str)
+                c.drawString(inch * 6.5, y_pos, rate_str)
+                c.drawRightString(width - inch, y_pos, amount_str)
+                
+                current_app.logger.info(f"PDF GENERATION: Job {i+1} - Successfully drawn to PDF")
+                y_pos -= 20
+                
+            except (ValueError, TypeError, InvalidOperation) as calc_error:
+                current_app.logger.error(f"PDF GENERATION ERROR: Failed to process job {i+1} - {str(calc_error)}")
+                current_app.logger.error(f"PDF GENERATION ERROR: Job {i+1} data - hours: {hours}, rate: {rate_value}")
+                raise Exception(f"Invalid data in job {i+1}: hours={hours}, rate={rate_value}")
+
+        # --- Total ---
+        current_app.logger.info("PDF GENERATION: Drawing total")
+        y_pos -= 20
+        c.line(inch * 5, y_pos, width - inch, y_pos)
+        c.setFont("Helvetica-Bold", 12)
+        c.drawRightString(width - inch - 80, y_pos + 10, "Total:")
+        
+        try:
+            total_decimal = Decimal(str(total_amount))
+            total_str = f"£{float(total_decimal):.2f}"
+            c.drawRightString(width - inch, y_pos + 10, total_str)
+            current_app.logger.info(f"PDF GENERATION: Total drawn - {total_str}")
+        except (ValueError, TypeError, InvalidOperation) as total_error:
+            current_app.logger.error(f"PDF GENERATION ERROR: Failed to format total amount - {str(total_error)}")
+            current_app.logger.error(f"PDF GENERATION ERROR: Total amount value: {total_amount} (type: {type(total_amount)})")
+            raise Exception(f"Invalid total amount: {total_amount}")
+
+        # --- Footer ---
+        current_app.logger.info("PDF GENERATION: Drawing footer")
+        c.setFont("Helvetica-Oblique", 9)
+        c.drawString(inch, inch, "Thank you for your service. Please direct any questions to accounts@v3-services.com.")
+        
+        current_app.logger.info("PDF GENERATION: Saving PDF")
+        c.save()
+        
+        current_app.logger.info(f"PDF GENERATION SUCCESS: PDF saved to {file_path}")
+        
+        # Always upload to S3 for in-app access
+        if upload_to_s3:
+            current_app.logger.info("PDF GENERATION: Starting S3 upload")
+            try:
+                # Upload PDF to S3 with proper organization: /invoices/{agent_id}/{invoice_number}.pdf
+                upload_result = s3_client.upload_invoice_pdf(
+                    agent_id=agent.id,
+                    invoice_number=invoice_number,
+                    pdf_data=file_path,  # Pass file path directly
+                    filename=f"{invoice_number}.pdf"
+                )
+                
+                if upload_result.get('success'):
+                    current_app.logger.info(f"PDF GENERATION: S3 upload successful - {upload_result.get('file_key')}")
+                    # Clean up local file after successful upload
+                    try:
+                        os.remove(file_path)
+                        current_app.logger.info(f"PDF GENERATION: Local file cleaned up - {file_path}")
+                    except Exception as cleanup_error:
+                        current_app.logger.warning(f"PDF GENERATION: Failed to clean up local file - {str(cleanup_error)}")
+                    return file_path, upload_result.get('file_key')
+                else:
+                    current_app.logger.error(f"PDF GENERATION: S3 upload failed - {upload_result.get('error')}")
+                    return file_path  # Return local path as fallback
+            except Exception as s3_error:
+                current_app.logger.error(f"PDF GENERATION: S3 upload error - {str(s3_error)}")
+                current_app.logger.error(f"PDF GENERATION: S3 upload traceback: {traceback.format_exc()}")
                 return file_path  # Return local path as fallback
-        except Exception as e:
-            current_app.logger.error(f"Error uploading invoice PDF to S3: {str(e)}")
-            return file_path  # Return local path as fallback
-    
-    return file_path
+        
+        current_app.logger.info(f"PDF GENERATION SUCCESS: Returning local path - {file_path}")
+        return file_path
+        
+    except Exception as e:
+        current_app.logger.error(f"PDF GENERATION FAILED: {str(e)}")
+        current_app.logger.error(f"PDF GENERATION FAILED: Traceback: {traceback.format_exc()}")
+        raise e
 
 def send_invoice_email(recipient_email, agent_name, pdf_path, invoice_number, cc_email=None):
     """Sends the invoice PDF via email."""
@@ -890,88 +966,170 @@ def get_agent_invoices():
 @jwt_required()
 def download_agent_invoice(invoice_id):
     """Generate download URL for agent's invoice."""
+    import traceback
+    
     try:
+        current_app.logger.info(f"STEP 1: Starting invoice download for ID {invoice_id}")
+        
+        # Step 1: Verify user permissions
+        current_app.logger.info("STEP 2: Verifying user permissions")
         current_user_id = int(get_jwt_identity())
         agent = User.query.get(current_user_id)
         
-        if not agent or agent.role != 'agent':
+        if not agent:
+            current_app.logger.error(f"STEP 2 FAILED: User not found for ID {current_user_id}")
+            return jsonify({'error': 'User not found'}), 404
+            
+        if agent.role != 'agent':
+            current_app.logger.error(f"STEP 2 FAILED: Access denied - user role is {agent.role}, expected 'agent'")
             return jsonify({'error': 'Access denied'}), 403
         
-        # Get the invoice and verify ownership
+        current_app.logger.info(f"STEP 2 SUCCESS: User verified - {agent.email} (ID: {agent.id})")
+        
+        # Step 2: Get the invoice and verify ownership
+        current_app.logger.info("STEP 3: Fetching invoice data")
         invoice = Invoice.query.filter_by(id=invoice_id, agent_id=agent.id).first()
+        
         if not invoice:
+            current_app.logger.error(f"STEP 3 FAILED: Invoice {invoice_id} not found for agent {agent.id}")
             return jsonify({'error': 'Invoice not found'}), 404
         
-        # Check if invoice is ready for download (not draft)
+        current_app.logger.info(f"STEP 3 SUCCESS: Invoice found - {invoice.invoice_number}, status: {invoice.status}, amount: {invoice.total_amount}")
+        
+        # Step 3: Check if invoice is ready for download
+        current_app.logger.info("STEP 4: Checking invoice status")
         if invoice.status == 'draft':
+            current_app.logger.error(f"STEP 4 FAILED: Invoice {invoice.invoice_number} is in draft status")
             return jsonify({'error': 'Cannot download draft invoices. Please complete the invoice first.'}), 400
         
-        # Try to find PDF in S3 first, generate if not found
+        current_app.logger.info(f"STEP 4 SUCCESS: Invoice {invoice.invoice_number} is ready for download")
+        
+        # Step 4: Check S3 configuration
+        current_app.logger.info("STEP 5: Checking S3 configuration")
+        if not s3_client.is_configured():
+            error_msg = s3_client.get_configuration_error()
+            current_app.logger.error(f"STEP 5 FAILED: S3 not configured - {error_msg}")
+            return jsonify({'error': 'File storage service unavailable', 'details': 'S3 not configured'}), 503
+        
+        current_app.logger.info("STEP 5 SUCCESS: S3 client is configured")
+        
+        # Step 5: Try to find existing PDF in S3
+        current_app.logger.info("STEP 6: Checking for existing PDF in S3")
+        s3_file_key = f"invoices/{agent.id}/{invoice.invoice_number}.pdf"
+        current_app.logger.info(f"STEP 6: Looking for S3 file key: {s3_file_key}")
+        
+        download_result = s3_client.get_secure_document_url(
+            s3_file_key,
+            expiration=3600  # 1 hour
+        )
+        
+        if download_result['success']:
+            current_app.logger.info(f"STEP 6 SUCCESS: Found existing PDF in S3 for invoice {invoice.invoice_number}")
+            current_app.logger.info(f"Agent {agent.email} downloaded existing invoice {invoice.invoice_number}")
+            return jsonify({
+                'download_url': download_result['url'],
+                'expires_in': download_result['expires_in'],
+                'invoice_number': invoice.invoice_number,
+                'filename': f"{invoice.invoice_number}.pdf"
+            }), 200
+        
+        current_app.logger.info(f"STEP 6: PDF not found in S3 ({download_result.get('error', 'Unknown error')}), will generate on-demand")
+        
+        # Step 6: Generate PDF on-demand
+        current_app.logger.info("STEP 7: Generating PDF on-demand")
+        
+        # Get invoice jobs for PDF generation
+        current_app.logger.info("STEP 7.1: Fetching invoice jobs")
+        invoice_jobs = InvoiceJob.query.filter_by(invoice_id=invoice.id).all()
+        current_app.logger.info(f"STEP 7.1 SUCCESS: Found {len(invoice_jobs)} invoice jobs")
+        
+        jobs_data = []
+        for i, invoice_job in enumerate(invoice_jobs):
+            current_app.logger.info(f"STEP 7.2: Processing invoice job {i+1}/{len(invoice_jobs)} - ID: {invoice_job.id}")
+            
+            if not invoice_job.job:
+                current_app.logger.error(f"STEP 7.2 ERROR: Invoice job {invoice_job.id} has no associated job")
+                continue
+            
+            # Handle potential None values and convert to proper types
+            hours_worked = invoice_job.hours_worked or 0
+            hourly_rate = invoice_job.hourly_rate_at_invoice or invoice_job.job.hourly_rate or 0
+            
+            current_app.logger.info(f"STEP 7.2: Job details - hours: {hours_worked}, rate: {hourly_rate}")
+            
+            try:
+                hours_float = float(hours_worked)
+                rate_float = float(hourly_rate)
+                current_app.logger.info(f"STEP 7.2 SUCCESS: Converted to float - hours: {hours_float}, rate: {rate_float}")
+                
+                jobs_data.append({
+                    'job': invoice_job.job,
+                    'hours': hours_float,
+                    'rate': rate_float
+                })
+            except (ValueError, TypeError) as convert_error:
+                current_app.logger.error(f"STEP 7.2 ERROR: Failed to convert data types - {str(convert_error)}")
+                current_app.logger.error(f"STEP 7.2 ERROR: Original values - hours: {hours_worked} (type: {type(hours_worked)}), rate: {hourly_rate} (type: {type(hourly_rate)})")
+                return jsonify({'error': 'Invalid invoice data - cannot convert amounts'}), 500
+        
+        if not jobs_data:
+            current_app.logger.error("STEP 7.2 FAILED: No valid job data found for PDF generation")
+            return jsonify({'error': 'No valid job data found for invoice'}), 500
+        
+        current_app.logger.info(f"STEP 7.2 SUCCESS: Prepared {len(jobs_data)} jobs for PDF generation")
+        
+        # Step 7: Generate PDF
+        current_app.logger.info("STEP 8: Calling generate_invoice_pdf function")
         try:
-            # First try to get existing PDF from S3
-            s3_file_key = f"invoices/{agent.id}/{invoice.invoice_number}.pdf"
+            total_amount_float = float(invoice.total_amount)
+            current_app.logger.info(f"STEP 8: Total amount converted to float: {total_amount_float}")
+            
+            pdf_result = generate_invoice_pdf(
+                agent, 
+                jobs_data, 
+                total_amount_float, 
+                invoice.invoice_number, 
+                upload_to_s3=True
+            )
+            current_app.logger.info(f"STEP 8 SUCCESS: PDF generation completed, result type: {type(pdf_result)}")
+            
+        except Exception as pdf_error:
+            current_app.logger.error(f"STEP 8 FAILED: PDF generation error - {str(pdf_error)}")
+            current_app.logger.error(f"STEP 8 FAILED: PDF generation traceback: {traceback.format_exc()}")
+            return jsonify({'error': 'Failed to generate PDF document'}), 500
+        
+        # Step 8: Process PDF result
+        current_app.logger.info("STEP 9: Processing PDF generation result")
+        if isinstance(pdf_result, tuple):
+            pdf_path, s3_file_key = pdf_result
+            current_app.logger.info(f"STEP 9: PDF uploaded to S3 with key: {s3_file_key}")
+            
+            # Generate download URL for the newly created PDF
+            current_app.logger.info("STEP 10: Generating download URL for new PDF")
             download_result = s3_client.get_secure_document_url(
                 s3_file_key,
-                expiration=3600  # 1 hour
+                expiration=3600
             )
             
             if download_result['success']:
-                current_app.logger.info(f"Agent {agent.email} downloaded existing invoice {invoice.invoice_number}")
+                current_app.logger.info(f"STEP 10 SUCCESS: Download URL generated for invoice {invoice.invoice_number}")
+                current_app.logger.info(f"Agent {agent.email} downloaded newly generated invoice {invoice.invoice_number}")
                 return jsonify({
                     'download_url': download_result['url'],
                     'expires_in': download_result['expires_in'],
                     'invoice_number': invoice.invoice_number,
                     'filename': f"{invoice.invoice_number}.pdf"
                 }), 200
-            
-            # PDF doesn't exist in S3, generate it on-demand
-            current_app.logger.info(f"PDF not found in S3, generating on-demand for invoice {invoice.invoice_number}")
-            
-            # Get invoice jobs for PDF generation
-            invoice_jobs = InvoiceJob.query.filter_by(invoice_id=invoice.id).all()
-            jobs_data = []
-            for invoice_job in invoice_jobs:
-                if invoice_job.job:
-                    jobs_data.append({
-                        'job': invoice_job.job,
-                        'hours': float(invoice_job.hours_worked or 0),
-                        'rate': float(invoice_job.hourly_rate_at_invoice or 0)
-                    })
-            
-            # Generate PDF and upload to S3
-            pdf_result = generate_invoice_pdf(
-                agent, 
-                jobs_data, 
-                float(invoice.total_amount), 
-                invoice.invoice_number, 
-                upload_to_s3=True
-            )
-            
-            if isinstance(pdf_result, tuple):
-                pdf_path, s3_file_key = pdf_result
-                # Generate download URL for the newly created PDF
-                download_result = s3_client.get_secure_document_url(
-                    s3_file_key,
-                    expiration=3600
-                )
-                
-                if download_result['success']:
-                    current_app.logger.info(f"Agent {agent.email} downloaded newly generated invoice {invoice.invoice_number}")
-                    return jsonify({
-                        'download_url': download_result['url'],
-                        'expires_in': download_result['expires_in'],
-                        'invoice_number': invoice.invoice_number,
-                        'filename': f"{invoice.invoice_number}.pdf"
-                    }), 200
-                else:
-                    return jsonify({'error': 'Failed to generate download URL'}), 500
             else:
-                return jsonify({'error': 'Failed to generate PDF'}), 500
+                current_app.logger.error(f"STEP 10 FAILED: Failed to generate download URL - {download_result.get('error', 'Unknown error')}")
+                return jsonify({'error': 'Failed to generate download URL'}), 500
+        else:
+            current_app.logger.error(f"STEP 9 FAILED: PDF generation returned unexpected result type: {type(pdf_result)}")
+            current_app.logger.error(f"STEP 9 FAILED: PDF result value: {pdf_result}")
+            return jsonify({'error': 'Failed to generate PDF - unexpected result format'}), 500
                 
-        except Exception as e:
-            current_app.logger.error(f"Error generating invoice download for {invoice.invoice_number}: {str(e)}")
-            return jsonify({'error': 'Failed to generate invoice download'}), 500
-        
     except Exception as e:
-        current_app.logger.error(f"Error generating invoice download: {e}")
-        return jsonify({'error': 'Failed to generate download link'}), 500
+        current_app.logger.error(f"DETAILED ERROR in invoice download {invoice_id}: {str(e)}")
+        current_app.logger.error(f"Error type: {type(e).__name__}")
+        current_app.logger.error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({'error': 'Download failed - internal server error'}), 500

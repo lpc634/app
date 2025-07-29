@@ -175,12 +175,15 @@ class S3Client:
         """
         # Check if S3 is properly configured
         if not self.configured:
+            logger.error(f"S3 UPLOAD FAILED: S3 not configured - {self.error_message}")
             return {
                 'success': False, 
                 'error': f'S3 storage not configured: {self.error_message}'
             }
         
         try:
+            logger.info(f"S3 UPLOAD START: Uploading invoice PDF for agent {agent_id}, invoice {invoice_number}")
+            
             # Generate filename if not provided
             if not filename:
                 filename = f"{invoice_number}.pdf"
@@ -189,46 +192,55 @@ class S3Client:
             
             # Create organized S3 key: /invoices/{agent_id}/{invoice_number}.pdf
             s3_key = f"invoices/{agent_id}/{filename}"
+            logger.info(f"S3 UPLOAD: Target S3 key: {s3_key}")
+            
+            # Prepare metadata
+            metadata = {
+                'agent_id': str(agent_id),
+                'invoice_number': invoice_number,
+                'upload_date': datetime.utcnow().isoformat(),
+                'document_type': 'invoice'
+            }
+            
+            extra_args = {
+                'ContentType': 'application/pdf',
+                'ServerSideEncryption': 'AES256',
+                'Metadata': metadata
+            }
             
             # Upload PDF
             if hasattr(pdf_data, 'read'):
+                logger.info("S3 UPLOAD: Uploading file-like object")
                 # File-like object
                 self.s3_client.upload_fileobj(
                     pdf_data,
                     self.bucket_name,
                     s3_key,
-                    ExtraArgs={
-                        'ContentType': 'application/pdf',
-                        'ServerSideEncryption': 'AES256',
-                        'Metadata': {
-                            'agent_id': str(agent_id),
-                            'invoice_number': invoice_number,
-                            'upload_date': datetime.utcnow().isoformat(),
-                            'document_type': 'invoice'
-                        }
-                    }
+                    ExtraArgs=extra_args
                 )
             else:
                 # Raw data or file path
                 if isinstance(pdf_data, str):
-                    # File path
+                    logger.info(f"S3 UPLOAD: Uploading from file path: {pdf_data}")
+                    # File path - check if file exists first
+                    if not os.path.exists(pdf_data):
+                        error_msg = f"File not found at path: {pdf_data}"
+                        logger.error(f"S3 UPLOAD FAILED: {error_msg}")
+                        return {'success': False, 'error': error_msg}
+                    
+                    # Get file size for logging
+                    file_size = os.path.getsize(pdf_data)
+                    logger.info(f"S3 UPLOAD: File size: {file_size} bytes")
+                    
                     with open(pdf_data, 'rb') as file:
                         self.s3_client.upload_fileobj(
                             file,
                             self.bucket_name,
                             s3_key,
-                            ExtraArgs={
-                                'ContentType': 'application/pdf',
-                                'ServerSideEncryption': 'AES256',
-                                'Metadata': {
-                                    'agent_id': str(agent_id),
-                                    'invoice_number': invoice_number,
-                                    'upload_date': datetime.utcnow().isoformat(),
-                                    'document_type': 'invoice'
-                                }
-                            }
+                            ExtraArgs=extra_args
                         )
                 else:
+                    logger.info("S3 UPLOAD: Uploading raw data")
                     # Raw data
                     self.s3_client.put_object(
                         Bucket=self.bucket_name,
@@ -236,13 +248,10 @@ class S3Client:
                         Body=pdf_data,
                         ContentType='application/pdf',
                         ServerSideEncryption='AES256',
-                        Metadata={
-                            'agent_id': str(agent_id),
-                            'invoice_number': invoice_number,
-                            'upload_date': datetime.utcnow().isoformat(),
-                            'document_type': 'invoice'
-                        }
+                        Metadata=metadata
                     )
+            
+            logger.info(f"S3 UPLOAD SUCCESS: Invoice PDF uploaded to {s3_key}")
             
             return {
                 'success': True,
@@ -252,11 +261,34 @@ class S3Client:
             }
             
         except ClientError as e:
-            logger.error(f"AWS S3 error uploading invoice PDF: {str(e)}")
-            return {'success': False, 'error': f"S3 upload failed: {str(e)}"}
+            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+            error_message = e.response.get('Error', {}).get('Message', str(e))
+            logger.error(f"S3 UPLOAD FAILED: AWS ClientError - {error_code}: {error_message}")
+            logger.error(f"S3 UPLOAD FAILED: Full error response: {e.response}")
+            
+            # Provide more specific error messages based on error code
+            if error_code == 'NoSuchBucket':
+                return {'success': False, 'error': f'S3 bucket "{self.bucket_name}" does not exist'}
+            elif error_code == 'AccessDenied':
+                return {'success': False, 'error': 'Access denied - check S3 permissions'}
+            elif error_code == 'InvalidBucketName':
+                return {'success': False, 'error': f'Invalid bucket name: {self.bucket_name}'}
+            else:
+                return {'success': False, 'error': f"S3 upload failed - {error_code}: {error_message}"}
+                
+        except FileNotFoundError as e:
+            error_msg = f"File not found: {str(e)}"
+            logger.error(f"S3 UPLOAD FAILED: {error_msg}")
+            return {'success': False, 'error': error_msg}
+        except PermissionError as e:
+            error_msg = f"Permission denied accessing file: {str(e)}"
+            logger.error(f"S3 UPLOAD FAILED: {error_msg}")
+            return {'success': False, 'error': error_msg}
         except Exception as e:
-            logger.error(f"Error uploading invoice PDF: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            logger.error(f"S3 UPLOAD FAILED: Unexpected error uploading invoice PDF: {str(e)}")
+            import traceback
+            logger.error(f"S3 UPLOAD FAILED: Traceback: {traceback.format_exc()}")
+            return {'success': False, 'error': f"Upload failed: {str(e)}"}
 
     def generate_presigned_url(self, file_key, expiration=3600):
         """
@@ -296,49 +328,91 @@ class S3Client:
             dict: Result with success status and URL or error message
         """
         if not self.configured:
+            error_msg = f'S3 storage not configured: {self.error_message}'
+            logger.error(f"S3 GET URL FAILED: {error_msg}")
             return {
                 'success': False, 
-                'error': f'S3 storage not configured: {self.error_message}'
+                'error': error_msg
             }
         
         try:
+            logger.info(f"S3 GET URL START: Generating secure URL for {file_key}")
+            
             # First check if the object exists
-            self.s3_client.head_object(Bucket=self.bucket_name, Key=file_key)
+            logger.info(f"S3 GET URL: Checking if object exists: {file_key}")
+            head_response = self.s3_client.head_object(Bucket=self.bucket_name, Key=file_key)
+            
+            # Log object metadata for debugging
+            object_size = head_response.get('ContentLength', 'Unknown')
+            last_modified = head_response.get('LastModified', 'Unknown')
+            content_type = head_response.get('ContentType', 'Unknown')
+            logger.info(f"S3 GET URL: Object found - Size: {object_size} bytes, Modified: {last_modified}, Type: {content_type}")
             
             # Generate presigned URL
+            logger.info(f"S3 GET URL: Generating presigned URL with {expiration}s expiration")
             url = self.generate_presigned_url(file_key, expiration)
             
             if url:
+                logger.info(f"S3 GET URL SUCCESS: Generated secure URL for {file_key}")
                 return {
                     'success': True,
                     'url': url,
-                    'expires_in': expiration
+                    'expires_in': expiration,
+                    'file_size': object_size,
+                    'content_type': content_type
                 }
             else:
+                logger.error(f"S3 GET URL FAILED: Failed to generate presigned URL for {file_key}")
                 return {
                     'success': False,
                     'error': 'Failed to generate secure URL'
                 }
                 
         except ClientError as e:
-            error_code = e.response['Error']['Code']
-            if error_code in ['404', '403']:
+            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+            error_message = e.response.get('Error', {}).get('Message', str(e))
+            
+            logger.error(f"S3 GET URL FAILED: AWS ClientError - {error_code}: {error_message}")
+            logger.error(f"S3 GET URL FAILED: Full error response: {e.response}")
+            
+            if error_code == 'NoSuchKey':
+                logger.error(f"S3 GET URL FAILED: Document not found - {file_key}")
+                return {
+                    'success': False,
+                    'error': 'Document not found in storage'
+                }
+            elif error_code == 'NoSuchBucket':
+                logger.error(f"S3 GET URL FAILED: Bucket not found - {self.bucket_name}")
+                return {
+                    'success': False,
+                    'error': f'S3 bucket "{self.bucket_name}" does not exist'
+                }
+            elif error_code == 'AccessDenied':
+                logger.error(f"S3 GET URL FAILED: Access denied for {file_key}")
+                return {
+                    'success': False,
+                    'error': 'Access denied - insufficient S3 permissions'
+                }
+            elif error_code in ['404', '403']:
                 # 404 = Not Found, 403 = Forbidden (often means file doesn't exist in S3)
+                logger.error(f"S3 GET URL FAILED: Document not accessible - {file_key}")
                 return {
                     'success': False,
                     'error': 'Document not found in storage'
                 }
             else:
-                logger.error(f"Error accessing document {file_key}: {str(e)}")
+                logger.error(f"S3 GET URL FAILED: Unexpected AWS error for {file_key}: {error_code}")
                 return {
                     'success': False,
-                    'error': f'Storage error: {error_code}'
+                    'error': f'Storage error: {error_code} - {error_message}'
                 }
         except Exception as e:
-            logger.error(f"Unexpected error getting document URL: {str(e)}")
+            logger.error(f"S3 GET URL FAILED: Unexpected error getting document URL for {file_key}: {str(e)}")
+            import traceback
+            logger.error(f"S3 GET URL FAILED: Traceback: {traceback.format_exc()}")
             return {
                 'success': False,
-                'error': 'Unexpected error accessing document'
+                'error': f'Unexpected error accessing document: {str(e)}'
             }
 
     def list_agent_documents(self, agent_id):
