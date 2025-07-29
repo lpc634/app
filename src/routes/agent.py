@@ -690,7 +690,8 @@ def create_invoice():
         if isinstance(pdf_result, tuple):
             pdf_path, s3_file_key = pdf_result
             # Store S3 file key in database
-            new_invoice.pdf_file_url = s3_file_key
+            # Temporarily disabled - pdf_file_url field doesn't exist in database yet
+            # new_invoice.pdf_file_url = s3_file_key
         else:
             pdf_path = pdf_result
 
@@ -787,7 +788,8 @@ def update_invoice(invoice_id):
             if isinstance(pdf_result, tuple):
                 pdf_path, s3_file_key = pdf_result
                 # Update invoice with S3 file key
-                invoice.pdf_file_url = s3_file_key
+                # Temporarily disabled - pdf_file_url field doesn't exist in database yet
+                # invoice.pdf_file_url = s3_file_key
                 db.session.commit()  # Save the S3 file key
             else:
                 pdf_path = pdf_result
@@ -873,7 +875,7 @@ def get_agent_invoices():
             return jsonify({'error': 'Access denied'}), 403
         
         # Get all invoices for this agent
-        invoices = Invoice.query.filter_by(agent_id=agent.id).order_by(Invoice.generated_at.desc()).all()
+        invoices = Invoice.query.filter_by(agent_id=agent.id).order_by(Invoice.issue_date.desc()).all()
         
         return jsonify({
             'invoices': [invoice.to_dict() for invoice in invoices],
@@ -900,22 +902,25 @@ def download_agent_invoice(invoice_id):
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404
         
-        if not invoice.pdf_file_url:
-            return jsonify({'error': 'Invoice PDF not available'}), 404
+        # Temporarily disabled - pdf_file_url and tracking fields don't exist in database yet
+        return jsonify({'error': 'Invoice download temporarily unavailable - awaiting database migration'}), 503
         
-        # Generate secure download URL
-        download_result = s3_client.get_secure_document_url(
-            invoice.pdf_file_url,
-            expiration=3600  # 1 hour
-        )
-        
-        if not download_result['success']:
-            return jsonify({'error': download_result['error']}), 500
-        
-        # Update download tracking
-        invoice.download_count = (invoice.download_count or 0) + 1
-        invoice.last_downloaded = datetime.utcnow()
-        db.session.commit()
+        # if not invoice.pdf_file_url:
+        #     return jsonify({'error': 'Invoice PDF not available'}), 404
+        # 
+        # # Generate secure download URL
+        # download_result = s3_client.get_secure_document_url(
+        #     invoice.pdf_file_url,
+        #     expiration=3600  # 1 hour
+        # )
+        # 
+        # if not download_result['success']:
+        #     return jsonify({'error': download_result['error']}), 500
+        # 
+        # # Update download tracking
+        # invoice.download_count = (invoice.download_count or 0) + 1
+        # invoice.last_downloaded = datetime.utcnow()
+        # db.session.commit()
         
         # Log download for audit
         current_app.logger.info(f"Agent {agent.email} downloaded invoice {invoice.invoice_number}")

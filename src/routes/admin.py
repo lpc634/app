@@ -652,7 +652,7 @@ def get_all_invoices():
         
         # Get query parameters
         agent_id = request.args.get('agent_id', type=int)
-        payment_status = request.args.get('payment_status')
+        # payment_status = request.args.get('payment_status')  # Temporarily disabled
         year = request.args.get('year', type=int)
         month = request.args.get('month', type=int)
         
@@ -661,14 +661,14 @@ def get_all_invoices():
         
         if agent_id:
             query = query.filter(Invoice.agent_id == agent_id)
-        if payment_status:
-            query = query.filter(Invoice.payment_status == payment_status)
+        # if payment_status:  # Temporarily disabled
+        #     query = query.filter(Invoice.payment_status == payment_status)
         if year:
-            query = query.filter(db.extract('year', Invoice.generated_at) == year)
+            query = query.filter(db.extract('year', Invoice.issue_date) == year)
         if month:
-            query = query.filter(db.extract('month', Invoice.generated_at) == month)
+            query = query.filter(db.extract('month', Invoice.issue_date) == month)
         
-        invoices = query.order_by(Invoice.generated_at.desc()).all()
+        invoices = query.order_by(Invoice.issue_date.desc()).all()
         
         # Enhanced invoice data with agent info
         invoices_data = []
@@ -690,7 +690,7 @@ def get_all_invoices():
 @admin_bp.route('/admin/invoices/<int:invoice_id>/status', methods=['PUT'])
 @jwt_required()
 def update_invoice_payment_status(invoice_id):
-    """Update invoice payment status."""
+    """Update invoice payment status - temporarily disabled."""
     try:
         current_user_id = get_jwt_identity()
         current_user = User.query.get(int(current_user_id))
@@ -698,30 +698,33 @@ def update_invoice_payment_status(invoice_id):
         if not current_user or current_user.role != 'admin':
             return jsonify({'error': 'Access denied'}), 403
         
-        data = request.get_json()
-        payment_status = data.get('payment_status')
+        # Temporarily disabled - payment_status field doesn't exist in database yet
+        return jsonify({'error': 'Payment status update temporarily unavailable - awaiting database migration'}), 503
         
-        if payment_status not in ['unpaid', 'paid', 'overdue']:
-            return jsonify({'error': 'Invalid payment status'}), 400
-        
-        invoice = Invoice.query.get(invoice_id)
-        if not invoice:
-            return jsonify({'error': 'Invoice not found'}), 404
-        
-        old_status = invoice.payment_status
-        invoice.payment_status = payment_status
-        db.session.commit()
-        
-        # Log the status change
-        current_app.logger.info(
-            f"Admin {current_user.email} changed invoice {invoice.invoice_number} "
-            f"payment status from {old_status} to {payment_status}"
-        )
-        
-        return jsonify({
-            'message': f'Invoice payment status updated to {payment_status}',
-            'invoice': invoice.to_dict()
-        }), 200
+        # data = request.get_json()
+        # payment_status = data.get('payment_status')
+        # 
+        # if payment_status not in ['unpaid', 'paid', 'overdue']:
+        #     return jsonify({'error': 'Invalid payment status'}), 400
+        # 
+        # invoice = Invoice.query.get(invoice_id)
+        # if not invoice:
+        #     return jsonify({'error': 'Invoice not found'}), 404
+        # 
+        # old_status = invoice.payment_status
+        # invoice.payment_status = payment_status
+        # db.session.commit()
+        # 
+        # # Log the status change
+        # current_app.logger.info(
+        #     f"Admin {current_user.email} changed invoice {invoice.invoice_number} "
+        #     f"payment status from {old_status} to {payment_status}"
+        # )
+        # 
+        # return jsonify({
+        #     'message': f'Invoice payment status updated to {payment_status}',
+        #     'invoice': invoice.to_dict()
+        # }), 200
         
     except Exception as e:
         db.session.rollback()
@@ -743,7 +746,7 @@ def get_agent_invoices_admin(agent_id):
         if not agent or agent.role != 'agent':
             return jsonify({'error': 'Agent not found'}), 404
         
-        invoices = Invoice.query.filter_by(agent_id=agent_id).order_by(Invoice.generated_at.desc()).all()
+        invoices = Invoice.query.filter_by(agent_id=agent_id).order_by(Invoice.issue_date.desc()).all()
         
         return jsonify({
             'agent': {

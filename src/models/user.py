@@ -218,14 +218,14 @@ class Invoice(db.Model):
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
     status = db.Column(db.String(20), default='draft')
     
-    # S3 file storage for invoice PDFs
-    pdf_file_url = db.Column(db.String(500), nullable=True)  # S3 key for the PDF file
+    # S3 file storage for invoice PDFs - temporarily disabled until database migration
+    # pdf_file_url = db.Column(db.String(500), nullable=True)  # S3 key for the PDF file
     
-    # Enhanced invoice management fields
-    payment_status = db.Column(db.String(20), default='unpaid')  # unpaid, paid, overdue
-    download_count = db.Column(db.Integer, default=0)  # Track how many times downloaded
-    generated_at = db.Column(db.DateTime, default=datetime.utcnow)  # When PDF was generated
-    last_downloaded = db.Column(db.DateTime, nullable=True)  # Last download timestamp
+    # Enhanced invoice management fields - temporarily disabled until database migration
+    # payment_status = db.Column(db.String(20), default='unpaid')  # unpaid, paid, overdue
+    # download_count = db.Column(db.Integer, default=0)  # Track how many times downloaded
+    # generated_at = db.Column(db.DateTime, default=datetime.utcnow)  # When PDF was generated
+    # last_downloaded = db.Column(db.DateTime, nullable=True)  # Last download timestamp
     
     agent = db.relationship('User', back_populates='invoices')
     jobs = db.relationship('InvoiceJob', back_populates='invoice', cascade="all, delete-orphan")
@@ -239,11 +239,6 @@ class Invoice(db.Model):
             'due_date': self.due_date.isoformat() if self.due_date else None,
             'total_amount': float(self.total_amount) if self.total_amount else 0.0,
             'status': self.status,
-            'pdf_file_url': self.pdf_file_url,
-            'payment_status': self.payment_status,
-            'download_count': self.download_count,
-            'generated_at': self.generated_at.isoformat() if self.generated_at else None,
-            'last_downloaded': self.last_downloaded.isoformat() if self.last_downloaded else None,
             'jobs': [job.to_dict() for job in self.jobs] if self.jobs else []
         }
 
