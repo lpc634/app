@@ -160,12 +160,13 @@ class S3Client:
             logger.error(f"Error uploading agent document: {str(e)}")
             return {'success': False, 'error': str(e)}
 
-    def upload_invoice_pdf(self, invoice_id, pdf_data, filename=None):
+    def upload_invoice_pdf(self, agent_id, invoice_number, pdf_data, filename=None):
         """
-        Upload invoice PDF to S3
+        Upload invoice PDF to S3 with organized structure
         
         Args:
-            invoice_id (str): Invoice unique identifier
+            agent_id (str): Agent's unique identifier
+            invoice_number (str): Invoice number
             pdf_data: PDF file data or file object
             filename (str): Optional custom filename
             
@@ -182,12 +183,12 @@ class S3Client:
         try:
             # Generate filename if not provided
             if not filename:
-                filename = f"invoice_{invoice_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf"
+                filename = f"{invoice_number}.pdf"
             else:
                 filename = secure_filename(filename)
             
-            # Create S3 key
-            s3_key = f"invoices/{invoice_id}/{filename}"
+            # Create organized S3 key: /invoices/{agent_id}/{invoice_number}.pdf
+            s3_key = f"invoices/{agent_id}/{filename}"
             
             # Upload PDF
             if hasattr(pdf_data, 'read'):
@@ -200,26 +201,48 @@ class S3Client:
                         'ContentType': 'application/pdf',
                         'ServerSideEncryption': 'AES256',
                         'Metadata': {
-                            'invoice_id': str(invoice_id),
+                            'agent_id': str(agent_id),
+                            'invoice_number': invoice_number,
                             'upload_date': datetime.utcnow().isoformat(),
                             'document_type': 'invoice'
                         }
                     }
                 )
             else:
-                # Raw data
-                self.s3_client.put_object(
-                    Bucket=self.bucket_name,
-                    Key=s3_key,
-                    Body=pdf_data,
-                    ContentType='application/pdf',
-                    ServerSideEncryption='AES256',
-                    Metadata={
-                        'invoice_id': str(invoice_id),
-                        'upload_date': datetime.utcnow().isoformat(),
-                        'document_type': 'invoice'
-                    }
-                )
+                # Raw data or file path
+                if isinstance(pdf_data, str):
+                    # File path
+                    with open(pdf_data, 'rb') as file:
+                        self.s3_client.upload_fileobj(
+                            file,
+                            self.bucket_name,
+                            s3_key,
+                            ExtraArgs={
+                                'ContentType': 'application/pdf',
+                                'ServerSideEncryption': 'AES256',
+                                'Metadata': {
+                                    'agent_id': str(agent_id),
+                                    'invoice_number': invoice_number,
+                                    'upload_date': datetime.utcnow().isoformat(),
+                                    'document_type': 'invoice'
+                                }
+                            }
+                        )
+                else:
+                    # Raw data
+                    self.s3_client.put_object(
+                        Bucket=self.bucket_name,
+                        Key=s3_key,
+                        Body=pdf_data,
+                        ContentType='application/pdf',
+                        ServerSideEncryption='AES256',
+                        Metadata={
+                            'agent_id': str(agent_id),
+                            'invoice_number': invoice_number,
+                            'upload_date': datetime.utcnow().isoformat(),
+                            'document_type': 'invoice'
+                        }
+                    )
             
             return {
                 'success': True,
@@ -386,6 +409,208 @@ class S3Client:
         except ClientError as e:
             logger.error(f"Error deleting file {file_key}: {str(e)}")
             return False
+
+    def list_agent_invoices(self, agent_id):
+        """
+        List all invoices for a specific agent
+        
+        Args:
+            agent_id (str): Agent's unique identifier
+            
+        Returns:
+            list: List of invoice file metadata
+        """
+        if not self.configured:
+            logger.error(f"Cannot list invoices: {self.error_message}")
+            return []
+        
+        try:
+            prefix = f"invoices/{agent_id}/"
+            response = self.s3_client.list_objects_v2(
+                Bucket=self.bucket_name,
+                Prefix=prefix
+            )
+            
+            invoices = []
+            if 'Contents' in response:
+                for obj in response['Contents']:
+                    # Get object metadata
+                    metadata_response = self.s3_client.head_object(
+                        Bucket=self.bucket_name,
+                        Key=obj['Key']
+                    )
+                    
+                    invoices.append({
+                        'file_key': obj['Key'],
+                        'filename': obj['Key'].split('/')[-1],
+                        'size': obj['Size'],
+                        'last_modified': obj['LastModified'].isoformat(),
+                        'metadata': metadata_response.get('Metadata', {})
+                    })
+            
+            return invoices
+            
+        except ClientError as e:
+            logger.error(f"Error listing agent invoices: {str(e)}")
+            return []
+
+    def get_all_invoices_for_period(self, year=None, month=None):
+        """
+        Get all invoices for a specific time period
+        
+        Args:
+            year (int): Year filter (optional)
+            month (int): Month filter (optional)
+            
+        Returns:
+            list: List of invoice file metadata
+        """
+        if not self.configured:
+            logger.error(f"Cannot list invoices: {self.error_message}")
+            return []
+        
+        try:
+            prefix = "invoices/"
+            response = self.s3_client.list_objects_v2(
+                Bucket=self.bucket_name,
+                Prefix=prefix
+            )
+            
+            invoices = []
+            if 'Contents' in response:
+                for obj in response['Contents']:
+                    # Skip folder entries
+                    if obj['Key'].endswith('/'):
+                        continue
+                    
+                    # Filter by date if specified
+                    if year or month:
+                        obj_date = obj['LastModified']
+                        if year and obj_date.year != year:
+                            continue
+                        if month and obj_date.month != month:
+                            continue
+                    
+                    # Get object metadata
+                    try:
+                        metadata_response = self.s3_client.head_object(
+                            Bucket=self.bucket_name,
+                            Key=obj['Key']
+                        )
+                        
+                        invoices.append({
+                            'file_key': obj['Key'],
+                            'filename': obj['Key'].split('/')[-1],
+                            'agent_id': obj['Key'].split('/')[1] if len(obj['Key'].split('/')) > 1 else None,
+                            'size': obj['Size'],
+                            'last_modified': obj['LastModified'].isoformat(),
+                            'metadata': metadata_response.get('Metadata', {})
+                        })
+                    except ClientError as meta_error:
+                        logger.warning(f"Could not get metadata for {obj['Key']}: {str(meta_error)}")
+                        # Include basic info even if metadata fails
+                        invoices.append({
+                            'file_key': obj['Key'],
+                            'filename': obj['Key'].split('/')[-1],
+                            'agent_id': obj['Key'].split('/')[1] if len(obj['Key'].split('/')) > 1 else None,
+                            'size': obj['Size'],
+                            'last_modified': obj['LastModified'].isoformat(),
+                            'metadata': {}
+                        })
+            
+            return invoices
+            
+        except ClientError as e:
+            logger.error(f"Error listing invoices for period: {str(e)}")
+            return []
+
+    def generate_invoice_download_url(self, agent_id, invoice_number, expiration=3600):
+        """
+        Generate download URL for a specific invoice
+        
+        Args:
+            agent_id (str): Agent's unique identifier
+            invoice_number (str): Invoice number
+            expiration (int): URL expiration time in seconds
+            
+        Returns:
+            dict: Result with success status and URL or error message
+        """
+        file_key = f"invoices/{agent_id}/{invoice_number}.pdf"
+        return self.get_secure_document_url(file_key, expiration)
+
+    def create_invoice_batch_zip(self, invoice_list, zip_filename):
+        """
+        Create a ZIP file containing multiple invoices (for batch download)
+        
+        Args:
+            invoice_list (list): List of invoice file keys
+            zip_filename (str): Name for the ZIP file
+            
+        Returns:
+            dict: Result with success status and ZIP file key or error
+        """
+        if not self.configured:
+            return {
+                'success': False, 
+                'error': f'S3 storage not configured: {self.error_message}'
+            }
+        
+        try:
+            import zipfile
+            import io
+            
+            # Create ZIP in memory
+            zip_buffer = io.BytesIO()
+            
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for file_key in invoice_list:
+                    try:
+                        # Download file from S3
+                        response = self.s3_client.get_object(
+                            Bucket=self.bucket_name,
+                            Key=file_key
+                        )
+                        
+                        # Add to ZIP with a clean filename
+                        filename = file_key.split('/')[-1]  # Just the filename
+                        zip_file.writestr(filename, response['Body'].read())
+                        
+                    except ClientError as e:
+                        logger.warning(f"Could not include {file_key} in batch: {str(e)}")
+                        continue
+            
+            # Upload ZIP to S3
+            zip_buffer.seek(0)
+            zip_key = f"batches/{zip_filename}"
+            
+            self.s3_client.upload_fileobj(
+                zip_buffer,
+                self.bucket_name,
+                zip_key,
+                ExtraArgs={
+                    'ContentType': 'application/zip',
+                    'ServerSideEncryption': 'AES256',
+                    'Metadata': {
+                        'batch_created': datetime.utcnow().isoformat(),
+                        'invoice_count': str(len(invoice_list)),
+                        'document_type': 'invoice_batch'
+                    }
+                }
+            )
+            
+            return {
+                'success': True,
+                'file_key': zip_key,
+                'filename': zip_filename,
+                'invoice_count': len(invoice_list)
+            }
+            
+        except ImportError:
+            return {'success': False, 'error': 'ZIP functionality not available'}
+        except Exception as e:
+            logger.error(f"Error creating invoice batch ZIP: {str(e)}")
+            return {'success': False, 'error': str(e)}
 
     def _get_content_type(self, file_extension):
         """Get appropriate content type for file extension"""

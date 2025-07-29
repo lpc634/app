@@ -296,7 +296,7 @@ def delete_agent_document(document_type):
 # --- PDF AND EMAIL HELPER FUNCTIONS ---
 
 def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_to_s3=True):
-    """Generates a PDF invoice and optionally uploads to S3."""
+    """Generates a PDF invoice and uploads to S3 for in-app access."""
     # This function generates the PDF locally first, then uploads to S3
     invoice_folder = os.path.join('/tmp', 'invoices') # Use the /tmp directory
     os.makedirs(invoice_folder, exist_ok=True)
@@ -371,25 +371,31 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
     
     c.save()
     
-    # Upload to S3 if requested
+    # Always upload to S3 for in-app access
     if upload_to_s3:
         try:
-            with open(file_path, 'rb') as pdf_file:
-                # Extract invoice ID from invoice number for folder organization
-                invoice_id = invoice_number  # You may want to pass actual invoice ID instead
-                upload_result = s3_client.upload_invoice_pdf(
-                    invoice_id=invoice_id,
-                    pdf_data=pdf_file,
-                    filename=f"{invoice_number}.pdf"
-                )
-                
-                if upload_result.get('success'):
-                    current_app.logger.info(f"Invoice PDF {invoice_number} uploaded to S3 successfully")
-                    return file_path, upload_result.get('file_key')
-                else:
-                    current_app.logger.error(f"Failed to upload invoice PDF to S3: {upload_result.get('error')}")
+            # Upload PDF to S3 with proper organization: /invoices/{agent_id}/{invoice_number}.pdf
+            upload_result = s3_client.upload_invoice_pdf(
+                agent_id=agent.id,
+                invoice_number=invoice_number,
+                pdf_data=file_path,  # Pass file path directly
+                filename=f"{invoice_number}.pdf"
+            )
+            
+            if upload_result.get('success'):
+                current_app.logger.info(f"Invoice PDF {invoice_number} uploaded to S3 successfully: {upload_result.get('file_key')}")
+                # Clean up local file after successful upload
+                try:
+                    os.remove(file_path)
+                except:
+                    pass
+                return file_path, upload_result.get('file_key')
+            else:
+                current_app.logger.error(f"Failed to upload invoice PDF to S3: {upload_result.get('error')}")
+                return file_path  # Return local path as fallback
         except Exception as e:
             current_app.logger.error(f"Error uploading invoice PDF to S3: {str(e)}")
+            return file_path  # Return local path as fallback
     
     return file_path
 
@@ -703,21 +709,16 @@ def create_invoice():
         else:
             pdf_path = pdf_result
 
-        # Assume MAIL_DEFAULT_SENDER[1] is the accounts email
-        accounts_email = current_app.config['MAIL_DEFAULT_SENDER'][1] if isinstance(current_app.config['MAIL_DEFAULT_SENDER'], tuple) else current_app.config['MAIL_DEFAULT_SENDER']
-        email_sent = send_invoice_email(
-            recipient_email=accounts_email,
-            agent_name=f"{agent.first_name} {agent.last_name}",
-            pdf_path=pdf_path,
-            invoice_number=invoice_number,
-            cc_email=agent.email
+        # Send in-app notification to agent instead of email
+        notification = Notification(
+            user_id=agent.id,
+            title=f"Invoice {invoice_number} Generated",
+            message=f"Your invoice {invoice_number} for £{total_amount:.2f} has been generated and is ready for download.",
+            type="invoice_generated"
         )
-
-        if not email_sent:
-            db.session.rollback()
-            if os.path.exists(pdf_path):
-                os.remove(pdf_path)
-            return jsonify({'error': 'Failed to send invoice email. The transaction has been rolled back.'}), 500
+        db.session.add(notification)
+        
+        current_app.logger.info(f"Invoice {invoice_number} created for agent {agent.email} - stored in S3")
 
         # --- Commit Transaction ---
         db.session.commit()
@@ -806,14 +807,14 @@ def update_invoice(invoice_id):
             else:
                 pdf_path = pdf_result
             
-            # Send email to agent and tom@v3-services.com
-            send_invoice_email(
-                recipient_email=user.email,
-                agent_name=f"{user.first_name} {user.last_name}",
-                pdf_path=pdf_path,
-                invoice_number=invoice.invoice_number,
-                cc_email='tom@v3-services.com'
+            # Send in-app notification to agent instead of email
+            notification = Notification(
+                user_id=user.id,
+                title=f"Invoice {invoice.invoice_number} Updated",
+                message=f"Your invoice {invoice.invoice_number} has been updated and is ready for download.",
+                type="invoice_updated"
             )
+            db.session.add(notification)
             
             # Clean up the temporary PDF file
             try:
@@ -872,3 +873,75 @@ def get_invoice_details(invoice_id):
     except Exception as e:
         current_app.logger.error(f"Error fetching invoice details: {str(e)}")
         return jsonify({'error': 'Failed to fetch invoice details'}), 500
+
+# --- AGENT INVOICE MANAGEMENT ENDPOINTS ---
+
+@agent_bp.route('/agent/invoices', methods=['GET'])
+@jwt_required()
+def get_agent_invoices():
+    """Get all invoices for the current agent."""
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get all invoices for this agent
+        invoices = Invoice.query.filter_by(agent_id=agent.id).order_by(Invoice.generated_at.desc()).all()
+        
+        return jsonify({
+            'invoices': [invoice.to_dict() for invoice in invoices],
+            'total_count': len(invoices)
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching agent invoices: {e}")
+        return jsonify({'error': 'Failed to fetch invoices'}), 500
+
+@agent_bp.route('/agent/invoices/<int:invoice_id>/download', methods=['GET'])
+@jwt_required()
+def download_agent_invoice(invoice_id):
+    """Generate download URL for agent's invoice."""
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get the invoice and verify ownership
+        invoice = Invoice.query.filter_by(id=invoice_id, agent_id=agent.id).first()
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+        
+        if not invoice.pdf_file_url:
+            return jsonify({'error': 'Invoice PDF not available'}), 404
+        
+        # Generate secure download URL
+        download_result = s3_client.get_secure_document_url(
+            invoice.pdf_file_url,
+            expiration=3600  # 1 hour
+        )
+        
+        if not download_result['success']:
+            return jsonify({'error': download_result['error']}), 500
+        
+        # Update download tracking
+        invoice.download_count = (invoice.download_count or 0) + 1
+        invoice.last_downloaded = datetime.utcnow()
+        db.session.commit()
+        
+        # Log download for audit
+        current_app.logger.info(f"Agent {agent.email} downloaded invoice {invoice.invoice_number}")
+        
+        return jsonify({
+            'download_url': download_result['url'],
+            'expires_in': download_result['expires_in'],
+            'invoice_number': invoice.invoice_number,
+            'filename': f"{invoice.invoice_number}.pdf"
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error generating invoice download: {e}")
+        return jsonify({'error': 'Failed to generate download link'}), 500

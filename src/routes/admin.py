@@ -636,3 +636,394 @@ def get_users():
     except Exception as e:
         current_app.logger.error(f"Error fetching users: {e}")
         return jsonify({'error': 'Failed to fetch users'}), 500
+
+# --- ADMIN INVOICE MANAGEMENT ENDPOINTS ---
+
+@admin_bp.route('/admin/invoices', methods=['GET'])
+@jwt_required()
+def get_all_invoices():
+    """Get all invoices with filters for admin management."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get query parameters
+        agent_id = request.args.get('agent_id', type=int)
+        payment_status = request.args.get('payment_status')
+        year = request.args.get('year', type=int)
+        month = request.args.get('month', type=int)
+        
+        # Build query
+        query = Invoice.query.join(User, Invoice.agent_id == User.id)
+        
+        if agent_id:
+            query = query.filter(Invoice.agent_id == agent_id)
+        if payment_status:
+            query = query.filter(Invoice.payment_status == payment_status)
+        if year:
+            query = query.filter(db.extract('year', Invoice.generated_at) == year)
+        if month:
+            query = query.filter(db.extract('month', Invoice.generated_at) == month)
+        
+        invoices = query.order_by(Invoice.generated_at.desc()).all()
+        
+        # Enhanced invoice data with agent info
+        invoices_data = []
+        for invoice in invoices:
+            invoice_dict = invoice.to_dict()
+            invoice_dict['agent_name'] = f"{invoice.agent.first_name} {invoice.agent.last_name}"
+            invoice_dict['agent_email'] = invoice.agent.email
+            invoices_data.append(invoice_dict)
+        
+        return jsonify({
+            'invoices': invoices_data,
+            'total_count': len(invoices_data)
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching admin invoices: {e}")
+        return jsonify({'error': 'Failed to fetch invoices'}), 500
+
+@admin_bp.route('/admin/invoices/<int:invoice_id>/status', methods=['PUT'])
+@jwt_required()
+def update_invoice_payment_status(invoice_id):
+    """Update invoice payment status."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        payment_status = data.get('payment_status')
+        
+        if payment_status not in ['unpaid', 'paid', 'overdue']:
+            return jsonify({'error': 'Invalid payment status'}), 400
+        
+        invoice = Invoice.query.get(invoice_id)
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+        
+        old_status = invoice.payment_status
+        invoice.payment_status = payment_status
+        db.session.commit()
+        
+        # Log the status change
+        current_app.logger.info(
+            f"Admin {current_user.email} changed invoice {invoice.invoice_number} "
+            f"payment status from {old_status} to {payment_status}"
+        )
+        
+        return jsonify({
+            'message': f'Invoice payment status updated to {payment_status}',
+            'invoice': invoice.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating invoice status: {e}")
+        return jsonify({'error': 'Failed to update invoice status'}), 500
+
+@admin_bp.route('/admin/invoices/<int:agent_id>', methods=['GET'])
+@jwt_required()
+def get_agent_invoices_admin(agent_id):
+    """Get all invoices for a specific agent (admin view)."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        agent = User.query.get(agent_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Agent not found'}), 404
+        
+        invoices = Invoice.query.filter_by(agent_id=agent_id).order_by(Invoice.generated_at.desc()).all()
+        
+        return jsonify({
+            'agent': {
+                'id': agent.id,
+                'name': f"{agent.first_name} {agent.last_name}",
+                'email': agent.email
+            },
+            'invoices': [invoice.to_dict() for invoice in invoices],
+            'total_count': len(invoices)
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching agent invoices: {e}")
+        return jsonify({'error': 'Failed to fetch agent invoices'}), 500
+
+@admin_bp.route('/admin/invoices/<int:invoice_id>/download', methods=['GET'])
+@jwt_required()
+def download_invoice_admin(invoice_id):
+    """Admin download invoice PDF."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        invoice = Invoice.query.get(invoice_id)
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+        
+        if not invoice.pdf_file_url:
+            return jsonify({'error': 'Invoice PDF not available'}), 404
+        
+        # Generate secure download URL
+        download_result = s3_client.get_secure_document_url(
+            invoice.pdf_file_url,
+            expiration=3600  # 1 hour
+        )
+        
+        if not download_result['success']:
+            return jsonify({'error': download_result['error']}), 500
+        
+        # Log admin download for audit
+        current_app.logger.info(
+            f"Admin {current_user.email} downloaded invoice {invoice.invoice_number} "
+            f"for agent {invoice.agent.email}"
+        )
+        
+        return jsonify({
+            'download_url': download_result['url'],
+            'expires_in': download_result['expires_in'],
+            'invoice_number': invoice.invoice_number,
+            'agent_name': f"{invoice.agent.first_name} {invoice.agent.last_name}",
+            'filename': f"{invoice.invoice_number}.pdf"
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error generating admin invoice download: {e}")
+        return jsonify({'error': 'Failed to generate download link'}), 500
+
+@admin_bp.route('/admin/invoices/batch/<int:year>/<int:month>', methods=['GET'])
+@jwt_required()
+def get_monthly_invoice_batch(year, month):
+    """Get all invoices for a specific month for batch processing."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get invoices for the specified month
+        invoices = Invoice.query.filter(
+            db.extract('year', Invoice.generated_at) == year,
+            db.extract('month', Invoice.generated_at) == month
+        ).join(User, Invoice.agent_id == User.id).order_by(Invoice.generated_at.desc()).all()
+        
+        # Enhanced invoice data with agent info
+        invoices_data = []
+        total_amount = 0
+        for invoice in invoices:
+            invoice_dict = invoice.to_dict()
+            invoice_dict['agent_name'] = f"{invoice.agent.first_name} {invoice.agent.last_name}"
+            invoice_dict['agent_email'] = invoice.agent.email
+            invoices_data.append(invoice_dict)
+            total_amount += float(invoice.total_amount or 0)
+        
+        return jsonify({
+            'period': f"{year}-{month:02d}",
+            'invoices': invoices_data,
+            'total_count': len(invoices_data),
+            'total_amount': total_amount,
+            'summary': {
+                'paid': len([i for i in invoices if i.payment_status == 'paid']),
+                'unpaid': len([i for i in invoices if i.payment_status == 'unpaid']),
+                'overdue': len([i for i in invoices if i.payment_status == 'overdue'])
+            }
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching monthly invoice batch: {e}")
+        return jsonify({'error': 'Failed to fetch monthly invoices'}), 500
+
+@admin_bp.route('/admin/invoices/batch-download', methods=['POST'])
+@jwt_required()
+def create_invoice_batch_download():
+    """Create a ZIP file containing multiple invoices for batch download."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        invoice_ids = data.get('invoice_ids', [])
+        batch_name = data.get('batch_name', f"invoice_batch_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}")
+        
+        if not invoice_ids:
+            return jsonify({'error': 'No invoices selected'}), 400
+        
+        # Get invoices and their S3 keys
+        invoices = Invoice.query.filter(Invoice.id.in_(invoice_ids)).all()
+        if not invoices:
+            return jsonify({'error': 'No valid invoices found'}), 404
+        
+        # Collect S3 file keys for invoices that have PDFs
+        file_keys = []
+        invoice_details = []
+        for invoice in invoices:
+            if invoice.pdf_file_url:
+                file_keys.append(invoice.pdf_file_url)
+                invoice_details.append({
+                    'invoice_number': invoice.invoice_number,
+                    'agent_name': f"{invoice.agent.first_name} {invoice.agent.last_name}",
+                    'total_amount': float(invoice.total_amount),
+                    'generated_at': invoice.generated_at.isoformat() if invoice.generated_at else None
+                })
+        
+        if not file_keys:
+            return jsonify({'error': 'No invoice PDFs available for batch download'}), 404
+        
+        # Create ZIP file in S3
+        zip_filename = f"{batch_name}.zip"
+        batch_result = s3_client.create_invoice_batch_zip(file_keys, zip_filename)
+        
+        if not batch_result['success']:
+            return jsonify({'error': batch_result['error']}), 500
+        
+        # Generate download URL for the ZIP file
+        zip_download_url = s3_client.generate_presigned_url(
+            batch_result['file_key'],
+            expiration=7200  # 2 hours for batch downloads
+        )
+        
+        if not zip_download_url:
+            return jsonify({'error': 'Failed to generate batch download URL'}), 500
+        
+        # Log batch download creation
+        current_app.logger.info(
+            f"Admin {current_user.email} created batch download {batch_name} "
+            f"containing {len(file_keys)} invoices"
+        )
+        
+        return jsonify({
+            'batch_name': batch_name,
+            'download_url': zip_download_url,
+            'expires_in': 7200,
+            'invoice_count': len(file_keys),
+            'total_amount': sum(invoice['total_amount'] for invoice in invoice_details),
+            'invoices': invoice_details
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error creating invoice batch download: {e}")
+        return jsonify({'error': 'Failed to create batch download'}), 500
+
+@admin_bp.route('/admin/invoices/export-csv', methods=['POST'])
+@jwt_required()
+def export_invoices_csv():
+    """Export invoice data as CSV for accounting."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        invoice_ids = data.get('invoice_ids', [])
+        
+        if not invoice_ids:
+            return jsonify({'error': 'No invoices selected'}), 400
+        
+        # Get invoices
+        invoices = Invoice.query.filter(Invoice.id.in_(invoice_ids)).join(
+            User, Invoice.agent_id == User.id
+        ).order_by(Invoice.generated_at.desc()).all()
+        
+        if not invoices:
+            return jsonify({'error': 'No valid invoices found'}), 404
+        
+        # Create CSV data
+        import csv
+        import io
+        
+        csv_buffer = io.StringIO()
+        csv_writer = csv.writer(csv_buffer)
+        
+        # CSV Headers
+        csv_writer.writerow([
+            'Invoice Number',
+            'Agent Name', 
+            'Agent Email',
+            'Issue Date',
+            'Due Date',
+            'Total Amount',
+            'Payment Status',
+            'Generated Date',
+            'Download Count',
+            'Last Downloaded'
+        ])
+        
+        # CSV Data
+        for invoice in invoices:
+            csv_writer.writerow([
+                invoice.invoice_number,
+                f"{invoice.agent.first_name} {invoice.agent.last_name}",
+                invoice.agent.email,
+                invoice.issue_date.strftime('%Y-%m-%d') if invoice.issue_date else '',
+                invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else '',
+                f"{float(invoice.total_amount):.2f}",
+                invoice.payment_status,
+                invoice.generated_at.strftime('%Y-%m-%d %H:%M:%S') if invoice.generated_at else '',
+                invoice.download_count or 0,
+                invoice.last_downloaded.strftime('%Y-%m-%d %H:%M:%S') if invoice.last_downloaded else ''
+            ])
+        
+        # Upload CSV to S3
+        csv_content = csv_buffer.getvalue()
+        csv_filename = f"invoice_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        csv_key = f"exports/{csv_filename}"
+        
+        try:
+            s3_client.s3_client.put_object(
+                Bucket=s3_client.bucket_name,
+                Key=csv_key,
+                Body=csv_content.encode('utf-8'),
+                ContentType='text/csv',
+                ServerSideEncryption='AES256',
+                Metadata={
+                    'export_date': datetime.utcnow().isoformat(),
+                    'invoice_count': str(len(invoices)),
+                    'exported_by': current_user.email
+                }
+            )
+            
+            # Generate download URL
+            csv_download_url = s3_client.generate_presigned_url(csv_key, expiration=3600)
+            
+            # Log CSV export
+            current_app.logger.info(
+                f"Admin {current_user.email} exported {len(invoices)} invoices to CSV"
+            )
+            
+            return jsonify({
+                'csv_filename': csv_filename,
+                'download_url': csv_download_url,
+                'expires_in': 3600,
+                'invoice_count': len(invoices)
+            }), 200
+            
+        except Exception as upload_error:
+            current_app.logger.error(f"Error uploading CSV to S3: {upload_error}")
+            # Fallback: return CSV data directly  
+            return jsonify({
+                'csv_data': csv_content,
+                'invoice_count': len(invoices)
+            }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error exporting invoices CSV: {e}")
+        return jsonify({'error': 'Failed to export CSV'}), 500
