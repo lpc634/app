@@ -10,15 +10,28 @@ const AgentInvoices = () => {
   const { apiCall } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchInvoices = async () => {
       try {
         setLoading(true);
         const data = await apiCall('/agent/invoices');
-        setInvoices(data);
+        console.log('Invoice API response:', data); // Debug log
+        // Handle both old format (array) and new format (object with invoices property)
+        if (Array.isArray(data)) {
+          setInvoices(data);
+        } else if (data && Array.isArray(data.invoices)) {
+          setInvoices(data.invoices);
+        } else {
+          console.error('Unexpected API response format:', data);
+          setInvoices([]);
+        }
       } catch (error) {
+        console.error('Error fetching invoices:', error);
         toast.error('Failed to load invoices', { description: error.message });
+        setError(error.message || 'Failed to load invoices');
+        setInvoices([]); // Set empty array on error
       } finally {
         setLoading(false);
       }
@@ -55,11 +68,37 @@ const AgentInvoices = () => {
     }).format(amount);
   };
 
+  // Handle loading state
   if (loading) {
-    return <div className="text-center p-8"><Loader2 className="h-8 w-8 animate-spin mx-auto text-v3-orange" /></div>;
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-v3-orange mb-2" />
+          <p className="text-v3-text-muted">Loading your invoices...</p>
+        </div>
+      </div>
+    );
   }
 
-  return (
+  // Handle error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+          <h3 className="text-lg font-medium text-v3-text-lightest mb-2">Error Loading Invoices</h3>
+          <p className="text-v3-text-muted mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()} className="button-refresh">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Wrap the main render in try-catch to prevent black screens
+  try {
+    return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -86,13 +125,13 @@ const AgentInvoices = () => {
         ) : (
             <div className="border-t border-v3-border">
                 <div className="divide-y divide-v3-border">
-                    {invoices.map((invoice) => (
-                        <div key={invoice.id} className="p-6 hover:bg-v3-bg-dark/50 transition-colors">
+                    {invoices.map((invoice, index) => (
+                        <div key={invoice.id || index} className="p-6 hover:bg-v3-bg-dark/50 transition-colors">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div className="flex-1">
                                     <div className="flex items-center gap-3 mb-2">
                                         <h3 className="text-lg font-semibold text-v3-text-lightest">
-                                            {invoice.invoice_number}
+                                            {invoice.invoice_number || `Invoice #${invoice.id}`}
                                         </h3>
                                         <Badge className={getStatusClass(invoice.status)}>
                                             {getStatusText(invoice.status)}
@@ -102,15 +141,15 @@ const AgentInvoices = () => {
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                                         <div className="flex items-center gap-2 text-v3-text-muted">
                                             <Calendar className="h-4 w-4" />
-                                            <span>Issue: {formatDate(invoice.issue_date)}</span>
+                                            <span>Issue: {invoice.issue_date ? formatDate(invoice.issue_date) : 'N/A'}</span>
                                         </div>
                                         <div className="flex items-center gap-2 text-v3-text-muted">
                                             <Calendar className="h-4 w-4" />
-                                            <span>Due: {formatDate(invoice.due_date)}</span>
+                                            <span>Due: {invoice.due_date ? formatDate(invoice.due_date) : 'N/A'}</span>
                                         </div>
                                         <div className="flex items-center gap-2 text-v3-text-lightest font-medium">
                                             <PoundSterling className="h-4 w-4" />
-                                            <span>{formatCurrency(invoice.total_amount)}</span>
+                                            <span>{invoice.total_amount ? formatCurrency(invoice.total_amount) : '£0.00'}</span>
                                         </div>
                                     </div>
                                     
@@ -152,6 +191,21 @@ const AgentInvoices = () => {
       </div>
     </div>
   );
+  } catch (renderError) {
+    console.error('Error rendering AgentInvoices component:', renderError);
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+          <h3 className="text-lg font-medium text-v3-text-lightest mb-2">Display Error</h3>
+          <p className="text-v3-text-muted mb-4">There was an error displaying your invoices.</p>
+          <Button onClick={() => window.location.reload()} className="button-refresh">
+            Refresh Page
+          </Button>
+        </div>
+      </div>
+    );
+  }
 };
 
 export default AgentInvoices;
