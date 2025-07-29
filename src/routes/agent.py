@@ -598,21 +598,6 @@ def update_agent_profile():
 
 # --- The rest of your invoice routes ---
 
-@agent_bp.route('/agent/invoices', methods=['GET'])
-@jwt_required()
-def get_agent_invoices():
-    """Fetches a list of all invoices for the current agent."""
-    try:
-        current_user_id = int(get_jwt_identity())
-        
-        invoices = Invoice.query.filter_by(agent_id=current_user_id).order_by(Invoice.issue_date.desc()).all()
-        
-        invoice_list = [invoice.to_dict() for invoice in invoices]
-        
-        return jsonify(invoice_list), 200
-
-    except Exception as e:
-        return jsonify({"error": "An internal error occurred", "details": str(e)}), 500
 
 @agent_bp.route('/agent/invoiceable-jobs', methods=['GET'])
 @jwt_required()
