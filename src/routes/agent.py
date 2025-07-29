@@ -349,7 +349,7 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         job = job_item['job']
         hours = job_item['hours']
         rate = Decimal(job.hourly_rate)
-        amount = hours * rate
+        amount = Decimal(str(hours)) * rate
         
         c.drawString(inch, y_pos, job.arrival_time.strftime('%d/%m/%Y'))
         c.drawString(inch * 2.5, y_pos, job.title)

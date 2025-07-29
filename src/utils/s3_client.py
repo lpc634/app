@@ -322,7 +322,8 @@ class S3Client:
                 
         except ClientError as e:
             error_code = e.response['Error']['Code']
-            if error_code == '404':
+            if error_code in ['404', '403']:
+                # 404 = Not Found, 403 = Forbidden (often means file doesn't exist in S3)
                 return {
                     'success': False,
                     'error': 'Document not found in storage'
