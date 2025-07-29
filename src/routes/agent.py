@@ -902,35 +902,75 @@ def download_agent_invoice(invoice_id):
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404
         
-        # Temporarily disabled - pdf_file_url and tracking fields don't exist in database yet
-        return jsonify({'error': 'Invoice download temporarily unavailable - awaiting database migration'}), 503
+        # Check if invoice is ready for download (not draft)
+        if invoice.status == 'draft':
+            return jsonify({'error': 'Cannot download draft invoices. Please complete the invoice first.'}), 400
         
-        # if not invoice.pdf_file_url:
-        #     return jsonify({'error': 'Invoice PDF not available'}), 404
-        # 
-        # # Generate secure download URL
-        # download_result = s3_client.get_secure_document_url(
-        #     invoice.pdf_file_url,
-        #     expiration=3600  # 1 hour
-        # )
-        # 
-        # if not download_result['success']:
-        #     return jsonify({'error': download_result['error']}), 500
-        # 
-        # # Update download tracking
-        # invoice.download_count = (invoice.download_count or 0) + 1
-        # invoice.last_downloaded = datetime.utcnow()
-        # db.session.commit()
-        
-        # Log download for audit
-        current_app.logger.info(f"Agent {agent.email} downloaded invoice {invoice.invoice_number}")
-        
-        return jsonify({
-            'download_url': download_result['url'],
-            'expires_in': download_result['expires_in'],
-            'invoice_number': invoice.invoice_number,
-            'filename': f"{invoice.invoice_number}.pdf"
-        }), 200
+        # Try to find PDF in S3 first, generate if not found
+        try:
+            # First try to get existing PDF from S3
+            s3_file_key = f"invoices/{agent.id}/{invoice.invoice_number}.pdf"
+            download_result = s3_client.get_secure_document_url(
+                s3_file_key,
+                expiration=3600  # 1 hour
+            )
+            
+            if download_result['success']:
+                current_app.logger.info(f"Agent {agent.email} downloaded existing invoice {invoice.invoice_number}")
+                return jsonify({
+                    'download_url': download_result['url'],
+                    'expires_in': download_result['expires_in'],
+                    'invoice_number': invoice.invoice_number,
+                    'filename': f"{invoice.invoice_number}.pdf"
+                }), 200
+            
+            # PDF doesn't exist in S3, generate it on-demand
+            current_app.logger.info(f"PDF not found in S3, generating on-demand for invoice {invoice.invoice_number}")
+            
+            # Get invoice jobs for PDF generation
+            invoice_jobs = InvoiceJob.query.filter_by(invoice_id=invoice.id).all()
+            jobs_data = []
+            for invoice_job in invoice_jobs:
+                if invoice_job.job:
+                    jobs_data.append({
+                        'job': invoice_job.job,
+                        'hours': float(invoice_job.hours_worked or 0),
+                        'rate': float(invoice_job.hourly_rate_at_invoice or 0)
+                    })
+            
+            # Generate PDF and upload to S3
+            pdf_result = generate_invoice_pdf(
+                agent, 
+                jobs_data, 
+                float(invoice.total_amount), 
+                invoice.invoice_number, 
+                upload_to_s3=True
+            )
+            
+            if isinstance(pdf_result, tuple):
+                pdf_path, s3_file_key = pdf_result
+                # Generate download URL for the newly created PDF
+                download_result = s3_client.get_secure_document_url(
+                    s3_file_key,
+                    expiration=3600
+                )
+                
+                if download_result['success']:
+                    current_app.logger.info(f"Agent {agent.email} downloaded newly generated invoice {invoice.invoice_number}")
+                    return jsonify({
+                        'download_url': download_result['url'],
+                        'expires_in': download_result['expires_in'],
+                        'invoice_number': invoice.invoice_number,
+                        'filename': f"{invoice.invoice_number}.pdf"
+                    }), 200
+                else:
+                    return jsonify({'error': 'Failed to generate download URL'}), 500
+            else:
+                return jsonify({'error': 'Failed to generate PDF'}), 500
+                
+        except Exception as e:
+            current_app.logger.error(f"Error generating invoice download for {invoice.invoice_number}: {str(e)}")
+            return jsonify({'error': 'Failed to generate invoice download'}), 500
         
     except Exception as e:
         current_app.logger.error(f"Error generating invoice download: {e}")

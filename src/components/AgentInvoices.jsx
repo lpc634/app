@@ -11,6 +11,7 @@ const AgentInvoices = () => {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [downloadingInvoices, setDownloadingInvoices] = useState(new Set());
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -66,6 +67,45 @@ const AgentInvoices = () => {
       style: 'currency',
       currency: 'GBP'
     }).format(amount);
+  };
+
+  const handleDownload = async (invoiceId, invoiceNumber) => {
+    try {
+      // Add to downloading set
+      setDownloadingInvoices(prev => new Set([...prev, invoiceId]));
+      
+      // Get download URL from API
+      const response = await apiCall(`/agent/invoices/${invoiceId}/download`);
+      
+      if (response && response.download_url) {
+        // Create a temporary link and trigger download
+        const link = document.createElement('a');
+        link.href = response.download_url;
+        link.download = response.filename || `${invoiceNumber}.pdf`;
+        link.target = '_blank'; // Open in new tab as fallback
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast.success('Download started', { 
+          description: `${invoiceNumber}.pdf` 
+        });
+      } else {
+        throw new Error('Invalid download response');
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast.error('Download failed', { 
+        description: error.message || 'Unable to download invoice PDF' 
+      });
+    } finally {
+      // Remove from downloading set
+      setDownloadingInvoices(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(invoiceId);
+        return newSet;
+      });
+    }
   };
 
   // Handle loading state
@@ -176,9 +216,18 @@ const AgentInvoices = () => {
                                             </Button>
                                         </Link>
                                     ) : (
-                                        <Button variant="outline" className="border-v3-border text-v3-text-lightest hover:bg-v3-bg-dark">
-                                            <Download className="h-4 w-4 mr-2" />
-                                            Download PDF
+                                        <Button 
+                                            variant="outline" 
+                                            className="border-v3-border text-v3-text-lightest hover:bg-v3-bg-dark"
+                                            onClick={() => handleDownload(invoice.id, invoice.invoice_number)}
+                                            disabled={downloadingInvoices.has(invoice.id)}
+                                        >
+                                            {downloadingInvoices.has(invoice.id) ? (
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            ) : (
+                                                <Download className="h-4 w-4 mr-2" />
+                                            )}
+                                            {downloadingInvoices.has(invoice.id) ? 'Downloading...' : 'Download PDF'}
                                         </Button>
                                     )}
                                 </div>
