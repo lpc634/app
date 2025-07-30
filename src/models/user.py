@@ -32,7 +32,7 @@ class User(db.Model):
     availability = db.relationship('AgentAvailability', back_populates='agent', lazy=True, cascade="all, delete-orphan")
     weekly_availability = db.relationship('AgentWeeklyAvailability', back_populates='agent', uselist=False, cascade="all, delete-orphan")
     notifications = db.relationship('Notification', back_populates='user', lazy=True, cascade="all, delete-orphan")
-    invoices = db.relationship('Invoice', back_populates='agent', lazy=True)
+    invoices = db.relationship('Invoice', back_populates='agent', lazy=True, foreign_keys='Invoice.agent_id')
     push_subscriptions = db.relationship('PushSubscription', back_populates='user', lazy=True, cascade="all, delete-orphan")
     
     # --- This relationship connects the User to the new model in a separate file ---
@@ -230,7 +230,7 @@ class Invoice(db.Model):
     generated_at = db.Column(db.DateTime, default=datetime.utcnow)  # When PDF was generated
     last_downloaded = db.Column(db.DateTime, nullable=True)  # Last download timestamp
     
-    agent = db.relationship('User', back_populates='invoices')
+    agent = db.relationship('User', back_populates='invoices', foreign_keys=[agent_id])
     jobs = db.relationship('InvoiceJob', back_populates='invoice', cascade="all, delete-orphan")
     paid_by_admin = db.relationship('User', foreign_keys=[paid_by_admin_id])
 
