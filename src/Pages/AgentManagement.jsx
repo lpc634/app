@@ -27,6 +27,8 @@ export default function AgentManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [activeTab, setActiveTab] = useState('agents') // 'agents' or 'verification'
+  const [selectedAgentForDetails, setSelectedAgentForDetails] = useState(null)
+  const [showAgentDetails, setShowAgentDetails] = useState(false)
   const { apiCall } = useAuth()
 
   useEffect(() => {
@@ -85,6 +87,12 @@ export default function AgentManagement() {
         {config.label}
       </Badge>
     )
+  }
+
+  const handleViewDetails = (agent) => {
+    setSelectedAgentForDetails(agent)
+    setShowAgentDetails(true)
+    console.log('Viewing details for:', agent.first_name, agent.last_name)
   }
 
   if (loading && activeTab === 'agents') {
@@ -297,7 +305,12 @@ export default function AgentManagement() {
                         </div>
 
                         <div className="flex gap-2 pt-2 border-t">
-                          <Button size="sm" variant="outline" className="flex-1">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="flex-1"
+                            onClick={() => handleViewDetails(agent)}
+                          >
                             View Details
                           </Button>
                           <Button size="sm" variant="outline" className="flex-1">
@@ -331,6 +344,126 @@ export default function AgentManagement() {
         </>
       ) : (
         <AgentVerification />
+      )}
+
+      {/* Agent Details Modal */}
+      {showAgentDetails && selectedAgentForDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">
+                {selectedAgentForDetails.first_name} {selectedAgentForDetails.last_name}
+              </h2>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowAgentDetails(false)}
+              >
+                Close
+              </Button>
+            </div>
+            
+            {/* Agent Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <h3 className="font-semibold mb-3 text-lg">Contact Information</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Email:</span>
+                    <span className="text-sm">{selectedAgentForDetails.email}</span>
+                  </div>
+                  {selectedAgentForDetails.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Phone:</span>
+                      <span className="text-sm">{selectedAgentForDetails.phone}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold mb-3 text-lg">Account Details</h3>
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-sm font-medium">Role:</span>
+                    <span className="text-sm ml-2">{selectedAgentForDetails.role}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium">Status:</span>
+                    <Badge className="ml-2" variant="outline">
+                      {selectedAgentForDetails.verification_status || 'Active'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium">Joined:</span>
+                    <span className="text-sm ml-2">
+                      {new Date(selectedAgentForDetails.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium">Availability:</span>
+                    <span className="text-sm ml-2">
+                      {getStatusBadge(getAvailabilityStatus(selectedAgentForDetails.id))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Address Information */}
+            {(selectedAgentForDetails.address_line_1 || selectedAgentForDetails.city || selectedAgentForDetails.postcode) && (
+              <div className="mb-6">
+                <h3 className="font-semibold mb-3 text-lg">Address</h3>
+                <div className="text-sm space-y-1">
+                  {selectedAgentForDetails.address_line_1 && (
+                    <p>{selectedAgentForDetails.address_line_1}</p>
+                  )}
+                  {selectedAgentForDetails.address_line_2 && (
+                    <p>{selectedAgentForDetails.address_line_2}</p>
+                  )}
+                  <p>
+                    {selectedAgentForDetails.city && selectedAgentForDetails.city}
+                    {selectedAgentForDetails.city && selectedAgentForDetails.postcode && ', '}
+                    {selectedAgentForDetails.postcode && selectedAgentForDetails.postcode}
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Invoices Section */}
+            <div className="border-t pt-6">
+              <h3 className="font-semibold mb-3 text-lg">Invoice History</h3>
+              <div className="bg-gray-50 rounded-lg p-6 text-center">
+                <div className="text-muted-foreground">
+                  <Calendar className="mx-auto h-12 w-12 mb-4" />
+                  <p className="font-medium">Invoice functionality coming soon...</p>
+                  <p className="text-sm mt-2">
+                    This section will display the agent's complete invoice history, 
+                    payment status, and earnings summary.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-6 pt-6 border-t">
+              <Button variant="outline" className="flex-1">
+                Send Message
+              </Button>
+              <Button variant="outline" className="flex-1">
+                View Jobs
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => setShowAgentDetails(false)}
+                className="flex-1"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
