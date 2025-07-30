@@ -218,17 +218,21 @@ class Invoice(db.Model):
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
     status = db.Column(db.String(20), default='draft')
     
-    # S3 file storage for invoice PDFs - temporarily disabled until database migration
-    # pdf_file_url = db.Column(db.String(500), nullable=True)  # S3 key for the PDF file
+    # S3 file storage for invoice PDFs
+    pdf_file_url = db.Column(db.String(500), nullable=True)  # S3 key for the PDF file
     
-    # Enhanced invoice management fields - temporarily disabled until database migration
-    # payment_status = db.Column(db.String(20), default='unpaid')  # unpaid, paid, overdue
-    # download_count = db.Column(db.Integer, default=0)  # Track how many times downloaded
-    # generated_at = db.Column(db.DateTime, default=datetime.utcnow)  # When PDF was generated
-    # last_downloaded = db.Column(db.DateTime, nullable=True)  # Last download timestamp
+    # Enhanced invoice management fields for complete admin system
+    payment_status = db.Column(db.String(20), default='unpaid')  # unpaid, paid, overdue
+    payment_date = db.Column(db.DateTime, nullable=True)  # When payment was received
+    paid_by_admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # Admin who marked as paid
+    admin_notes = db.Column(db.Text, nullable=True)  # Admin notes about payment
+    download_count = db.Column(db.Integer, default=0)  # Track how many times downloaded
+    generated_at = db.Column(db.DateTime, default=datetime.utcnow)  # When PDF was generated
+    last_downloaded = db.Column(db.DateTime, nullable=True)  # Last download timestamp
     
     agent = db.relationship('User', back_populates='invoices')
     jobs = db.relationship('InvoiceJob', back_populates='invoice', cascade="all, delete-orphan")
+    paid_by_admin = db.relationship('User', foreign_keys=[paid_by_admin_id])
 
     def to_dict(self):
         return {
@@ -239,8 +243,28 @@ class Invoice(db.Model):
             'due_date': self.due_date.isoformat() if self.due_date else None,
             'total_amount': float(self.total_amount) if self.total_amount else 0.0,
             'status': self.status,
+            'payment_status': self.payment_status,
+            'payment_date': self.payment_date.isoformat() if self.payment_date else None,
+            'paid_by_admin_id': self.paid_by_admin_id,
+            'admin_notes': self.admin_notes,
+            'download_count': self.download_count or 0,
+            'generated_at': self.generated_at.isoformat() if self.generated_at else None,
+            'last_downloaded': self.last_downloaded.isoformat() if self.last_downloaded else None,
+            'pdf_file_url': self.pdf_file_url,
             'jobs': [job.to_dict() for job in self.jobs] if self.jobs else []
         }
+    
+    def is_overdue(self):
+        """Check if invoice is overdue (past due date and unpaid)"""
+        if self.payment_status != 'unpaid' or not self.due_date:
+            return False
+        return datetime.now().date() > self.due_date
+    
+    def days_overdue(self):
+        """Calculate how many days overdue the invoice is"""
+        if not self.is_overdue():
+            return 0
+        return (datetime.now().date() - self.due_date).days
 
 class InvoiceJob(db.Model):
     __tablename__ = 'invoice_jobs'

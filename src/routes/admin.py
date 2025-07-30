@@ -1,7 +1,7 @@
 # src/routes/admin.py
 from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from src.models.user import User, Job, JobAssignment, AgentAvailability, Invoice, db
+from src.models.user import User, Job, JobAssignment, AgentAvailability, Invoice, InvoiceJob, Notification, db
 from src.utils.s3_client import s3_client
 from datetime import datetime, date
 import json
@@ -652,7 +652,7 @@ def get_all_invoices():
         
         # Get query parameters
         agent_id = request.args.get('agent_id', type=int)
-        # payment_status = request.args.get('payment_status')  # Temporarily disabled
+        payment_status = request.args.get('payment_status')
         year = request.args.get('year', type=int)
         month = request.args.get('month', type=int)
         
@@ -661,8 +661,8 @@ def get_all_invoices():
         
         if agent_id:
             query = query.filter(Invoice.agent_id == agent_id)
-        # if payment_status:  # Temporarily disabled
-        #     query = query.filter(Invoice.payment_status == payment_status)
+        if payment_status:
+            query = query.filter(Invoice.payment_status == payment_status)
         if year:
             query = query.filter(db.extract('year', Invoice.issue_date) == year)
         if month:
@@ -687,10 +687,10 @@ def get_all_invoices():
         current_app.logger.error(f"Error fetching admin invoices: {e}")
         return jsonify({'error': 'Failed to fetch invoices'}), 500
 
-@admin_bp.route('/admin/invoices/<int:invoice_id>/status', methods=['PUT'])
+@admin_bp.route('/admin/invoices/<int:invoice_id>/mark-paid', methods=['PUT'])
 @jwt_required()
-def update_invoice_payment_status(invoice_id):
-    """Update invoice payment status - temporarily disabled."""
+def mark_invoice_paid(invoice_id):
+    """Mark invoice as paid and send notification to agent."""
     try:
         current_user_id = get_jwt_identity()
         current_user = User.query.get(int(current_user_id))
@@ -698,33 +698,120 @@ def update_invoice_payment_status(invoice_id):
         if not current_user or current_user.role != 'admin':
             return jsonify({'error': 'Access denied'}), 403
         
-        # Temporarily disabled - payment_status field doesn't exist in database yet
-        return jsonify({'error': 'Payment status update temporarily unavailable - awaiting database migration'}), 503
+        data = request.get_json()
+        admin_notes = data.get('admin_notes', '')
+        payment_date = data.get('payment_date')
         
-        # data = request.get_json()
-        # payment_status = data.get('payment_status')
-        # 
-        # if payment_status not in ['unpaid', 'paid', 'overdue']:
-        #     return jsonify({'error': 'Invalid payment status'}), 400
-        # 
-        # invoice = Invoice.query.get(invoice_id)
-        # if not invoice:
-        #     return jsonify({'error': 'Invoice not found'}), 404
-        # 
-        # old_status = invoice.payment_status
-        # invoice.payment_status = payment_status
-        # db.session.commit()
-        # 
-        # # Log the status change
-        # current_app.logger.info(
-        #     f"Admin {current_user.email} changed invoice {invoice.invoice_number} "
-        #     f"payment status from {old_status} to {payment_status}"
-        # )
-        # 
-        # return jsonify({
-        #     'message': f'Invoice payment status updated to {payment_status}',
-        #     'invoice': invoice.to_dict()
-        # }), 200
+        invoice = Invoice.query.get(invoice_id)
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+        
+        if invoice.payment_status == 'paid':
+            return jsonify({'error': 'Invoice is already marked as paid'}), 400
+        
+        # Parse payment date
+        if payment_date:
+            try:
+                payment_date_obj = datetime.fromisoformat(payment_date.replace('Z', '+00:00'))
+            except:
+                payment_date_obj = datetime.utcnow()
+        else:
+            payment_date_obj = datetime.utcnow()
+        
+        # Update invoice
+        old_status = invoice.payment_status
+        invoice.payment_status = 'paid'
+        invoice.payment_date = payment_date_obj
+        invoice.paid_by_admin_id = current_user.id
+        invoice.admin_notes = admin_notes
+        
+        # Create notification for agent
+        notification = Notification(
+            user_id=invoice.agent_id,
+            title=f"Invoice {invoice.invoice_number} Paid",
+            message=f"Your invoice for £{invoice.total_amount} has been paid on {payment_date_obj.strftime('%d/%m/%Y')}",
+            type="payment",
+            sent_at=datetime.utcnow()
+        )
+        db.session.add(notification)
+        
+        db.session.commit()
+        
+        # Log the payment
+        current_app.logger.info(
+            f"Admin {current_user.email} marked invoice {invoice.invoice_number} as paid "
+            f"(Amount: £{invoice.total_amount}, Agent: {invoice.agent.email})"
+        )
+        
+        return jsonify({
+            'message': f'Invoice {invoice.invoice_number} marked as paid',
+            'invoice': invoice.to_dict(),
+            'notification_sent': True
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error marking invoice as paid: {e}")
+        return jsonify({'error': 'Failed to mark invoice as paid'}), 500
+
+@admin_bp.route('/admin/invoices/<int:invoice_id>/status', methods=['PUT'])
+@jwt_required()
+def update_invoice_payment_status(invoice_id):
+    """Update invoice payment status (paid/unpaid/overdue)."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        payment_status = data.get('payment_status')
+        admin_notes = data.get('admin_notes', '')
+        
+        if payment_status not in ['unpaid', 'paid', 'overdue']:
+            return jsonify({'error': 'Invalid payment status'}), 400
+        
+        invoice = Invoice.query.get(invoice_id)
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+        
+        old_status = invoice.payment_status
+        invoice.payment_status = payment_status
+        invoice.admin_notes = admin_notes
+        
+        # If marking as paid, set payment date and admin
+        if payment_status == 'paid' and old_status != 'paid':
+            invoice.payment_date = datetime.utcnow()
+            invoice.paid_by_admin_id = current_user.id
+            
+            # Send notification to agent
+            notification = Notification(
+                user_id=invoice.agent_id,
+                title=f"Invoice {invoice.invoice_number} Paid",
+                message=f"Your invoice for £{invoice.total_amount} has been marked as paid",
+                type="payment",
+                sent_at=datetime.utcnow()
+            )
+            db.session.add(notification)
+        
+        # If unmarking as paid, clear payment details
+        elif payment_status == 'unpaid' and old_status == 'paid':
+            invoice.payment_date = None
+            invoice.paid_by_admin_id = None
+        
+        db.session.commit()
+        
+        # Log the status change
+        current_app.logger.info(
+            f"Admin {current_user.email} changed invoice {invoice.invoice_number} "
+            f"payment status from {old_status} to {payment_status}"
+        )
+        
+        return jsonify({
+            'message': f'Invoice payment status updated to {payment_status}',
+            'invoice': invoice.to_dict()
+        }), 200
         
     except Exception as e:
         db.session.rollback()
@@ -1030,3 +1117,358 @@ def export_invoices_csv():
     except Exception as e:
         current_app.logger.error(f"Error exporting invoices CSV: {e}")
         return jsonify({'error': 'Failed to export CSV'}), 500
+
+# === NEW ADMIN AGENT MANAGEMENT ENDPOINTS ===
+
+@admin_bp.route('/admin/agents/<int:agent_id>/details', methods=['GET'])
+@jwt_required()
+def get_agent_details(agent_id):
+    """Get complete agent details including personal info, bank details, and invoice history."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        agent = User.query.get(agent_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Agent not found'}), 404
+        
+        # Get agent's invoice statistics
+        invoices = Invoice.query.filter_by(agent_id=agent_id).all()
+        total_invoices = len(invoices)
+        total_amount = sum(float(inv.total_amount or 0) for inv in invoices)
+        paid_invoices = [inv for inv in invoices if inv.payment_status == 'paid']
+        unpaid_invoices = [inv for inv in invoices if inv.payment_status == 'unpaid']
+        overdue_invoices = [inv for inv in invoices if inv.is_overdue()]
+        
+        paid_amount = sum(float(inv.total_amount or 0) for inv in paid_invoices)
+        unpaid_amount = sum(float(inv.total_amount or 0) for inv in unpaid_invoices)
+        
+        # Get recent invoices (last 10)
+        recent_invoices = Invoice.query.filter_by(agent_id=agent_id).order_by(
+            Invoice.issue_date.desc()
+        ).limit(10).all()
+        
+        # Get agent's job assignments
+        recent_jobs = db.session.query(Job).join(JobAssignment).filter(
+            JobAssignment.agent_id == agent_id
+        ).order_by(Job.arrival_time.desc()).limit(5).all()
+        
+        agent_details = {
+            'personal_info': {
+                'id': agent.id,
+                'first_name': agent.first_name,
+                'last_name': agent.last_name,
+                'email': agent.email,
+                'phone': agent.phone,
+                'created_at': agent.created_at.isoformat() if agent.created_at else None,
+                'verification_status': agent.verification_status
+            },
+            'address': {
+                'address_line_1': agent.address_line_1,
+                'address_line_2': agent.address_line_2,
+                'city': agent.city,
+                'postcode': agent.postcode
+            },
+            'bank_details': {
+                'bank_name': agent.bank_name,
+                'bank_account_number': agent.bank_account_number,
+                'bank_sort_code': agent.bank_sort_code,
+                'utr_number': agent.utr_number
+            },
+            'invoice_statistics': {
+                'total_invoices': total_invoices,
+                'total_amount': total_amount,
+                'paid_count': len(paid_invoices),
+                'paid_amount': paid_amount,
+                'unpaid_count': len(unpaid_invoices),
+                'unpaid_amount': unpaid_amount,
+                'overdue_count': len(overdue_invoices),
+                'overdue_amount': sum(float(inv.total_amount or 0) for inv in overdue_invoices)
+            },
+            'recent_invoices': [inv.to_dict() for inv in recent_invoices],
+            'recent_jobs': [job.to_dict() for job in recent_jobs]
+        }
+        
+        # Log admin access
+        current_app.logger.info(f"Admin {current_user.email} accessed details for agent {agent.email}")
+        
+        return jsonify(agent_details), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching agent details: {e}")
+        return jsonify({'error': 'Failed to fetch agent details'}), 500
+
+@admin_bp.route('/admin/agents/<int:agent_id>/invoices', methods=['GET'])
+@jwt_required()
+def get_agent_invoices_detailed(agent_id):
+    """Get detailed invoice history for a specific agent."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        agent = User.query.get(agent_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Agent not found'}), 404
+        
+        # Get query parameters
+        payment_status = request.args.get('payment_status')
+        year = request.args.get('year', type=int)
+        month = request.args.get('month', type=int)
+        
+        # Build query
+        query = Invoice.query.filter_by(agent_id=agent_id)
+        
+        if payment_status:
+            query = query.filter(Invoice.payment_status == payment_status)
+        if year:
+            query = query.filter(db.extract('year', Invoice.issue_date) == year)
+        if month:
+            query = query.filter(db.extract('month', Invoice.issue_date) == month)
+        
+        invoices = query.order_by(Invoice.issue_date.desc()).all()
+        
+        # Enhanced invoice data with job details
+        invoices_data = []
+        for invoice in invoices:
+            invoice_dict = invoice.to_dict()
+            
+            # Add job details
+            invoice_jobs = InvoiceJob.query.filter_by(invoice_id=invoice.id).all()
+            job_details = []
+            for invoice_job in invoice_jobs:
+                if invoice_job.job:
+                    job_details.append({
+                        'job_id': invoice_job.job.id,
+                        'job_title': invoice_job.job.title,
+                        'job_address': invoice_job.job.address,
+                        'job_date': invoice_job.job.arrival_time.isoformat() if invoice_job.job.arrival_time else None,
+                        'hours_worked': float(invoice_job.hours_worked or 0),
+                        'hourly_rate': float(invoice_job.hourly_rate_at_invoice or invoice_job.job.hourly_rate or 0)
+                    })
+            
+            invoice_dict['job_details'] = job_details
+            invoice_dict['is_overdue'] = invoice.is_overdue()
+            invoice_dict['days_overdue'] = invoice.days_overdue()
+            
+            # Add admin who marked as paid (if applicable)
+            if invoice.paid_by_admin_id:
+                paid_by_admin = User.query.get(invoice.paid_by_admin_id)
+                invoice_dict['paid_by_admin'] = f"{paid_by_admin.first_name} {paid_by_admin.last_name}" if paid_by_admin else None
+            
+            invoices_data.append(invoice_dict)
+        
+        return jsonify({
+            'agent': {
+                'id': agent.id,
+                'name': f"{agent.first_name} {agent.last_name}",
+                'email': agent.email
+            },
+            'invoices': invoices_data,
+            'total_count': len(invoices_data),
+            'summary': {
+                'total_amount': sum(float(inv['total_amount']) for inv in invoices_data),
+                'paid_count': len([inv for inv in invoices_data if inv['payment_status'] == 'paid']),
+                'unpaid_count': len([inv for inv in invoices_data if inv['payment_status'] == 'unpaid']),
+                'overdue_count': len([inv for inv in invoices_data if inv['is_overdue']])
+            }
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching agent invoices: {e}")
+        return jsonify({'error': 'Failed to fetch agent invoices'}), 500
+
+@admin_bp.route('/admin/invoices/pending', methods=['GET'])
+@jwt_required()
+def get_pending_invoices():
+    """Get all unpaid invoices for admin management."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get all unpaid invoices
+        pending_invoices = Invoice.query.filter(
+            Invoice.payment_status.in_(['unpaid', 'overdue'])
+        ).join(User, Invoice.agent_id == User.id).order_by(Invoice.due_date.asc()).all()
+        
+        invoices_data = []
+        total_pending_amount = 0
+        
+        for invoice in pending_invoices:
+            invoice_dict = invoice.to_dict()
+            invoice_dict['agent_name'] = f"{invoice.agent.first_name} {invoice.agent.last_name}"
+            invoice_dict['agent_email'] = invoice.agent.email
+            invoice_dict['is_overdue'] = invoice.is_overdue()
+            invoice_dict['days_overdue'] = invoice.days_overdue()
+            
+            # Auto-update overdue status
+            if invoice.is_overdue() and invoice.payment_status != 'overdue':
+                invoice.payment_status = 'overdue'
+                db.session.commit()
+                invoice_dict['payment_status'] = 'overdue'
+            
+            invoices_data.append(invoice_dict)
+            total_pending_amount += float(invoice.total_amount or 0)
+        
+        return jsonify({
+            'pending_invoices': invoices_data,
+            'total_count': len(invoices_data),
+            'total_pending_amount': total_pending_amount,
+            'summary': {
+                'unpaid_count': len([inv for inv in invoices_data if inv['payment_status'] == 'unpaid']),
+                'overdue_count': len([inv for inv in invoices_data if inv['payment_status'] == 'overdue']),
+                'unpaid_amount': sum(float(inv['total_amount']) for inv in invoices_data if inv['payment_status'] == 'unpaid'),
+                'overdue_amount': sum(float(inv['total_amount']) for inv in invoices_data if inv['payment_status'] == 'overdue')
+            }
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching pending invoices: {e}")
+        return jsonify({'error': 'Failed to fetch pending invoices'}), 500
+
+@admin_bp.route('/admin/invoices/paid', methods=['GET'])
+@jwt_required()  
+def get_paid_invoices():
+    """Get all paid invoices for admin review."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get query parameters
+        year = request.args.get('year', type=int)
+        month = request.args.get('month', type=int)
+        
+        # Build query
+        query = Invoice.query.filter(Invoice.payment_status == 'paid').join(
+            User, Invoice.agent_id == User.id
+        )
+        
+        if year:
+            query = query.filter(db.extract('year', Invoice.payment_date) == year)
+        if month:
+            query = query.filter(db.extract('month', Invoice.payment_date) == month)
+        
+        paid_invoices = query.order_by(Invoice.payment_date.desc()).all()
+        
+        invoices_data = []
+        total_paid_amount = 0
+        
+        for invoice in paid_invoices:
+            invoice_dict = invoice.to_dict()
+            invoice_dict['agent_name'] = f"{invoice.agent.first_name} {invoice.agent.last_name}"
+            invoice_dict['agent_email'] = invoice.agent.email
+            
+            # Add admin who marked as paid
+            if invoice.paid_by_admin_id:
+                paid_by_admin = User.query.get(invoice.paid_by_admin_id)
+                invoice_dict['paid_by_admin'] = f"{paid_by_admin.first_name} {paid_by_admin.last_name}" if paid_by_admin else None
+            
+            invoices_data.append(invoice_dict)
+            total_paid_amount += float(invoice.total_amount or 0)
+        
+        return jsonify({
+            'paid_invoices': invoices_data,
+            'total_count': len(invoices_data),
+            'total_paid_amount': total_paid_amount,
+            'filters': {
+                'year': year,
+                'month': month
+            }
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching paid invoices: {e}")
+        return jsonify({'error': 'Failed to fetch paid invoices'}), 500
+
+@admin_bp.route('/admin/dashboard/stats', methods=['GET'])
+@jwt_required()
+def get_admin_dashboard_stats():
+    """Get comprehensive dashboard statistics for admin."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Invoice statistics
+        total_invoices = Invoice.query.count()
+        paid_invoices = Invoice.query.filter_by(payment_status='paid').count()
+        unpaid_invoices = Invoice.query.filter_by(payment_status='unpaid').count()
+        overdue_invoices = Invoice.query.filter_by(payment_status='overdue').count()
+        
+        # Amount statistics
+        total_amount = db.session.query(db.func.sum(Invoice.total_amount)).scalar() or 0
+        paid_amount = db.session.query(db.func.sum(Invoice.total_amount)).filter(
+            Invoice.payment_status == 'paid'
+        ).scalar() or 0
+        unpaid_amount = db.session.query(db.func.sum(Invoice.total_amount)).filter(
+            Invoice.payment_status == 'unpaid'
+        ).scalar() or 0
+        overdue_amount = db.session.query(db.func.sum(Invoice.total_amount)).filter(
+            Invoice.payment_status == 'overdue'
+        ).scalar() or 0
+        
+        # Agent statistics
+        total_agents = User.query.filter_by(role='agent').count()
+        verified_agents = User.query.filter_by(role='agent', verification_status='verified').count()
+        pending_agents = User.query.filter_by(role='agent', verification_status='pending').count()
+        
+        # Recent activity
+        recent_invoices = Invoice.query.order_by(Invoice.generated_at.desc()).limit(5).all()
+        recent_payments = Invoice.query.filter_by(payment_status='paid').order_by(
+            Invoice.payment_date.desc()
+        ).limit(5).all()
+        
+        return jsonify({
+            'invoice_stats': {
+                'total_invoices': total_invoices,
+                'paid_invoices': paid_invoices,
+                'unpaid_invoices': unpaid_invoices,
+                'overdue_invoices': overdue_invoices,
+                'total_amount': float(total_amount),
+                'paid_amount': float(paid_amount),
+                'unpaid_amount': float(unpaid_amount),
+                'overdue_amount': float(overdue_amount)
+            },
+            'agent_stats': {
+                'total_agents': total_agents,
+                'verified_agents': verified_agents,
+                'pending_agents': pending_agents
+            },
+            'recent_activity': {
+                'recent_invoices': [
+                    {
+                        'id': inv.id,
+                        'invoice_number': inv.invoice_number,
+                        'agent_name': f"{inv.agent.first_name} {inv.agent.last_name}",
+                        'total_amount': float(inv.total_amount),
+                        'generated_at': inv.generated_at.isoformat() if inv.generated_at else None
+                    } for inv in recent_invoices
+                ],
+                'recent_payments': [
+                    {
+                        'id': inv.id,
+                        'invoice_number': inv.invoice_number,
+                        'agent_name': f"{inv.agent.first_name} {inv.agent.last_name}",
+                        'total_amount': float(inv.total_amount),
+                        'payment_date': inv.payment_date.isoformat() if inv.payment_date else None
+                    } for inv in recent_payments
+                ]
+            }
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching admin dashboard stats: {e}")
+        return jsonify({'error': 'Failed to fetch dashboard statistics'}), 500

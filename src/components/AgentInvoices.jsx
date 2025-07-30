@@ -49,12 +49,30 @@ const AgentInvoices = () => {
     }
   };
 
+  const getPaymentStatusClass = (paymentStatus) => {
+    switch (paymentStatus) {
+      case 'paid': return 'bg-green-900/50 text-green-400 border-green-500/50';
+      case 'unpaid': return 'bg-yellow-900/50 text-yellow-400 border-yellow-500/50';
+      case 'overdue': return 'bg-red-900/50 text-red-400 border-red-500/50';
+      default: return 'bg-gray-700 text-gray-400';
+    }
+  };
+
   const getStatusText = (status) => {
     switch (status) {
       case 'paid': return 'Paid';
       case 'sent': return 'Sent';
       case 'draft': return 'Draft';
       default: return status;
+    }
+  };
+
+  const getPaymentStatusText = (paymentStatus) => {
+    switch (paymentStatus) {
+      case 'paid': return 'Paid';
+      case 'unpaid': return 'Unpaid';
+      case 'overdue': return 'Overdue';
+      default: return paymentStatus || 'Unknown';
     }
   };
 
@@ -176,6 +194,11 @@ const AgentInvoices = () => {
                                         <Badge className={getStatusClass(invoice.status)}>
                                             {getStatusText(invoice.status)}
                                         </Badge>
+                                        {invoice.payment_status && (
+                                            <Badge className={getPaymentStatusClass(invoice.payment_status)}>
+                                                {getPaymentStatusText(invoice.payment_status)}
+                                            </Badge>
+                                        )}
                                     </div>
                                     
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
@@ -185,7 +208,12 @@ const AgentInvoices = () => {
                                         </div>
                                         <div className="flex items-center gap-2 text-v3-text-muted">
                                             <Calendar className="h-4 w-4" />
-                                            <span>Due: {invoice.due_date ? formatDate(invoice.due_date) : 'N/A'}</span>
+                                            <span>
+                                                {invoice.payment_status === 'paid' && invoice.payment_date
+                                                    ? `Paid: ${formatDate(invoice.payment_date)}`
+                                                    : `Due: ${invoice.due_date ? formatDate(invoice.due_date) : 'N/A'}`
+                                                }
+                                            </span>
                                         </div>
                                         <div className="flex items-center gap-2 text-v3-text-lightest font-medium">
                                             <PoundSterling className="h-4 w-4" />
