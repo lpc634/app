@@ -21,9 +21,9 @@ import {
   MapPin,
   Building,
   Hash,
-  TrendingUp
+  TrendingUp,
+  X
 } from 'lucide-react';
-import AgentDetailPanel from './AgentDetailPanel';
 
 const AdminAgentManagement = () => {
   const [agents, setAgents] = useState([]);
@@ -65,58 +65,28 @@ const AdminAgentManagement = () => {
 
       const agentsData = await agentsResponse.json();
       
-      // Fetch invoice statistics for each agent
-      const agentsWithInvoiceStats = await Promise.all(
-        agentsData.agents.map(async (agent) => {
-          try {
-            const invoicesResponse = await fetch(`/api/admin/agents/${agent.id}/invoices`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-            });
-            
-            if (invoicesResponse.ok) {
-              const invoiceData = await invoicesResponse.json();
-              const invoices = invoiceData.invoices || [];
-              
-              const invoiceStats = {
-                totalInvoices: invoices.length,
-                totalAmount: invoices.reduce((sum, inv) => sum + parseFloat(inv.total_amount || 0), 0),
-                paidInvoices: invoices.filter(inv => inv.payment_status === 'paid').length,
-                unpaidInvoices: invoices.filter(inv => inv.payment_status === 'unpaid').length,
-                overdueInvoices: invoices.filter(inv => inv.is_overdue).length,
-                paidAmount: invoices.filter(inv => inv.payment_status === 'paid')
-                  .reduce((sum, inv) => sum + parseFloat(inv.total_amount || 0), 0),
-                unpaidAmount: invoices.filter(inv => inv.payment_status === 'unpaid')
-                  .reduce((sum, inv) => sum + parseFloat(inv.total_amount || 0), 0)
-              };
-              
-              return { ...agent, invoiceStats };
-            }
-            
-            return { ...agent, invoiceStats: null };
-          } catch (invoiceError) {
-            console.error(`Error fetching invoices for agent ${agent.id}:`, invoiceError);
-            return { ...agent, invoiceStats: null };
-          }
-        })
-      );
+      // For now, just use basic agent data without invoice stats
+      const agentsWithBasicStats = agentsData.agents.map(agent => ({
+        ...agent,
+        invoiceStats: {
+          totalInvoices: 0,
+          totalAmount: 0,
+          paidInvoices: 0,
+          unpaidInvoices: 0,
+          overdueInvoices: 0,
+          paidAmount: 0,
+          unpaidAmount: 0
+        }
+      }));
 
-      setAgents(agentsWithInvoiceStats);
+      setAgents(agentsWithBasicStats);
       
-      // Calculate overall stats
-      const overallStats = agentsWithInvoiceStats.reduce((acc, agent) => {
+      // Calculate basic stats
+      const overallStats = agentsWithBasicStats.reduce((acc, agent) => {
         acc.totalAgents++;
         
         if (agent.verification_status === 'pending') acc.pendingVerification++;
         else if (agent.verification_status === 'verified') acc.verifiedAgents++;
-        
-        if (agent.invoiceStats) {
-          acc.totalInvoices += agent.invoiceStats.totalInvoices;
-          acc.unpaidInvoices += agent.invoiceStats.unpaidInvoices;
-          acc.totalUnpaidAmount += agent.invoiceStats.unpaidAmount;
-        }
         
         return acc;
       }, {
@@ -403,17 +373,86 @@ const AdminAgentManagement = () => {
         )}
       </div>
 
-      {/* Agent Detail Panel Modal */}
+      {/* Basic Agent Detail Modal */}
       {showAgentDetails && selectedAgent && (
-        <AgentDetailPanel
-          agent={selectedAgent}
-          isOpen={showAgentDetails}
-          onClose={() => {
-            setShowAgentDetails(false);
-            setSelectedAgent(null);
-          }}
-          onRefresh={fetchAgentsData}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-2xl font-bold text-gray-900">Agent Details</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowAgentDetails(false);
+                  setSelectedAgent(null);
+                }}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Personal Information */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Personal Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Name</label>
+                    <p className="font-semibold">{selectedAgent.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Email</label>
+                    <p>{selectedAgent.email}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Status</label>
+                    <Badge className={`${getStatusColor(selectedAgent.verification_status)} border`}>
+                      {selectedAgent.verification_status}
+                    </Badge>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Registered</label>
+                    <p>{selectedAgent.created_at ? new Date(selectedAgent.created_at).toLocaleDateString() : 'Unknown'}</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Document Information */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Documents</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <FileText className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-blue-900">{selectedAgent.document_count || 0}</p>
+                    <p className="text-sm text-blue-700">Total Documents</p>
+                  </div>
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-green-900">
+                      {selectedAgent.verification_status === 'verified' ? 'Yes' : 'No'}
+                    </p>
+                    <p className="text-sm text-green-700">Verified</p>
+                  </div>
+                  <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                    <Clock className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-yellow-900">
+                      {selectedAgent.verification_status === 'pending' ? 'Yes' : 'No'}
+                    </p>
+                    <p className="text-sm text-yellow-700">Pending Review</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Basic Stats */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Statistics</h3>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <p className="text-gray-600">Invoice statistics will be available once the invoice management system is fully deployed.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
