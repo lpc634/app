@@ -29,6 +29,8 @@ export default function AgentManagement() {
   const [activeTab, setActiveTab] = useState('agents') // 'agents' or 'verification'
   const [selectedAgentForDetails, setSelectedAgentForDetails] = useState(null)
   const [showAgentDetails, setShowAgentDetails] = useState(false)
+  const [agentDetails, setAgentDetails] = useState(null)
+  const [loadingDetails, setLoadingDetails] = useState(false)
   const { apiCall } = useAuth()
 
   useEffect(() => {
@@ -89,10 +91,23 @@ export default function AgentManagement() {
     )
   }
 
-  const handleViewDetails = (agent) => {
+  const handleViewDetails = async (agent) => {
     setSelectedAgentForDetails(agent)
     setShowAgentDetails(true)
+    setLoadingDetails(true)
+    setAgentDetails(null)
     console.log('Viewing details for:', agent.first_name, agent.last_name)
+    
+    try {
+      const data = await apiCall(`/admin/agent-management/${agent.id}/details`)
+      setAgentDetails(data)
+      console.log('Agent details loaded:', data)
+    } catch (error) {
+      console.error('Failed to load agent details:', error)
+      setError('Failed to load agent details')
+    } finally {
+      setLoadingDetails(false)
+    }
   }
 
   if (loading && activeTab === 'agents') {
@@ -346,12 +361,12 @@ export default function AgentManagement() {
         <AgentVerification />
       )}
 
-      {/* Agent Details Modal */}
+      {/* Enhanced Agent Details Modal */}
       {showAgentDetails && selectedAgentForDetails && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">
+          <div className="bg-white rounded-lg p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-3xl font-bold">
                 {selectedAgentForDetails.first_name} {selectedAgentForDetails.last_name}
               </h2>
               <Button 
@@ -362,89 +377,223 @@ export default function AgentManagement() {
               </Button>
             </div>
             
-            {/* Agent Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div>
-                <h3 className="font-semibold mb-3 text-lg">Contact Information</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Email:</span>
-                    <span className="text-sm">{selectedAgentForDetails.email}</span>
-                  </div>
-                  {selectedAgentForDetails.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Phone:</span>
-                      <span className="text-sm">{selectedAgentForDetails.phone}</span>
-                    </div>
-                  )}
-                </div>
+            {loadingDetails ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading agent details...</p>
               </div>
-              
-              <div>
-                <h3 className="font-semibold mb-3 text-lg">Account Details</h3>
-                <div className="space-y-2">
-                  <div>
-                    <span className="text-sm font-medium">Role:</span>
-                    <span className="text-sm ml-2">{selectedAgentForDetails.role}</span>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium">Status:</span>
-                    <Badge className="ml-2" variant="outline">
-                      {selectedAgentForDetails.verification_status || 'Active'}
-                    </Badge>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium">Joined:</span>
-                    <span className="text-sm ml-2">
-                      {new Date(selectedAgentForDetails.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium">Availability:</span>
-                    <span className="text-sm ml-2">
-                      {getStatusBadge(getAvailabilityStatus(selectedAgentForDetails.id))}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            ) : agentDetails ? (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Agent Information Column */}
+                <div className="lg:col-span-1 space-y-6">
+                  {/* Contact Information */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Mail className="h-5 w-5" />
+                        Contact Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <p className="font-medium text-gray-600">Email</p>
+                          <p>{agentDetails.agent.email}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-600">Phone</p>
+                          <p>{agentDetails.agent.phone}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-600">Address</p>
+                          <div className="text-gray-700">
+                            <p>{agentDetails.agent.address_line_1}</p>
+                            {agentDetails.agent.address_line_2 && agentDetails.agent.address_line_2 !== '' && (
+                              <p>{agentDetails.agent.address_line_2}</p>
+                            )}
+                            <p>{agentDetails.agent.city}, {agentDetails.agent.postcode}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  {/* Banking Details */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Banking Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <p className="font-medium text-gray-600">Bank Name</p>
+                          <p>{agentDetails.agent.bank_name}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-600">Account Number</p>
+                          <p className="font-mono">{agentDetails.agent.bank_account_number}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-600">Sort Code</p>
+                          <p className="font-mono">{agentDetails.agent.bank_sort_code}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-600">UTR Number</p>
+                          <p className="font-mono">{agentDetails.agent.utr_number}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  {/* Account Status */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Shield className="h-5 w-5" />
+                        Account Status
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <p className="font-medium text-gray-600">Verification Status</p>
+                          <Badge variant={agentDetails.agent.verification_status === 'verified' ? 'default' : 'secondary'}>
+                            {agentDetails.agent.verification_status || 'Pending'}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-600">Role</p>
+                          <p className="capitalize">{agentDetails.agent.role}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-600">Joined</p>
+                          <p>{new Date(agentDetails.agent.created_at).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-            {/* Address Information */}
-            {(selectedAgentForDetails.address_line_1 || selectedAgentForDetails.city || selectedAgentForDetails.postcode) && (
-              <div className="mb-6">
-                <h3 className="font-semibold mb-3 text-lg">Address</h3>
-                <div className="text-sm space-y-1">
-                  {selectedAgentForDetails.address_line_1 && (
-                    <p>{selectedAgentForDetails.address_line_1}</p>
-                  )}
-                  {selectedAgentForDetails.address_line_2 && (
-                    <p>{selectedAgentForDetails.address_line_2}</p>
-                  )}
-                  <p>
-                    {selectedAgentForDetails.city && selectedAgentForDetails.city}
-                    {selectedAgentForDetails.city && selectedAgentForDetails.postcode && ', '}
-                    {selectedAgentForDetails.postcode && selectedAgentForDetails.postcode}
-                  </p>
+                  {/* Statistics Summary */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5" />
+                        Statistics
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <p className="font-medium text-gray-600">Total Invoices</p>
+                          <p className="text-lg font-bold">{agentDetails.stats.total_invoices}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-600">Total Earnings</p>
+                          <p className="text-lg font-bold text-green-600">£{agentDetails.stats.total_earnings.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-600">Paid Amount</p>
+                          <p className="text-lg font-bold text-blue-600">£{agentDetails.stats.paid_amount.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-600">Pending Payment</p>
+                          <p className="text-lg font-bold text-orange-600">£{agentDetails.stats.pending_amount.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
+                
+                {/* Invoice History Column */}
+                <div className="lg:col-span-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-5 w-5" />
+                        Invoice History ({agentDetails.invoices.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {agentDetails.invoices.length > 0 ? (
+                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                          {agentDetails.invoices.map(invoice => (
+                            <div key={invoice.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <h4 className="font-semibold text-lg">{invoice.invoice_number}</h4>
+                                    <Badge variant={invoice.status === 'paid' ? 'default' : invoice.status === 'sent' ? 'secondary' : 'outline'}>
+                                      {invoice.status}
+                                    </Badge>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                                    <div>
+                                      <p><strong>Issue Date:</strong> {new Date(invoice.issue_date).toLocaleDateString()}</p>
+                                      <p><strong>Due Date:</strong> {new Date(invoice.due_date).toLocaleDateString()}</p>
+                                    </div>
+                                    <div>
+                                      <p><strong>Amount:</strong> <span className="text-green-600 font-semibold">£{parseFloat(invoice.total_amount).toFixed(2)}</span></p>
+                                      <p><strong>Jobs:</strong> {invoice.jobs ? invoice.jobs.length : 0} job(s)</p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col gap-2 ml-4">
+                                  {invoice.status !== 'paid' && (
+                                    <Button size="sm" variant="outline" className="text-green-600 border-green-600 hover:bg-green-50">
+                                      Mark as Paid
+                                    </Button>
+                                  )}
+                                  <Button size="sm" variant="outline">
+                                    View Details
+                                  </Button>
+                                </div>
+                              </div>
+                              
+                              {/* Job Details */}
+                              {invoice.jobs && invoice.jobs.length > 0 && (
+                                <div className="mt-3 pt-3 border-t">
+                                  <p className="text-sm font-medium text-gray-600 mb-2">Jobs on this invoice:</p>
+                                  <div className="space-y-1">
+                                    {invoice.jobs.map((jobItem, idx) => (
+                                      <div key={idx} className="text-xs text-gray-500 flex justify-between">
+                                        <span>Job #{jobItem.job_id}</span>
+                                        <span>{parseFloat(jobItem.hours_worked || 0).toFixed(1)}h @ £{parseFloat(jobItem.hourly_rate_at_invoice || 0).toFixed(2)}/hr</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12">
+                          <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                          <p className="text-gray-500 font-medium">No invoices found</p>
+                          <p className="text-gray-400 text-sm mt-2">This agent hasn't generated any invoices yet.</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
+                <p className="text-red-600 font-medium">Failed to load agent details</p>
+                <p className="text-gray-500 text-sm mt-2">Please try again or contact support if the problem persists.</p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleViewDetails(selectedAgentForDetails)}
+                  className="mt-4"
+                >
+                  Retry
+                </Button>
               </div>
             )}
-            
-            {/* Invoices Section */}
-            <div className="border-t pt-6">
-              <h3 className="font-semibold mb-3 text-lg">Invoice History</h3>
-              <div className="bg-gray-50 rounded-lg p-6 text-center">
-                <div className="text-muted-foreground">
-                  <Calendar className="mx-auto h-12 w-12 mb-4" />
-                  <p className="font-medium">Invoice functionality coming soon...</p>
-                  <p className="text-sm mt-2">
-                    This section will display the agent's complete invoice history, 
-                    payment status, and earnings summary.
-                  </p>
-                </div>
-              </div>
-            </div>
             
             {/* Action Buttons */}
             <div className="flex gap-3 mt-6 pt-6 border-t">
@@ -455,9 +604,8 @@ export default function AgentManagement() {
                 View Jobs
               </Button>
               <Button 
-                variant="outline"
                 onClick={() => setShowAgentDetails(false)}
-                className="flex-1"
+                className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
               >
                 Close
               </Button>

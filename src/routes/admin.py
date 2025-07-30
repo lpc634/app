@@ -1472,3 +1472,66 @@ def get_admin_dashboard_stats():
     except Exception as e:
         current_app.logger.error(f"Error fetching admin dashboard stats: {e}")
         return jsonify({'error': 'Failed to fetch dashboard statistics'}), 500
+
+# === SIMPLE AGENT DETAILS ENDPOINT FOR AGENT MANAGEMENT PAGE ===
+
+@admin_bp.route('/admin/agent-management/<int:agent_id>/details', methods=['GET'])
+@jwt_required()
+def get_agent_management_details(agent_id):
+    """Get agent details for the agent management page (works with existing database)."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        agent = User.query.get(agent_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Agent not found'}), 404
+        
+        # Get agent's invoices (using existing fields only)
+        invoices = Invoice.query.filter_by(agent_id=agent_id).order_by(Invoice.issue_date.desc()).all()
+        
+        # Calculate statistics from existing data
+        total_invoices = len(invoices)
+        total_earnings = sum(float(invoice.total_amount or 0) for invoice in invoices)
+        paid_invoices = [inv for inv in invoices if inv.status == 'paid']
+        pending_invoices = [inv for inv in invoices if inv.status in ['sent', 'draft']]
+        
+        paid_amount = sum(float(inv.total_amount or 0) for inv in paid_invoices)
+        pending_amount = sum(float(inv.total_amount or 0) for inv in pending_invoices)
+        
+        return jsonify({
+            'agent': {
+                'id': agent.id,
+                'first_name': agent.first_name,
+                'last_name': agent.last_name,
+                'email': agent.email,
+                'phone': agent.phone or 'Not provided',
+                'address_line_1': agent.address_line_1 or 'Not provided',
+                'address_line_2': agent.address_line_2 or '',
+                'city': agent.city or 'Not provided',
+                'postcode': agent.postcode or 'Not provided',
+                'bank_name': agent.bank_name or 'Not provided',
+                'bank_account_number': agent.bank_account_number or 'Not provided',
+                'bank_sort_code': agent.bank_sort_code or 'Not provided',
+                'utr_number': agent.utr_number or 'Not provided',
+                'verification_status': agent.verification_status,
+                'created_at': agent.created_at.isoformat() if agent.created_at else None,
+                'role': agent.role
+            },
+            'invoices': [invoice.to_dict() for invoice in invoices],
+            'stats': {
+                'total_invoices': total_invoices,
+                'total_earnings': total_earnings,
+                'paid_amount': paid_amount,
+                'pending_amount': pending_amount,
+                'paid_count': len(paid_invoices),
+                'pending_count': len(pending_invoices)
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching agent management details: {e}")
+        return jsonify({'error': 'Failed to fetch agent details'}), 500
