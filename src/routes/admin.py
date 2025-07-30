@@ -690,7 +690,7 @@ def get_all_invoices():
 @admin_bp.route('/admin/invoices/<int:invoice_id>/mark-paid', methods=['PUT'])
 @jwt_required()
 def mark_invoice_paid(invoice_id):
-    """Mark invoice as paid and send notification to agent."""
+    """Mark invoice as paid (simplified for existing database)."""
     try:
         current_user_id = get_jwt_identity()
         current_user = User.query.get(int(current_user_id))
@@ -698,38 +698,22 @@ def mark_invoice_paid(invoice_id):
         if not current_user or current_user.role != 'admin':
             return jsonify({'error': 'Access denied'}), 403
         
-        data = request.get_json()
-        admin_notes = data.get('admin_notes', '')
-        payment_date = data.get('payment_date')
-        
         invoice = Invoice.query.get(invoice_id)
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404
         
-        if invoice.payment_status == 'paid':
+        if invoice.status == 'paid':
             return jsonify({'error': 'Invoice is already marked as paid'}), 400
         
-        # Parse payment date
-        if payment_date:
-            try:
-                payment_date_obj = datetime.fromisoformat(payment_date.replace('Z', '+00:00'))
-            except:
-                payment_date_obj = datetime.utcnow()
-        else:
-            payment_date_obj = datetime.utcnow()
-        
-        # Update invoice
-        old_status = invoice.payment_status
-        invoice.payment_status = 'paid'
-        invoice.payment_date = payment_date_obj
-        invoice.paid_by_admin_id = current_user.id
-        invoice.admin_notes = admin_notes
+        # Update invoice status (using existing field)
+        old_status = invoice.status
+        invoice.status = 'paid'
         
         # Create notification for agent
         notification = Notification(
             user_id=invoice.agent_id,
             title=f"Invoice {invoice.invoice_number} Paid",
-            message=f"Your invoice for £{invoice.total_amount} has been paid on {payment_date_obj.strftime('%d/%m/%Y')}",
+            message=f"Your invoice for £{invoice.total_amount} has been marked as paid by admin.",
             type="payment",
             sent_at=datetime.utcnow()
         )
@@ -1502,6 +1486,27 @@ def get_agent_management_details(agent_id):
         paid_amount = sum(float(inv.total_amount or 0) for inv in paid_invoices)
         pending_amount = sum(float(inv.total_amount or 0) for inv in pending_invoices)
         
+        # Enhanced invoice data with job addresses
+        invoices_with_jobs = []
+        for invoice in invoices:
+            invoice_dict = invoice.to_dict()
+            
+            # Get job details for this invoice
+            invoice_jobs = InvoiceJob.query.filter_by(invoice_id=invoice.id).all()
+            jobs_info = []
+            for ij in invoice_jobs:
+                if ij.job:
+                    jobs_info.append({
+                        'job_id': ij.job.id,
+                        'address': ij.job.address or 'Address not specified',
+                        'title': ij.job.title or f'Job #{ij.job.id}',
+                        'hours_worked': float(ij.hours_worked or 0),
+                        'hourly_rate_at_invoice': float(ij.hourly_rate_at_invoice or 20)
+                    })
+            
+            invoice_dict['jobs'] = jobs_info
+            invoices_with_jobs.append(invoice_dict)
+        
         return jsonify({
             'agent': {
                 'id': agent.id,
@@ -1521,7 +1526,7 @@ def get_agent_management_details(agent_id):
                 'created_at': agent.created_at.isoformat() if agent.created_at else None,
                 'role': agent.role
             },
-            'invoices': [invoice.to_dict() for invoice in invoices],
+            'invoices': invoices_with_jobs,
             'stats': {
                 'total_invoices': total_invoices,
                 'total_earnings': total_earnings,

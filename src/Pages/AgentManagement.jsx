@@ -110,6 +110,27 @@ export default function AgentManagement() {
     }
   }
 
+  const handleMarkAsPaid = async (invoiceId) => {
+    try {
+      console.log('Marking invoice as paid:', invoiceId)
+      
+      // Call the backend API
+      await apiCall(`/admin/invoices/${invoiceId}/mark-paid`, {
+        method: 'PUT'
+      })
+      
+      // Refresh agent details to show updated status
+      if (selectedAgentForDetails) {
+        await handleViewDetails(selectedAgentForDetails)
+      }
+      
+      console.log('Invoice marked as paid successfully')
+    } catch (error) {
+      console.error('Failed to mark invoice as paid:', error)
+      setError('Failed to mark invoice as paid. Please try again.')
+    }
+  }
+
   if (loading && activeTab === 'agents') {
     return (
       <div className="space-y-6">
@@ -363,234 +384,209 @@ export default function AgentManagement() {
 
       {/* Enhanced Agent Details Modal */}
       {showAgentDetails && selectedAgentForDetails && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-3xl font-bold">
-                {selectedAgentForDetails.first_name} {selectedAgentForDetails.last_name}
-              </h2>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowAgentDetails(false)}
-              >
-                Close
-              </Button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-3xl font-bold">
+                    {selectedAgentForDetails.first_name} {selectedAgentForDetails.last_name}
+                  </h2>
+                  <p className="text-blue-100 mt-1">{selectedAgentForDetails.email}</p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  className="bg-white text-blue-600 hover:bg-blue-50 border-white"
+                  onClick={() => setShowAgentDetails(false)}
+                >
+                  ✕ Close
+                </Button>
+              </div>
             </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[calc(95vh-120px)]">
             
             {loadingDetails ? (
               <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
                 <p className="text-gray-600">Loading agent details...</p>
               </div>
             ) : agentDetails ? (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Agent Information Column */}
-                <div className="lg:col-span-1 space-y-6">
-                  {/* Contact Information */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Mail className="h-5 w-5" />
-                        Contact Information
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3 text-sm">
-                        <div>
-                          <p className="font-medium text-gray-600">Email</p>
-                          <p>{agentDetails.agent.email}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-600">Phone</p>
-                          <p>{agentDetails.agent.phone}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-600">Address</p>
-                          <div className="text-gray-700">
-                            <p>{agentDetails.agent.address_line_1}</p>
-                            {agentDetails.agent.address_line_2 && agentDetails.agent.address_line_2 !== '' && (
-                              <p>{agentDetails.agent.address_line_2}</p>
-                            )}
-                            <p>{agentDetails.agent.city}, {agentDetails.agent.postcode}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+              <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                {/* Agent Info Sidebar */}
+                <div className="xl:col-span-1 space-y-4">
+                  {/* Contact Card */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="font-semibold text-lg mb-3 text-gray-800 flex items-center gap-2">
+                      <Mail className="h-5 w-5 text-blue-600" />
+                      📞 Contact
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      <p><span className="font-medium text-gray-600">Phone:</span> {agentDetails.agent.phone}</p>
+                      <p><span className="font-medium text-gray-600">Address:</span> {agentDetails.agent.address_line_1}</p>
+                      {agentDetails.agent.address_line_2 && agentDetails.agent.address_line_2 !== '' && (
+                        <p className="ml-16">{agentDetails.agent.address_line_2}</p>
+                      )}
+                      <p><span className="font-medium text-gray-600">City:</span> {agentDetails.agent.city} {agentDetails.agent.postcode}</p>
+                    </div>
+                  </div>
                   
-                  {/* Banking Details */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Users className="h-5 w-5" />
-                        Banking Details
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3 text-sm">
-                        <div>
-                          <p className="font-medium text-gray-600">Bank Name</p>
-                          <p>{agentDetails.agent.bank_name}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-600">Account Number</p>
-                          <p className="font-mono">{agentDetails.agent.bank_account_number}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-600">Sort Code</p>
-                          <p className="font-mono">{agentDetails.agent.bank_sort_code}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-600">UTR Number</p>
-                          <p className="font-mono">{agentDetails.agent.utr_number}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  {/* Banking Card */}
+                  <div className="bg-green-50 rounded-lg p-4">
+                    <h3 className="font-semibold text-lg mb-3 text-green-800 flex items-center gap-2">
+                      <Users className="h-5 w-5 text-green-600" />
+                      🏦 Banking
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      <p><span className="font-medium text-gray-600">Bank:</span> {agentDetails.agent.bank_name}</p>
+                      <p><span className="font-medium text-gray-600">Account:</span> <span className="font-mono">{agentDetails.agent.bank_account_number}</span></p>
+                      <p><span className="font-medium text-gray-600">Sort Code:</span> <span className="font-mono">{agentDetails.agent.bank_sort_code}</span></p>
+                      <p><span className="font-medium text-gray-600">UTR:</span> <span className="font-mono">{agentDetails.agent.utr_number}</span></p>
+                    </div>
+                  </div>
                   
-                  {/* Account Status */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Shield className="h-5 w-5" />
-                        Account Status
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3 text-sm">
-                        <div>
-                          <p className="font-medium text-gray-600">Verification Status</p>
-                          <Badge variant={agentDetails.agent.verification_status === 'verified' ? 'default' : 'secondary'}>
-                            {agentDetails.agent.verification_status || 'Pending'}
-                          </Badge>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-600">Role</p>
-                          <p className="capitalize">{agentDetails.agent.role}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-600">Joined</p>
-                          <p>{new Date(agentDetails.agent.created_at).toLocaleDateString()}</p>
-                        </div>
+                  {/* Account Status Card */}
+                  <div className="bg-purple-50 rounded-lg p-4">
+                    <h3 className="font-semibold text-lg mb-3 text-purple-800 flex items-center gap-2">
+                      <Shield className="h-5 w-5 text-purple-600" />
+                      🛡️ Status
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="font-medium text-gray-600">Verification:</span>
+                        <Badge 
+                          variant={agentDetails.agent.verification_status === 'verified' ? 'default' : 'secondary'}
+                          className={`ml-2 ${agentDetails.agent.verification_status === 'verified' ? 'bg-green-500 hover:bg-green-600' : ''}`}
+                        >
+                          {agentDetails.agent.verification_status || 'Pending'}
+                        </Badge>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <p><span className="font-medium text-gray-600">Role:</span> <span className="capitalize">{agentDetails.agent.role}</span></p>
+                      <p><span className="font-medium text-gray-600">Joined:</span> {new Date(agentDetails.agent.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
 
-                  {/* Statistics Summary */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5" />
-                        Statistics
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3 text-sm">
-                        <div>
-                          <p className="font-medium text-gray-600">Total Invoices</p>
-                          <p className="text-lg font-bold">{agentDetails.stats.total_invoices}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-600">Total Earnings</p>
-                          <p className="text-lg font-bold text-green-600">£{agentDetails.stats.total_earnings.toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-600">Paid Amount</p>
-                          <p className="text-lg font-bold text-blue-600">£{agentDetails.stats.paid_amount.toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-600">Pending Payment</p>
-                          <p className="text-lg font-bold text-orange-600">£{agentDetails.stats.pending_amount.toFixed(2)}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  {/* Stats Card */}
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <h3 className="font-semibold text-lg mb-3 text-blue-800 flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-blue-600" />
+                      📊 Statistics
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      <p><span className="font-medium text-gray-600">Total Invoices:</span> <span className="font-bold">{agentDetails.stats.total_invoices}</span></p>
+                      <p><span className="font-medium text-gray-600">Total Earnings:</span> <span className="text-green-600 font-bold">£{agentDetails.stats.total_earnings.toFixed(2)}</span></p>
+                      <p><span className="font-medium text-gray-600">Paid:</span> <span className="text-blue-600 font-bold">£{agentDetails.stats.paid_amount.toFixed(2)}</span></p>
+                      <p><span className="font-medium text-gray-600">Pending:</span> <span className="text-orange-600 font-bold">£{agentDetails.stats.pending_amount.toFixed(2)}</span></p>
+                    </div>
+                  </div>
                 </div>
                 
-                {/* Invoice History Column */}
-                <div className="lg:col-span-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Calendar className="h-5 w-5" />
-                        Invoice History ({agentDetails.invoices.length})
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                {/* Invoice History */}
+                <div className="xl:col-span-3">
+                  <div className="bg-white rounded-lg border">
+                    <div className="p-4 border-b bg-gray-50">
+                      <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                        <Calendar className="h-5 w-5 text-blue-600" />
+                        💼 Invoice History ({agentDetails.invoices.length})
+                      </h3>
+                    </div>
+                    <div className="p-4">
                       {agentDetails.invoices.length > 0 ? (
-                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                        <div className="space-y-4">
                           {agentDetails.invoices.map(invoice => (
-                            <div key={invoice.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                            <div key={invoice.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                               <div className="flex justify-between items-start">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3 mb-2">
-                                    <h4 className="font-semibold text-lg">{invoice.invoice_number}</h4>
-                                    <Badge variant={invoice.status === 'paid' ? 'default' : invoice.status === 'sent' ? 'secondary' : 'outline'}>
-                                      {invoice.status}
+                                    <h4 className="text-lg font-semibold text-gray-800">{invoice.invoice_number}</h4>
+                                    <Badge 
+                                      variant={invoice.status === 'paid' ? 'default' : invoice.status === 'sent' ? 'secondary' : 'outline'}
+                                      className={
+                                        invoice.status === 'paid' 
+                                          ? 'bg-green-500 hover:bg-green-600' 
+                                          : invoice.status === 'sent' 
+                                          ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                                          : ''
+                                      }
+                                    >
+                                      {invoice.status.toUpperCase()}
                                     </Badge>
                                   </div>
-                                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                                  
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
                                     <div>
-                                      <p><strong>Issue Date:</strong> {new Date(invoice.issue_date).toLocaleDateString()}</p>
-                                      <p><strong>Due Date:</strong> {new Date(invoice.due_date).toLocaleDateString()}</p>
+                                      <span className="font-medium">Issue Date:</span><br />
+                                      {new Date(invoice.issue_date).toLocaleDateString()}
                                     </div>
                                     <div>
-                                      <p><strong>Amount:</strong> <span className="text-green-600 font-semibold">£{parseFloat(invoice.total_amount).toFixed(2)}</span></p>
-                                      <p><strong>Jobs:</strong> {invoice.jobs ? invoice.jobs.length : 0} job(s)</p>
+                                      <span className="font-medium">Due Date:</span><br />
+                                      {new Date(invoice.due_date).toLocaleDateString()}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Amount:</span><br />
+                                      <span className="text-lg font-bold text-green-600">£{parseFloat(invoice.total_amount).toFixed(2)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Jobs:</span><br />
+                                      {invoice.jobs ? invoice.jobs.length : 'N/A'} job(s)
                                     </div>
                                   </div>
+                                  
+                                  {/* Job Addresses */}
+                                  {invoice.jobs && invoice.jobs.length > 0 && (
+                                    <div className="mt-3 p-3 bg-gray-50 rounded">
+                                      <p className="font-medium text-sm text-gray-700 mb-2 flex items-center gap-1">
+                                        🗺️ Job Locations:
+                                      </p>
+                                      {invoice.jobs.map((job, idx) => (
+                                        <div key={idx} className="text-sm text-gray-600 mb-1">
+                                          • <span className="font-medium">{job.address}</span> ({job.hours_worked}h @ £{job.hourly_rate_at_invoice}/hr)
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
+                                
                                 <div className="flex flex-col gap-2 ml-4">
                                   {invoice.status !== 'paid' && (
-                                    <Button size="sm" variant="outline" className="text-green-600 border-green-600 hover:bg-green-50">
-                                      Mark as Paid
+                                    <Button 
+                                      size="sm" 
+                                      className="bg-green-600 hover:bg-green-700 text-white"
+                                      onClick={() => handleMarkAsPaid(invoice.id)}
+                                    >
+                                      ✓ Mark as Paid
                                     </Button>
                                   )}
                                   <Button size="sm" variant="outline">
-                                    View Details
+                                    👁️ View Details
                                   </Button>
                                 </div>
                               </div>
-                              
-                              {/* Job Details */}
-                              {invoice.jobs && invoice.jobs.length > 0 && (
-                                <div className="mt-3 pt-3 border-t">
-                                  <p className="text-sm font-medium text-gray-600 mb-2">Jobs on this invoice:</p>
-                                  <div className="space-y-1">
-                                    {invoice.jobs.map((jobItem, idx) => (
-                                      <div key={idx} className="text-xs text-gray-500 flex justify-between">
-                                        <span>Job #{jobItem.job_id}</span>
-                                        <span>{parseFloat(jobItem.hours_worked || 0).toFixed(1)}h @ £{parseFloat(jobItem.hourly_rate_at_invoice || 0).toFixed(2)}/hr</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-12">
+                        <div className="text-center py-12 text-gray-500">
                           <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                          <p className="text-gray-500 font-medium">No invoices found</p>
-                          <p className="text-gray-400 text-sm mt-2">This agent hasn't generated any invoices yet.</p>
+                          <p className="text-lg">📄 No invoices found</p>
+                          <p className="text-sm">This agent hasn't created any invoices yet.</p>
                         </div>
                       )}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-12">
+              <div className="text-center py-12 text-red-500">
                 <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
-                <p className="text-red-600 font-medium">Failed to load agent details</p>
+                <p className="text-lg">❌ Failed to load agent details</p>
                 <p className="text-gray-500 text-sm mt-2">Please try again or contact support if the problem persists.</p>
                 <Button 
-                  variant="outline" 
-                  onClick={() => handleViewDetails(selectedAgentForDetails)}
-                  className="mt-4"
+                  onClick={() => handleViewDetails(selectedAgentForDetails)} 
+                  className="mt-4 bg-blue-600 hover:bg-blue-700"
                 >
-                  Retry
+                  🔄 Retry
                 </Button>
               </div>
             )}
@@ -609,6 +605,7 @@ export default function AgentManagement() {
               >
                 Close
               </Button>
+            </div>
             </div>
           </div>
         </div>
