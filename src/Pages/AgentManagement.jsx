@@ -382,166 +382,333 @@ export default function AgentManagement() {
         <AgentVerification />
       )}
 
-      {/* Enhanced Agent Details Modal */}
+      {/* V3 Services Agent Details Modal */}
       {showAgentDetails && selectedAgentForDetails && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div 
+            className="dashboard-card max-w-7xl w-full max-h-[95vh] overflow-hidden"
+            style={{
+              background: 'var(--v3-bg-card)',
+              border: '1px solid var(--v3-border)',
+              borderRadius: '12px'
+            }}
+          >
+            {/* V3 Header with Orange Accent */}
+            <div 
+              className="p-6 border-b"
+              style={{
+                background: 'linear-gradient(135deg, var(--v3-bg-dark) 0%, #1F1F1F 100%)',
+                borderBottom: '1px solid var(--v3-border)',
+                borderImage: 'linear-gradient(90deg, transparent, var(--v3-orange), transparent) 1'
+              }}
+            >
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-3xl font-bold">
+                  <h2 className="text-3xl font-bold" style={{ color: 'var(--v3-text-lightest)' }}>
                     {selectedAgentForDetails.first_name} {selectedAgentForDetails.last_name}
                   </h2>
-                  <p className="text-blue-100 mt-1">{selectedAgentForDetails.email}</p>
+                  <p className="mt-1" style={{ color: 'var(--v3-orange)' }}>
+                    {selectedAgentForDetails.email}
+                  </p>
                 </div>
-                <Button 
-                  variant="outline" 
-                  className="bg-white text-blue-600 hover:bg-blue-50 border-white"
+                <button 
+                  className="button-refresh px-4 py-2"
                   onClick={() => setShowAgentDetails(false)}
                 >
                   ✕ Close
-                </Button>
+                </button>
               </div>
             </div>
             
-            <div className="p-6 overflow-y-auto max-h-[calc(95vh-120px)]">
+            <div 
+              className="p-6 overflow-y-auto max-h-[calc(95vh-120px)]"
+              style={{ background: 'var(--v3-bg-card)' }}
+            >
             
             {loadingDetails ? (
               <div className="text-center py-12">
-                <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading agent details...</p>
+                <div 
+                  className="animate-spin w-8 h-8 border-4 border-t-transparent rounded-full mx-auto mb-4"
+                  style={{ 
+                    borderColor: 'var(--v3-orange)',
+                    borderTopColor: 'transparent'
+                  }}
+                ></div>
+                <p style={{ color: 'var(--v3-text-muted)' }}>Loading agent details...</p>
               </div>
             ) : agentDetails ? (
               <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
                 {/* Agent Info Sidebar */}
                 <div className="xl:col-span-1 space-y-4">
                   {/* Contact Card */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="font-semibold text-lg mb-3 text-gray-800 flex items-center gap-2">
-                      <Mail className="h-5 w-5 text-blue-600" />
+                  <div 
+                    className="dashboard-card rounded-lg p-4"
+                    style={{
+                      background: 'var(--v3-bg-dark)',
+                      border: '1px solid var(--v3-border)'
+                    }}
+                  >
+                    <h3 
+                      className="font-semibold text-lg mb-3 flex items-center gap-2"
+                      style={{ color: 'var(--v3-text-lightest)' }}
+                    >
+                      <Mail className="h-5 w-5" style={{ color: 'var(--v3-orange)' }} />
                       📞 Contact
                     </h3>
                     <div className="space-y-2 text-sm">
-                      <p><span className="font-medium text-gray-600">Phone:</span> {agentDetails.agent.phone}</p>
-                      <p><span className="font-medium text-gray-600">Address:</span> {agentDetails.agent.address_line_1}</p>
+                      <p>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Phone:</span>{' '}
+                        <span style={{ color: 'var(--v3-text-light)' }}>{agentDetails.agent.phone}</span>
+                      </p>
+                      <p>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Address:</span>{' '}
+                        <span style={{ color: 'var(--v3-text-light)' }}>{agentDetails.agent.address_line_1}</span>
+                      </p>
                       {agentDetails.agent.address_line_2 && agentDetails.agent.address_line_2 !== '' && (
-                        <p className="ml-16">{agentDetails.agent.address_line_2}</p>
+                        <p className="ml-16" style={{ color: 'var(--v3-text-light)' }}>
+                          {agentDetails.agent.address_line_2}
+                        </p>
                       )}
-                      <p><span className="font-medium text-gray-600">City:</span> {agentDetails.agent.city} {agentDetails.agent.postcode}</p>
+                      <p>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>City:</span>{' '}
+                        <span style={{ color: 'var(--v3-text-light)' }}>{agentDetails.agent.city} {agentDetails.agent.postcode}</span>
+                      </p>
                     </div>
                   </div>
                   
                   {/* Banking Card */}
-                  <div className="bg-green-50 rounded-lg p-4">
-                    <h3 className="font-semibold text-lg mb-3 text-green-800 flex items-center gap-2">
-                      <Users className="h-5 w-5 text-green-600" />
+                  <div 
+                    className="dashboard-card rounded-lg p-4"
+                    style={{
+                      background: 'linear-gradient(135deg, var(--v3-bg-dark) 0%, #1E2A1E 100%)',
+                      border: '1px solid var(--v3-border)',
+                      boxShadow: '0 0 10px rgba(34, 197, 94, 0.1)'
+                    }}
+                  >
+                    <h3 
+                      className="font-semibold text-lg mb-3 flex items-center gap-2"
+                      style={{ color: 'var(--v3-text-lightest)' }}
+                    >
+                      <Users className="h-5 w-5" style={{ color: '#22C55E' }} />
                       🏦 Banking
                     </h3>
                     <div className="space-y-2 text-sm">
-                      <p><span className="font-medium text-gray-600">Bank:</span> {agentDetails.agent.bank_name}</p>
-                      <p><span className="font-medium text-gray-600">Account:</span> <span className="font-mono">{agentDetails.agent.bank_account_number}</span></p>
-                      <p><span className="font-medium text-gray-600">Sort Code:</span> <span className="font-mono">{agentDetails.agent.bank_sort_code}</span></p>
-                      <p><span className="font-medium text-gray-600">UTR:</span> <span className="font-mono">{agentDetails.agent.utr_number}</span></p>
+                      <p>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Bank:</span>{' '}
+                        <span style={{ color: 'var(--v3-text-light)' }}>{agentDetails.agent.bank_name}</span>
+                      </p>
+                      <p>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Account:</span>{' '}
+                        <span className="font-mono" style={{ color: '#22C55E' }}>{agentDetails.agent.bank_account_number}</span>
+                      </p>
+                      <p>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Sort Code:</span>{' '}
+                        <span className="font-mono" style={{ color: '#22C55E' }}>{agentDetails.agent.bank_sort_code}</span>
+                      </p>
+                      <p>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>UTR:</span>{' '}
+                        <span className="font-mono" style={{ color: '#22C55E' }}>{agentDetails.agent.utr_number}</span>
+                      </p>
                     </div>
                   </div>
                   
                   {/* Account Status Card */}
-                  <div className="bg-purple-50 rounded-lg p-4">
-                    <h3 className="font-semibold text-lg mb-3 text-purple-800 flex items-center gap-2">
-                      <Shield className="h-5 w-5 text-purple-600" />
+                  <div 
+                    className="dashboard-card rounded-lg p-4"
+                    style={{
+                      background: 'linear-gradient(135deg, var(--v3-bg-dark) 0%, #2A1E2A 100%)',
+                      border: '1px solid var(--v3-border)',
+                      boxShadow: '0 0 10px rgba(168, 85, 247, 0.1)'
+                    }}
+                  >
+                    <h3 
+                      className="font-semibold text-lg mb-3 flex items-center gap-2"
+                      style={{ color: 'var(--v3-text-lightest)' }}
+                    >
+                      <Shield className="h-5 w-5" style={{ color: '#A855F7' }} />
                       🛡️ Status
                     </h3>
                     <div className="space-y-2 text-sm">
                       <div>
-                        <span className="font-medium text-gray-600">Verification:</span>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Verification:</span>
                         <Badge 
-                          variant={agentDetails.agent.verification_status === 'verified' ? 'default' : 'secondary'}
-                          className={`ml-2 ${agentDetails.agent.verification_status === 'verified' ? 'bg-green-500 hover:bg-green-600' : ''}`}
+                          className={`ml-2 ${
+                            agentDetails.agent.verification_status === 'verified' 
+                              ? 'bg-green-600 text-white hover:bg-green-700' 
+                              : 'bg-gray-600 text-white hover:bg-gray-700'
+                          }`}
                         >
                           {agentDetails.agent.verification_status || 'Pending'}
                         </Badge>
                       </div>
-                      <p><span className="font-medium text-gray-600">Role:</span> <span className="capitalize">{agentDetails.agent.role}</span></p>
-                      <p><span className="font-medium text-gray-600">Joined:</span> {new Date(agentDetails.agent.created_at).toLocaleDateString()}</p>
+                      <p>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Role:</span>{' '}
+                        <span className="capitalize" style={{ color: 'var(--v3-text-light)' }}>{agentDetails.agent.role}</span>
+                      </p>
+                      <p>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Joined:</span>{' '}
+                        <span style={{ color: 'var(--v3-text-light)' }}>{new Date(agentDetails.agent.created_at).toLocaleDateString()}</span>
+                      </p>
                     </div>
                   </div>
 
                   {/* Stats Card */}
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <h3 className="font-semibold text-lg mb-3 text-blue-800 flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-blue-600" />
+                  <div 
+                    className="dashboard-card rounded-lg p-4"
+                    style={{
+                      background: 'linear-gradient(135deg, var(--v3-bg-dark) 0%, #1E2A2E 100%)',
+                      border: '1px solid var(--v3-orange)',
+                      boxShadow: '0 0 15px var(--v3-orange-glow)'
+                    }}
+                  >
+                    <h3 
+                      className="font-semibold text-lg mb-3 flex items-center gap-2"
+                      style={{ color: 'var(--v3-text-lightest)' }}
+                    >
+                      <CheckCircle className="h-5 w-5" style={{ color: 'var(--v3-orange)' }} />
                       📊 Statistics
                     </h3>
                     <div className="space-y-2 text-sm">
-                      <p><span className="font-medium text-gray-600">Total Invoices:</span> <span className="font-bold">{agentDetails.stats.total_invoices}</span></p>
-                      <p><span className="font-medium text-gray-600">Total Earnings:</span> <span className="text-green-600 font-bold">£{agentDetails.stats.total_earnings.toFixed(2)}</span></p>
-                      <p><span className="font-medium text-gray-600">Paid:</span> <span className="text-blue-600 font-bold">£{agentDetails.stats.paid_amount.toFixed(2)}</span></p>
-                      <p><span className="font-medium text-gray-600">Pending:</span> <span className="text-orange-600 font-bold">£{agentDetails.stats.pending_amount.toFixed(2)}</span></p>
+                      <p>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Total Invoices:</span>{' '}
+                        <span className="font-bold" style={{ color: 'var(--v3-orange)' }}>{agentDetails.stats.total_invoices}</span>
+                      </p>
+                      <p>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Total Earnings:</span>{' '}
+                        <span className="font-bold" style={{ color: '#22C55E' }}>£{agentDetails.stats.total_earnings.toFixed(2)}</span>
+                      </p>
+                      <p>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Paid:</span>{' '}
+                        <span className="font-bold" style={{ color: '#3B82F6' }}>£{agentDetails.stats.paid_amount.toFixed(2)}</span>
+                      </p>
+                      <p>
+                        <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Pending:</span>{' '}
+                        <span className="font-bold" style={{ color: 'var(--v3-orange)' }}>£{agentDetails.stats.pending_amount.toFixed(2)}</span>
+                      </p>
                     </div>
                   </div>
                 </div>
                 
                 {/* Invoice History */}
                 <div className="xl:col-span-3">
-                  <div className="bg-white rounded-lg border">
-                    <div className="p-4 border-b bg-gray-50">
-                      <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                        <Calendar className="h-5 w-5 text-blue-600" />
+                  <div 
+                    className="dashboard-card rounded-lg"
+                    style={{
+                      background: 'var(--v3-bg-card)',
+                      border: '1px solid var(--v3-border)'
+                    }}
+                  >
+                    <div 
+                      className="p-4 border-b"
+                      style={{
+                        background: 'linear-gradient(135deg, var(--v3-bg-dark) 0%, #1F1F1F 100%)',
+                        borderBottom: '1px solid var(--v3-border)'
+                      }}
+                    >
+                      <h3 
+                        className="text-xl font-semibold flex items-center gap-2"
+                        style={{ color: 'var(--v3-text-lightest)' }}
+                      >
+                        <Calendar className="h-5 w-5" style={{ color: 'var(--v3-orange)' }} />
                         💼 Invoice History ({agentDetails.invoices.length})
                       </h3>
                     </div>
-                    <div className="p-4">
+                    <div className="p-4" style={{ background: 'var(--v3-bg-card)' }}>
                       {agentDetails.invoices.length > 0 ? (
                         <div className="space-y-4">
                           {agentDetails.invoices.map(invoice => (
-                            <div key={invoice.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div 
+                              key={invoice.id} 
+                              className="dashboard-card rounded-lg p-4 transition-all duration-300"
+                              style={{
+                                background: 'var(--v3-bg-dark)',
+                                border: '1px solid var(--v3-border)',
+                                cursor: 'pointer'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--v3-orange)';
+                                e.currentTarget.style.boxShadow = '0 0 15px var(--v3-orange-glow)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--v3-border)';
+                                e.currentTarget.style.boxShadow = 'none';
+                              }}
+                            >
                               <div className="flex justify-between items-start">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3 mb-2">
-                                    <h4 className="text-lg font-semibold text-gray-800">{invoice.invoice_number}</h4>
+                                    <h4 
+                                      className="text-lg font-semibold"
+                                      style={{ color: 'var(--v3-text-lightest)' }}
+                                    >
+                                      {invoice.invoice_number}
+                                    </h4>
                                     <Badge 
-                                      variant={invoice.status === 'paid' ? 'default' : invoice.status === 'sent' ? 'secondary' : 'outline'}
-                                      className={
+                                      className={`${
                                         invoice.status === 'paid' 
-                                          ? 'bg-green-500 hover:bg-green-600' 
+                                          ? 'bg-green-600 text-white hover:bg-green-700' 
                                           : invoice.status === 'sent' 
-                                          ? 'bg-orange-500 hover:bg-orange-600 text-white' 
-                                          : ''
-                                      }
+                                          ? 'text-white hover:bg-orange-700'
+                                          : 'bg-gray-600 text-white hover:bg-gray-700'
+                                      }`}
+                                      style={{
+                                        background: invoice.status === 'sent' ? 'var(--v3-orange)' : undefined
+                                      }}
                                     >
                                       {invoice.status.toUpperCase()}
                                     </Badge>
                                   </div>
                                   
-                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                     <div>
-                                      <span className="font-medium">Issue Date:</span><br />
-                                      {new Date(invoice.issue_date).toLocaleDateString()}
+                                      <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Issue Date:</span><br />
+                                      <span style={{ color: 'var(--v3-text-light)' }}>
+                                        {new Date(invoice.issue_date).toLocaleDateString()}
+                                      </span>
                                     </div>
                                     <div>
-                                      <span className="font-medium">Due Date:</span><br />
-                                      {new Date(invoice.due_date).toLocaleDateString()}
+                                      <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Due Date:</span><br />
+                                      <span style={{ color: 'var(--v3-text-light)' }}>
+                                        {new Date(invoice.due_date).toLocaleDateString()}
+                                      </span>
                                     </div>
                                     <div>
-                                      <span className="font-medium">Amount:</span><br />
-                                      <span className="text-lg font-bold text-green-600">£{parseFloat(invoice.total_amount).toFixed(2)}</span>
+                                      <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Amount:</span><br />
+                                      <span className="text-lg font-bold" style={{ color: '#22C55E' }}>
+                                        £{parseFloat(invoice.total_amount).toFixed(2)}
+                                      </span>
                                     </div>
                                     <div>
-                                      <span className="font-medium">Jobs:</span><br />
-                                      {invoice.jobs ? invoice.jobs.length : 'N/A'} job(s)
+                                      <span className="font-medium" style={{ color: 'var(--v3-text-muted)' }}>Jobs:</span><br />
+                                      <span style={{ color: 'var(--v3-text-light)' }}>
+                                        {invoice.jobs ? invoice.jobs.length : 'N/A'} job(s)
+                                      </span>
                                     </div>
                                   </div>
                                   
                                   {/* Job Addresses */}
                                   {invoice.jobs && invoice.jobs.length > 0 && (
-                                    <div className="mt-3 p-3 bg-gray-50 rounded">
-                                      <p className="font-medium text-sm text-gray-700 mb-2 flex items-center gap-1">
+                                    <div 
+                                      className="mt-3 p-3 rounded"
+                                      style={{
+                                        background: 'var(--v3-bg-darkest)',
+                                        border: '1px solid var(--v3-border)'
+                                      }}
+                                    >
+                                      <p 
+                                        className="font-medium text-sm mb-2 flex items-center gap-1"
+                                        style={{ color: 'var(--v3-text-light)' }}
+                                      >
                                         🗺️ Job Locations:
                                       </p>
                                       {invoice.jobs.map((job, idx) => (
-                                        <div key={idx} className="text-sm text-gray-600 mb-1">
-                                          • <span className="font-medium">{job.address}</span> ({job.hours_worked}h @ £{job.hourly_rate_at_invoice}/hr)
+                                        <div key={idx} className="text-sm mb-1" style={{ color: 'var(--v3-text-muted)' }}>
+                                          • <span className="font-medium" style={{ color: 'var(--v3-orange)' }}>
+                                            {job.address}
+                                          </span>{' '}
+                                          <span style={{ color: 'var(--v3-text-light)' }}>
+                                            ({job.hours_worked}h @ £{job.hourly_rate_at_invoice}/hr)
+                                          </span>
                                         </div>
                                       ))}
                                     </div>
@@ -550,27 +717,54 @@ export default function AgentManagement() {
                                 
                                 <div className="flex flex-col gap-2 ml-4">
                                   {invoice.status !== 'paid' && (
-                                    <Button 
-                                      size="sm" 
-                                      className="bg-green-600 hover:bg-green-700 text-white"
+                                    <button 
+                                      className="button-refresh px-3 py-2 text-sm"
+                                      style={{
+                                        background: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)',
+                                        border: '1px solid #22C55E'
+                                      }}
                                       onClick={() => handleMarkAsPaid(invoice.id)}
                                     >
                                       ✓ Mark as Paid
-                                    </Button>
+                                    </button>
                                   )}
-                                  <Button size="sm" variant="outline">
+                                  <button 
+                                    className="px-3 py-2 text-sm rounded-md transition-all duration-200"
+                                    style={{
+                                      background: 'transparent',
+                                      border: '1px solid var(--v3-border)',
+                                      color: 'var(--v3-text-light)'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'var(--v3-orange)';
+                                      e.currentTarget.style.borderColor = 'var(--v3-orange)';
+                                      e.currentTarget.style.color = 'white';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'transparent';
+                                      e.currentTarget.style.borderColor = 'var(--v3-border)';
+                                      e.currentTarget.style.color = 'var(--v3-text-light)';
+                                    }}
+                                  >
                                     👁️ View Details
-                                  </Button>
+                                  </button>
                                 </div>
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-12 text-gray-500">
-                          <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                          <p className="text-lg">📄 No invoices found</p>
-                          <p className="text-sm">This agent hasn't created any invoices yet.</p>
+                        <div className="text-center py-12">
+                          <Calendar 
+                            className="mx-auto h-12 w-12 mb-4" 
+                            style={{ color: 'var(--v3-text-muted)' }} 
+                          />
+                          <p className="text-lg" style={{ color: 'var(--v3-text-light)' }}>
+                            📄 No invoices found
+                          </p>
+                          <p className="text-sm" style={{ color: 'var(--v3-text-muted)' }}>
+                            This agent hasn't created any invoices yet.
+                          </p>
                         </div>
                       )}
                     </div>
@@ -578,33 +772,77 @@ export default function AgentManagement() {
                 </div>
               </div>
             ) : (
-              <div className="text-center py-12 text-red-500">
-                <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
-                <p className="text-lg">❌ Failed to load agent details</p>
-                <p className="text-gray-500 text-sm mt-2">Please try again or contact support if the problem persists.</p>
-                <Button 
+              <div className="text-center py-12">
+                <AlertCircle 
+                  className="mx-auto h-12 w-12 mb-4" 
+                  style={{ color: '#EF4444' }} 
+                />
+                <p className="text-lg font-medium" style={{ color: '#EF4444' }}>
+                  ❌ Failed to load agent details
+                </p>
+                <p className="text-sm mt-2" style={{ color: 'var(--v3-text-muted)' }}>
+                  Please try again or contact support if the problem persists.
+                </p>
+                <button 
                   onClick={() => handleViewDetails(selectedAgentForDetails)} 
-                  className="mt-4 bg-blue-600 hover:bg-blue-700"
+                  className="button-refresh mt-4 px-4 py-2"
                 >
                   🔄 Retry
-                </Button>
+                </button>
               </div>
             )}
             
             {/* Action Buttons */}
-            <div className="flex gap-3 mt-6 pt-6 border-t">
-              <Button variant="outline" className="flex-1">
-                Send Message
-              </Button>
-              <Button variant="outline" className="flex-1">
-                View Jobs
-              </Button>
-              <Button 
-                onClick={() => setShowAgentDetails(false)}
-                className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+            <div 
+              className="flex gap-3 mt-6 pt-6"
+              style={{ borderTop: '1px solid var(--v3-border)' }}
+            >
+              <button 
+                className="flex-1 px-4 py-2 rounded-md transition-all duration-200"
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--v3-border)',
+                  color: 'var(--v3-text-light)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--v3-orange)';
+                  e.currentTarget.style.borderColor = 'var(--v3-orange)';
+                  e.currentTarget.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.borderColor = 'var(--v3-border)';
+                  e.currentTarget.style.color = 'var(--v3-text-light)';
+                }}
               >
-                Close
-              </Button>
+                📧 Send Message
+              </button>
+              <button 
+                className="flex-1 px-4 py-2 rounded-md transition-all duration-200"
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--v3-border)',
+                  color: 'var(--v3-text-light)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--v3-orange)';
+                  e.currentTarget.style.borderColor = 'var(--v3-orange)';
+                  e.currentTarget.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.borderColor = 'var(--v3-border)';
+                  e.currentTarget.style.color = 'var(--v3-text-light)';
+                }}
+              >
+                💼 View Jobs
+              </button>
+              <button 
+                onClick={() => setShowAgentDetails(false)}
+                className="button-refresh flex-1 px-4 py-2"
+              >
+                ✕ Close
+              </button>
             </div>
             </div>
           </div>
