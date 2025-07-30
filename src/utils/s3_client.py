@@ -302,18 +302,65 @@ class S3Client:
             str: Presigned URL or None if error
         """
         if not self.configured:
-            logger.error(f"Cannot generate presigned URL: {self.error_message}")
+            logger.error(f"PRESIGNED URL FAILED: S3 not configured - {self.error_message}")
             return None
         
         try:
-            response = self.s3_client.generate_presigned_url(
+            logger.info(f"PRESIGNED URL START: Generating signed URL for {file_key}")
+            logger.info(f"PRESIGNED URL: Using bucket {self.bucket_name}, expiration {expiration}s")
+            
+            # Create a fresh S3 client to ensure credentials are current
+            fresh_s3_client = boto3.client(
+                's3',
+                aws_access_key_id=self.aws_access_key_id,
+                aws_secret_access_key=self.aws_secret_access_key,
+                region_name=self.aws_region
+            )
+            
+            # Generate the presigned URL
+            response = fresh_s3_client.generate_presigned_url(
                 'get_object',
-                Params={'Bucket': self.bucket_name, 'Key': file_key},
+                Params={
+                    'Bucket': self.bucket_name, 
+                    'Key': file_key,
+                    'ResponseContentType': 'application/pdf',
+                    'ResponseContentDisposition': f'attachment; filename="{file_key.split("/")[-1]}"'
+                },
                 ExpiresIn=expiration
             )
+            
+            logger.info(f"PRESIGNED URL SUCCESS: Generated signed URL for {file_key}")
+            # Log first 100 chars of URL for debugging (don't log full URL for security)
+            logger.info(f"PRESIGNED URL: Generated URL starts with: {response[:100]}...")
+            
             return response
+            
         except ClientError as e:
-            logger.error(f"Error generating presigned URL: {str(e)}")
+            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+            error_message = e.response.get('Error', {}).get('Message', str(e))
+            
+            logger.error(f"PRESIGNED URL FAILED: AWS ClientError - {error_code}: {error_message}")
+            logger.error(f"PRESIGNED URL FAILED: Full error response: {e.response}")
+            
+            # Provide specific error handling
+            if error_code == 'AccessDenied':
+                logger.error(f"PRESIGNED URL FAILED: Access denied - check AWS credentials and bucket permissions")
+            elif error_code == 'NoSuchBucket':
+                logger.error(f"PRESIGNED URL FAILED: Bucket {self.bucket_name} does not exist")
+            elif error_code == 'InvalidAccessKeyId':
+                logger.error(f"PRESIGNED URL FAILED: Invalid AWS access key ID")
+            elif error_code == 'SignatureDoesNotMatch':
+                logger.error(f"PRESIGNED URL FAILED: Invalid AWS secret access key")
+            
+            return None
+            
+        except NoCredentialsError:
+            logger.error(f"PRESIGNED URL FAILED: AWS credentials not found or invalid")
+            return None
+        except Exception as e:
+            logger.error(f"PRESIGNED URL FAILED: Unexpected error generating signed URL: {str(e)}")
+            import traceback
+            logger.error(f"PRESIGNED URL FAILED: Traceback: {traceback.format_exc()}")
             return None
 
     def get_secure_document_url(self, file_key, expiration=3600):
@@ -611,8 +658,149 @@ class S3Client:
         Returns:
             dict: Result with success status and URL or error message
         """
-        file_key = f"invoices/{agent_id}/{invoice_number}.pdf"
-        return self.get_secure_document_url(file_key, expiration)
+        try:
+            logger.info(f"INVOICE DOWNLOAD URL: Generating URL for agent {agent_id}, invoice {invoice_number}")
+            
+            file_key = f"invoices/{agent_id}/{invoice_number}.pdf"
+            logger.info(f"INVOICE DOWNLOAD URL: S3 file key: {file_key}")
+            
+            # Use the improved get_secure_document_url method
+            result = self.get_secure_document_url(file_key, expiration)
+            
+            if result['success']:
+                logger.info(f"INVOICE DOWNLOAD URL SUCCESS: Generated URL for {invoice_number}")
+                return {
+                    'success': True,
+                    'download_url': result['url'],
+                    'expires_in': result['expires_in'],
+                    'invoice_number': invoice_number,
+                    'filename': f"{invoice_number}.pdf",
+                    'file_size': result.get('file_size', 'Unknown')
+                }
+            else:
+                logger.error(f"INVOICE DOWNLOAD URL FAILED: {result.get('error', 'Unknown error')}")
+                return {
+                    'success': False,
+                    'error': result.get('error', 'Failed to generate download URL')
+                }
+                
+        except Exception as e:
+            logger.error(f"INVOICE DOWNLOAD URL FAILED: Unexpected error: {str(e)}")
+            import traceback
+            logger.error(f"INVOICE DOWNLOAD URL FAILED: Traceback: {traceback.format_exc()}")
+            return {
+                'success': False,
+                'error': f'Failed to generate invoice download URL: {str(e)}'
+            }
+
+    def diagnose_s3_permissions(self, file_key=None):
+        """
+        Diagnose S3 permissions and configuration issues
+        
+        Args:
+            file_key (str): Optional specific file to test access
+            
+        Returns:
+            dict: Diagnosis results with recommendations
+        """
+        diagnosis = {
+            'configuration': {'status': 'unknown', 'details': []},
+            'bucket_access': {'status': 'unknown', 'details': []},
+            'file_access': {'status': 'unknown', 'details': []},
+            'recommendations': []
+        }
+        
+        try:
+            logger.info("S3 DIAGNOSIS: Starting S3 permissions diagnosis")
+            
+            # Test 1: Configuration
+            if not self.configured:
+                diagnosis['configuration']['status'] = 'failed'
+                diagnosis['configuration']['details'].append(f"S3 not configured: {self.error_message}")
+                diagnosis['recommendations'].append("Check AWS environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_REGION, AWS_S3_BUCKET")
+                return diagnosis
+            else:
+                diagnosis['configuration']['status'] = 'passed'
+                diagnosis['configuration']['details'].append("S3 client is properly configured")
+            
+            # Test 2: Bucket Access
+            try:
+                response = self.s3_client.head_bucket(Bucket=self.bucket_name)
+                diagnosis['bucket_access']['status'] = 'passed'
+                diagnosis['bucket_access']['details'].append(f"Successfully accessed bucket: {self.bucket_name}")
+                
+                # Check bucket region
+                try:
+                    location_response = self.s3_client.get_bucket_location(Bucket=self.bucket_name)
+                    bucket_region = location_response.get('LocationConstraint') or 'us-east-1'
+                    diagnosis['bucket_access']['details'].append(f"Bucket region: {bucket_region}")
+                    
+                    if bucket_region != self.aws_region:
+                        diagnosis['recommendations'].append(f"Warning: Bucket region ({bucket_region}) differs from client region ({self.aws_region})")
+                except Exception as region_error:
+                    diagnosis['bucket_access']['details'].append(f"Could not determine bucket region: {str(region_error)}")
+                    
+            except ClientError as bucket_error:
+                error_code = bucket_error.response.get('Error', {}).get('Code', 'Unknown')
+                diagnosis['bucket_access']['status'] = 'failed'
+                diagnosis['bucket_access']['details'].append(f"Bucket access failed: {error_code}")
+                
+                if error_code == 'NoSuchBucket':
+                    diagnosis['recommendations'].append(f"Bucket '{self.bucket_name}' does not exist. Check bucket name and region.")
+                elif error_code == 'AccessDenied':
+                    diagnosis['recommendations'].append("Access denied to bucket. Check IAM permissions for s3:ListBucket and s3:GetBucketLocation.")
+                elif error_code == 'InvalidAccessKeyId':
+                    diagnosis['recommendations'].append("Invalid AWS Access Key ID. Check AWS_ACCESS_KEY_ID environment variable.")
+                elif error_code == 'SignatureDoesNotMatch':
+                    diagnosis['recommendations'].append("Invalid AWS Secret Access Key. Check AWS_SECRET_ACCESS_KEY environment variable.")
+                
+                return diagnosis
+            
+            # Test 3: File Access (if file_key provided)
+            if file_key:
+                try:
+                    # Test head_object (requires s3:GetObject permission)
+                    head_response = self.s3_client.head_object(Bucket=self.bucket_name, Key=file_key)
+                    diagnosis['file_access']['status'] = 'passed'
+                    diagnosis['file_access']['details'].append(f"Successfully accessed file: {file_key}")
+                    diagnosis['file_access']['details'].append(f"File size: {head_response.get('ContentLength', 'Unknown')} bytes")
+                    diagnosis['file_access']['details'].append(f"Content type: {head_response.get('ContentType', 'Unknown')}")
+                    
+                    # Test presigned URL generation
+                    try:
+                        test_url = self.generate_presigned_url(file_key, expiration=60)
+                        if test_url:
+                            diagnosis['file_access']['details'].append("Presigned URL generation: SUCCESS")
+                            diagnosis['file_access']['details'].append(f"Test URL generated (60s expiry)")
+                        else:
+                            diagnosis['file_access']['details'].append("Presigned URL generation: FAILED")
+                            diagnosis['recommendations'].append("Check s3:GetObject permissions for presigned URL generation.")
+                    except Exception as url_error:
+                        diagnosis['file_access']['details'].append(f"Presigned URL generation failed: {str(url_error)}")
+                        diagnosis['recommendations'].append("Check s3:GetObject permissions for presigned URL generation.")
+                    
+                except ClientError as file_error:
+                    error_code = file_error.response.get('Error', {}).get('Code', 'Unknown')
+                    diagnosis['file_access']['status'] = 'failed'
+                    diagnosis['file_access']['details'].append(f"File access failed: {error_code}")
+                    
+                    if error_code == 'NoSuchKey':
+                        diagnosis['recommendations'].append(f"File '{file_key}' does not exist in bucket.")
+                    elif error_code == 'AccessDenied':
+                        diagnosis['recommendations'].append("Access denied to file. Check IAM permissions for s3:GetObject.")
+            else:
+                diagnosis['file_access']['status'] = 'skipped'
+                diagnosis['file_access']['details'].append("No specific file provided for testing")
+            
+            logger.info("S3 DIAGNOSIS: Completed S3 permissions diagnosis")
+            return diagnosis
+            
+        except Exception as e:
+            logger.error(f"S3 DIAGNOSIS FAILED: Error during diagnosis: {str(e)}")
+            diagnosis['configuration']['status'] = 'error'
+            diagnosis['configuration']['details'].append(f"Diagnosis error: {str(e)}")
+            diagnosis['recommendations'].append("Unexpected error during diagnosis. Check logs for details.")
+            return diagnosis
 
     def create_invoice_batch_zip(self, invoice_list, zip_filename):
         """

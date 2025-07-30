@@ -7,7 +7,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.utils import formataddr
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request, current_app, redirect
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import User, Job, JobAssignment, AgentAvailability, Notification, Invoice, InvoiceJob, db
 from src.utils.s3_client import s3_client
@@ -1013,13 +1013,12 @@ def download_agent_invoice(invoice_id):
         
         current_app.logger.info("STEP 5 SUCCESS: S3 client is configured")
         
-        # Step 5: Try to find existing PDF in S3
+        # Step 5: Try to find existing PDF in S3 using the improved method
         current_app.logger.info("STEP 6: Checking for existing PDF in S3")
-        s3_file_key = f"invoices/{agent.id}/{invoice.invoice_number}.pdf"
-        current_app.logger.info(f"STEP 6: Looking for S3 file key: {s3_file_key}")
         
-        download_result = s3_client.get_secure_document_url(
-            s3_file_key,
+        download_result = s3_client.generate_invoice_download_url(
+            agent.id,
+            invoice.invoice_number,
             expiration=3600  # 1 hour
         )
         
@@ -1027,10 +1026,11 @@ def download_agent_invoice(invoice_id):
             current_app.logger.info(f"STEP 6 SUCCESS: Found existing PDF in S3 for invoice {invoice.invoice_number}")
             current_app.logger.info(f"Agent {agent.email} downloaded existing invoice {invoice.invoice_number}")
             return jsonify({
-                'download_url': download_result['url'],
+                'download_url': download_result['download_url'],
                 'expires_in': download_result['expires_in'],
-                'invoice_number': invoice.invoice_number,
-                'filename': f"{invoice.invoice_number}.pdf"
+                'invoice_number': download_result['invoice_number'],
+                'filename': download_result['filename'],
+                'file_size': download_result.get('file_size', 'Unknown')
             }), 200
         
         current_app.logger.info(f"STEP 6: PDF not found in S3 ({download_result.get('error', 'Unknown error')}), will generate on-demand")
@@ -1104,10 +1104,11 @@ def download_agent_invoice(invoice_id):
             pdf_path, s3_file_key = pdf_result
             current_app.logger.info(f"STEP 9: PDF uploaded to S3 with key: {s3_file_key}")
             
-            # Generate download URL for the newly created PDF
+            # Generate download URL for the newly created PDF using the improved method
             current_app.logger.info("STEP 10: Generating download URL for new PDF")
-            download_result = s3_client.get_secure_document_url(
-                s3_file_key,
+            download_result = s3_client.generate_invoice_download_url(
+                agent.id,
+                invoice.invoice_number,
                 expiration=3600
             )
             
@@ -1115,14 +1116,15 @@ def download_agent_invoice(invoice_id):
                 current_app.logger.info(f"STEP 10 SUCCESS: Download URL generated for invoice {invoice.invoice_number}")
                 current_app.logger.info(f"Agent {agent.email} downloaded newly generated invoice {invoice.invoice_number}")
                 return jsonify({
-                    'download_url': download_result['url'],
+                    'download_url': download_result['download_url'],
                     'expires_in': download_result['expires_in'],
-                    'invoice_number': invoice.invoice_number,
-                    'filename': f"{invoice.invoice_number}.pdf"
+                    'invoice_number': download_result['invoice_number'],
+                    'filename': download_result['filename'],
+                    'file_size': download_result.get('file_size', 'Unknown')
                 }), 200
             else:
                 current_app.logger.error(f"STEP 10 FAILED: Failed to generate download URL - {download_result.get('error', 'Unknown error')}")
-                return jsonify({'error': 'Failed to generate download URL'}), 500
+                return jsonify({'error': 'Failed to generate download URL', 'details': download_result.get('error')}), 500
         else:
             current_app.logger.error(f"STEP 9 FAILED: PDF generation returned unexpected result type: {type(pdf_result)}")
             current_app.logger.error(f"STEP 9 FAILED: PDF result value: {pdf_result}")
@@ -1133,3 +1135,94 @@ def download_agent_invoice(invoice_id):
         current_app.logger.error(f"Error type: {type(e).__name__}")
         current_app.logger.error(f"Full traceback: {traceback.format_exc()}")
         return jsonify({'error': 'Download failed - internal server error'}), 500
+
+@agent_bp.route('/agent/invoices/<int:invoice_id>/download-direct', methods=['GET'])
+@jwt_required()
+def download_invoice_direct(invoice_id):
+    """Direct download route that redirects to signed S3 URL for immediate download."""
+    import traceback
+    
+    try:
+        current_app.logger.info(f"DIRECT DOWNLOAD: Starting direct download for invoice {invoice_id}")
+        
+        # Step 1: Verify user permissions
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        
+        if not agent:
+            current_app.logger.error(f"DIRECT DOWNLOAD FAILED: User not found for ID {current_user_id}")
+            return jsonify({'error': 'User not found'}), 404
+            
+        if agent.role != 'agent':
+            current_app.logger.error(f"DIRECT DOWNLOAD FAILED: Access denied - user role is {agent.role}")
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Step 2: Get the invoice and verify ownership
+        invoice = Invoice.query.filter_by(id=invoice_id, agent_id=agent.id).first()
+        
+        if not invoice:
+            current_app.logger.error(f"DIRECT DOWNLOAD FAILED: Invoice {invoice_id} not found for agent {agent.id}")
+            return jsonify({'error': 'Invoice not found'}), 404
+        
+        # Step 3: Check if invoice is ready for download
+        if invoice.status == 'draft':
+            current_app.logger.error(f"DIRECT DOWNLOAD FAILED: Invoice {invoice.invoice_number} is in draft status")
+            return jsonify({'error': 'Cannot download draft invoices'}), 400
+        
+        # Step 4: Generate signed URL and redirect
+        current_app.logger.info(f"DIRECT DOWNLOAD: Generating signed URL for invoice {invoice.invoice_number}")
+        
+        download_result = s3_client.generate_invoice_download_url(
+            agent.id,
+            invoice.invoice_number,
+            expiration=300  # 5 minutes for direct download
+        )
+        
+        if download_result['success']:
+            current_app.logger.info(f"DIRECT DOWNLOAD SUCCESS: Redirecting to signed URL for invoice {invoice.invoice_number}")
+            # Direct redirect to S3 signed URL for immediate download
+            return redirect(download_result['download_url'])
+        else:
+            current_app.logger.error(f"DIRECT DOWNLOAD FAILED: Could not generate signed URL - {download_result.get('error')}")
+            return jsonify({
+                'error': 'Download temporarily unavailable', 
+                'details': download_result.get('error', 'Could not generate download link')
+            }), 503
+            
+    except Exception as e:
+        current_app.logger.error(f"DIRECT DOWNLOAD FAILED: Unexpected error for invoice {invoice_id}: {str(e)}")
+        current_app.logger.error(f"DIRECT DOWNLOAD FAILED: Traceback: {traceback.format_exc()}")
+        return jsonify({'error': 'Download failed'}), 500
+
+@agent_bp.route('/agent/s3-diagnosis/<int:invoice_id>', methods=['GET'])
+@jwt_required()
+def diagnose_s3_invoice(invoice_id):
+    """Diagnose S3 permissions for a specific invoice (admin/debugging endpoint)."""
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get the invoice and verify ownership
+        invoice = Invoice.query.filter_by(id=invoice_id, agent_id=agent.id).first()
+        
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+        
+        # Run S3 diagnosis for this specific invoice file
+        file_key = f"invoices/{agent.id}/{invoice.invoice_number}.pdf"
+        diagnosis = s3_client.diagnose_s3_permissions(file_key)
+        
+        return jsonify({
+            'invoice_id': invoice_id,
+            'invoice_number': invoice.invoice_number,
+            'agent_id': agent.id,
+            'file_key': file_key,
+            'diagnosis': diagnosis
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"S3 diagnosis failed for invoice {invoice_id}: {str(e)}")
+        return jsonify({'error': 'Diagnosis failed', 'details': str(e)}), 500
