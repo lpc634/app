@@ -296,15 +296,15 @@ def delete_agent_document(document_type):
 # --- PDF AND EMAIL HELPER FUNCTIONS ---
 
 def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_to_s3=True):
-    """Generates a PDF invoice and uploads to S3 for in-app access."""
+    """Generates a PDF invoice with exact V3 Services template layout and uploads to S3."""
     import traceback
     
     try:
-        current_app.logger.info(f"PDF GENERATION START: Creating PDF for invoice {invoice_number}")
+        current_app.logger.info(f"PDF GENERATION START: Creating V3 Services invoice PDF for {invoice_number}")
         current_app.logger.info(f"PDF GENERATION: Agent ID {agent.id}, jobs count: {len(jobs_data)}, total: {total_amount}")
         
         # This function generates the PDF locally first, then uploads to S3
-        invoice_folder = os.path.join('/tmp', 'invoices') # Use the /tmp directory
+        invoice_folder = os.path.join('/tmp', 'invoices')
         os.makedirs(invoice_folder, exist_ok=True)
         file_path = os.path.join(invoice_folder, f"{invoice_number}.pdf")
         
@@ -312,23 +312,37 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         
         c = canvas.Canvas(file_path, pagesize=letter)
         width, height = letter
-
-        # --- Header ---
-        current_app.logger.info("PDF GENERATION: Drawing header")
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(inch, height - inch, "V3 Services Ltd.")
-        c.setFont("Helvetica", 12)
-        c.drawString(inch, height - inch - 20, "123 Innovation Drive, Tech Park, London, EC1V 2NX")
         
-        c.setFont("Helvetica-Bold", 20)
-        c.drawRightString(width - inch, height - inch, "INVOICE")
+        # Starting position from top
+        y_pos = height - 0.75 * inch
 
-        # --- Agent and Invoice Details ---
-        current_app.logger.info("PDF GENERATION: Drawing agent details")
-        y_pos = height - 2 * inch
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(inch, y_pos, "Bill To:")
+        # ===== EXACT V3 SERVICES HEADER FORMAT =====
+        current_app.logger.info("PDF GENERATION: Drawing V3 Services header")
+        
+        # "Invoice to:"
         c.setFont("Helvetica", 12)
+        c.drawString(0.75 * inch, y_pos, "Invoice to:")
+        y_pos -= 15
+        
+        # "V3 Services Ltd"
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(0.75 * inch, y_pos, "V3 Services Ltd")
+        y_pos -= 15
+        
+        # V3 Services Address
+        c.setFont("Helvetica", 12)
+        c.drawString(0.75 * inch, y_pos, "117 Dartford Road, Dartford, England, DA1 3EN")
+        y_pos -= 30
+        
+        # Date and Invoice Number
+        invoice_date = date.today().strftime('%d/%m/%Y')
+        c.drawString(0.75 * inch, y_pos, f"Date: {invoice_date}")
+        y_pos -= 15
+        c.drawString(0.75 * inch, y_pos, f"Invoice: {invoice_number}")
+        y_pos -= 30
+        
+        # ===== RE: AGENT DETAILS =====
+        current_app.logger.info("PDF GENERATION: Drawing agent details")
         
         # Handle potential None values in agent data
         first_name = agent.first_name or ""
@@ -338,47 +352,66 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         city = agent.city or "City not provided"
         postcode = agent.postcode or "Postcode not provided"
         
-        c.drawString(inch, y_pos - 20, f"{first_name} {last_name}")
-        c.drawString(inch, y_pos - 35, address_line_1)
+        # RE: section
+        c.drawString(0.75 * inch, y_pos, f"RE: {first_name} {last_name}")
+        y_pos -= 15
+        c.drawString(0.75 * inch + 0.3 * inch, y_pos, address_line_1)
+        y_pos -= 15
         if address_line_2:
-            c.drawString(inch, y_pos - 50, address_line_2)
-        c.drawString(inch, y_pos - 65, f"{city}, {postcode}")
-
-        c.setFont("Helvetica-Bold", 12)
-        c.drawRightString(width - inch, y_pos, f"Invoice #: {invoice_number}")
-        c.setFont("Helvetica", 12)
-        c.drawRightString(width - inch, y_pos - 15, f"Date: {date.today().strftime('%d/%m/%Y')}")
-        c.drawRightString(width - inch, y_pos - 30, f"Due: {(date.today() + timedelta(days=30)).strftime('%d/%m/%Y')}")
-
-        # --- Table Header ---
-        current_app.logger.info("PDF GENERATION: Drawing table header")
-        y_pos -= 100
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(inch, y_pos, "Job Date")
-        c.drawString(inch * 2.5, y_pos, "Job Description")
-        c.drawString(inch * 5.5, y_pos, "Hours")
-        c.drawString(inch * 6.5, y_pos, "Rate")
-        c.drawRightString(width - inch, y_pos, "Amount")
-        c.line(inch, y_pos - 10, width - inch, y_pos - 10)
-
-        # --- Table Rows ---
-        current_app.logger.info("PDF GENERATION: Drawing table rows")
-        y_pos -= 30
-        c.setFont("Helvetica", 10)
+            c.drawString(0.75 * inch + 0.3 * inch, y_pos, address_line_2)
+            y_pos -= 15
+        c.drawString(0.75 * inch + 0.3 * inch, y_pos, f"{city}")
+        y_pos -= 15
+        c.drawString(0.75 * inch + 0.3 * inch, y_pos, postcode)
+        y_pos -= 40
         
+        # ===== INVOICE TITLE =====
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(0.75 * inch, y_pos, "INVOICE")
+        y_pos -= 40
+        
+        # ===== JOB DETAILS SECTION =====
+        current_app.logger.info("PDF GENERATION: Drawing job details")
+        
+        c.setFont("Helvetica", 12)
+        
+        # Process each job - group by location for cleaner display
         for i, job_item in enumerate(jobs_data):
-            current_app.logger.info(f"PDF GENERATION: Processing job {i+1}/{len(jobs_data)}")
-            
             job = job_item['job']
-            hours = job_item.get('hours', 0)
             
-            # Handle rate from job_item first, fallback to job.hourly_rate
+            # Job address above the table
+            job_address = job.address or "Job address not provided"
+            c.drawString(0.75 * inch, y_pos, job_address)
+            y_pos -= 15
+            
+            # Job description
+            job_title = job.title or "Job description not provided"
+            c.drawString(0.75 * inch, y_pos, job_title)
+            y_pos -= 30
+            
+            # ===== TABLE HEADER =====
+            c.setFont("Helvetica-Bold", 10)
+            header_y = y_pos
+            
+            # Table headers with exact spacing
+            c.drawString(0.75 * inch, header_y, "Date/Time")
+            c.drawString(2.0 * inch, header_y, "Hours")
+            c.drawString(2.8 * inch, header_y, "Rate PH")
+            c.drawString(3.6 * inch, header_y, "Ops")
+            c.drawRightString(width - 0.75 * inch, header_y, "Total")
+            
+            # Underline the headers
+            c.line(0.75 * inch, header_y - 5, width - 0.75 * inch, header_y - 5)
+            y_pos -= 25
+            
+            # ===== TABLE ROW =====
+            c.setFont("Helvetica", 10)
+            
+            hours = job_item.get('hours', 0)
             if 'rate' in job_item:
                 rate_value = job_item['rate']
             else:
                 rate_value = job.hourly_rate
-            
-            current_app.logger.info(f"PDF GENERATION: Job {i+1} - hours: {hours} (type: {type(hours)}), rate: {rate_value} (type: {type(rate_value)})")
             
             try:
                 # Convert to consistent types for calculations
@@ -386,73 +419,104 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
                 rate_decimal = Decimal(str(rate_value))
                 amount_decimal = hours_decimal * rate_decimal
                 
-                current_app.logger.info(f"PDF GENERATION: Job {i+1} - Converted to Decimal - hours: {hours_decimal}, rate: {rate_decimal}, amount: {amount_decimal}")
-                
                 # Format for display
                 hours_str = f"{float(hours_decimal):.1f}"
                 rate_str = f"£{float(rate_decimal):.2f}"
                 amount_str = f"£{float(amount_decimal):.2f}"
                 
-                # Handle job date safely
-                job_date = job.arrival_time.strftime('%d/%m/%Y') if job.arrival_time else "Date not set"
-                job_title = job.title or "Job title not provided"
+                # Handle job date/time
+                if job.arrival_time:
+                    job_datetime = job.arrival_time.strftime('%d/%m/%Y')
+                    if hasattr(job, 'start_time') and job.start_time:
+                        job_datetime += f" {job.start_time.strftime('%H:%M')}"
+                else:
+                    job_datetime = "Date not set"
                 
-                c.drawString(inch, y_pos, job_date)
-                c.drawString(inch * 2.5, y_pos, job_title)
-                c.drawString(inch * 5.5, y_pos, hours_str)
-                c.drawString(inch * 6.5, y_pos, rate_str)
-                c.drawRightString(width - inch, y_pos, amount_str)
+                # Draw table row
+                c.drawString(0.75 * inch, y_pos, job_datetime)
+                c.drawString(2.0 * inch, y_pos, hours_str)
+                c.drawString(2.8 * inch, y_pos, rate_str)
+                c.drawString(3.6 * inch, y_pos, "1")  # Ops column always shows "1"
+                c.drawRightString(width - 0.75 * inch, y_pos, amount_str)
                 
-                current_app.logger.info(f"PDF GENERATION: Job {i+1} - Successfully drawn to PDF")
                 y_pos -= 20
                 
             except (ValueError, TypeError, InvalidOperation) as calc_error:
                 current_app.logger.error(f"PDF GENERATION ERROR: Failed to process job {i+1} - {str(calc_error)}")
-                current_app.logger.error(f"PDF GENERATION ERROR: Job {i+1} data - hours: {hours}, rate: {rate_value}")
                 raise Exception(f"Invalid data in job {i+1}: hours={hours}, rate={rate_value}")
-
-        # --- Total ---
-        current_app.logger.info("PDF GENERATION: Drawing total")
-        y_pos -= 20
-        c.line(inch * 5, y_pos, width - inch, y_pos)
-        c.setFont("Helvetica-Bold", 12)
-        c.drawRightString(width - inch - 80, y_pos + 10, "Total:")
         
+        # ===== NET TOTAL SECTION =====
+        current_app.logger.info("PDF GENERATION: Drawing NET TOTAL")
+        y_pos -= 20
+        
+        # NET TOTAL row
+        c.setFont("Helvetica-Bold", 12)
         try:
             total_decimal = Decimal(str(total_amount))
             total_str = f"£{float(total_decimal):.2f}"
-            c.drawRightString(width - inch, y_pos + 10, total_str)
-            current_app.logger.info(f"PDF GENERATION: Total drawn - {total_str}")
+            
+            # Right-aligned NET TOTAL
+            c.drawRightString(width - 2.0 * inch, y_pos, "NET TOTAL")
+            c.drawRightString(width - 0.75 * inch, y_pos, total_str)
+            c.drawRightString(width - 0.75 * inch, y_pos - 15, total_str)  # Duplicate as per format
+            
+            y_pos -= 50
+            
         except (ValueError, TypeError, InvalidOperation) as total_error:
             current_app.logger.error(f"PDF GENERATION ERROR: Failed to format total amount - {str(total_error)}")
-            current_app.logger.error(f"PDF GENERATION ERROR: Total amount value: {total_amount} (type: {type(total_amount)})")
             raise Exception(f"Invalid total amount: {total_amount}")
-
-        # --- Footer ---
-        current_app.logger.info("PDF GENERATION: Drawing footer")
-        c.setFont("Helvetica-Oblique", 9)
-        c.drawString(inch, inch, "Thank you for your service. Please direct any questions to accounts@v3-services.com.")
+        
+        # ===== PAYMENT SECTION =====
+        current_app.logger.info("PDF GENERATION: Drawing payment section")
+        
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(0.75 * inch, y_pos, "BY BACS ONLY to:")
+        y_pos -= 20
+        
+        c.setFont("Helvetica", 12)
+        
+        # Bank details
+        bank_name = agent.bank_name or "Bank not provided"
+        account_number = agent.bank_account_number or "Account not provided"
+        sort_code = agent.bank_sort_code or "Sort code not provided"
+        utr_number = agent.utr_number or "UTR not provided"
+        
+        c.drawString(0.75 * inch, y_pos, f"{bank_name}: {first_name} {last_name}")
+        y_pos -= 15
+        c.drawString(0.75 * inch, y_pos, f"Account No: {account_number} / Sort Code: {sort_code}")
+        y_pos -= 15
+        c.drawString(0.75 * inch, y_pos, f"UTR: {utr_number}")
+        y_pos -= 40
+        
+        # ===== REQUIRED LEGAL TEXT =====
+        current_app.logger.info("PDF GENERATION: Drawing legal text")
+        
+        c.setFont("Helvetica", 10)
+        legal_text_1 = "Payment to be made within 14 days of issue. All invoice queries to be made within 7 days of issue."
+        legal_text_2 = "I am responsible for any Tax or National Insurance due on all invoices."
+        
+        c.drawString(0.75 * inch, y_pos, legal_text_1)
+        y_pos -= 15
+        c.drawString(0.75 * inch, y_pos, legal_text_2)
         
         current_app.logger.info("PDF GENERATION: Saving PDF")
         c.save()
         
-        current_app.logger.info(f"PDF GENERATION SUCCESS: PDF saved to {file_path}")
+        current_app.logger.info(f"PDF GENERATION SUCCESS: V3 Services invoice PDF saved to {file_path}")
         
         # Always upload to S3 for in-app access
         if upload_to_s3:
             current_app.logger.info("PDF GENERATION: Starting S3 upload")
             try:
-                # Upload PDF to S3 with proper organization: /invoices/{agent_id}/{invoice_number}.pdf
                 upload_result = s3_client.upload_invoice_pdf(
                     agent_id=agent.id,
                     invoice_number=invoice_number,
-                    pdf_data=file_path,  # Pass file path directly
+                    pdf_data=file_path,
                     filename=f"{invoice_number}.pdf"
                 )
                 
                 if upload_result.get('success'):
                     current_app.logger.info(f"PDF GENERATION: S3 upload successful - {upload_result.get('file_key')}")
-                    # Clean up local file after successful upload
                     try:
                         os.remove(file_path)
                         current_app.logger.info(f"PDF GENERATION: Local file cleaned up - {file_path}")
@@ -461,11 +525,11 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
                     return file_path, upload_result.get('file_key')
                 else:
                     current_app.logger.error(f"PDF GENERATION: S3 upload failed - {upload_result.get('error')}")
-                    return file_path  # Return local path as fallback
+                    return file_path
             except Exception as s3_error:
                 current_app.logger.error(f"PDF GENERATION: S3 upload error - {str(s3_error)}")
                 current_app.logger.error(f"PDF GENERATION: S3 upload traceback: {traceback.format_exc()}")
-                return file_path  # Return local path as fallback
+                return file_path
         
         current_app.logger.info(f"PDF GENERATION SUCCESS: Returning local path - {file_path}")
         return file_path
