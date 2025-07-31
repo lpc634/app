@@ -90,10 +90,108 @@ const CreateJob = () => {
                 // Initialize Leaflet map
                 mapInstance.current = window.L.map(mapRef.current).setView([mapCenter.lat, mapCenter.lng], 18);
                 
-                // Add satellite tiles (Esri World Imagery)
-                window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-                }).addTo(mapInstance.current);
+                // Define tile layers
+                const satelliteLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                    id: 'satellite'
+                });
+                
+                const streetLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom',
+                    id: 'street'
+                });
+                
+                const labelsLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Labels &copy; Esri',
+                    id: 'labels'
+                });
+                
+                // Store layer references for control
+                mapInstance.current._satelliteLayer = satelliteLayer;
+                mapInstance.current._streetLayer = streetLayer;
+                mapInstance.current._labelsLayer = labelsLayer;
+                mapInstance.current._currentView = 'satellite';
+                
+                // Add initial satellite layer
+                satelliteLayer.addTo(mapInstance.current);
+                labelsLayer.addTo(mapInstance.current);
+                
+                // Create custom map view control
+                const MapViewControl = window.L.Control.extend({
+                    onAdd: function(map) {
+                        const container = window.L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+                        container.style.cssText = `
+                            background: var(--v3-bg-card);
+                            border: 1px solid var(--v3-border);
+                            border-radius: 8px;
+                            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                            overflow: hidden;
+                        `;
+                        
+                        const button = window.L.DomUtil.create('button', '', container);
+                        button.innerHTML = 'Street';
+                        button.style.cssText = `
+                            background: transparent;
+                            border: none;
+                            padding: 8px 12px;
+                            color: var(--v3-text-lightest);
+                            font-size: 12px;
+                            font-weight: 500;
+                            cursor: pointer;
+                            transition: all 0.2s ease;
+                            min-width: 60px;
+                            min-height: 44px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        `;
+                        
+                        button.onmouseover = function() {
+                            this.style.backgroundColor = 'var(--v3-orange)';
+                            this.style.color = 'white';
+                        };
+                        
+                        button.onmouseout = function() {
+                            this.style.backgroundColor = 'transparent';
+                            this.style.color = 'var(--v3-text-lightest)';
+                        };
+                        
+                        button.onclick = function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            if (map._currentView === 'satellite') {
+                                // Switch to street view
+                                map.removeLayer(map._satelliteLayer);
+                                map.removeLayer(map._labelsLayer);
+                                map._streetLayer.addTo(map);
+                                map._currentView = 'street';
+                                button.innerHTML = 'Satellite';
+                            } else {
+                                // Switch to satellite view
+                                map.removeLayer(map._streetLayer);
+                                map._satelliteLayer.addTo(map);
+                                map._labelsLayer.addTo(map);
+                                map._currentView = 'satellite';
+                                button.innerHTML = 'Street';
+                            }
+                        };
+                        
+                        // Prevent map interactions when clicking control
+                        window.L.DomEvent.disableClickPropagation(container);
+                        window.L.DomEvent.disableScrollPropagation(container);
+                        
+                        return container;
+                    },
+                    
+                    onRemove: function(map) {
+                        // Cleanup if needed
+                    }
+                });
+                
+                // Add control to map
+                const mapViewControl = new MapViewControl({ position: 'topright' });
+                mapViewControl.addTo(mapInstance.current);
 
                 // Add initial marker if location is selected
                 if (selectedLocation) {
@@ -209,8 +307,8 @@ const CreateJob = () => {
                         
                         <div className="absolute bottom-4 right-4 bg-v3-bg-card border border-v3-border rounded-lg p-3 max-w-xs">
                             <p className="text-xs text-v3-text-muted">
-                                Use satellite view to identify the correct entrance. 
-                                Agents will get a Google Maps link to navigate here.
+                                Switch between satellite and street views using the control above. 
+                                Click to mark the exact entrance location.
                             </p>
                         </div>
                     </div>
