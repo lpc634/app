@@ -20,13 +20,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 
-// Simple image URL function - use Flask image proxy route
-const getImageUrl = (documentPath) => {
-  if (!documentPath) return null;
-  // Use the simple Flask proxy route that returns actual images
-  console.log('Creating image URL for document path:', documentPath);
-  return `/api/images/${documentPath}`;
-};
+// Remove old getImageUrl function - we'll handle image URLs with proper API calls
 
 const AgentVerification = () => {
   const { apiCall } = useAuth();
@@ -34,6 +28,8 @@ const AgentVerification = () => {
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [verifying, setVerifying] = useState(false);
+  const [imageUrls, setImageUrls] = useState({});
+  const [loadingImages, setLoadingImages] = useState({});
   const [documentViewer, setDocumentViewer] = useState({
     isOpen: false,
     document: null,
@@ -47,6 +43,17 @@ const AgentVerification = () => {
   useEffect(() => {
     fetchPendingAgents();
   }, []);
+
+  useEffect(() => {
+    if (selectedAgent) {
+      if (selectedAgent.id_document_url) {
+        fetchImageUrl(selectedAgent.id_document_url, 'id');
+      }
+      if (selectedAgent.sia_document_url) {
+        fetchImageUrl(selectedAgent.sia_document_url, 'sia');
+      }
+    }
+  }, [selectedAgent]);
 
   const fetchPendingAgents = async () => {
     try {
@@ -83,10 +90,35 @@ const AgentVerification = () => {
     }
   };
 
+  const fetchImageUrl = async (documentUrl, documentType) => {
+    if (!documentUrl || imageUrls[documentUrl]) return;
+    
+    setLoadingImages(prev => ({ ...prev, [documentUrl]: true }));
+    
+    try {
+      // Encode the path with double underscores for the admin preview endpoint
+      const encodedPath = documentUrl.replace(/\//g, '__');
+      const response = await apiCall(`/admin/documents/${encodedPath}/preview`);
+      if (response.preview_url) {
+        setImageUrls(prev => ({ ...prev, [documentUrl]: response.preview_url }));
+        console.log(`Fetched image URL for ${documentType}:`, response.preview_url);
+      }
+    } catch (error) {
+      console.error('Failed to get image URL:', error);
+    } finally {
+      setLoadingImages(prev => ({ ...prev, [documentUrl]: false }));
+    }
+  };
+
   const openDocumentViewer = (documentUrl, title) => {
     console.log('Opening document viewer for:', documentUrl);
-    const imageUrl = getImageUrl(documentUrl);
-    console.log('Generated image URL:', imageUrl);
+    const imageUrl = imageUrls[documentUrl];
+    console.log('Using fetched image URL:', imageUrl);
+    
+    if (!imageUrl) {
+      console.error('No image URL available for:', documentUrl);
+      return;
+    }
     
     setDocumentViewer({
       isOpen: true,
@@ -278,6 +310,37 @@ const AgentVerification = () => {
                           <CheckCircle className="w-4 h-4 text-green-400" />
                           <span>Document uploaded and ready for review</span>
                         </div>
+                        
+                        {/* Document Preview */}
+                        <div className="mt-3 mb-3">
+                          {loadingImages[selectedAgent.id_document_url] ? (
+                            <div className="flex items-center justify-center h-32 bg-v3-bg-card rounded border border-v3-border">
+                              <div className="text-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-2"></div>
+                                <span className="text-sm text-v3-text-muted">Loading preview...</span>
+                              </div>
+                            </div>
+                          ) : imageUrls[selectedAgent.id_document_url] ? (
+                            <img 
+                              src={imageUrls[selectedAgent.id_document_url]}
+                              alt="ID Document Preview" 
+                              className="w-full h-32 object-cover rounded border border-v3-border cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => openDocumentViewer(selectedAgent.id_document_url, `ID Document - ${selectedAgent.first_name} ${selectedAgent.last_name}`)}
+                              onError={(e) => {
+                                console.error('ID document preview failed to load:', e.target.src);
+                              }}
+                              onLoad={() => console.log('ID document preview loaded successfully')}
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-32 bg-v3-bg-card rounded border border-v3-border">
+                              <div className="text-center text-v3-text-muted">
+                                <FileText className="w-8 h-8 mx-auto mb-2 text-v3-text-muted" />
+                                <span className="text-sm">Preview unavailable</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
                         <p className="text-xs text-v3-text-muted break-all">
                           Path: {selectedAgent.id_document_url}
                         </p>
@@ -313,6 +376,37 @@ const AgentVerification = () => {
                           <CheckCircle className="w-4 h-4 text-green-400" />
                           <span>SIA badge document uploaded and ready for review</span>
                         </div>
+                        
+                        {/* Document Preview */}
+                        <div className="mt-3 mb-3">
+                          {loadingImages[selectedAgent.sia_document_url] ? (
+                            <div className="flex items-center justify-center h-32 bg-v3-bg-card rounded border border-v3-border">
+                              <div className="text-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-2"></div>
+                                <span className="text-sm text-v3-text-muted">Loading preview...</span>
+                              </div>
+                            </div>
+                          ) : imageUrls[selectedAgent.sia_document_url] ? (
+                            <img 
+                              src={imageUrls[selectedAgent.sia_document_url]}
+                              alt="SIA Document Preview" 
+                              className="w-full h-32 object-cover rounded border border-v3-border cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => openDocumentViewer(selectedAgent.sia_document_url, `SIA Badge - ${selectedAgent.first_name} ${selectedAgent.last_name}`)}
+                              onError={(e) => {
+                                console.error('SIA document preview failed to load:', e.target.src);
+                              }}
+                              onLoad={() => console.log('SIA document preview loaded successfully')}
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-32 bg-v3-bg-card rounded border border-v3-border">
+                              <div className="text-center text-v3-text-muted">
+                                <FileText className="w-8 h-8 mx-auto mb-2 text-v3-text-muted" />
+                                <span className="text-sm">Preview unavailable</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
                         <p className="text-xs text-v3-text-muted break-all">
                           Path: {selectedAgent.sia_document_url}
                         </p>
