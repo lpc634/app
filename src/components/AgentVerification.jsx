@@ -264,13 +264,10 @@ const AgentVerification = () => {
                           <FileText className="w-4 h-4 text-v3-orange" />
                           ID Document
                         </h5>
-                        <button
-                          onClick={() => openDocumentViewer(selectedAgent.id_document_url, `ID Document - ${selectedAgent.first_name} ${selectedAgent.last_name}`)}
-                          className="flex items-center gap-2 px-3 py-1 bg-v3-orange hover:bg-v3-orange-dark text-white rounded-md text-sm transition-colors"
-                        >
-                          <Eye className="w-4 h-4" />
-                          View Document
-                        </button>
+                        {/* No View Document button for ID documents - GDPR compliance */}
+                        <div className="text-xs text-v3-text-muted bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded px-2 py-1">
+                          ⚠️ Auto-deleted after verification (GDPR)
+                        </div>
                       </div>
                       <div className="bg-v3-bg-darkest rounded-lg p-3 border border-v3-border">
                         <div className="flex items-center gap-2 text-sm text-v3-text-muted mb-2">
@@ -279,18 +276,25 @@ const AgentVerification = () => {
                         </div>
                         
                         {/* Document Preview */}
-                        <div className="mt-3 mb-3">
+                        <div className="mt-3 mb-3 relative">
                           <img 
                             src={getImageUrl(selectedAgent.id_document_url)}
                             alt="ID Document Preview" 
-                            className="w-full h-32 object-cover rounded border border-v3-border cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => openDocumentViewer(selectedAgent.id_document_url, `ID Document - ${selectedAgent.first_name} ${selectedAgent.last_name}`)}
+                            className="w-full h-32 object-cover rounded border border-v3-border opacity-75"
                             onError={(e) => {
                               console.error('ID document preview failed to load:', e.target.src);
                               console.error('Document path:', selectedAgent.id_document_url);
                             }}
                             onLoad={() => console.log('ID document preview loaded successfully')}
                           />
+                          {/* GDPR Compliance Notice */}
+                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded">
+                            <div className="text-center text-white p-2">
+                              <FileText className="w-6 h-6 mx-auto mb-1 opacity-75" />
+                              <p className="text-xs font-medium">Preview Only</p>
+                              <p className="text-xs opacity-75">Deleted after verification</p>
+                            </div>
+                          </div>
                         </div>
                         
                         <p className="text-xs text-v3-text-muted break-all">

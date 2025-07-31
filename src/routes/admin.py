@@ -121,13 +121,25 @@ def verify_agent(agent_id):
         # Update verification status
         if action == 'approve':
             agent.verification_status = 'verified'
-            message = f"Agent {agent.first_name} {agent.last_name} has been verified"
+            
+            # GDPR COMPLIANCE: Delete ID document after verification
+            # ID documents are only needed for identity verification and should be deleted
+            # once the agent is verified to comply with GDPR data minimization principles
+            if agent.id_document_url:
+                current_app.logger.info(f"Deleting ID document for verified agent {agent.email} (GDPR compliance)")
+                agent.id_document_url = None  # Remove reference to ID document
+                
+            message = f"Agent {agent.first_name} {agent.last_name} has been verified (ID document deleted for GDPR compliance)"
         else:
             agent.verification_status = 'rejected'
-            # Optionally clear document URLs on rejection
-            # agent.id_document_url = None
-            # agent.sia_document_url = None
-            message = f"Agent {agent.first_name} {agent.last_name} has been rejected"
+            
+            # Delete both documents on rejection for data protection
+            if agent.id_document_url or agent.sia_document_url:
+                current_app.logger.info(f"Deleting all documents for rejected agent {agent.email} (data protection)")
+                agent.id_document_url = None
+                agent.sia_document_url = None
+                
+            message = f"Agent {agent.first_name} {agent.last_name} has been rejected (documents deleted)"
         
         db.session.commit()
         
