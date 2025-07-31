@@ -20,66 +20,12 @@ import {
   ArrowRight
 } from 'lucide-react';
 
-// Enhanced document preview URL handler with fallback options
-const getDocumentPreviewUrl = async (documentUrl) => {
-  if (!documentUrl) return null;
-  
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No authentication token available');
-    }
-    
-    // Multiple URL construction attempts for different document formats
-    const urlAttempts = [
-      // Original path as-is with double underscore encoding
-      documentUrl.replace(/\//g, '__'),
-      // Try with different encoding patterns
-      encodeURIComponent(documentUrl).replace(/%2F/g, '__'),
-      // Legacy format handling
-      documentUrl.startsWith('user_') ? documentUrl : `user_${documentUrl}`,
-      // New format handling
-      documentUrl.includes('agents__') ? documentUrl : `agents__${documentUrl}`
-    ];
-    
-    for (const fileKey of urlAttempts) {
-      try {
-        console.log(`Attempting to load document with key: ${fileKey}`);
-        
-        const response = await fetch(`/api/admin/documents/${fileKey}/preview`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log(`Successfully loaded document with key: ${fileKey}`);
-          return {
-            url: data.preview_url,
-            fileKey,
-            isLegacy: data.is_legacy || false
-          };
-        } else if (response.status === 404) {
-          console.log(`Document not found with key: ${fileKey}, trying next format...`);
-          continue;
-        } else {
-          const errorData = await response.json().catch(() => ({}));
-          console.error(`Error loading document with key ${fileKey}:`, response.status, errorData);
-        }
-      } catch (error) {
-        console.error(`Network error with key ${fileKey}:`, error);
-        continue;
-      }
-    }
-    
-    throw new Error('Document not found in any supported format');
-    
-  } catch (error) {
-    console.error('Error getting document preview URL:', error);
-    throw error;
-  }
+// Simple image URL function - use Flask proxy route
+const getImageUrl = (documentPath) => {
+  if (!documentPath) return null;
+  // Just return the path to use the existing Flask proxy
+  console.log('Creating image URL for document path:', documentPath);
+  return `/api/images/${documentPath}`;
 };
 
 const AgentVerification = () => {
@@ -137,37 +83,23 @@ const AgentVerification = () => {
     }
   };
 
-  const openDocumentViewer = async (documentUrl, title) => {
+  const openDocumentViewer = (documentUrl, title) => {
+    console.log('Opening document viewer for:', documentUrl);
+    const imageUrl = getImageUrl(documentUrl);
+    console.log('Generated image URL:', imageUrl);
+    
     setDocumentViewer({
       isOpen: true,
-      document: null,
+      document: {
+        url: imageUrl,
+        originalPath: documentUrl
+      },
       title,
-      loading: true,
+      loading: false,
       error: null,
       zoom: 1,
       isFullscreen: false
     });
-
-    try {
-      const documentData = await getDocumentPreviewUrl(documentUrl);
-      setDocumentViewer(prev => ({
-        ...prev,
-        document: {
-          url: documentData.url,
-          originalPath: documentUrl,
-          fileKey: documentData.fileKey,
-          isLegacy: documentData.isLegacy
-        },
-        loading: false
-      }));
-    } catch (error) {
-      console.error('Error loading document:', error);
-      setDocumentViewer(prev => ({
-        ...prev,
-        loading: false,
-        error: error.message || 'Failed to load document. The file may not be available or the server may be experiencing issues.'
-      }));
-    }
   };
 
   const closeDocumentViewer = () => {
@@ -621,14 +553,14 @@ const AgentVerification = () => {
                           objectFit: 'contain'
                         }}
                         onError={(e) => {
+                          console.error('Image failed to load:', e.target.src);
+                          console.error('Original document path:', documentViewer.document.originalPath);
                           setDocumentViewer(prev => ({
                             ...prev,
                             error: 'Failed to load image. The file may be corrupted, in an unsupported format, or the server may be experiencing issues.'
                           }));
                         }}
-                        onLoad={() => {
-                          console.log('Document image loaded successfully');
-                        }}
+                        onLoad={() => console.log('Image loaded successfully:', documentViewer.document.url)}
                       />
                     </div>
                   </div>

@@ -145,6 +145,7 @@ def serve_uploaded_image(filename):
     Proxy images from the ngrok server for document viewing
     This route fetches images from the ngrok server and serves them through the Flask app
     """
+    print(f"Trying to serve image: {filename}")  # Add logging
     try:
         # The ngrok server URL where documents are stored
         NGROK_URL = "https://1b069dfae07e.ngrok-free.app"
