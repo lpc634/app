@@ -137,8 +137,8 @@ const AdminDocumentReview = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading agent documents...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-v3-orange mx-auto"></div>
+          <p className="mt-4 text-v3-text-muted">Loading agent documents...</p>
         </div>
       </div>
     );
@@ -147,109 +147,97 @@ const AdminDocumentReview = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Document Verification Center</h1>
-        <p className="text-gray-600">Review and manage agent document submissions</p>
+        <h1 className="text-3xl font-bold text-v3-text-lightest mb-2">Document Verification Center</h1>
+        <p className="text-v3-text-muted">Review and manage agent document submissions</p>
       </div>
 
       {error && (
-        <Alert className="mb-6 border-red-200 bg-red-50">
-          <AlertDescription className="text-red-800">{error}</AlertDescription>
-        </Alert>
+        <div className="mb-6 p-4 border border-red-500 border-opacity-30 bg-red-500 bg-opacity-10 rounded-lg">
+          <p className="text-red-400">{error}</p>
+        </div>
       )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Agents</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-              </div>
-              <Users className="h-8 w-8 text-blue-600" />
+        <div className="dashboard-card p-4 text-center">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-v3-text-muted">Total Agents</p>
+              <p className="text-2xl font-bold text-v3-orange">{stats.total}</p>
             </div>
-          </CardContent>
-        </Card>
+            <Users className="h-8 w-8 text-v3-orange" />
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending Review</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
-              </div>
-              <Clock className="h-8 w-8 text-yellow-600" />
+        <div className="dashboard-card p-4 text-center">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-v3-text-muted">Pending Review</p>
+              <p className="text-2xl font-bold text-v3-orange">{stats.pending}</p>
             </div>
-          </CardContent>
-        </Card>
+            <Clock className="h-8 w-8 text-v3-orange" />
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Verified</p>
-                <p className="text-2xl font-bold text-green-600">{stats.verified}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
+        <div className="dashboard-card p-4 text-center">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-v3-text-muted">Verified</p>
+              <p className="text-2xl font-bold text-v3-orange">{stats.verified}</p>
             </div>
-          </CardContent>
-        </Card>
+            <CheckCircle className="h-8 w-8 text-green-400" />
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Rejected</p>
-                <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
-              </div>
-              <XCircle className="h-8 w-8 text-red-600" />
+        <div className="dashboard-card p-4 text-center">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-v3-text-muted">Rejected</p>
+              <p className="text-2xl font-bold text-v3-orange">{stats.rejected}</p>
             </div>
-          </CardContent>
-        </Card>
+            <XCircle className="h-8 w-8 text-red-400" />
+          </div>
+        </div>
       </div>
 
       {/* Search and Filter Controls */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search agents by name or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="verified">Verified</option>
-              <option value="rejected">Rejected</option>
-            </select>
+      <div className="dashboard-card p-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-v3-text-muted h-4 w-4" />
+            <input
+              placeholder="Search agents by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-v3-bg-dark border border-v3-border rounded-lg text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:ring-1 focus:ring-v3-orange focus:outline-none"
+            />
           </div>
-        </CardContent>
-      </Card>
+          
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-v3-border rounded-lg bg-v3-bg-dark text-v3-text-lightest text-sm focus:outline-none focus:ring-2 focus:ring-v3-orange focus:border-v3-orange"
+          >
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="verified">Verified</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+      </div>
 
       {/* Agents List */}
       <div className="grid gap-4">
         {filteredAgents.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No agents found</h3>
-              <p className="text-gray-600">
-                {searchTerm || statusFilter !== 'all' 
-                  ? 'Try adjusting your search criteria.' 
-                  : 'No agents have been registered yet.'}
-              </p>
-            </CardContent>
-          </Card>
+          <div className="dashboard-card p-8 text-center">
+            <FileText className="h-12 w-12 text-v3-text-muted mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-v3-text-lightest mb-2">No agents found</h3>
+            <p className="text-v3-text-muted">
+              {searchTerm || statusFilter !== 'all' 
+                ? 'Try adjusting your search criteria.' 
+                : 'No agents have been registered yet.'}
+            </p>
+          </div>
         ) : (
           filteredAgents.map((agent) => (
             <AgentVerificationCard

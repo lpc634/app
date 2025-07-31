@@ -23,10 +23,10 @@ const AgentVerificationCard = ({ agent, onViewDocument, onVerifyAgent }) => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'verified': return 'bg-green-100 text-green-800 border-green-200';
-      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'verified': return 'bg-green-900/50 text-green-400 border-green-500/50';
+      case 'rejected': return 'bg-red-900/50 text-red-400 border-red-500/50';
+      case 'pending': return 'bg-yellow-900/50 text-yellow-400 border-yellow-500/50';
+      default: return 'bg-gray-900/50 text-gray-400 border-gray-500/50';
     }
   };
 
@@ -73,21 +73,21 @@ const AgentVerificationCard = ({ agent, onViewDocument, onVerifyAgent }) => {
   const hasLegacyDocuments = agent.has_id_document || agent.has_sia_document;
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader className="pb-4">
+    <div className="dashboard-card p-6 mb-6 hover:shadow-lg transition-shadow">
+      <div className="pb-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 rounded-full">
-              <User className="h-5 w-5 text-blue-600" />
+            <div className="p-2 bg-v3-orange bg-opacity-20 rounded-full">
+              <User className="h-5 w-5 text-v3-orange" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold">{agent.name}</CardTitle>
-              <div className="flex items-center text-sm text-gray-600 mt-1">
+              <h3 className="text-lg font-semibold text-v3-text-lightest">{agent.name}</h3>
+              <div className="flex items-center text-sm text-v3-text-muted mt-1">
                 <Mail className="h-4 w-4 mr-1" />
                 {agent.email}
               </div>
               {agent.created_at && (
-                <div className="flex items-center text-sm text-gray-500 mt-1">
+                <div className="flex items-center text-sm text-v3-text-muted mt-1">
                   <Calendar className="h-4 w-4 mr-1" />
                   Registered: {new Date(agent.created_at).toLocaleDateString()}
                 </div>
@@ -96,88 +96,86 @@ const AgentVerificationCard = ({ agent, onViewDocument, onVerifyAgent }) => {
           </div>
           
           <div className="flex items-center space-x-2">
-            <Badge className={`${getStatusColor(agent.verification_status)} border`}>
+            <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(agent.verification_status)}`}>
               {getStatusIcon(agent.verification_status)}
               <span className="ml-1 capitalize">{agent.verification_status}</span>
-            </Badge>
+            </div>
           </div>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="space-y-4">
+      <div className="space-y-4">
         {/* Document Summary */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center p-3 bg-blue-50 rounded-lg">
-            <FileText className="h-6 w-6 text-blue-600 mx-auto mb-1" />
-            <p className="text-lg font-semibold text-blue-900">{agent.document_count || 0}</p>
-            <p className="text-sm text-blue-700">Documents</p>
+          <div className="dashboard-card p-4 text-center">
+            <FileText className="h-6 w-6 text-v3-orange mx-auto mb-1" />
+            <p className="text-lg font-semibold text-v3-orange">{agent.document_count || 0}</p>
+            <p className="text-sm text-v3-text-muted">Documents</p>
           </div>
           
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="h-6 w-6 mx-auto mb-1 text-gray-600">
+          <div className="dashboard-card p-4 text-center">
+            <div className="h-6 w-6 mx-auto mb-1 text-v3-text-muted">
               {agent.document_types?.length > 0 ? (
-                <CheckCircle className="h-6 w-6" />
+                <CheckCircle className="h-6 w-6 text-v3-orange" />
               ) : (
                 <AlertTriangle className="h-6 w-6" />
               )}
             </div>
-            <p className="text-lg font-semibold text-gray-900">
+            <p className="text-lg font-semibold text-v3-orange">
               {agent.document_types?.length || 0}
             </p>
-            <p className="text-sm text-gray-700">Types</p>
+            <p className="text-sm text-v3-text-muted">Types</p>
           </div>
           
-          <div className="text-center p-3 bg-green-50 rounded-lg">
+          <div className="dashboard-card p-4 text-center">
             <div className="h-6 w-6 mx-auto mb-1">
               {agent.verification_status === 'verified' ? (
-                <CheckCircle className="h-6 w-6 text-green-600" />
+                <CheckCircle className="h-6 w-6 text-green-400" />
               ) : (
-                <Clock className="h-6 w-6 text-yellow-600" />
+                <Clock className="h-6 w-6 text-v3-orange" />
               )}
             </div>
-            <p className="text-lg font-semibold text-green-900">
+            <p className="text-lg font-semibold text-v3-orange">
               {agent.verification_status === 'verified' ? 'Complete' : 'Pending'}
             </p>
-            <p className="text-sm text-green-700">Status</p>
+            <p className="text-sm text-v3-text-muted">Status</p>
           </div>
         </div>
 
         {/* Documents List */}
         {hasDocuments && (
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-2">Uploaded Documents</h4>
+            <h4 className="text-sm font-medium text-v3-text-lightest mb-2">Uploaded Documents</h4>
             <div className="space-y-2">
               {agent.documents_metadata.map((document, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="dashboard-card p-4 border border-v3-border flex items-center justify-between hover:border-v3-orange transition-colors"
                 >
                   <div className="flex items-center space-x-3">
-                    <FileText className="h-4 w-4 text-gray-600" />
+                    <FileText className="h-4 w-4 text-v3-orange" />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-v3-text-lightest">
                         {formatDocumentType(document.metadata?.document_type)}
                       </p>
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-v3-text-muted">
                         {document.filename} • {formatFileSize(document.size)}
                       </p>
                       {document.last_modified && (
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-v3-text-muted">
                           Uploaded: {new Date(document.last_modified).toLocaleDateString()}
                         </p>
                       )}
                     </div>
                   </div>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
+                  <button
                     onClick={() => onViewDocument(agent, document)}
-                    className="shrink-0"
+                    className="px-4 py-2 bg-v3-bg-dark border border-v3-orange text-v3-orange hover:bg-v3-orange hover:text-white transition-colors rounded-lg text-sm shrink-0"
                   >
-                    <Eye className="h-4 w-4 mr-1" />
+                    <Eye className="h-4 w-4 mr-1 inline" />
                     View
-                  </Button>
+                  </button>
                 </div>
               ))}
             </div>
@@ -187,26 +185,30 @@ const AgentVerificationCard = ({ agent, onViewDocument, onVerifyAgent }) => {
         {/* Legacy Documents */}
         {hasLegacyDocuments && !hasDocuments && (
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-2">Legacy Documents</h4>
-            <Alert className="border-blue-200 bg-blue-50">
-              <AlertTriangle className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800">
-                This agent has documents uploaded to the legacy system. 
-                {agent.has_id_document && ' ID Document uploaded.'}
-                {agent.has_sia_document && ' SIA Document uploaded.'}
-              </AlertDescription>
-            </Alert>
+            <h4 className="text-sm font-medium text-v3-text-lightest mb-2">Legacy Documents</h4>
+            <div className="p-4 border border-blue-500 border-opacity-30 bg-blue-500 bg-opacity-10 rounded-lg">
+              <div className="flex items-start space-x-2">
+                <AlertTriangle className="h-4 w-4 text-blue-400 mt-0.5" />
+                <p className="text-blue-400 text-sm">
+                  This agent has documents uploaded to the legacy system. 
+                  {agent.has_id_document && ' ID Document uploaded.'}
+                  {agent.has_sia_document && ' SIA Document uploaded.'}
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
         {/* No Documents */}
         {!hasDocuments && !hasLegacyDocuments && (
-          <Alert className="border-yellow-200 bg-yellow-50">
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            <AlertDescription className="text-yellow-800">
-              No documents have been uploaded by this agent yet.
-            </AlertDescription>
-          </Alert>
+          <div className="p-4 border border-yellow-500 border-opacity-30 bg-yellow-500 bg-opacity-10 rounded-lg">
+            <div className="flex items-start space-x-2">
+              <AlertTriangle className="h-4 w-4 text-yellow-400 mt-0.5" />
+              <p className="text-yellow-400 text-sm">
+                No documents have been uploaded by this agent yet.
+              </p>
+            </div>
+          </div>
         )}
 
         {/* Verification Notes - Temporarily disabled until database migration */}
@@ -218,8 +220,8 @@ const AgentVerificationCard = ({ agent, onViewDocument, onVerifyAgent }) => {
         )}
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div className="text-sm text-gray-600">
+        <div className="flex items-center justify-between pt-4 border-t border-v3-border">
+          <div className="text-sm text-v3-text-muted">
             {agent.verification_status === 'verified' && (
               <span>
                 Status: Verified
@@ -229,23 +231,23 @@ const AgentVerificationCard = ({ agent, onViewDocument, onVerifyAgent }) => {
           
           <div className="flex space-x-2">
             {agent.verification_status === 'pending' && (hasDocuments || hasLegacyDocuments) && (
-              <Button
+              <button
                 onClick={() => setShowApprovalControls(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="button-refresh"
                 disabled={isProcessing}
               >
                 {isProcessing ? 'Processing...' : 'Review & Verify'}
-              </Button>
+              </button>
             )}
             
             {agent.verification_status !== 'pending' && (
-              <Button
-                variant="outline"
+              <button
                 onClick={() => setShowApprovalControls(true)}
+                className="button-refresh"
                 disabled={isProcessing}
               >
                 Update Status
-              </Button>
+              </button>
             )}
           </div>
         </div>
@@ -261,8 +263,8 @@ const AgentVerificationCard = ({ agent, onViewDocument, onVerifyAgent }) => {
             isProcessing={isProcessing}
           />
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
