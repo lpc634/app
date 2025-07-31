@@ -14,38 +14,68 @@ import {
   ZoomIn,
   ZoomOut,
   Download,
-  RotateCw
+  RotateCw,
+  Maximize2,
+  ArrowLeft,
+  ArrowRight
 } from 'lucide-react';
 
-// Helper function to get document preview URLs using admin endpoint
+// Enhanced document preview URL handler with fallback options
 const getDocumentPreviewUrl = async (documentUrl) => {
   if (!documentUrl) return null;
   
   try {
-    // Use the secure admin document preview endpoint
-    const fileKey = documentUrl.replace(/\//g, '__'); // Convert slashes to double underscores for URL encoding
-    
-    // Get auth token from useAuth hook context
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('No authentication token available');
     }
     
-    const response = await fetch(`/api/admin/documents/${fileKey}/preview`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    // Multiple URL construction attempts for different document formats
+    const urlAttempts = [
+      // Original path as-is with double underscore encoding
+      documentUrl.replace(/\//g, '__'),
+      // Try with different encoding patterns
+      encodeURIComponent(documentUrl).replace(/%2F/g, '__'),
+      // Legacy format handling
+      documentUrl.startsWith('user_') ? documentUrl : `user_${documentUrl}`,
+      // New format handling
+      documentUrl.includes('agents__') ? documentUrl : `agents__${documentUrl}`
+    ];
     
-    if (response.ok) {
-      const data = await response.json();
-      return data.preview_url;
-    } else {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Failed to get document preview URL:', response.status, errorData);
-      throw new Error(errorData.error || `HTTP ${response.status}: Failed to get preview URL`);
+    for (const fileKey of urlAttempts) {
+      try {
+        console.log(`Attempting to load document with key: ${fileKey}`);
+        
+        const response = await fetch(`/api/admin/documents/${fileKey}/preview`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`Successfully loaded document with key: ${fileKey}`);
+          return {
+            url: data.preview_url,
+            fileKey,
+            isLegacy: data.is_legacy || false
+          };
+        } else if (response.status === 404) {
+          console.log(`Document not found with key: ${fileKey}, trying next format...`);
+          continue;
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          console.error(`Error loading document with key ${fileKey}:`, response.status, errorData);
+        }
+      } catch (error) {
+        console.error(`Network error with key ${fileKey}:`, error);
+        continue;
+      }
     }
+    
+    throw new Error('Document not found in any supported format');
+    
   } catch (error) {
     console.error('Error getting document preview URL:', error);
     throw error;
@@ -63,7 +93,9 @@ const AgentVerification = () => {
     document: null,
     title: '',
     loading: false,
-    error: null
+    error: null,
+    zoom: 1,
+    isFullscreen: false
   });
 
   useEffect(() => {
@@ -88,7 +120,7 @@ const AgentVerification = () => {
       setVerifying(true);
       await apiCall(`/admin/agents/${agentId}/verify`, {
         method: 'POST',
-        body: JSON.stringify({ action }) // 'approve' or 'reject'
+        body: JSON.stringify({ action })
       });
       
       toast.success(`Agent ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
@@ -111,16 +143,20 @@ const AgentVerification = () => {
       document: null,
       title,
       loading: true,
-      error: null
+      error: null,
+      zoom: 1,
+      isFullscreen: false
     });
 
     try {
-      const previewUrl = await getDocumentPreviewUrl(documentUrl);
+      const documentData = await getDocumentPreviewUrl(documentUrl);
       setDocumentViewer(prev => ({
         ...prev,
         document: {
-          url: previewUrl,
-          originalPath: documentUrl
+          url: documentData.url,
+          originalPath: documentUrl,
+          fileKey: documentData.fileKey,
+          isLegacy: documentData.isLegacy
         },
         loading: false
       }));
@@ -129,7 +165,7 @@ const AgentVerification = () => {
       setDocumentViewer(prev => ({
         ...prev,
         loading: false,
-        error: 'Failed to load document. The file may not be available.'
+        error: error.message || 'Failed to load document. The file may not be available or the server may be experiencing issues.'
       }));
     }
   };
@@ -140,8 +176,32 @@ const AgentVerification = () => {
       document: null,
       title: '',
       loading: false,
-      error: null
+      error: null,
+      zoom: 1,
+      isFullscreen: false
     });
+  };
+
+  const handleZoom = (direction) => {
+    setDocumentViewer(prev => ({
+      ...prev,
+      zoom: direction === 'in' 
+        ? Math.min(prev.zoom * 1.25, 3) 
+        : Math.max(prev.zoom * 0.8, 0.25)
+    }));
+  };
+
+  const toggleFullscreen = () => {
+    setDocumentViewer(prev => ({
+      ...prev,
+      isFullscreen: !prev.isFullscreen
+    }));
+  };
+
+  const retryDocumentLoad = () => {
+    if (documentViewer.document?.originalPath) {
+      openDocumentViewer(documentViewer.document.originalPath, documentViewer.title);
+    }
   };
 
   const getStatusBadge = (agent) => {
@@ -149,7 +209,8 @@ const AgentVerification = () => {
     
     if (!hasDocuments) {
       return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium" 
+              style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
           <XCircle className="w-3 h-3 mr-1" />
           No Documents
         </span>
@@ -158,7 +219,8 @@ const AgentVerification = () => {
     
     if (agent.verification_status === 'pending') {
       return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium" 
+              style={{ background: 'rgba(255, 87, 34, 0.1)', color: 'var(--v3-orange)', border: '1px solid rgba(255, 87, 34, 0.3)' }}>
           <Clock className="w-3 h-3 mr-1" />
           Pending Review
         </span>
@@ -166,7 +228,8 @@ const AgentVerification = () => {
     }
     
     return (
-      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium" 
+            style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
         <CheckCircle className="w-3 h-3 mr-1" />
         Verified
       </span>
@@ -176,8 +239,10 @@ const AgentVerification = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading pending verifications...</span>
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" style={{ color: 'var(--v3-orange)' }} />
+          <span className="text-v3-text-muted">Loading pending verifications...</span>
+        </div>
       </div>
     );
   }
@@ -185,47 +250,55 @@ const AgentVerification = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Agent Verification</h2>
-        <p className="text-muted-foreground">
+        <h2 className="text-2xl font-bold tracking-tight text-v3-text-lightest">Agent Verification</h2>
+        <p className="text-v3-text-muted">
           Review and verify agent identification documents
         </p>
       </div>
 
       {agents.length === 0 ? (
         <div className="text-center py-12">
-          <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-4" />
-          <h3 className="text-lg font-semibold mb-2">All caught up!</h3>
-          <p className="text-muted-foreground">No agents pending verification at the moment.</p>
+          <CheckCircle className="mx-auto h-12 w-12 mb-4" style={{ color: '#4ade80' }} />
+          <h3 className="text-lg font-semibold mb-2 text-v3-text-lightest">All caught up!</h3>
+          <p className="text-v3-text-muted">No agents pending verification at the moment.</p>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
           {/* Agents List */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Pending Verifications ({agents.length})</h3>
+            <h3 className="text-lg font-medium text-v3-text-lightest">Pending Verifications ({agents.length})</h3>
             {agents.map((agent) => (
               <div 
                 key={agent.id}
-                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                className={`dashboard-card p-4 cursor-pointer transition-all duration-300 ${
                   selectedAgent?.id === agent.id 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'ring-2 ring-orange-500 ring-opacity-50 border-orange-500' 
+                    : ''
                 }`}
+                style={{
+                  background: selectedAgent?.id === agent.id 
+                    ? 'linear-gradient(135deg, var(--v3-bg-card) 0%, rgba(255, 87, 34, 0.1) 100%)'
+                    : 'var(--v3-bg-card)',
+                  border: selectedAgent?.id === agent.id 
+                    ? '1px solid var(--v3-orange)'
+                    : '1px solid var(--v3-border)'
+                }}
                 onClick={() => setSelectedAgent(agent)}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-3">
-                    <User className="h-5 w-5 text-gray-400" />
+                    <User className="h-5 w-5 text-v3-orange" />
                     <div>
-                      <p className="font-medium">
+                      <p className="font-medium text-v3-text-lightest">
                         {agent.first_name} {agent.last_name}
                       </p>
-                      <p className="text-sm text-gray-500">{agent.email}</p>
+                      <p className="text-sm text-v3-text-muted">{agent.email}</p>
                     </div>
                   </div>
                   {getStatusBadge(agent)}
                 </div>
                 
-                <div className="flex items-center text-sm text-gray-500 space-x-4">
+                <div className="flex items-center text-sm text-v3-text-muted space-x-4">
                   <span className="flex items-center">
                     <FileText className="h-4 w-4 mr-1" />
                     {[agent.id_document_url, agent.sia_document_url].filter(Boolean).length}/2 docs
@@ -239,24 +312,27 @@ const AgentVerification = () => {
           </div>
 
           {/* Document Viewer */}
-          <div className="border rounded-lg p-6">
+          <div className="dashboard-card p-6">
             {selectedAgent ? (
               <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-medium mb-2">
+                <div className="border-b border-v3-border pb-4">
+                  <h3 className="text-lg font-medium mb-2 text-v3-text-lightest">
                     {selectedAgent.first_name} {selectedAgent.last_name}
                   </h3>
-                  <p className="text-sm text-gray-500">{selectedAgent.email}</p>
+                  <p className="text-sm text-v3-text-muted">{selectedAgent.email}</p>
                 </div>
 
-                {/* Documents - UPDATED SECTION */}
+                {/* Documents Section */}
                 <div className="space-y-4">
-                  <h4 className="font-medium">Uploaded Documents</h4>
+                  <h4 className="font-medium text-v3-text-lightest">Uploaded Documents</h4>
                   
                   {selectedAgent.id_document_url ? (
                     <div className="dashboard-card rounded-lg p-4" style={{ background: 'var(--v3-bg-dark)', border: '1px solid var(--v3-border)' }}>
                       <div className="flex items-center justify-between mb-3">
-                        <h5 className="font-medium text-v3-text-lightest">ID Document</h5>
+                        <h5 className="font-medium text-v3-text-lightest flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-v3-orange" />
+                          ID Document
+                        </h5>
                         <button
                           onClick={() => openDocumentViewer(selectedAgent.id_document_url, `ID Document - ${selectedAgent.first_name} ${selectedAgent.last_name}`)}
                           className="flex items-center gap-2 px-3 py-1 bg-v3-orange hover:bg-v3-orange-dark text-white rounded-md text-sm transition-colors"
@@ -266,11 +342,11 @@ const AgentVerification = () => {
                         </button>
                       </div>
                       <div className="bg-v3-bg-darkest rounded-lg p-3 border border-v3-border">
-                        <div className="flex items-center gap-2 text-sm text-v3-text-muted">
-                          <FileText className="w-4 h-4 text-v3-orange" />
+                        <div className="flex items-center gap-2 text-sm text-v3-text-muted mb-2">
+                          <CheckCircle className="w-4 h-4 text-green-400" />
                           <span>Document uploaded and ready for review</span>
                         </div>
-                        <p className="text-xs text-v3-text-muted mt-2 break-all">
+                        <p className="text-xs text-v3-text-muted break-all">
                           Path: {selectedAgent.id_document_url}
                         </p>
                       </div>
@@ -288,7 +364,10 @@ const AgentVerification = () => {
                   {selectedAgent.sia_document_url ? (
                     <div className="dashboard-card rounded-lg p-4" style={{ background: 'var(--v3-bg-dark)', border: '1px solid var(--v3-border)' }}>
                       <div className="flex items-center justify-between mb-3">
-                        <h5 className="font-medium text-v3-text-lightest">SIA Badge</h5>
+                        <h5 className="font-medium text-v3-text-lightest flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-v3-orange" />
+                          SIA Badge
+                        </h5>
                         <button
                           onClick={() => openDocumentViewer(selectedAgent.sia_document_url, `SIA Badge - ${selectedAgent.first_name} ${selectedAgent.last_name}`)}
                           className="flex items-center gap-2 px-3 py-1 bg-v3-orange hover:bg-v3-orange-dark text-white rounded-md text-sm transition-colors"
@@ -298,11 +377,11 @@ const AgentVerification = () => {
                         </button>
                       </div>
                       <div className="bg-v3-bg-darkest rounded-lg p-3 border border-v3-border">
-                        <div className="flex items-center gap-2 text-sm text-v3-text-muted">
-                          <FileText className="w-4 h-4 text-v3-orange" />
+                        <div className="flex items-center gap-2 text-sm text-v3-text-muted mb-2">
+                          <CheckCircle className="w-4 h-4 text-green-400" />
                           <span>SIA badge document uploaded and ready for review</span>
                         </div>
-                        <p className="text-xs text-v3-text-muted mt-2 break-all">
+                        <p className="text-xs text-v3-text-muted break-all">
                           Path: {selectedAgent.sia_document_url}
                         </p>
                       </div>
@@ -319,34 +398,34 @@ const AgentVerification = () => {
                 </div>
 
                 {/* Agent Details */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-medium mb-3">Agent Information</h4>
+                <div className="bg-v3-bg-dark rounded-lg p-4 border border-v3-border">
+                  <h4 className="font-medium mb-3 text-v3-text-lightest">Agent Information</h4>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <p className="text-gray-500">Phone</p>
-                      <p>{selectedAgent.phone || 'Not provided'}</p>
+                      <p className="text-v3-text-muted">Phone</p>
+                      <p className="text-v3-text-light">{selectedAgent.phone || 'Not provided'}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500">Address</p>
-                      <p>{selectedAgent.address_line_1 || 'Not provided'}</p>
+                      <p className="text-v3-text-muted">Address</p>
+                      <p className="text-v3-text-light">{selectedAgent.address_line_1 || 'Not provided'}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500">City</p>
-                      <p>{selectedAgent.city || 'Not provided'}</p>
+                      <p className="text-v3-text-muted">City</p>
+                      <p className="text-v3-text-light">{selectedAgent.city || 'Not provided'}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500">Postcode</p>
-                      <p>{selectedAgent.postcode || 'Not provided'}</p>
+                      <p className="text-v3-text-muted">Postcode</p>
+                      <p className="text-v3-text-light">{selectedAgent.postcode || 'Not provided'}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Verification Actions */}
-                <div className="flex space-x-3 pt-4 border-t">
+                <div className="flex space-x-3 pt-4 border-t border-v3-border">
                   <button
                     onClick={() => handleVerifyAgent(selectedAgent.id, 'approve')}
                     disabled={verifying}
-                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
                   >
                     {verifying ? (
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -359,7 +438,7 @@ const AgentVerification = () => {
                   <button
                     onClick={() => handleVerifyAgent(selectedAgent.id, 'reject')}
                     disabled={verifying}
-                    className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                    className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
                   >
                     {verifying ? (
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -372,9 +451,9 @@ const AgentVerification = () => {
               </div>
             ) : (
               <div className="text-center py-12">
-                <Eye className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium mb-2">Select an agent</h3>
-                <p className="text-gray-500">
+                <Eye className="mx-auto h-12 w-12 text-v3-text-muted mb-4" />
+                <h3 className="text-lg font-medium mb-2 text-v3-text-lightest">Select an agent</h3>
+                <p className="text-v3-text-muted">
                   Choose an agent from the list to review their documents
                 </p>
               </div>
@@ -383,18 +462,22 @@ const AgentVerification = () => {
         </div>
       )}
 
-      {/* Document Viewer Modal */}
+      {/* Enhanced Document Viewer Modal */}
       {documentViewer.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div 
-            className="dashboard-card max-w-6xl w-full max-h-[95vh] overflow-hidden"
+            className={`dashboard-card overflow-hidden transition-all duration-300 ${
+              documentViewer.isFullscreen 
+                ? 'w-full h-full max-w-none max-h-none' 
+                : 'max-w-6xl w-full max-h-[95vh]'
+            }`}
             style={{
               background: 'var(--v3-bg-card)',
               border: '1px solid var(--v3-border)',
-              borderRadius: '12px'
+              borderRadius: documentViewer.isFullscreen ? '0' : '12px'
             }}
           >
-            {/* Modal Header */}
+            {/* Enhanced Modal Header */}
             <div 
               className="p-4 border-b flex items-center justify-between"
               style={{
@@ -403,7 +486,9 @@ const AgentVerification = () => {
               }}
             >
               <div className="flex items-center gap-3">
-                <FileText className="w-6 h-6 text-v3-orange" />
+                <div className="w-10 h-10 bg-v3-orange rounded-lg flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-white" />
+                </div>
                 <div>
                   <h3 className="text-lg font-semibold text-v3-text-lightest">
                     {documentViewer.title}
@@ -413,62 +498,111 @@ const AgentVerification = () => {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={closeDocumentViewer}
-                className="p-2 hover:bg-v3-bg-dark rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-v3-text-muted hover:text-v3-text-light" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleFullscreen}
+                  className="p-2 hover:bg-v3-bg-dark rounded-lg transition-colors"
+                  title={documentViewer.isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                >
+                  <Maximize2 className="w-5 h-5 text-v3-text-muted hover:text-v3-text-light" />
+                </button>
+                <button
+                  onClick={closeDocumentViewer}
+                  className="p-2 hover:bg-v3-bg-dark rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-v3-text-muted hover:text-v3-text-light" />
+                </button>
+              </div>
             </div>
 
             {/* Modal Content */}
-            <div className="p-6 flex-1 max-h-[calc(95vh-120px)] overflow-auto">
+            <div className="flex-1 overflow-auto" style={{ maxHeight: documentViewer.isFullscreen ? 'calc(100vh - 120px)' : 'calc(95vh - 120px)' }}>
               {documentViewer.loading ? (
                 <div className="flex items-center justify-center py-20">
                   <div className="text-center">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-v3-orange" />
+                    <div className="relative">
+                      <div className="w-16 h-16 border-4 border-v3-border rounded-full animate-spin mx-auto mb-4"
+                           style={{ borderTopColor: 'var(--v3-orange)' }}></div>
+                      <FileText className="w-6 h-6 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-v3-orange" />
+                    </div>
                     <p className="text-v3-text-muted">Loading document...</p>
+                    <p className="text-xs text-v3-text-muted mt-1">This may take a few moments</p>
                   </div>
                 </div>
               ) : documentViewer.error ? (
                 <div className="flex items-center justify-center py-20">
-                  <div className="text-center">
-                    <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+                  <div className="text-center max-w-md">
+                    <div className="w-16 h-16 bg-red-500 bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <AlertTriangle className="w-8 h-8 text-red-400" />
+                    </div>
                     <h4 className="text-lg font-semibold text-v3-text-lightest mb-2">
                       Failed to Load Document
                     </h4>
-                    <p className="text-v3-text-muted max-w-md">
+                    <p className="text-v3-text-muted mb-4">
                       {documentViewer.error}
                     </p>
-                    <button
-                      onClick={() => openDocumentViewer(documentViewer.document?.originalPath || selectedAgent?.id_document_url || selectedAgent?.sia_document_url, documentViewer.title)}
-                      className="mt-4 px-4 py-2 bg-v3-orange hover:bg-v3-orange-dark text-white rounded-lg transition-colors"
-                    >
-                      Try Again
-                    </button>
+                    <div className="flex gap-3 justify-center">
+                      <button
+                        onClick={retryDocumentLoad}
+                        className="px-4 py-2 bg-v3-orange hover:bg-v3-orange-dark text-white rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        <RotateCw className="w-4 h-4" />
+                        Try Again
+                      </button>
+                      <button
+                        onClick={closeDocumentViewer}
+                        className="px-4 py-2 bg-v3-bg-dark hover:bg-gray-600 text-v3-text-light rounded-lg border border-v3-border transition-colors"
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : documentViewer.document ? (
-                <div className="space-y-4">
+                <div className="p-6 space-y-4">
                   {/* Document Controls */}
                   <div className="flex items-center justify-between p-3 bg-v3-bg-dark rounded-lg border border-v3-border">
-                    <div className="flex items-center gap-2 text-sm text-v3-text-muted">
-                      <FileText className="w-4 h-4 text-v3-orange" />
-                      <span>Document ready for review</span>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 text-sm text-v3-text-muted">
+                        <FileText className="w-4 h-4 text-v3-orange" />
+                        <span>Document ready for review</span>
+                        {documentViewer.document.isLegacy && (
+                          <span className="px-2 py-1 bg-yellow-500 bg-opacity-10 text-yellow-400 rounded text-xs">
+                            Legacy Format
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-v3-text-muted">
+                        <span>Zoom: {Math.round(documentViewer.zoom * 100)}%</span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => handleZoom('out')}
+                        disabled={documentViewer.zoom <= 0.25}
+                        className="p-2 bg-v3-bg-card hover:bg-gray-600 rounded border border-v3-border disabled:opacity-50 transition-colors"
+                      >
+                        <ZoomOut className="w-4 h-4 text-v3-text-light" />
+                      </button>
+                      <button
+                        onClick={() => handleZoom('in')}
+                        disabled={documentViewer.zoom >= 3}
+                        className="p-2 bg-v3-bg-card hover:bg-gray-600 rounded border border-v3-border disabled:opacity-50 transition-colors"
+                      >
+                        <ZoomIn className="w-4 h-4 text-v3-text-light" />
+                      </button>
+                      <button
                         onClick={() => window.open(documentViewer.document.url, '_blank')}
-                        className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
                       >
                         <Download className="w-4 h-4" />
                         Download
                       </button>
                       <button
                         onClick={() => window.open(documentViewer.document.url, '_blank')}
-                        className="flex items-center gap-2 px-3 py-1 bg-v3-orange hover:bg-v3-orange-dark text-white rounded-md text-sm transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 bg-v3-orange hover:bg-v3-orange-dark text-white rounded text-sm transition-colors"
                       >
-                        <ZoomIn className="w-4 h-4" />
+                        <Maximize2 className="w-4 h-4" />
                         Full Size
                       </button>
                     </div>
@@ -476,16 +610,24 @@ const AgentVerification = () => {
 
                   {/* Document Preview */}
                   <div className="bg-v3-bg-darkest rounded-lg border border-v3-border overflow-hidden">
-                    <div className="p-4">
+                    <div className="p-4 text-center">
                       <img
                         src={documentViewer.document.url}
                         alt={documentViewer.title}
-                        className="w-full h-auto max-h-[60vh] object-contain mx-auto rounded-lg"
+                        className="max-w-full h-auto rounded-lg transition-transform duration-200"
+                        style={{ 
+                          transform: `scale(${documentViewer.zoom})`,
+                          maxHeight: documentViewer.isFullscreen ? '70vh' : '60vh',
+                          objectFit: 'contain'
+                        }}
                         onError={(e) => {
                           setDocumentViewer(prev => ({
                             ...prev,
-                            error: 'Failed to load image. The file may be corrupted or in an unsupported format.'
+                            error: 'Failed to load image. The file may be corrupted, in an unsupported format, or the server may be experiencing issues.'
                           }));
+                        }}
+                        onLoad={() => {
+                          console.log('Document image loaded successfully');
                         }}
                       />
                     </div>
@@ -493,10 +635,13 @@ const AgentVerification = () => {
 
                   {/* Document Metadata */}
                   <div className="bg-v3-bg-dark rounded-lg border border-v3-border p-4">
-                    <h4 className="font-semibold text-v3-text-lightest mb-3">Document Information</h4>
+                    <h4 className="font-semibold text-v3-text-lightest mb-3 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-v3-orange" />
+                      Document Information
+                    </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-v3-text-muted">File Path:</span>
+                        <span className="text-v3-text-muted">Original Path:</span>
                         <p className="text-v3-text-light font-mono text-xs break-all mt-1">
                           {documentViewer.document.originalPath}
                         </p>
@@ -505,6 +650,18 @@ const AgentVerification = () => {
                         <span className="text-v3-text-muted">Document Type:</span>
                         <p className="text-v3-text-light mt-1">
                           {documentViewer.title.includes('ID') ? 'Identification Document' : 'SIA Badge'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-v3-text-muted">File Key Used:</span>
+                        <p className="text-v3-text-light font-mono text-xs break-all mt-1">
+                          {documentViewer.document.fileKey}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-v3-text-muted">Format:</span>
+                        <p className="text-v3-text-light mt-1">
+                          {documentViewer.document.isLegacy ? 'Legacy Storage' : 'New Storage'}
                         </p>
                       </div>
                     </div>
@@ -519,12 +676,40 @@ const AgentVerification = () => {
                 <p className="text-xs text-v3-text-muted">
                   Review document carefully before approving or rejecting agent verification
                 </p>
-                <button
-                  onClick={closeDocumentViewer}
-                  className="px-4 py-2 bg-v3-bg-card hover:bg-gray-600 text-v3-text-light rounded-lg border border-v3-border transition-colors"
-                >
-                  Close
-                </button>
+                <div className="flex gap-2">
+                  {selectedAgent && (
+                    <>
+                      <button
+                        onClick={() => {
+                          handleVerifyAgent(selectedAgent.id, 'approve');
+                          closeDocumentViewer();
+                        }}
+                        disabled={verifying}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleVerifyAgent(selectedAgent.id, 'reject');
+                          closeDocumentViewer();
+                        }}
+                        disabled={verifying}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Reject
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={closeDocumentViewer}
+                    className="px-4 py-2 bg-v3-bg-card hover:bg-gray-600 text-v3-text-light rounded-lg border border-v3-border transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>
