@@ -5,6 +5,7 @@ load_dotenv()
 # --- Standard Library and System Imports ---
 import os
 import sys
+import requests
 from datetime import timedelta
 
 # --- Add 'src' to the Python path ---
@@ -137,23 +138,54 @@ def debug_users():
         })
     return jsonify({'users': user_data, 'count': len(users)})
 
-# Legacy image serving endpoint - DEPRECATED
-# This endpoint is deprecated in favor of secure S3 URLs and admin document preview
-# Keeping for backwards compatibility but should be removed in future versions
+# Image proxy route for document serving from ngrok
 @app.route('/api/images/<path:filename>')
 def serve_uploaded_image(filename):
     """
-    DEPRECATED: Legacy image serving endpoint
-    Use /api/admin/documents/{file_key}/preview instead for secure document access
+    Proxy images from the ngrok server for document viewing
+    This route fetches images from the ngrok server and serves them through the Flask app
     """
-    app.logger.warning(f"DEPRECATED: /api/images/{filename} accessed - use admin document preview instead")
-    
-    # Redirect to proper error message
-    return jsonify({
-        'error': 'This endpoint is deprecated. Please use the admin document preview system.',
-        'deprecated': True,
-        'migration_note': 'Use /api/admin/documents/{file_key}/preview for secure document access'
-    }), 410  # HTTP 410 Gone
+    try:
+        # The ngrok server URL where documents are stored
+        NGROK_URL = "https://1b069dfae07e.ngrok-free.app"
+        
+        # Construct the full URL to the file on the ngrok server
+        file_url = f"{NGROK_URL}/files/{filename}"
+        
+        app.logger.info(f"Proxying image request for: {filename} from {file_url}")
+        
+        # Fetch the file from the ngrok server
+        response = requests.get(file_url, timeout=30)
+        
+        if response.status_code == 200:
+            # Forward the content with appropriate headers
+            from flask import Response
+            return Response(
+                response.content,
+                mimetype=response.headers.get('Content-Type', 'image/jpeg'),
+                headers={
+                    'Cache-Control': 'public, max-age=3600',  # Cache for 1 hour
+                    'Access-Control-Allow-Origin': '*'
+                }
+            )
+        else:
+            app.logger.error(f"Failed to fetch image from ngrok server: {response.status_code}")
+            return jsonify({
+                'error': 'Image not found on storage server',
+                'status_code': response.status_code
+            }), 404
+            
+    except requests.exceptions.Timeout:
+        app.logger.error(f"Timeout fetching image: {filename}")
+        return jsonify({'error': 'Storage server timeout'}), 504
+        
+    except requests.exceptions.ConnectionError:
+        app.logger.error(f"Connection error fetching image: {filename}")
+        return jsonify({'error': 'Cannot connect to storage server'}), 503
+        
+    except Exception as e:
+        app.logger.error(f"Error proxying image {filename}: {str(e)}")
+        return jsonify({'error': 'Failed to load image'}), 500
 
 # --- Static File Serving for Frontend ---
 @app.route('/', defaults={'path': ''})

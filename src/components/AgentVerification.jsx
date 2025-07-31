@@ -9,16 +9,47 @@ import {
   FileText, 
   Eye,
   AlertTriangle,
-  Loader2
+  Loader2,
+  X,
+  ZoomIn,
+  ZoomOut,
+  Download,
+  RotateCw
 } from 'lucide-react';
 
-// Helper function to get image URLs
-const getImageUrl = (documentUrl) => {
+// Helper function to get document preview URLs using admin endpoint
+const getDocumentPreviewUrl = async (documentUrl) => {
   if (!documentUrl) return null;
   
-  // Use the image proxy route we set up in main.py
-  const API_BASE_URL = 'https://v3-app-49c3d1eff914.herokuapp.com/api';
-  return `${API_BASE_URL}/images/${documentUrl}`;
+  try {
+    // Use the secure admin document preview endpoint
+    const fileKey = documentUrl.replace(/\//g, '__'); // Convert slashes to double underscores for URL encoding
+    
+    // Get auth token from useAuth hook context
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No authentication token available');
+    }
+    
+    const response = await fetch(`/api/admin/documents/${fileKey}/preview`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return data.preview_url;
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Failed to get document preview URL:', response.status, errorData);
+      throw new Error(errorData.error || `HTTP ${response.status}: Failed to get preview URL`);
+    }
+  } catch (error) {
+    console.error('Error getting document preview URL:', error);
+    throw error;
+  }
 };
 
 const AgentVerification = () => {
@@ -27,6 +58,13 @@ const AgentVerification = () => {
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [verifying, setVerifying] = useState(false);
+  const [documentViewer, setDocumentViewer] = useState({
+    isOpen: false,
+    document: null,
+    title: '',
+    loading: false,
+    error: null
+  });
 
   useEffect(() => {
     fetchPendingAgents();
@@ -65,6 +103,45 @@ const AgentVerification = () => {
     } finally {
       setVerifying(false);
     }
+  };
+
+  const openDocumentViewer = async (documentUrl, title) => {
+    setDocumentViewer({
+      isOpen: true,
+      document: null,
+      title,
+      loading: true,
+      error: null
+    });
+
+    try {
+      const previewUrl = await getDocumentPreviewUrl(documentUrl);
+      setDocumentViewer(prev => ({
+        ...prev,
+        document: {
+          url: previewUrl,
+          originalPath: documentUrl
+        },
+        loading: false
+      }));
+    } catch (error) {
+      console.error('Error loading document:', error);
+      setDocumentViewer(prev => ({
+        ...prev,
+        loading: false,
+        error: 'Failed to load document. The file may not be available.'
+      }));
+    }
+  };
+
+  const closeDocumentViewer = () => {
+    setDocumentViewer({
+      isOpen: false,
+      document: null,
+      title: '',
+      loading: false,
+      error: null
+    });
   };
 
   const getStatusBadge = (agent) => {
@@ -177,57 +254,65 @@ const AgentVerification = () => {
                   <h4 className="font-medium">Uploaded Documents</h4>
                   
                   {selectedAgent.id_document_url ? (
-                    <div className="border rounded-lg p-4">
-                      <h5 className="font-medium mb-2">ID Document</h5>
-                      <div className="border rounded-lg overflow-hidden">
-                        <img 
-                          src={getImageUrl(selectedAgent.id_document_url)} 
-                          alt="ID Document" 
-                          className="w-full h-48 object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => window.open(getImageUrl(selectedAgent.id_document_url), '_blank')}
-                          onError={(e) => {
-                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTkgMTJMMTEgMTRMMTUgMTBNMjEgMTJDMjEgMTYuOTcwNiAxNi45NzA2IDIxIDEyIDIxQzcuMDI5NDQgMjEgMyAxNi45NzA2IDMgMTJDMyA3LjAyOTQ0IDcuMDI5NDQgMyAxMiAzQzE2Ljk3MDYgMyAyMSA3LjAyOTQ0IDIxIDEyWiIgc3Ryb2tlPSIjOTQ5NDk0IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K';
-                            e.target.onerror = null;
-                          }}
-                        />
+                    <div className="dashboard-card rounded-lg p-4" style={{ background: 'var(--v3-bg-dark)', border: '1px solid var(--v3-border)' }}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h5 className="font-medium text-v3-text-lightest">ID Document</h5>
+                        <button
+                          onClick={() => openDocumentViewer(selectedAgent.id_document_url, `ID Document - ${selectedAgent.first_name} ${selectedAgent.last_name}`)}
+                          className="flex items-center gap-2 px-3 py-1 bg-v3-orange hover:bg-v3-orange-dark text-white rounded-md text-sm transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                          View Document
+                        </button>
                       </div>
-                      <p className="text-xs text-gray-500 mt-2 break-all">
-                        Click to view full size • {selectedAgent.id_document_url}
-                      </p>
+                      <div className="bg-v3-bg-darkest rounded-lg p-3 border border-v3-border">
+                        <div className="flex items-center gap-2 text-sm text-v3-text-muted">
+                          <FileText className="w-4 h-4 text-v3-orange" />
+                          <span>Document uploaded and ready for review</span>
+                        </div>
+                        <p className="text-xs text-v3-text-muted mt-2 break-all">
+                          Path: {selectedAgent.id_document_url}
+                        </p>
+                      </div>
                     </div>
                   ) : (
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                      <div className="text-center text-gray-500">
-                        <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
-                        <p>No ID document uploaded</p>
+                    <div className="dashboard-card rounded-lg p-4" style={{ background: 'var(--v3-bg-dark)', border: '2px dashed var(--v3-border)' }}>
+                      <div className="text-center text-v3-text-muted">
+                        <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
+                        <p className="text-v3-text-light">No ID document uploaded</p>
+                        <p className="text-xs mt-1">Agent needs to upload identification document</p>
                       </div>
                     </div>
                   )}
 
                   {selectedAgent.sia_document_url ? (
-                    <div className="border rounded-lg p-4">
-                      <h5 className="font-medium mb-2">SIA Badge</h5>
-                      <div className="border rounded-lg overflow-hidden">
-                        <img 
-                          src={getImageUrl(selectedAgent.sia_document_url)} 
-                          alt="SIA Document" 
-                          className="w-full h-48 object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => window.open(getImageUrl(selectedAgent.sia_document_url), '_blank')}
-                          onError={(e) => {
-                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTkgMTJMMTEgMTRMMTUgMTBNMjEgMTJDMjEgMTYuOTcwNiAxNi45NzA2IDIxIDEyIDIxQzcuMDI5NDQgMjEgMyAxNi45NzA2IDMgMTJDMyA3LjAyOTQ0IDcuMDI5NDQgMyAxMiAzQzE2Ljk3MDYgMyAyMSA3LjAyOTQ0IDIxIDEyWiIgc3Ryb2tlPSIjOTQ5NDk0IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K';
-                            e.target.onerror = null;
-                          }}
-                        />
+                    <div className="dashboard-card rounded-lg p-4" style={{ background: 'var(--v3-bg-dark)', border: '1px solid var(--v3-border)' }}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h5 className="font-medium text-v3-text-lightest">SIA Badge</h5>
+                        <button
+                          onClick={() => openDocumentViewer(selectedAgent.sia_document_url, `SIA Badge - ${selectedAgent.first_name} ${selectedAgent.last_name}`)}
+                          className="flex items-center gap-2 px-3 py-1 bg-v3-orange hover:bg-v3-orange-dark text-white rounded-md text-sm transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                          View Document
+                        </button>
                       </div>
-                      <p className="text-xs text-gray-500 mt-2 break-all">
-                        Click to view full size • {selectedAgent.sia_document_url}
-                      </p>
+                      <div className="bg-v3-bg-darkest rounded-lg p-3 border border-v3-border">
+                        <div className="flex items-center gap-2 text-sm text-v3-text-muted">
+                          <FileText className="w-4 h-4 text-v3-orange" />
+                          <span>SIA badge document uploaded and ready for review</span>
+                        </div>
+                        <p className="text-xs text-v3-text-muted mt-2 break-all">
+                          Path: {selectedAgent.sia_document_url}
+                        </p>
+                      </div>
                     </div>
                   ) : (
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                      <div className="text-center text-gray-500">
-                        <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
-                        <p>No SIA document uploaded</p>
+                    <div className="dashboard-card rounded-lg p-4" style={{ background: 'var(--v3-bg-dark)', border: '2px dashed var(--v3-border)' }}>
+                      <div className="text-center text-v3-text-muted">
+                        <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
+                        <p className="text-v3-text-light">No SIA document uploaded</p>
+                        <p className="text-xs mt-1">Agent needs to upload SIA badge document</p>
                       </div>
                     </div>
                   )}
@@ -294,6 +379,154 @@ const AgentVerification = () => {
                 </p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Document Viewer Modal */}
+      {documentViewer.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div 
+            className="dashboard-card max-w-6xl w-full max-h-[95vh] overflow-hidden"
+            style={{
+              background: 'var(--v3-bg-card)',
+              border: '1px solid var(--v3-border)',
+              borderRadius: '12px'
+            }}
+          >
+            {/* Modal Header */}
+            <div 
+              className="p-4 border-b flex items-center justify-between"
+              style={{
+                background: 'linear-gradient(135deg, var(--v3-bg-dark) 0%, #1F1F1F 100%)',
+                borderBottom: '1px solid var(--v3-border)'
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="w-6 h-6 text-v3-orange" />
+                <div>
+                  <h3 className="text-lg font-semibold text-v3-text-lightest">
+                    {documentViewer.title}
+                  </h3>
+                  <p className="text-sm text-v3-text-muted">
+                    Document Verification Review
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeDocumentViewer}
+                className="p-2 hover:bg-v3-bg-dark rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-v3-text-muted hover:text-v3-text-light" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 flex-1 max-h-[calc(95vh-120px)] overflow-auto">
+              {documentViewer.loading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="text-center">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-v3-orange" />
+                    <p className="text-v3-text-muted">Loading document...</p>
+                  </div>
+                </div>
+              ) : documentViewer.error ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="text-center">
+                    <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+                    <h4 className="text-lg font-semibold text-v3-text-lightest mb-2">
+                      Failed to Load Document
+                    </h4>
+                    <p className="text-v3-text-muted max-w-md">
+                      {documentViewer.error}
+                    </p>
+                    <button
+                      onClick={() => openDocumentViewer(documentViewer.document?.originalPath || selectedAgent?.id_document_url || selectedAgent?.sia_document_url, documentViewer.title)}
+                      className="mt-4 px-4 py-2 bg-v3-orange hover:bg-v3-orange-dark text-white rounded-lg transition-colors"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                </div>
+              ) : documentViewer.document ? (
+                <div className="space-y-4">
+                  {/* Document Controls */}
+                  <div className="flex items-center justify-between p-3 bg-v3-bg-dark rounded-lg border border-v3-border">
+                    <div className="flex items-center gap-2 text-sm text-v3-text-muted">
+                      <FileText className="w-4 h-4 text-v3-orange" />
+                      <span>Document ready for review</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => window.open(documentViewer.document.url, '_blank')}
+                        className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm transition-colors"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download
+                      </button>
+                      <button
+                        onClick={() => window.open(documentViewer.document.url, '_blank')}
+                        className="flex items-center gap-2 px-3 py-1 bg-v3-orange hover:bg-v3-orange-dark text-white rounded-md text-sm transition-colors"
+                      >
+                        <ZoomIn className="w-4 h-4" />
+                        Full Size
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Document Preview */}
+                  <div className="bg-v3-bg-darkest rounded-lg border border-v3-border overflow-hidden">
+                    <div className="p-4">
+                      <img
+                        src={documentViewer.document.url}
+                        alt={documentViewer.title}
+                        className="w-full h-auto max-h-[60vh] object-contain mx-auto rounded-lg"
+                        onError={(e) => {
+                          setDocumentViewer(prev => ({
+                            ...prev,
+                            error: 'Failed to load image. The file may be corrupted or in an unsupported format.'
+                          }));
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Document Metadata */}
+                  <div className="bg-v3-bg-dark rounded-lg border border-v3-border p-4">
+                    <h4 className="font-semibold text-v3-text-lightest mb-3">Document Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-v3-text-muted">File Path:</span>
+                        <p className="text-v3-text-light font-mono text-xs break-all mt-1">
+                          {documentViewer.document.originalPath}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-v3-text-muted">Document Type:</span>
+                        <p className="text-v3-text-light mt-1">
+                          {documentViewer.title.includes('ID') ? 'Identification Document' : 'SIA Badge'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-v3-border bg-v3-bg-dark">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-v3-text-muted">
+                  Review document carefully before approving or rejecting agent verification
+                </p>
+                <button
+                  onClick={closeDocumentViewer}
+                  className="px-4 py-2 bg-v3-bg-card hover:bg-gray-600 text-v3-text-light rounded-lg border border-v3-border transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
