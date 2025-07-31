@@ -20,10 +20,10 @@ import {
   ArrowRight
 } from 'lucide-react';
 
-// Simple image URL function - use Flask proxy route
+// Simple image URL function - use Flask image proxy route
 const getImageUrl = (documentPath) => {
   if (!documentPath) return null;
-  // Just return the path to use the existing Flask proxy
+  // Use the simple Flask proxy route that returns actual images
   console.log('Creating image URL for document path:', documentPath);
   return `/api/images/${documentPath}`;
 };
