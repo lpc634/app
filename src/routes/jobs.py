@@ -497,42 +497,64 @@ def update_job(job_id):
         logger.error(f"Error updating job: {str(e)}")
         return jsonify({'error': 'Failed to update job'}), 500
 
-@jobs_bp.route('/jobs/<int:job_id>', methods=['DELETE'])
+@jobs_bp.route('/jobs/<int:job_id>/complete', methods=['POST'])
 @jwt_required()
-def delete_job(job_id):
-    """Cancel job (admin only) and notify assigned agents."""
+def mark_job_complete(job_id):
+    """Mark a job as completed."""
     try:
-        current_user = require_admin()
-        if not current_user:
-            return jsonify({'error': 'Access denied. Admin role required.'}), 403
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
         
         job = Job.query.get(job_id)
         if not job:
             return jsonify({'error': 'Job not found'}), 404
-            
-        job.status = 'cancelled'
-        job.updated_at = datetime.utcnow()
         
-        # Notify assigned agents
-        assignments = JobAssignment.query.filter_by(job_id=job_id).all()
-        for assignment in assignments:
-            notification = Notification(
-                user_id=assignment.agent_id,
-                title=f"Job Cancelled: {job.title}",
-                message=f"The job scheduled for {job.arrival_time.strftime('%Y-%m-%d %H:%M')} has been cancelled.",
-                type='job_cancelled',
-                job_id=job.id
-            )
-            db.session.add(notification)
+        job.status = 'completed'
+        job.updated_at = datetime.utcnow()
         
         db.session.commit()
         
-        return jsonify({'message': 'Job cancelled successfully'}), 200
+        return jsonify({
+            'message': 'Job marked as complete',
+            'job': job.to_dict()
+        }), 200
         
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error cancelling job: {str(e)}")
-        return jsonify({'error': 'Failed to cancel job'}), 500
+        current_app.logger.error(f"Error marking job complete: {e}")
+        return jsonify({'error': 'Failed to mark job as complete'}), 500
+
+@jobs_bp.route('/jobs/<int:job_id>', methods=['DELETE'])
+@jwt_required()
+def delete_job(job_id):
+    """Delete a job (admin only)."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        job = Job.query.get(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        # Delete related assignments first
+        JobAssignment.query.filter_by(job_id=job_id).delete()
+        
+        # Delete the job
+        db.session.delete(job)
+        db.session.commit()
+        
+        return jsonify({'message': 'Job deleted successfully'}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting job: {e}")
+        return jsonify({'error': 'Failed to delete job'}), 500
 
 @jobs_bp.route('/jobs', methods=['POST'])
 @jwt_required()

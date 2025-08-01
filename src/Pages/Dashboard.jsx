@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../useAuth.jsx';
+import { useToast } from '../use-toast.js';
 import { Link } from 'react-router-dom';
 import { 
   PlusCircle, 
@@ -14,7 +15,8 @@ import {
   FileText,
   AlertTriangle,
   CheckCircle,
-  XCircle
+  XCircle,
+  Trash2
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -24,14 +26,16 @@ export default function Dashboard() {
   const [documentStats, setDocumentStats] = useState({ pending: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [jobFilter, setJobFilter] = useState('open');
   const { apiCall, user } = useAuth();
+  const { toast } = useToast();
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setError('');
       
-      const jobsPromise = apiCall('/jobs?status=open');
+      const jobsPromise = apiCall('/jobs');
       
       const today = new Date().toISOString().split('T')[0];
       const agentsPromise = apiCall(`/agents/available?date=${today}`);
@@ -67,6 +71,65 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
+  const markJobComplete = async (jobId) => {
+    try {
+      await apiCall(`/jobs/${jobId}/complete`, {
+        method: 'POST'
+      });
+      
+      toast({
+        title: "Success",
+        description: "Job marked as complete",
+        variant: "default"
+      });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to mark job as complete",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const deleteJob = async (jobId) => {
+    if (!confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      await apiCall(`/jobs/${jobId}`, {
+        method: 'DELETE'
+      });
+      
+      toast({
+        title: "Success",
+        description: "Job deleted successfully",
+        variant: "default"
+      });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete job",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Filter jobs based on selected filter
+  const filteredJobs = liveJobs.filter(job => {
+    switch (jobFilter) {
+      case 'open':
+        return job.status !== 'completed';
+      case 'completed':
+        return job.status === 'completed';
+      case 'all':
+      default:
+        return true;
+    }
+  });
 
   useEffect(() => {
     fetchData();
@@ -179,25 +242,88 @@ export default function Dashboard() {
               <CardDescription>Jobs that are currently open or have been assigned.</CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Job Filter Tabs */}
+              {user?.role === 'admin' && (
+                <div className="flex gap-4 mb-6">
+                  <button 
+                    onClick={() => setJobFilter('open')}
+                    className={`px-4 py-2 rounded-lg ${jobFilter === 'open' ? 'button-refresh' : 'bg-v3-bg-dark text-v3-text-muted'}`}
+                  >
+                    Open Jobs
+                  </button>
+                  
+                  <button 
+                    onClick={() => setJobFilter('completed')}
+                    className={`px-4 py-2 rounded-lg ${jobFilter === 'completed' ? 'button-refresh' : 'bg-v3-bg-dark text-v3-text-muted'}`}
+                  >
+                    Completed Jobs
+                  </button>
+                  
+                  <button 
+                    onClick={() => setJobFilter('all')}
+                    className={`px-4 py-2 rounded-lg ${jobFilter === 'all' ? 'button-refresh' : 'bg-v3-bg-dark text-v3-text-muted'}`}
+                  >
+                    All Jobs
+                  </button>
+                </div>
+              )}
+              
               <div className="space-y-4">
-                {liveJobs.length > 0 ? liveJobs.map(job => (
-                  <div key={job.id} className="p-4 rounded-lg bg-v3-bg-dark flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-v3-text-lightest">{job.title}</p>
-                      <p className="text-sm text-v3-text-muted">{job.address}</p>
+                {filteredJobs.length > 0 ? filteredJobs.map(job => (
+                  <div key={job.id} className={`p-4 rounded-lg bg-v3-bg-dark ${job.status === 'completed' ? 'opacity-75' : ''}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-v3-text-lightest">{job.title}</h3>
+                          {job.status === 'completed' && (
+                            <span className="px-2 py-1 bg-green-900/50 text-green-400 border border-green-500/50 rounded-full text-xs">
+                              Completed
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-v3-text-muted">{job.address}</p>
+                      </div>
+                      <div className="text-right flex items-center gap-4">
+                        <div>
+                          <div className={`text-lg font-bold ${job.agents_allocated >= job.agents_required ? 'text-green-400' : 'text-v3-orange'}`}>
+                            {job.agents_allocated} / {job.agents_required}
+                          </div>
+                          <p className="text-xs text-v3-text-muted">Allocated</p>
+                        </div>
+                        
+                        {/* Action Buttons - Admin Only */}
+                        {user?.role === 'admin' && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => markJobComplete(job.id)}
+                              className="button-refresh px-3 py-1 text-sm flex items-center gap-1"
+                              disabled={job.status === 'completed'}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              Complete
+                            </button>
+                            
+                            <button
+                              onClick={() => deleteJob(job.id)}
+                              className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm flex items-center gap-1"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    {/* --- THIS IS THE UPDATED SECTION --- */}
-                    <div className="text-right">
-                       <div className={`text-lg font-bold ${job.agents_allocated >= job.agents_required ? 'text-green-400' : 'text-v3-orange'}`}>
-                         {job.agents_allocated} / {job.agents_required}
-                       </div>
-                       <p className="text-xs text-v3-text-muted">Allocated</p>
-                    </div>
-                    {/* --- END UPDATED SECTION --- */}
                   </div>
                 )) : (
                   <div className="text-center py-10">
-                    <p className="text-v3-text-muted">No active jobs at the moment.</p>
+                    <p className="text-v3-text-muted">
+                      {jobFilter === 'completed' 
+                        ? 'No completed jobs found.' 
+                        : jobFilter === 'open' 
+                        ? 'No open jobs at the moment.' 
+                        : 'No jobs found.'}
+                    </p>
                   </div>
                 )}
               </div>
