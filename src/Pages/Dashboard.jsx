@@ -27,6 +27,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [jobFilter, setJobFilter] = useState('open');
+  const [actionLoading, setActionLoading] = useState({});
   const { apiCall, user } = useAuth();
   const { toast } = useToast();
 
@@ -74,22 +75,37 @@ export default function Dashboard() {
 
   const markJobComplete = async (jobId) => {
     try {
-      await apiCall(`/jobs/${jobId}/complete`, {
+      setActionLoading(prev => ({ ...prev, [`complete_${jobId}`]: true }));
+      
+      const response = await apiCall(`/jobs/${jobId}/complete`, {
         method: 'POST'
       });
       
-      toast({
-        title: "Success",
-        description: "Job marked as complete",
-        variant: "default"
-      });
-      fetchData();
+      if (response && response.success) {
+        toast({
+          title: "Success",
+          description: response.message || "Job marked as complete",
+          variant: "default"
+        });
+        
+        // Update the job in the current state instead of refetching all data
+        setLiveJobs(prevJobs => 
+          prevJobs.map(job => 
+            job.id === jobId 
+              ? { ...job, status: 'completed' }
+              : job
+          )
+        );
+      }
     } catch (error) {
+      console.error('Error completing job:', error);
       toast({
         title: "Error",
-        description: "Failed to mark job as complete",
+        description: error.message || "Failed to mark job as complete",
         variant: "destructive"
       });
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`complete_${jobId}`]: false }));
     }
   };
 
@@ -99,22 +115,31 @@ export default function Dashboard() {
     }
     
     try {
-      await apiCall(`/jobs/${jobId}`, {
+      setActionLoading(prev => ({ ...prev, [`delete_${jobId}`]: true }));
+      
+      const response = await apiCall(`/jobs/${jobId}`, {
         method: 'DELETE'
       });
       
-      toast({
-        title: "Success",
-        description: "Job deleted successfully",
-        variant: "default"
-      });
-      fetchData();
+      if (response && response.success) {
+        toast({
+          title: "Success",
+          description: response.message || "Job deleted successfully",
+          variant: "default"
+        });
+        
+        // Remove the job from the current state instead of refetching all data
+        setLiveJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+      }
     } catch (error) {
+      console.error('Error deleting job:', error);
       toast({
         title: "Error",
-        description: "Failed to delete job",
+        description: error.message || "Failed to delete job",
         variant: "destructive"
       });
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`delete_${jobId}`]: false }));
     }
   };
 
@@ -297,18 +322,27 @@ export default function Dashboard() {
                             <button
                               onClick={() => markJobComplete(job.id)}
                               className="button-refresh px-3 py-1 text-sm flex items-center gap-1"
-                              disabled={job.status === 'completed'}
+                              disabled={job.status === 'completed' || actionLoading[`complete_${job.id}`]}
                             >
-                              <CheckCircle className="h-4 w-4" />
-                              Complete
+                              {actionLoading[`complete_${job.id}`] ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-4 w-4" />
+                              )}
+                              {actionLoading[`complete_${job.id}`] ? 'Completing...' : 'Complete'}
                             </button>
                             
                             <button
                               onClick={() => deleteJob(job.id)}
-                              className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm flex items-center gap-1"
+                              className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={actionLoading[`delete_${job.id}`]}
                             >
-                              <Trash2 className="h-4 w-4" />
-                              Delete
+                              {actionLoading[`delete_${job.id}`] ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                              {actionLoading[`delete_${job.id}`] ? 'Deleting...' : 'Delete'}
                             </button>
                           </div>
                         )}
@@ -370,7 +404,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {pendingDocuments.slice(0, 5).map((agent, index) => (
+                  {pendingDocuments.slice(0, 5).map((agent) => (
                     <div key={agent.agent_id} className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
