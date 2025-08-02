@@ -20,6 +20,8 @@ from flask_migrate import Migrate
 # --- Application-specific Imports ---
 from src.extensions import db
 from src.models.user import User
+from src.models.vehicle import VehicleSighting
+from src.models.vehicle_details import VehicleDetails
 from src.scheduler import init_scheduler
 
 # --- Route Blueprint Imports ---

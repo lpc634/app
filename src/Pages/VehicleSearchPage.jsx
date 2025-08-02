@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../useAuth.jsx';
 import { toast } from 'sonner';
-import { Loader2, Search, AlertTriangle, Send, PlusCircle, X, MapPin, NotebookText, User, Calendar, Users, CheckCircle } from 'lucide-react';
+import { Loader2, Search, AlertTriangle, Send, PlusCircle, X, MapPin, NotebookText, User, Calendar, Users, CheckCircle, Edit3, Save, Car } from 'lucide-react';
 
 
 // --- Reusable UI Components ---
@@ -125,6 +125,16 @@ const VehicleSearchPage = () => {
     const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     
+    // Vehicle details state
+    const [vehicleDetails, setVehicleDetails] = useState({
+        make: '',
+        model: '',
+        colour: ''
+    });
+    const [isEditingVehicle, setIsEditingVehicle] = useState(false);
+    const [vehicleDetailsLoading, setVehicleDetailsLoading] = useState(false);
+    const [hasVehicleDetails, setHasVehicleDetails] = useState(false);
+    
     const { apiCall } = useAuth();
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
@@ -180,6 +190,72 @@ const VehicleSearchPage = () => {
         }
     };
 
+    // Load vehicle details for the current plate
+    const loadVehicleDetails = async (plate) => {
+        try {
+            const data = await apiCall(`/vehicles/${plate}/details`);
+            setVehicleDetails({
+                make: data.make || '',
+                model: data.model || '',
+                colour: data.colour || ''
+            });
+            setHasVehicleDetails(true);
+        } catch (error) {
+            // No vehicle details found, reset to empty
+            setVehicleDetails({ make: '', model: '', colour: '' });
+            setHasVehicleDetails(false);
+        }
+    };
+
+    // Save vehicle details
+    const saveVehicleDetails = async () => {
+        if (!selectedSighting) return;
+        
+        setVehicleDetailsLoading(true);
+        try {
+            const plate = selectedSighting.registration_plate;
+            await apiCall(`/vehicles/${plate}/details`, {
+                method: 'PUT',
+                body: JSON.stringify(vehicleDetails)
+            });
+            
+            toast.success('Vehicle details saved successfully!');
+            setIsEditingVehicle(false);
+            setHasVehicleDetails(true);
+        } catch (error) {
+            toast.error('Failed to save vehicle details', { description: error.message });
+        } finally {
+            setVehicleDetailsLoading(false);
+        }
+    };
+
+    // Reset vehicle editing state
+    const cancelVehicleEdit = () => {
+        setIsEditingVehicle(false);
+        // If we had details before, restore them
+        if (selectedSighting) {
+            loadVehicleDetails(selectedSighting.registration_plate);
+        }
+    };
+
+    // Display text for vehicle details
+    const getVehicleDisplayText = () => {
+        const parts = [];
+        if (vehicleDetails.make) parts.push(vehicleDetails.make);
+        if (vehicleDetails.model) parts.push(vehicleDetails.model);
+        
+        const vehicleText = parts.join(' ');
+        
+        if (vehicleDetails.colour && vehicleText) {
+            return `${vehicleText} (${vehicleDetails.colour})`;
+        } else if (vehicleText) {
+            return vehicleText;
+        } else if (vehicleDetails.colour) {
+            return vehicleDetails.colour;
+        }
+        return '';
+    };
+
     // --- REVISED MAP LOGIC ---
     useEffect(() => {
         // If we have sightings and a map container, initialize the map
@@ -229,6 +305,14 @@ const VehicleSearchPage = () => {
             const marker = markersRef.current[selectedSighting.id];
             mapInstance.current.panTo(marker.getLatLng(), { animate: true });
             marker.openPopup();
+        }
+    }, [selectedSighting]);
+
+    // Load vehicle details when a sighting is selected
+    useEffect(() => {
+        if (selectedSighting) {
+            loadVehicleDetails(selectedSighting.registration_plate);
+            setIsEditingVehicle(false); // Reset editing state
         }
     }, [selectedSighting]);
     
@@ -315,6 +399,80 @@ const VehicleSearchPage = () => {
                                                         <Users size={16} /> View Group
                                                     </Button>
                                                 </div>
+                                            </div>
+                                            
+                                            {/* Vehicle Details Edit Section */}
+                                            <div className="vehicle-details-section mb-6 p-4 bg-v3-bg-darker rounded-lg border border-v3-border">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <Car className="text-v3-orange" size={18} />
+                                                        <h4 className="font-semibold text-v3-text-lightest">Vehicle Details</h4>
+                                                    </div>
+                                                    {!isEditingVehicle && (
+                                                        <button 
+                                                            onClick={() => setIsEditingVehicle(true)}
+                                                            className="flex items-center gap-1 text-v3-orange text-sm hover:text-orange-400 transition-colors"
+                                                        >
+                                                            <Edit3 size={14} />
+                                                            {hasVehicleDetails ? 'Edit Details' : 'Add Details'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                
+                                                {isEditingVehicle ? (
+                                                    <div className="space-y-3">
+                                                        <Input
+                                                            placeholder="Make (e.g. BMW, Ford, Audi)"
+                                                            value={vehicleDetails.make}
+                                                            onChange={e => setVehicleDetails({...vehicleDetails, make: e.target.value})}
+                                                        />
+                                                        <Input
+                                                            placeholder="Model (e.g. 3 Series, Focus, A4)"
+                                                            value={vehicleDetails.model}
+                                                            onChange={e => setVehicleDetails({...vehicleDetails, model: e.target.value})}
+                                                        />
+                                                        <Input
+                                                            placeholder="Colour (e.g. Blue, Red, Silver)"
+                                                            value={vehicleDetails.colour}
+                                                            onChange={e => setVehicleDetails({...vehicleDetails, colour: e.target.value})}
+                                                        />
+                                                        <div className="flex gap-2 pt-2">
+                                                            <button 
+                                                                onClick={saveVehicleDetails}
+                                                                disabled={vehicleDetailsLoading}
+                                                                className="flex items-center gap-2 bg-v3-orange text-white px-4 py-2 rounded-md hover:bg-orange-600 disabled:opacity-50 transition-colors"
+                                                            >
+                                                                {vehicleDetailsLoading ? (
+                                                                    <Loader2 className="animate-spin" size={16} />
+                                                                ) : (
+                                                                    <Save size={16} />
+                                                                )}
+                                                                {vehicleDetailsLoading ? 'Saving...' : 'Save'}
+                                                            </button>
+                                                            <button 
+                                                                onClick={cancelVehicleEdit}
+                                                                disabled={vehicleDetailsLoading}
+                                                                className="bg-v3-bg-dark text-v3-text-lightest px-4 py-2 rounded-md hover:bg-v3-bg-darkest transition-colors"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-v3-text-muted">
+                                                        {hasVehicleDetails && getVehicleDisplayText() ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-lg">🚗</span>
+                                                                <span className="text-v3-text-lightest font-medium">{getVehicleDisplayText()}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2 text-v3-text-muted">
+                                                                <span className="text-lg">🚗</span>
+                                                                <span className="italic">Click "Add Details" to specify make, model & colour</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                             
                                             {/* Sighting Details */}
