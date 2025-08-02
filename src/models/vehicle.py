@@ -11,6 +11,11 @@ class VehicleSighting(db.Model):
 
     address_seen = db.Column(db.String(255), nullable=False)
     agent_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    # Vehicle details fields
+    make = db.Column(db.String(50), nullable=True)
+    model = db.Column(db.String(50), nullable=True)
+    colour = db.Column(db.String(30), nullable=True)
 
     # This relationship connects back to the User model
     agent = db.relationship('User', backref='vehicle_sightings')
@@ -23,5 +28,8 @@ class VehicleSighting(db.Model):
             'is_dangerous': self.is_dangerous,
             'sighted_at': self.sighted_at.isoformat(),
             'agent_name': f"{self.agent.first_name} {self.agent.last_name}" if self.agent else "Unknown",
-            'address_seen': self.address_seen
+            'address_seen': self.address_seen,
+            'make': self.make,
+            'model': self.model,
+            'colour': self.colour
         }
