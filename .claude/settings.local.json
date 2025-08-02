@@ -9,7 +9,8 @@
       "Bash(npm run dev:*)",
       "Bash(npm run lint)",
       "Bash(npm run:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(set DATABASE_URL=sqlite:///vehicle_intelligence.db)"
     ],
     "deny": []
   }

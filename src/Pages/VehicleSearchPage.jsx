@@ -3,14 +3,6 @@ import { useAuth } from '../useAuth.jsx';
 import { toast } from 'sonner';
 import { Loader2, Search, AlertTriangle, Send, PlusCircle, X, MapPin, NotebookText, User, Calendar, Users, CheckCircle } from 'lucide-react';
 
-// --- MOCK DATA (Car makes and models) ---
-const carData = {
-  "Ford": ["Fiesta", "Focus", "Mustang", "Explorer", "Transit"],
-  "BMW": ["3 Series", "5 Series", "X5", "M3"],
-  "Audi": ["A4", "A6", "Q5", "R8"],
-  "Mercedes-Benz": ["C-Class", "E-Class", "S-Class", "G-Class", "Sprinter"],
-  "Vauxhall": ["Corsa", "Astra", "Insignia", "Mokka"]
-};
 
 // --- Reusable UI Components ---
 const Input = (props) => <input className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest placeholder-gray-400 focus:outline-none focus:ring-v3-orange focus:border-v3-orange" {...props} />;
@@ -26,29 +18,12 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     const [address, setAddress] = useState('');
     const [isDangerous, setIsDangerous] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [makes, setMakes] = useState([]);
-    const [models, setModels] = useState([]);
-    const [selectedMake, setSelectedMake] = useState('');
-    const [selectedModel, setSelectedModel] = useState('');
-    const [isManualEntry, setIsManualEntry] = useState(false);
 
     useEffect(() => {
-        if (isOpen) {
-            setMakes(Object.keys(carData));
-        } else {
+        if (!isOpen) {
             setPlate(''); setNotes(''); setAddress(''); setIsDangerous(false);
-            setSelectedMake(''); setSelectedModel(''); setIsManualEntry(false);
         }
     }, [isOpen]);
-
-    useEffect(() => {
-        if (selectedMake) {
-            setModels(carData[selectedMake] || []);
-            setSelectedModel('');
-        } else {
-            setModels([]);
-        }
-    }, [selectedMake]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -90,10 +65,6 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <Input value={plate} onChange={e => setPlate(e.target.value)} placeholder="Registration Plate" required />
                     <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="Address or Area Seen" required />
-                    <div className="flex items-center gap-2">
-                        <input type="checkbox" id="manualEntry" checked={isManualEntry} onChange={e => setIsManualEntry(e.target.checked)} />
-                        <label htmlFor="manualEntry">Make/Model not listed?</label>
-                    </div>
                     <div className="p-4 bg-v3-bg-dark rounded-lg border border-v3-border">
                         <p className="text-v3-text-muted text-sm mb-2">
                             🚧 Vehicle details (make/model/colour) will be available in a future update.
@@ -153,9 +124,6 @@ const VehicleSearchPage = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
-    const [isEditingVehicle, setIsEditingVehicle] = useState(false);
-    const [vehicleDetails, setVehicleDetails] = useState({make: '', model: '', colour: ''});
-    const [saveLoading, setSaveLoading] = useState(false);
     
     const { apiCall } = useAuth();
     const mapRef = useRef(null);
@@ -187,13 +155,6 @@ const VehicleSearchPage = () => {
             setSightings(data);
             if (data.length > 0) {
                 setSelectedSighting(data[0]);
-                // Initialize vehicle details from first sighting
-                const firstSighting = data[0];
-                setVehicleDetails({
-                    make: firstSighting.make || '',
-                    model: firstSighting.model || '',
-                    colour: firstSighting.colour || ''
-                });
             } else {
                  setError('No records found for this registration plate.');
             }
@@ -208,63 +169,6 @@ const VehicleSearchPage = () => {
     const handleSightingAdded = (newSighting) => {
         if (newSighting.registration_plate === searchPlate.toUpperCase()) {
             setSightings(prev => [newSighting, ...prev]);
-        }
-    };
-    
-    const saveVehicleDetails = async () => {
-        if (!searchPlate || !vehicleDetails.make.trim()) {
-            toast.error('Please enter at least the vehicle make');
-            return;
-        }
-        
-        setSaveLoading(true);
-        try {
-            const response = await apiCall(`/vehicles/${searchPlate.toUpperCase()}/details`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    make: vehicleDetails.make.trim(),
-                    model: vehicleDetails.model.trim(),
-                    colour: vehicleDetails.colour.trim()
-                })
-            });
-            
-            // Update all sightings with new vehicle details
-            const updatedSightings = sightings.map(sighting => ({
-                ...sighting,
-                make: vehicleDetails.make.trim(),
-                model: vehicleDetails.model.trim(),
-                colour: vehicleDetails.colour.trim()
-            }));
-            
-            setSightings(updatedSightings);
-            if (selectedSighting) {
-                setSelectedSighting({
-                    ...selectedSighting,
-                    make: vehicleDetails.make.trim(),
-                    model: vehicleDetails.model.trim(),
-                    colour: vehicleDetails.colour.trim()
-                });
-            }
-            
-            setIsEditingVehicle(false);
-            toast.success(`Vehicle details updated for ${response.updated_sightings} sighting(s)!`);
-            
-        } catch (error) {
-            toast.error('Failed to update vehicle details', { description: error.message });
-        } finally {
-            setSaveLoading(false);
-        }
-    };
-    
-    const cancelEdit = () => {
-        setIsEditingVehicle(false);
-        // Reset to original values
-        if (selectedSighting) {
-            setVehicleDetails({
-                make: selectedSighting.make || '',
-                model: selectedSighting.model || '',
-                colour: selectedSighting.colour || ''
-            });
         }
     };
     
@@ -371,24 +275,16 @@ const VehicleSearchPage = () => {
                                 {!loading && error && <div className="p-6 text-center text-red-400">{error}</div>}
                                 {!loading && !error && sightings.length === 0 && <div className="p-6 text-center text-v3-text-muted">No sightings found for this plate.</div>}
                                 
-                                {sightings.map(sighting => {
-                                    const vehicleInfo = [sighting.make, sighting.model].filter(Boolean).join(' ');
-                                    const displayVehicle = vehicleInfo || sighting.registration_plate;
-                                    const colour = sighting.colour;
-                                    
-                                    return (
-                                        <div key={sighting.id} onClick={() => setSelectedSighting(sighting)} className={`p-4 border-b border-v3-border cursor-pointer hover:bg-v3-bg-dark ${selectedSighting?.id === sighting.id ? 'bg-v3-orange/20' : ''}`}>
-                                            <div className="mb-2">
-                                                <p className="font-bold text-v3-text-lightest">
-                                                    {vehicleInfo ? `${displayVehicle}${colour ? ` (${colour})` : ''}` : sighting.registration_plate}
-                                                </p>
-                                                <p className="text-xs font-mono text-v3-text-light">{sighting.registration_plate}</p>
-                                            </div>
-                                            <p className="font-medium text-v3-text-light">{sighting.address_seen}</p>
-                                            <p className="text-sm text-v3-text-muted">{new Date(sighting.sighted_at).toLocaleString()}</p>
+                                {sightings.map(sighting => (
+                                    <div key={sighting.id} onClick={() => setSelectedSighting(sighting)} className={`p-4 border-b border-v3-border cursor-pointer hover:bg-v3-bg-dark ${selectedSighting?.id === sighting.id ? 'bg-v3-orange/20' : ''}`}>
+                                        <div className="mb-2">
+                                            <p className="font-bold text-v3-text-lightest">{sighting.registration_plate}</p>
+                                            <p className="text-xs text-v3-text-muted">Registration Plate</p>
                                         </div>
-                                    );
-                                })}
+                                        <p className="font-medium text-v3-text-light">{sighting.address_seen}</p>
+                                        <p className="text-sm text-v3-text-muted">{new Date(sighting.sighted_at).toLocaleString()}</p>
+                                    </div>
+                                ))}
                            </div>
                         </div>
 
@@ -401,92 +297,23 @@ const VehicleSearchPage = () => {
                                             {/* Vehicle Header */}
                                             <div className="vehicle-header mb-6 p-4 bg-v3-bg-dark rounded-lg border border-v3-border">
                                                 <div className="flex justify-between items-start">
-                                                    <div className="flex-1">
-                                                        {isEditingVehicle ? (
-                                                            <div className="vehicle-edit-form">
-                                                                <h3 className="font-bold text-xl text-v3-text-lightest mb-4">Edit Vehicle Details</h3>
-                                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                                                    <Input 
-                                                                        value={vehicleDetails.make}
-                                                                        onChange={e => setVehicleDetails({...vehicleDetails, make: e.target.value})}
-                                                                        placeholder="Make (e.g. BMW)"
-                                                                    />
-                                                                    <Input 
-                                                                        value={vehicleDetails.model}
-                                                                        onChange={e => setVehicleDetails({...vehicleDetails, model: e.target.value})}
-                                                                        placeholder="Model (e.g. 3 Series)"
-                                                                    />
-                                                                    <Input 
-                                                                        value={vehicleDetails.colour}
-                                                                        onChange={e => setVehicleDetails({...vehicleDetails, colour: e.target.value})}
-                                                                        placeholder="Colour (e.g. Blue)"
-                                                                    />
-                                                                </div>
-                                                                <div className="flex gap-3">
-                                                                    <Button 
-                                                                        onClick={saveVehicleDetails} 
-                                                                        disabled={saveLoading || !vehicleDetails.make.trim()}
-                                                                        className="flex items-center gap-2"
-                                                                    >
-                                                                        {saveLoading ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle size={16} />}
-                                                                        Save Details
-                                                                    </Button>
-                                                                    <Button 
-                                                                        onClick={cancelEdit} 
-                                                                        className="bg-v3-bg-dark hover:bg-v3-bg-darkest"
-                                                                        disabled={saveLoading}
-                                                                    >
-                                                                        Cancel
-                                                                    </Button>
-                                                                </div>
-                                                                <p className="text-v3-text-muted text-xs mt-2">
-                                                                    Changes will apply to ALL sightings of {selectedSighting.registration_plate}
-                                                                </p>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="vehicle-display">
-                                                                {(() => {
-                                                                    const hasVehicleDetails = vehicleDetails.make || vehicleDetails.model || vehicleDetails.colour;
-                                                                    const vehicleInfo = [vehicleDetails.make, vehicleDetails.model].filter(Boolean).join(' ');
-                                                                    
-                                                                    return (
-                                                                        <>
-                                                                            <h3 className="font-bold text-2xl text-v3-text-lightest mb-1">
-                                                                                {hasVehicleDetails ? (
-                                                                                    <>
-                                                                                        🚗 {vehicleInfo || 'Vehicle'}
-                                                                                        {vehicleDetails.colour && ` (${vehicleDetails.colour})`}
-                                                                                    </>
-                                                                                ) : (
-                                                                                    selectedSighting.registration_plate
-                                                                                )}
-                                                                            </h3>
-                                                                            <p className="font-mono text-lg text-v3-orange tracking-wider mb-2">
-                                                                                {selectedSighting.registration_plate}
-                                                                            </p>
-                                                                            <Button 
-                                                                                onClick={() => setIsEditingVehicle(true)} 
-                                                                                className="text-sm mb-2"
-                                                                            >
-                                                                                {hasVehicleDetails ? 'Edit Details' : 'Add Vehicle Details'}
-                                                                            </Button>
-                                                                        </>
-                                                                    );
-                                                                })()}
-                                                                {selectedSighting.is_dangerous && (
-                                                                    <div className="flex items-center gap-2 mt-3">
-                                                                        <AlertTriangle className="text-red-500" size={16} />
-                                                                        <span className="text-red-400 text-sm font-medium">Potentially Dangerous</span>
-                                                                    </div>
-                                                                )}
+                                                    <div>
+                                                        <h3 className="font-bold text-2xl text-v3-text-lightest mb-1">
+                                                            {selectedSighting.registration_plate}
+                                                        </h3>
+                                                        <p className="text-v3-text-muted text-sm mb-2">
+                                                            Registration Plate
+                                                        </p>
+                                                        {selectedSighting.is_dangerous && (
+                                                            <div className="flex items-center gap-2 mt-3">
+                                                                <AlertTriangle className="text-red-500" size={16} />
+                                                                <span className="text-red-400 text-sm font-medium">Potentially Dangerous</span>
                                                             </div>
                                                         )}
                                                     </div>
-                                                    {!isEditingVehicle && (
-                                                        <Button onClick={handleViewGroup} className="flex items-center gap-2 text-sm">
-                                                            <Users size={16} /> View Group
-                                                        </Button>
-                                                    )}
+                                                    <Button onClick={handleViewGroup} className="flex items-center gap-2 text-sm">
+                                                        <Users size={16} /> View Group
+                                                    </Button>
                                                 </div>
                                             </div>
                                             
