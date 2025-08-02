@@ -106,10 +106,17 @@ class Job(db.Model):
         
         weather_info = None
         try:
+            # Avoid circular import by doing lazy import
             from src.routes.jobs import get_weather_for_job
             logger.info(f"Calling get_weather_for_job for job {self.id}")
             weather_info = get_weather_for_job(self)
             logger.info(f"Weather info returned: {weather_info}")
+        except ImportError as ie:
+            logger.warning(f"Could not import weather function for job {self.id}: {str(ie)}")
+            weather_info = {
+                'forecast': 'Weather information temporarily unavailable',
+                'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+            }
         except Exception as e:
             # Log the error for debugging
             logger.error(f"Error getting weather for job {self.id}: {str(e)}", exc_info=True)
@@ -128,11 +135,23 @@ class Job(db.Model):
             'address': self.address, 
             'postcode': self.postcode, 
             'arrival_time': self.arrival_time.isoformat(), 
-            'agents_required': self.agents_required, 
+            'agents_required': self.agents_required,
+            'agents_allocated': agents_allocated,
+            'lead_agent_name': self.lead_agent_name,
+            'instructions': self.instructions,
+            'urgency_level': self.urgency_level,
+            'status': self.status,
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'number_of_dwellings': self.number_of_dwellings,
+            'police_liaison_required': self.police_liaison_required,
             'what3words_address': self.what3words_address,
+            'hourly_rate': float(self.hourly_rate) if self.hourly_rate else None,
             'location_lat': self.location_lat,
             'location_lng': self.location_lng,
-            'maps_link': self.maps_link
+            'maps_link': self.maps_link,
+            'weather': weather_info
         }
 
 class JobAssignment(db.Model):
@@ -147,17 +166,29 @@ class JobAssignment(db.Model):
     job = db.relationship('Job', back_populates='assignments')
     agent = db.relationship('User', back_populates='assignments')
 
-    def to_dict(self):
-        # Make sure the job relationship is loaded before calling to_dict()
-        return {
+    def to_dict(self, include_job_details=False):
+        # Avoid circular references by making job_details optional
+        result = {
             'id': self.id, 
             'job_id': self.job_id, 
             'agent_id': self.agent_id, 
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'response_time': self.response_time.isoformat() if self.response_time else None,
-            'job_details': self.job.to_dict() if self.job else None  # This was the issue!
         }
+        
+        # Only include job details if explicitly requested and avoid circular references
+        if include_job_details and self.job:
+            result['job_details'] = {
+                'id': self.job.id,
+                'title': self.job.title,
+                'job_type': self.job.job_type,
+                'address': self.job.address,
+                'arrival_time': self.job.arrival_time.isoformat(),
+                'status': self.job.status
+            }
+            
+        return result
 
 class AgentAvailability(db.Model):
     __tablename__ = 'agent_availability'

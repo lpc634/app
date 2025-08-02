@@ -506,26 +506,36 @@ def mark_job_complete(job_id):
         current_user = User.query.get(int(current_user_id))
         
         if not current_user or current_user.role != 'admin':
+            logger.warning(f"Access denied for job completion. User: {current_user_id}, Role: {current_user.role if current_user else 'None'}")
             return jsonify({'error': 'Access denied'}), 403
         
         job = Job.query.get(job_id)
         if not job:
+            logger.warning(f"Job not found for completion: {job_id}")
             return jsonify({'error': 'Job not found'}), 404
         
+        logger.info(f"Marking job {job_id} as complete by admin {current_user_id}")
+        
+        old_status = job.status
         job.status = 'completed'
         job.updated_at = datetime.utcnow()
         
         db.session.commit()
         
+        logger.info(f"Job {job_id} status changed from '{old_status}' to 'completed'")
+        
+        # Return simple response to avoid to_dict() issues
         return jsonify({
+            'success': True,
             'message': 'Job marked as complete',
-            'job': job.to_dict()
+            'job_id': job_id,
+            'status': 'completed'
         }), 200
         
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Error marking job complete: {e}")
-        return jsonify({'error': 'Failed to mark job as complete'}), 500
+        logger.error(f"Error marking job {job_id} complete: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to mark job as complete: {str(e)}'}), 500
 
 @jobs_bp.route('/jobs/<int:job_id>', methods=['DELETE'])
 @jwt_required()
@@ -536,25 +546,51 @@ def delete_job(job_id):
         current_user = User.query.get(int(current_user_id))
         
         if not current_user or current_user.role != 'admin':
+            logger.warning(f"Access denied for job deletion. User: {current_user_id}, Role: {current_user.role if current_user else 'None'}")
             return jsonify({'error': 'Access denied'}), 403
         
         job = Job.query.get(job_id)
         if not job:
+            logger.warning(f"Job not found for deletion: {job_id}")
             return jsonify({'error': 'Job not found'}), 404
         
+        logger.info(f"Deleting job {job_id} ({job.title}) by admin {current_user_id}")
+        
         # Delete related assignments first
+        assignments_count = JobAssignment.query.filter_by(job_id=job_id).count()
+        logger.info(f"Deleting {assignments_count} job assignments for job {job_id}")
         JobAssignment.query.filter_by(job_id=job_id).delete()
+        
+        # Delete related notifications
+        from src.models.user import Notification
+        notifications_count = Notification.query.filter_by(job_id=job_id).count()
+        if notifications_count > 0:
+            logger.info(f"Deleting {notifications_count} notifications for job {job_id}")
+            Notification.query.filter_by(job_id=job_id).delete()
+        
+        # Delete related invoice jobs
+        from src.models.user import InvoiceJob
+        invoice_jobs_count = InvoiceJob.query.filter_by(job_id=job_id).count()
+        if invoice_jobs_count > 0:
+            logger.info(f"Deleting {invoice_jobs_count} invoice job entries for job {job_id}")
+            InvoiceJob.query.filter_by(job_id=job_id).delete()
         
         # Delete the job
         db.session.delete(job)
         db.session.commit()
         
-        return jsonify({'message': 'Job deleted successfully'}), 200
+        logger.info(f"Successfully deleted job {job_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Job deleted successfully',
+            'job_id': job_id
+        }), 200
         
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Error deleting job: {e}")
-        return jsonify({'error': 'Failed to delete job'}), 500
+        logger.error(f"Error deleting job {job_id}: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to delete job: {str(e)}'}), 500
 
 @jobs_bp.route('/jobs', methods=['POST'])
 @jwt_required()
