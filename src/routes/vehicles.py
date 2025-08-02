@@ -37,3 +37,49 @@ def add_sighting():
     db.session.add(new_sighting)
     db.session.commit()
     return jsonify(new_sighting.to_dict()), 201
+
+@vehicles_bp.route('/vehicles/<registration_plate>/details', methods=['PUT'])
+@jwt_required()
+def update_vehicle_details(registration_plate):
+    """Update vehicle details for all sightings of a registration plate."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        plate_upper = registration_plate.upper().strip()
+        
+        # Get make, model, colour from request with validation
+        make = data.get('make', '').strip() or None
+        model = data.get('model', '').strip() or None
+        colour = data.get('colour', '').strip() or None
+        
+        # Update ALL sightings of this registration plate
+        sightings = VehicleSighting.query.filter_by(registration_plate=plate_upper).all()
+        
+        if not sightings:
+            return jsonify({'error': 'No sightings found for this registration plate'}), 404
+        
+        updated_count = 0
+        for sighting in sightings:
+            sighting.make = make
+            sighting.model = model
+            sighting.colour = colour
+            updated_count += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Vehicle details updated successfully',
+            'registration_plate': plate_upper,
+            'updated_sightings': updated_count,
+            'vehicle_details': {
+                'make': make,
+                'model': model,
+                'colour': colour
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to update vehicle details: {str(e)}'}), 500
