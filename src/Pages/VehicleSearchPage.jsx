@@ -19,10 +19,18 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     const [isDangerous, setIsDangerous] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
+    
+    // Vehicle details state for modal
+    const [modalVehicleDetails, setModalVehicleDetails] = useState({
+        make: '',
+        model: '',
+        colour: ''
+    });
 
     useEffect(() => {
         if (!isOpen) {
             setPlate(''); setNotes(''); setAddress(''); setIsDangerous(false);
+            setModalVehicleDetails({ make: '', model: '', colour: '' });
             setErrors({});
         }
     }, [isOpen]);
@@ -84,10 +92,27 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                 is_dangerous: isDangerous,
                 address_seen: address
             };
+            
+            // First, create the sighting
             const newSighting = await apiCall('/vehicles/sightings', {
                 method: 'POST',
                 body: JSON.stringify(payload)
             });
+            
+            // Then, save vehicle details if any were provided
+            const hasVehicleDetails = modalVehicleDetails.make || modalVehicleDetails.model || modalVehicleDetails.colour;
+            if (hasVehicleDetails) {
+                try {
+                    await apiCall(`/vehicles/${plate.toUpperCase()}/details`, {
+                        method: 'PUT',
+                        body: JSON.stringify(modalVehicleDetails)
+                    });
+                } catch (vehicleError) {
+                    console.warn('Vehicle details save failed:', vehicleError);
+                    // Don't fail the whole operation if vehicle details fail
+                }
+            }
+            
             toast.success("Sighting added successfully!");
             onSightingAdded(newSighting);
             onClose();
@@ -214,29 +239,95 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                         )}
                     </div>
                     
-                    {/* Vehicle Details Information Card */}
+                    {/* Vehicle Details Input Section */}
                     <div 
-                        className="rounded-lg p-4"
+                        className="rounded-lg p-4 space-y-4"
                         style={{ 
                             backgroundColor: '#242424', 
                             border: '1px solid #333333' 
                         }}
                     >
-                        <div className="flex items-start gap-3">
-                            <div 
-                                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                        <h4 className="font-medium flex items-center gap-2" style={{ color: '#f5f5f5' }}>
+                            <span 
+                                className="w-5 h-5 rounded-full flex items-center justify-center text-xs"
                                 style={{ backgroundColor: '#FF5722' }}
                             >
-                                <Info className="w-3 h-3 text-white" />
-                            </div>
+                                🚗
+                            </span>
+                            Vehicle Details
+                        </h4>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <h4 className="font-medium mb-1" style={{ color: '#f5f5f5' }}>Vehicle Details</h4>
-                                <p className="text-sm" style={{ color: '#888888' }}>
-                                    Vehicle details (make/model/colour) can now be added after searching for the registration plate. 
-                                    Search for the plate first, then use the "Add Details" button in the vehicle information section.
-                                </p>
+                                <label 
+                                    className="block text-sm font-medium mb-2"
+                                    style={{ color: '#cccccc' }}
+                                >
+                                    Make
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. BMW"
+                                    value={modalVehicleDetails.make}
+                                    onChange={e => setModalVehicleDetails({...modalVehicleDetails, make: e.target.value})}
+                                    className="w-full px-3 py-2 rounded-lg transition-colors"
+                                    style={{
+                                        backgroundColor: '#1a1a1a',
+                                        borderColor: '#333333',
+                                        color: '#f5f5f5',
+                                        border: '1px solid'
+                                    }}
+                                />
+                            </div>
+                            
+                            <div>
+                                <label 
+                                    className="block text-sm font-medium mb-2"
+                                    style={{ color: '#cccccc' }}
+                                >
+                                    Model
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. 3 Series"
+                                    value={modalVehicleDetails.model}
+                                    onChange={e => setModalVehicleDetails({...modalVehicleDetails, model: e.target.value})}
+                                    className="w-full px-3 py-2 rounded-lg transition-colors"
+                                    style={{
+                                        backgroundColor: '#1a1a1a',
+                                        borderColor: '#333333',
+                                        color: '#f5f5f5',
+                                        border: '1px solid'
+                                    }}
+                                />
+                            </div>
+                            
+                            <div>
+                                <label 
+                                    className="block text-sm font-medium mb-2"
+                                    style={{ color: '#cccccc' }}
+                                >
+                                    Colour
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Blue"
+                                    value={modalVehicleDetails.colour}
+                                    onChange={e => setModalVehicleDetails({...modalVehicleDetails, colour: e.target.value})}
+                                    className="w-full px-3 py-2 rounded-lg transition-colors"
+                                    style={{
+                                        backgroundColor: '#1a1a1a',
+                                        borderColor: '#333333',
+                                        color: '#f5f5f5',
+                                        border: '1px solid'
+                                    }}
+                                />
                             </div>
                         </div>
+                        
+                        <p className="text-sm" style={{ color: '#888888' }}>
+                            💡 Vehicle details are optional but help with identification
+                        </p>
                     </div>
                     
                     {/* Notes */}
@@ -696,21 +787,23 @@ const VehicleSearchPage = () => {
                                                 
                                                 {isEditingVehicle ? (
                                                     <div className="space-y-3">
-                                                        <Input
-                                                            placeholder="Make (e.g. BMW, Ford, Audi)"
-                                                            value={vehicleDetails.make}
-                                                            onChange={e => setVehicleDetails({...vehicleDetails, make: e.target.value})}
-                                                        />
-                                                        <Input
-                                                            placeholder="Model (e.g. 3 Series, Focus, A4)"
-                                                            value={vehicleDetails.model}
-                                                            onChange={e => setVehicleDetails({...vehicleDetails, model: e.target.value})}
-                                                        />
-                                                        <Input
-                                                            placeholder="Colour (e.g. Blue, Red, Silver)"
-                                                            value={vehicleDetails.colour}
-                                                            onChange={e => setVehicleDetails({...vehicleDetails, colour: e.target.value})}
-                                                        />
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                            <Input
+                                                                placeholder="Make"
+                                                                value={vehicleDetails.make}
+                                                                onChange={e => setVehicleDetails({...vehicleDetails, make: e.target.value})}
+                                                            />
+                                                            <Input
+                                                                placeholder="Model"
+                                                                value={vehicleDetails.model}
+                                                                onChange={e => setVehicleDetails({...vehicleDetails, model: e.target.value})}
+                                                            />
+                                                            <Input
+                                                                placeholder="Colour"
+                                                                value={vehicleDetails.colour}
+                                                                onChange={e => setVehicleDetails({...vehicleDetails, colour: e.target.value})}
+                                                            />
+                                                        </div>
                                                         <div className="flex gap-2 pt-2">
                                                             <button 
                                                                 onClick={saveVehicleDetails}
@@ -734,16 +827,30 @@ const VehicleSearchPage = () => {
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div className="text-v3-text-muted">
+                                                    <div>
                                                         {hasVehicleDetails && getVehicleDisplayText() ? (
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-lg">🚗</span>
-                                                                <span className="text-v3-text-lightest font-medium">{getVehicleDisplayText()}</span>
+                                                            <div 
+                                                                className="rounded-lg p-3 border"
+                                                                style={{ 
+                                                                    backgroundColor: '#0f0f0f', 
+                                                                    borderColor: '#333333' 
+                                                                }}
+                                                            >
+                                                                <span className="text-lg flex items-center gap-2" style={{ color: '#f5f5f5' }}>
+                                                                    🚗 <span className="font-medium">{getVehicleDisplayText()}</span>
+                                                                </span>
                                                             </div>
                                                         ) : (
-                                                            <div className="flex items-center gap-2 text-v3-text-muted">
-                                                                <span className="text-lg">🚗</span>
-                                                                <span className="italic">Click "Add Details" to specify make, model & colour</span>
+                                                            <div 
+                                                                className="rounded-lg p-3 border border-dashed"
+                                                                style={{ 
+                                                                    backgroundColor: '#0f0f0f', 
+                                                                    borderColor: '#333333' 
+                                                                }}
+                                                            >
+                                                                <span className="flex items-center gap-2" style={{ color: '#888888' }}>
+                                                                    🚗 <span className="italic">Click "Add Details" to specify make, model & colour</span>
+                                                                </span>
                                                             </div>
                                                         )}
                                                     </div>
