@@ -116,7 +116,7 @@ export default function Layout({ children }) {
               <span className="sr-only">Open sidebar</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-72 p-0">
+          <SheetContent side="left" className="w-72 p-0">
             <SidebarContent onItemClick={() => setSidebarOpen(false)} />
           </SheetContent>
         </Sheet>
