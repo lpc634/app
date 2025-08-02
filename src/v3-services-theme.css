@@ -157,7 +157,6 @@ nav a {
   box-shadow: 0 4px 15px rgba(255, 87, 34, 0.3);
   border: 1px solid rgba(255, 87, 34, 0.4);
   transform: translateX(4px);
-  animation: float 3s ease-in-out infinite;
 }
 
 .bg-primary.text-primary-foreground:hover {
