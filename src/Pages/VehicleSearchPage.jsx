@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../useAuth.jsx';
 import { toast } from 'sonner';
-import { Loader2, Search, AlertTriangle, Send, PlusCircle, X, MapPin, NotebookText, User, Calendar, Users, CheckCircle, Edit3, Save, Car } from 'lucide-react';
+import { Loader2, Search, AlertTriangle, Send, PlusCircle, X, MapPin, NotebookText, User, Calendar, Users, CheckCircle, Edit3, Save, Car, Info, Plus } from 'lucide-react';
 
 
 // --- Reusable UI Components ---
@@ -18,10 +18,12 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     const [address, setAddress] = useState('');
     const [isDangerous, setIsDangerous] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState({});
 
     useEffect(() => {
         if (!isOpen) {
             setPlate(''); setNotes(''); setAddress(''); setIsDangerous(false);
+            setErrors({});
         }
     }, [isOpen]);
 
@@ -47,12 +49,33 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
         }
     }, [isOpen, onClose]);
 
+    const validateForm = () => {
+        const newErrors = {};
+        
+        if (!plate.trim()) {
+            newErrors.plate = "Registration plate is required";
+        } else if (plate.trim().length < 2) {
+            newErrors.plate = "Registration plate must be at least 2 characters";
+        }
+        
+        if (!address.trim()) {
+            newErrors.address = "Address or area seen is required";
+        } else if (address.trim().length < 3) {
+            newErrors.address = "Address must be at least 3 characters";
+        }
+        
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!plate || !address) {
-            toast.error("Plate and Address are required.");
+        
+        if (!validateForm()) {
+            toast.error("Please fix the errors below.");
             return;
         }
+        
         setLoading(true);
         try {
             const payload = {
@@ -85,38 +108,147 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
 
     return (
         <div 
-            className="fixed inset-0 bg-black/70 z-[9999] flex justify-center items-start p-4 overflow-y-auto" 
+            className="fixed inset-0 bg-black/70 z-[9999] flex justify-center items-center p-4 overflow-y-auto modal-backdrop" 
             onClick={handleBackdropClick}
         >
-            <div className="relative z-[10000] bg-v3-bg-card rounded-lg shadow-xl w-full max-w-lg mt-16 mb-8">
-                <div className="p-4 border-b border-v3-border flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-v3-text-lightest">Add New Sighting</h2>
-                    <button onClick={onClose} className="text-v3-text-muted hover:text-v3-text-lightest"><X /></button>
+            <div className="relative z-[10000] bg-v3-bg-card rounded-lg shadow-2xl w-full max-w-2xl border border-v3-border modal-content">
+                {/* Header */}
+                <div className="flex justify-between items-center p-6 border-b border-v3-border">
+                    <h2 className="text-2xl font-bold text-v3-text-lightest flex items-center gap-3">
+                        <span className="w-8 h-8 bg-v3-orange rounded-full flex items-center justify-center">
+                            <Plus className="w-4 h-4 text-white" />
+                        </span>
+                        Add New Sighting
+                    </h2>
+                    <button 
+                        onClick={onClose}
+                        className="text-v3-text-muted hover:text-v3-text-lightest transition-colors p-1 rounded-md hover:bg-v3-bg-dark"
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
                 </div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <Input value={plate} onChange={e => setPlate(e.target.value)} placeholder="Registration Plate" required />
-                    <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="Address or Area Seen" required />
-                    <div className="p-4 bg-v3-bg-dark rounded-lg border border-v3-border">
-                        <p className="text-v3-text-muted text-sm mb-2">
-                            ✅ Vehicle details (make/model/colour) can now be added after searching for the registration plate.
-                        </p>
-                        <p className="text-v3-text-muted text-xs">
-                            Search for the plate first, then use the "Add Details" button in the vehicle information section.
-                        </p>
+                
+                {/* Body */}
+                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                    {/* Registration Plate */}
+                    <div>
+                        <label className="block text-v3-text-light text-sm font-medium mb-2">
+                            Registration Plate *
+                        </label>
+                        <input
+                            type="text"
+                            value={plate}
+                            onChange={e => {
+                                setPlate(e.target.value);
+                                if (errors.plate) setErrors(prev => ({ ...prev, plate: null }));
+                            }}
+                            required
+                            className={`w-full px-4 py-3 bg-v3-bg-dark border rounded-lg text-v3-text-lightest placeholder-v3-text-muted focus:ring-1 transition-colors ${
+                                errors.plate 
+                                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                                    : 'border-v3-border focus:border-v3-orange focus:ring-v3-orange'
+                            }`}
+                            placeholder="Enter registration plate (e.g. AB12 CDE)"
+                        />
+                        {errors.plate && (
+                            <p className="mt-1 text-sm text-red-400">{errors.plate}</p>
+                        )}
                     </div>
-                    <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes on interaction, individuals, etc." />
-                    <div className="flex items-center gap-3">
-                        <input type="checkbox" id="isDangerousModal" checked={isDangerous} onChange={e => setIsDangerous(e.target.checked)} />
-                        <label htmlFor="isDangerousModal">Mark as potentially dangerous</label>
+                    
+                    {/* Address */}
+                    <div>
+                        <label className="block text-v3-text-light text-sm font-medium mb-2">
+                            Address or Area Seen *
+                        </label>
+                        <input
+                            type="text"
+                            value={address}
+                            onChange={e => {
+                                setAddress(e.target.value);
+                                if (errors.address) setErrors(prev => ({ ...prev, address: null }));
+                            }}
+                            required
+                            className={`w-full px-4 py-3 bg-v3-bg-dark border rounded-lg text-v3-text-lightest placeholder-v3-text-muted focus:ring-1 transition-colors ${
+                                errors.address 
+                                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                                    : 'border-v3-border focus:border-v3-orange focus:ring-v3-orange'
+                            }`}
+                            placeholder="Location where vehicle was spotted"
+                        />
+                        {errors.address && (
+                            <p className="mt-1 text-sm text-red-400">{errors.address}</p>
+                        )}
                     </div>
-                    <div className="flex justify-end gap-3 pt-4">
-                        <Button type="button" onClick={onClose} className="bg-v3-bg-dark hover:bg-v3-bg-darkest">Cancel</Button>
-                        <Button type="submit" className="flex items-center justify-center gap-2" disabled={loading}>
-                            {loading ? <Loader2 className="animate-spin" /> : <Send />}
-                            Submit Sighting
-                        </Button>
+                    
+                    {/* Vehicle Details Information Card */}
+                    <div className="bg-v3-bg-dark border border-v3-border rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 bg-v3-orange rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <Info className="w-3 h-3 text-white" />
+                            </div>
+                            <div>
+                                <h4 className="text-v3-text-lightest font-medium mb-1">Vehicle Details</h4>
+                                <p className="text-v3-text-muted text-sm">
+                                    Vehicle details (make/model/colour) can now be added after searching for the registration plate. 
+                                    Search for the plate first, then use the "Add Details" button in the vehicle information section.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Notes */}
+                    <div>
+                        <label className="block text-v3-text-light text-sm font-medium mb-2">
+                            Notes
+                        </label>
+                        <textarea
+                            rows="4"
+                            value={notes}
+                            onChange={e => setNotes(e.target.value)}
+                            className="w-full px-4 py-3 bg-v3-bg-dark border border-v3-border rounded-lg text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:ring-1 focus:ring-v3-orange transition-colors resize-vertical"
+                            placeholder="Describe the situation, individuals, or any relevant details"
+                        />
+                    </div>
+                    
+                    {/* Dangerous Checkbox */}
+                    <div className="flex items-center gap-3 p-4 bg-v3-bg-dark rounded-lg border border-v3-border">
+                        <input
+                            type="checkbox"
+                            id="isDangerousModal"
+                            checked={isDangerous}
+                            onChange={e => setIsDangerous(e.target.checked)}
+                            className="w-4 h-4 text-v3-orange bg-v3-bg-dark border-v3-border rounded focus:ring-v3-orange focus:ring-1"
+                        />
+                        <label htmlFor="isDangerousModal" className="text-v3-text-light text-sm font-medium flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-red-400" />
+                            Mark as potentially dangerous
+                        </label>
                     </div>
                 </form>
+                
+                {/* Footer */}
+                <div className="flex justify-end gap-3 p-6 border-t border-v3-border bg-v3-bg-dark">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        onClick={handleSubmit}
+                        disabled={loading}
+                        className="px-6 py-3 bg-v3-orange text-white rounded-lg hover:bg-v3-orange-dark transition-colors flex items-center gap-2 font-medium disabled:opacity-50"
+                    >
+                        {loading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Plus className="w-4 h-4" />
+                        )}
+                        {loading ? 'Submitting...' : 'Submit Sighting'}
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -151,10 +283,10 @@ const GroupViewModal = ({ isOpen, onClose, groupData }) => {
     
     return (
         <div 
-            className="fixed inset-0 bg-black/70 z-[9999] flex justify-center items-center p-4"
+            className="fixed inset-0 bg-black/70 z-[9999] flex justify-center items-center p-4 modal-backdrop"
             onClick={handleBackdropClick}
         >
-            <div className="relative z-[10000] bg-v3-bg-card rounded-lg shadow-xl w-full max-w-md">
+            <div className="relative z-[10000] bg-v3-bg-card rounded-lg shadow-xl w-full max-w-md modal-content">
                 <div className="p-4 border-b border-v3-border flex justify-between items-center">
                     <h2 className="text-xl font-bold text-v3-text-lightest">Associated Plates</h2>
                     <button onClick={onClose} className="text-v3-text-muted hover:text-v3-text-lightest"><X /></button>
