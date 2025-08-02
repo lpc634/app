@@ -682,3 +682,15 @@ button:has(.lucide-log-out):hover {
 .modal-content {
   animation: modalSlideUp 0.3s ease-out;
 }
+
+/* ===== PLACEHOLDER TEXT STYLING ===== */
+input::placeholder,
+textarea::placeholder {
+  color: #888888 !important;
+  opacity: 1 !important;
+}
+
+input:focus::placeholder,
+textarea:focus::placeholder {
+  color: #aaaaaa !important;
+}

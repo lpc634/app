@@ -108,31 +108,58 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
 
     return (
         <div 
-            className="fixed inset-0 bg-black/70 z-[9999] flex justify-center items-center p-4 overflow-y-auto modal-backdrop" 
+            className="fixed inset-0 z-[9999] flex justify-center items-center p-4 overflow-y-auto modal-backdrop" 
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)' }}
             onClick={handleBackdropClick}
         >
-            <div className="relative z-[10000] bg-v3-bg-card rounded-lg shadow-2xl w-full max-w-2xl border border-v3-border modal-content">
+            <div 
+                className="relative z-[10000] rounded-lg shadow-2xl w-full max-w-2xl border modal-content"
+                style={{ 
+                    backgroundColor: '#1a1a1a',
+                    borderColor: '#333333',
+                    opacity: 1
+                }}
+            >
                 {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-v3-border">
-                    <h2 className="text-2xl font-bold text-v3-text-lightest flex items-center gap-3">
-                        <span className="w-8 h-8 bg-v3-orange rounded-full flex items-center justify-center">
+                <div 
+                    className="flex justify-between items-center p-6 border-b"
+                    style={{ 
+                        backgroundColor: '#1a1a1a',
+                        borderBottomColor: '#333333'
+                    }}
+                >
+                    <h2 className="text-2xl font-bold flex items-center gap-3" style={{ color: '#f5f5f5' }}>
+                        <span 
+                            className="w-8 h-8 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: '#FF5722' }}
+                        >
                             <Plus className="w-4 h-4 text-white" />
                         </span>
                         Add New Sighting
                     </h2>
                     <button 
                         onClick={onClose}
-                        className="text-v3-text-muted hover:text-v3-text-lightest transition-colors p-1 rounded-md hover:bg-v3-bg-dark"
+                        className="transition-colors p-1 rounded-md"
+                        style={{ color: '#888888' }}
+                        onMouseEnter={e => e.target.style.color = '#f5f5f5'}
+                        onMouseLeave={e => e.target.style.color = '#888888'}
                     >
                         <X className="w-6 h-6" />
                     </button>
                 </div>
                 
                 {/* Body */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                <form 
+                    onSubmit={handleSubmit} 
+                    className="p-6 space-y-6"
+                    style={{ backgroundColor: '#1a1a1a' }}
+                >
                     {/* Registration Plate */}
                     <div>
-                        <label className="block text-v3-text-light text-sm font-medium mb-2">
+                        <label 
+                            className="block text-sm font-medium mb-2"
+                            style={{ color: '#cccccc' }}
+                        >
                             Registration Plate *
                         </label>
                         <input
@@ -143,21 +170,26 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                 if (errors.plate) setErrors(prev => ({ ...prev, plate: null }));
                             }}
                             required
-                            className={`w-full px-4 py-3 bg-v3-bg-dark border rounded-lg text-v3-text-lightest placeholder-v3-text-muted focus:ring-1 transition-colors ${
-                                errors.plate 
-                                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
-                                    : 'border-v3-border focus:border-v3-orange focus:ring-v3-orange'
-                            }`}
+                            className="w-full px-4 py-3 rounded-lg focus:ring-1 transition-colors"
+                            style={{
+                                backgroundColor: '#242424',
+                                borderColor: errors.plate ? '#ef4444' : '#333333',
+                                color: '#f5f5f5',
+                                border: '1px solid'
+                            }}
                             placeholder="Enter registration plate (e.g. AB12 CDE)"
                         />
                         {errors.plate && (
-                            <p className="mt-1 text-sm text-red-400">{errors.plate}</p>
+                            <p className="mt-1 text-sm" style={{ color: '#ef4444' }}>{errors.plate}</p>
                         )}
                     </div>
                     
                     {/* Address */}
                     <div>
-                        <label className="block text-v3-text-light text-sm font-medium mb-2">
+                        <label 
+                            className="block text-sm font-medium mb-2"
+                            style={{ color: '#cccccc' }}
+                        >
                             Address or Area Seen *
                         </label>
                         <input
@@ -168,27 +200,38 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                 if (errors.address) setErrors(prev => ({ ...prev, address: null }));
                             }}
                             required
-                            className={`w-full px-4 py-3 bg-v3-bg-dark border rounded-lg text-v3-text-lightest placeholder-v3-text-muted focus:ring-1 transition-colors ${
-                                errors.address 
-                                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
-                                    : 'border-v3-border focus:border-v3-orange focus:ring-v3-orange'
-                            }`}
+                            className="w-full px-4 py-3 rounded-lg focus:ring-1 transition-colors"
+                            style={{
+                                backgroundColor: '#242424',
+                                borderColor: errors.address ? '#ef4444' : '#333333',
+                                color: '#f5f5f5',
+                                border: '1px solid'
+                            }}
                             placeholder="Location where vehicle was spotted"
                         />
                         {errors.address && (
-                            <p className="mt-1 text-sm text-red-400">{errors.address}</p>
+                            <p className="mt-1 text-sm" style={{ color: '#ef4444' }}>{errors.address}</p>
                         )}
                     </div>
                     
                     {/* Vehicle Details Information Card */}
-                    <div className="bg-v3-bg-dark border border-v3-border rounded-lg p-4">
+                    <div 
+                        className="rounded-lg p-4"
+                        style={{ 
+                            backgroundColor: '#242424', 
+                            border: '1px solid #333333' 
+                        }}
+                    >
                         <div className="flex items-start gap-3">
-                            <div className="w-6 h-6 bg-v3-orange rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <div 
+                                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                                style={{ backgroundColor: '#FF5722' }}
+                            >
                                 <Info className="w-3 h-3 text-white" />
                             </div>
                             <div>
-                                <h4 className="text-v3-text-lightest font-medium mb-1">Vehicle Details</h4>
-                                <p className="text-v3-text-muted text-sm">
+                                <h4 className="font-medium mb-1" style={{ color: '#f5f5f5' }}>Vehicle Details</h4>
+                                <p className="text-sm" style={{ color: '#888888' }}>
                                     Vehicle details (make/model/colour) can now be added after searching for the registration plate. 
                                     Search for the plate first, then use the "Add Details" button in the vehicle information section.
                                 </p>
@@ -198,40 +241,75 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                     
                     {/* Notes */}
                     <div>
-                        <label className="block text-v3-text-light text-sm font-medium mb-2">
+                        <label 
+                            className="block text-sm font-medium mb-2"
+                            style={{ color: '#cccccc' }}
+                        >
                             Notes
                         </label>
                         <textarea
                             rows="4"
                             value={notes}
                             onChange={e => setNotes(e.target.value)}
-                            className="w-full px-4 py-3 bg-v3-bg-dark border border-v3-border rounded-lg text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:ring-1 focus:ring-v3-orange transition-colors resize-vertical"
+                            className="w-full px-4 py-3 rounded-lg transition-colors resize-vertical"
+                            style={{
+                                backgroundColor: '#242424',
+                                borderColor: '#333333',
+                                color: '#f5f5f5',
+                                border: '1px solid'
+                            }}
                             placeholder="Describe the situation, individuals, or any relevant details"
                         />
                     </div>
                     
                     {/* Dangerous Checkbox */}
-                    <div className="flex items-center gap-3 p-4 bg-v3-bg-dark rounded-lg border border-v3-border">
+                    <div 
+                        className="flex items-center gap-3 p-4 rounded-lg"
+                        style={{ 
+                            backgroundColor: '#242424', 
+                            border: '1px solid #333333' 
+                        }}
+                    >
                         <input
                             type="checkbox"
                             id="isDangerousModal"
                             checked={isDangerous}
                             onChange={e => setIsDangerous(e.target.checked)}
-                            className="w-4 h-4 text-v3-orange bg-v3-bg-dark border-v3-border rounded focus:ring-v3-orange focus:ring-1"
+                            className="w-4 h-4 rounded"
+                            style={{
+                                backgroundColor: '#242424',
+                                borderColor: '#333333'
+                            }}
                         />
-                        <label htmlFor="isDangerousModal" className="text-v3-text-light text-sm font-medium flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4 text-red-400" />
+                        <label 
+                            htmlFor="isDangerousModal" 
+                            className="text-sm font-medium flex items-center gap-2"
+                            style={{ color: '#cccccc' }}
+                        >
+                            <AlertTriangle className="w-4 h-4" style={{ color: '#ef4444' }} />
                             Mark as potentially dangerous
                         </label>
                     </div>
                 </form>
                 
                 {/* Footer */}
-                <div className="flex justify-end gap-3 p-6 border-t border-v3-border bg-v3-bg-dark">
+                <div 
+                    className="flex justify-end gap-3 p-6 border-t"
+                    style={{ 
+                        backgroundColor: '#0f0f0f', 
+                        borderTopColor: '#333333' 
+                    }}
+                >
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+                        className="px-6 py-3 rounded-lg transition-colors font-medium"
+                        style={{ 
+                            backgroundColor: '#525252', 
+                            color: 'white' 
+                        }}
+                        onMouseEnter={e => e.target.style.backgroundColor = '#404040'}
+                        onMouseLeave={e => e.target.style.backgroundColor = '#525252'}
                     >
                         Cancel
                     </button>
@@ -239,7 +317,14 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                         type="submit"
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="px-6 py-3 bg-v3-orange text-white rounded-lg hover:bg-v3-orange-dark transition-colors flex items-center gap-2 font-medium disabled:opacity-50"
+                        className="px-6 py-3 rounded-lg transition-colors flex items-center gap-2 font-medium"
+                        style={{ 
+                            backgroundColor: loading ? '#cc4400' : '#FF5722', 
+                            color: 'white',
+                            opacity: loading ? 0.5 : 1
+                        }}
+                        onMouseEnter={e => !loading && (e.target.style.backgroundColor = '#E64A19')}
+                        onMouseLeave={e => !loading && (e.target.style.backgroundColor = '#FF5722')}
                     >
                         {loading ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
