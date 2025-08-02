@@ -30,7 +30,6 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     const [models, setModels] = useState([]);
     const [selectedMake, setSelectedMake] = useState('');
     const [selectedModel, setSelectedModel] = useState('');
-    const [selectedColour, setSelectedColour] = useState('');
     const [isManualEntry, setIsManualEntry] = useState(false);
 
     useEffect(() => {
@@ -38,7 +37,7 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
             setMakes(Object.keys(carData));
         } else {
             setPlate(''); setNotes(''); setAddress(''); setIsDangerous(false);
-            setSelectedMake(''); setSelectedModel(''); setSelectedColour(''); setIsManualEntry(false);
+            setSelectedMake(''); setSelectedModel(''); setIsManualEntry(false);
         }
     }, [isOpen]);
 
@@ -63,10 +62,7 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                 registration_plate: plate.toUpperCase(),
                 notes,
                 is_dangerous: isDangerous,
-                address_seen: address,
-                make: selectedMake,
-                model: selectedModel,
-                colour: selectedColour
+                address_seen: address
             };
             const newSighting = await apiCall('/vehicles/sightings', {
                 method: 'POST',
@@ -98,25 +94,14 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                         <input type="checkbox" id="manualEntry" checked={isManualEntry} onChange={e => setIsManualEntry(e.target.checked)} />
                         <label htmlFor="manualEntry">Make/Model not listed?</label>
                     </div>
-                    {isManualEntry ? (
-                        <div className="grid grid-cols-3 gap-4">
-                            <Input value={selectedMake} onChange={e => setSelectedMake(e.target.value)} placeholder="Make" />
-                            <Input value={selectedModel} onChange={e => setSelectedModel(e.target.value)} placeholder="Model" />
-                            <Input value={selectedColour} onChange={e => setSelectedColour(e.target.value)} placeholder="Colour" />
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-3 gap-4">
-                            <Select value={selectedMake} onChange={e => setSelectedMake(e.target.value)}>
-                                <option value="">Select Make</option>
-                                {makes.map(m => <option key={m} value={m}>{m}</option>)}
-                            </Select>
-                            <Select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} disabled={!selectedMake}>
-                                <option value="">Select Model</option>
-                                {models.map(m => <option key={m} value={m}>{m}</option>)}
-                            </Select>
-                            <Input value={selectedColour} onChange={e => setSelectedColour(e.target.value)} placeholder="Colour" />
-                        </div>
-                    )}
+                    <div className="p-4 bg-v3-bg-dark rounded-lg border border-v3-border">
+                        <p className="text-v3-text-muted text-sm mb-2">
+                            🚧 Vehicle details (make/model/colour) will be available in a future update.
+                        </p>
+                        <p className="text-v3-text-muted text-xs">
+                            For now, please include vehicle details in the notes section if needed.
+                        </p>
+                    </div>
                     <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes on interaction, individuals, etc." />
                     <div className="flex items-center gap-3">
                         <input type="checkbox" id="isDangerousModal" checked={isDangerous} onChange={e => setIsDangerous(e.target.checked)} />
@@ -319,22 +304,16 @@ const VehicleSearchPage = () => {
                                 {!loading && error && <div className="p-6 text-center text-red-400">{error}</div>}
                                 {!loading && !error && sightings.length === 0 && <div className="p-6 text-center text-v3-text-muted">No sightings found for this plate.</div>}
                                 
-                                {sightings.map(sighting => {
-                                    const vehicleInfo = [sighting.make, sighting.model].filter(Boolean).join(' ');
-                                    const displayVehicle = vehicleInfo || 'Unknown Vehicle';
-                                    const colour = sighting.colour || 'Unknown';
-                                    
-                                    return (
-                                        <div key={sighting.id} onClick={() => setSelectedSighting(sighting)} className={`p-4 border-b border-v3-border cursor-pointer hover:bg-v3-bg-dark ${selectedSighting?.id === sighting.id ? 'bg-v3-orange/20' : ''}`}>
-                                            <div className="mb-2">
-                                                <p className="font-bold text-v3-text-lightest">{displayVehicle} {colour !== 'Unknown' && `(${colour})`}</p>
-                                                <p className="text-xs font-mono text-v3-text-light">{sighting.registration_plate}</p>
-                                            </div>
-                                            <p className="font-medium text-v3-text-light">{sighting.address_seen}</p>
-                                            <p className="text-sm text-v3-text-muted">{new Date(sighting.sighted_at).toLocaleString()}</p>
+                                {sightings.map(sighting => (
+                                    <div key={sighting.id} onClick={() => setSelectedSighting(sighting)} className={`p-4 border-b border-v3-border cursor-pointer hover:bg-v3-bg-dark ${selectedSighting?.id === sighting.id ? 'bg-v3-orange/20' : ''}`}>
+                                        <div className="mb-2">
+                                            <p className="font-bold text-v3-text-lightest">{sighting.registration_plate}</p>
+                                            <p className="text-xs text-v3-text-muted">Registration Plate</p>
                                         </div>
-                                    );
-                                })}
+                                        <p className="font-medium text-v3-text-light">{sighting.address_seen}</p>
+                                        <p className="text-sm text-v3-text-muted">{new Date(sighting.sighted_at).toLocaleString()}</p>
+                                    </div>
+                                ))}
                            </div>
                         </div>
 
@@ -349,12 +328,16 @@ const VehicleSearchPage = () => {
                                                 <div className="flex justify-between items-start">
                                                     <div>
                                                         <h3 className="font-bold text-2xl text-v3-text-lightest mb-1">
-                                                            {[selectedSighting.make, selectedSighting.model].filter(Boolean).join(' ') || 'Unknown Vehicle'}
-                                                            {selectedSighting.colour && ` (${selectedSighting.colour})`}
+                                                            {selectedSighting.registration_plate}
                                                         </h3>
-                                                        <p className="font-mono text-xl text-v3-orange tracking-wider">{selectedSighting.registration_plate}</p>
+                                                        <p className="text-v3-text-muted text-sm mb-2">
+                                                            Registration Plate
+                                                        </p>
+                                                        <p className="text-v3-text-muted text-xs">
+                                                            🚧 Vehicle details (make/model/colour) coming soon
+                                                        </p>
                                                         {selectedSighting.is_dangerous && (
-                                                            <div className="flex items-center gap-2 mt-2">
+                                                            <div className="flex items-center gap-2 mt-3">
                                                                 <AlertTriangle className="text-red-500" size={16} />
                                                                 <span className="text-red-400 text-sm font-medium">Potentially Dangerous</span>
                                                             </div>

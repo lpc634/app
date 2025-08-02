@@ -32,10 +32,7 @@ def add_sighting():
         notes=data['notes'],
         is_dangerous=data['is_dangerous'],
         address_seen=data['address_seen'],
-        agent_id=current_user_id,
-        make=data.get('make', '').strip() or None,
-        model=data.get('model', '').strip() or None,
-        colour=data.get('colour', '').strip() or None
+        agent_id=current_user_id
     )
     db.session.add(new_sighting)
     db.session.commit()
