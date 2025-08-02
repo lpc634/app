@@ -632,8 +632,24 @@ button:has(.lucide-log-out):hover {
   box-shadow: 0 0 0 2px var(--v3-orange-glow);
 }
 
-.v3-input-light:focus {
-  outline: none;
-  border-color: var(--v3-orange);
-  box-shadow: 0 0 0 2px var(--v3-orange-glow);
+/* ===== MODAL Z-INDEX FIXES ===== */
+/* Ensure Leaflet map components stay below modals */
+.leaflet-container,
+.leaflet-control-container,
+.leaflet-pane,
+.leaflet-map-pane {
+  z-index: 1 !important;
+}
+
+.leaflet-control {
+  z-index: 10 !important;
+}
+
+/* Modal backdrop should be above everything else */
+.modal-backdrop {
+  z-index: 9999 !important;
+}
+
+.modal-content {
+  z-index: 10000 !important;
 }

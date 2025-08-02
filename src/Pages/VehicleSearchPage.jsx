@@ -25,6 +25,28 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
         }
     }, [isOpen]);
 
+    // Body scroll lock and escape key handler for modal
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+            
+            const handleEscape = (e) => {
+                if (e.key === 'Escape') {
+                    onClose();
+                }
+            };
+            
+            document.addEventListener('keydown', handleEscape);
+            
+            return () => {
+                document.body.style.overflow = 'unset';
+                document.removeEventListener('keydown', handleEscape);
+            };
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+    }, [isOpen, onClose]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!plate || !address) {
@@ -55,9 +77,18 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
 
     if (!isOpen) return null;
 
+    const handleBackdropClick = (e) => {
+        if (e.target === e.currentTarget) {
+            onClose();
+        }
+    };
+
     return (
-        <div className="fixed inset-0 bg-black/70 z-50 flex justify-center items-start p-4 overflow-y-auto">
-            <div className="bg-v3-bg-card rounded-lg shadow-xl w-full max-w-lg mt-16 mb-8">
+        <div 
+            className="fixed inset-0 bg-black/70 z-[9999] flex justify-center items-start p-4 overflow-y-auto" 
+            onClick={handleBackdropClick}
+        >
+            <div className="relative z-[10000] bg-v3-bg-card rounded-lg shadow-xl w-full max-w-lg mt-16 mb-8">
                 <div className="p-4 border-b border-v3-border flex justify-between items-center">
                     <h2 className="text-xl font-bold text-v3-text-lightest">Add New Sighting</h2>
                     <button onClick={onClose} className="text-v3-text-muted hover:text-v3-text-lightest"><X /></button>
@@ -67,10 +98,10 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                     <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="Address or Area Seen" required />
                     <div className="p-4 bg-v3-bg-dark rounded-lg border border-v3-border">
                         <p className="text-v3-text-muted text-sm mb-2">
-                            🚧 Vehicle details (make/model/colour) will be available in a future update.
+                            ✅ Vehicle details (make/model/colour) can now be added after searching for the registration plate.
                         </p>
                         <p className="text-v3-text-muted text-xs">
-                            For now, please include vehicle details in the notes section if needed.
+                            Search for the plate first, then use the "Add Details" button in the vehicle information section.
                         </p>
                     </div>
                     <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes on interaction, individuals, etc." />
@@ -93,10 +124,37 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
 
 // --- GroupViewModal Component ---
 const GroupViewModal = ({ isOpen, onClose, groupData }) => {
+    // Escape key handler for modal
+    React.useEffect(() => {
+        if (isOpen) {
+            const handleEscape = (e) => {
+                if (e.key === 'Escape') {
+                    onClose();
+                }
+            };
+            
+            document.addEventListener('keydown', handleEscape);
+            
+            return () => {
+                document.removeEventListener('keydown', handleEscape);
+            };
+        }
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
+    
+    const handleBackdropClick = (e) => {
+        if (e.target === e.currentTarget) {
+            onClose();
+        }
+    };
+    
     return (
-        <div className="fixed inset-0 bg-black/70 z-50 flex justify-center items-center p-4">
-            <div className="bg-v3-bg-card rounded-lg shadow-xl w-full max-w-md">
+        <div 
+            className="fixed inset-0 bg-black/70 z-[9999] flex justify-center items-center p-4"
+            onClick={handleBackdropClick}
+        >
+            <div className="relative z-[10000] bg-v3-bg-card rounded-lg shadow-xl w-full max-w-md">
                 <div className="p-4 border-b border-v3-border flex justify-between items-center">
                     <h2 className="text-xl font-bold text-v3-text-lightest">Associated Plates</h2>
                     <button onClick={onClose} className="text-v3-text-muted hover:text-v3-text-lightest"><X /></button>
