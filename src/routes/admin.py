@@ -1581,6 +1581,7 @@ def get_detailed_invoice(invoice_id):
         
         # Build comprehensive invoice details with safe attribute access
         details = {
+            # Invoice Information
             'id': invoice.id,
             'invoice_number': getattr(invoice, 'invoice_number', f'INV-{invoice.id}'),
             'agent_id': getattr(invoice, 'agent_id', None),
@@ -1598,6 +1599,71 @@ def get_detailed_invoice(invoice_id):
             'created_at': invoice.created_at.isoformat() if hasattr(invoice, 'created_at') and invoice.created_at else None,
             'generated_at': invoice.generated_at.isoformat() if hasattr(invoice, 'generated_at') and invoice.generated_at else None
         }
+        
+        # Add COMPLETE job information if job exists (enhanced)
+        if job_details and len(job_details) > 0:
+            # Use first job for main job details (most common case)
+            main_job_data = job_details[0]
+            details.update({
+                # Basic Job Info
+                'job_id': main_job_data.get('job_id'),
+                'job_title': main_job_data.get('title', 'N/A'),
+                'job_type': main_job_data.get('job_type', 'N/A'),
+                'job_status': 'completed',  # If invoiced, job is completed
+                
+                # Location Details
+                'job_address': main_job_data.get('address', 'N/A'),
+                'job_postcode': 'N/A',  # Will be enhanced below with direct job access
+                'job_arrival_time': main_job_data.get('date'),
+                'agents_required': 'N/A',  # Will be enhanced below
+                'job_notes': main_job_data.get('notes', '')
+            })
+            
+            # Try to get additional details from the actual job object
+            try:
+                if job_details and len(job_details) > 0:
+                    job_id = main_job_data.get('job_id')
+                    if job_id:
+                        actual_job = Job.query.get(job_id)
+                        if actual_job:
+                            details.update({
+                                # Enhanced location details
+                                'job_postcode': getattr(actual_job, 'postcode', 'N/A'),
+                                'what3words_address': getattr(actual_job, 'what3words_address', ''),
+                                'location_lat': getattr(actual_job, 'location_lat', None),
+                                'location_lng': getattr(actual_job, 'location_lng', None),
+                                'maps_link': getattr(actual_job, 'maps_link', ''),
+                                
+                                # Enhanced job details
+                                'agents_required': getattr(actual_job, 'agents_required', 1),
+                                'lead_agent_name': getattr(actual_job, 'lead_agent_name', ''),
+                                'instructions': getattr(actual_job, 'instructions', ''),
+                                'urgency_level': getattr(actual_job, 'urgency_level', 'Standard'),
+                                'number_of_dwellings': getattr(actual_job, 'number_of_dwellings', None),
+                                'police_liaison_required': getattr(actual_job, 'police_liaison_required', False),
+                                
+                                # Override with actual job notes if available
+                                'job_notes': getattr(actual_job, 'instructions', '') or main_job_data.get('notes', '')
+                            })
+            except Exception as job_error:
+                current_app.logger.error(f"Error fetching additional job details: {job_error}")
+                
+        else:
+            # Fallback if no job linked
+            details.update({
+                'job_id': None,
+                'job_title': 'N/A',
+                'job_type': 'N/A',
+                'job_status': 'N/A',
+                'job_address': 'N/A',
+                'job_postcode': 'N/A',
+                'job_arrival_time': None,
+                'agents_required': 'N/A',
+                'job_notes': 'No job details available',
+                'what3words_address': '',
+                'urgency_level': 'N/A',
+                'instructions': 'N/A'
+            })
         
         # Add payment information if paid
         if invoice.status == 'paid':

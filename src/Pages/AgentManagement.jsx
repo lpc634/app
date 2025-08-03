@@ -1013,7 +1013,7 @@ export default function AgentManagement() {
       {/* Invoice Details Modal */}
       {selectedInvoiceModal && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
-          <div className="bg-gray-900 rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+          <div className="bg-gray-900 rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden border border-gray-700">
             {/* Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-700">
               <h2 className="text-2xl font-bold text-white flex items-center gap-3">
@@ -1066,26 +1066,165 @@ export default function AgentManagement() {
                     </div>
                   </div>
                   
-                  {/* Job Details */}
-                  {selectedInvoiceDetails.job_details && selectedInvoiceDetails.job_details.length > 0 && (
-                    <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                      <h3 className="text-lg font-semibold text-white mb-3">Job Details</h3>
-                      <div className="space-y-3">
-                        {selectedInvoiceDetails.job_details.map((job, index) => (
-                          <div key={index} className="border-l-4 border-orange-500 pl-4">
-                            <p className="text-gray-300"><strong>Job:</strong> {job.title}</p>
-                            <p className="text-gray-300"><strong>Location:</strong> {job.address}</p>
-                            <p className="text-gray-300"><strong>Date:</strong> {job.date ? new Date(job.date).toLocaleString() : 'N/A'}</p>
-                            <p className="text-gray-300"><strong>Type:</strong> {job.job_type}</p>
-                            <p className="text-gray-300"><strong>Hours:</strong> {job.hours_worked}h @ £{job.hourly_rate}/hr = £{job.subtotal?.toFixed(2)}</p>
-                            {job.notes && (
-                              <p className="text-gray-400 text-sm"><strong>Notes:</strong> {job.notes}</p>
-                            )}
-                          </div>
-                        ))}
+                  {/* COMPLETE JOB DETAILS SECTION */}
+                  <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                    <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                      🏢 Complete Job Details
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Basic Job Information */}
+                      <div>
+                        <h4 className="text-white font-medium mb-3 text-sm uppercase tracking-wide border-b border-gray-600 pb-1">
+                          📋 Basic Information
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                          <p className="text-gray-300">
+                            <strong>Job Title:</strong> {selectedInvoiceDetails.job_title || 'N/A'}
+                          </p>
+                          <p className="text-gray-300">
+                            <strong>Job Type:</strong> {selectedInvoiceDetails.job_type || 'N/A'}
+                          </p>
+                          <p className="text-gray-300">
+                            <strong>Status:</strong> 
+                            <span className="ml-2 px-2 py-1 rounded text-xs bg-green-600 text-white">
+                              {selectedInvoiceDetails.job_status || 'COMPLETED'}
+                            </span>
+                          </p>
+                          <p className="text-gray-300">
+                            <strong>Agents Required:</strong> {selectedInvoiceDetails.agents_required || 'N/A'}
+                          </p>
+                          {selectedInvoiceDetails.lead_agent_name && (
+                            <p className="text-gray-300">
+                              <strong>Lead Agent:</strong> {selectedInvoiceDetails.lead_agent_name}
+                            </p>
+                          )}
+                          {selectedInvoiceDetails.urgency_level && (
+                            <p className="text-gray-300">
+                              <strong>Urgency:</strong> 
+                              <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                                selectedInvoiceDetails.urgency_level === 'High' ? 'bg-red-600' :
+                                selectedInvoiceDetails.urgency_level === 'Medium' ? 'bg-orange-600' :
+                                'bg-gray-600'
+                              } text-white`}>
+                                {selectedInvoiceDetails.urgency_level}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Location & Timing */}
+                      <div>
+                        <h4 className="text-white font-medium mb-3 text-sm uppercase tracking-wide border-b border-gray-600 pb-1">
+                          📍 Location & Timing
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                          <p className="text-gray-300">
+                            <strong>Address:</strong> {selectedInvoiceDetails.job_address || 'N/A'}
+                          </p>
+                          {selectedInvoiceDetails.job_postcode && selectedInvoiceDetails.job_postcode !== 'N/A' && (
+                            <p className="text-gray-300">
+                              <strong>Postcode:</strong> {selectedInvoiceDetails.job_postcode}
+                            </p>
+                          )}
+                          <p className="text-gray-300">
+                            <strong>Date:</strong> {selectedInvoiceDetails.job_arrival_time ? 
+                              new Date(selectedInvoiceDetails.job_arrival_time).toLocaleDateString() : 'N/A'}
+                          </p>
+                          <p className="text-gray-300">
+                            <strong>Time:</strong> {selectedInvoiceDetails.job_arrival_time ? 
+                              new Date(selectedInvoiceDetails.job_arrival_time).toLocaleTimeString() : 'N/A'}
+                          </p>
+                          {selectedInvoiceDetails.what3words_address && (
+                            <p className="text-gray-300">
+                              <strong>What3Words:</strong> 
+                              <span className="ml-2 font-mono text-orange-400">{selectedInvoiceDetails.what3words_address}</span>
+                            </p>
+                          )}
+                          {selectedInvoiceDetails.number_of_dwellings && (
+                            <p className="text-gray-300">
+                              <strong>Dwellings:</strong> {selectedInvoiceDetails.number_of_dwellings}
+                            </p>
+                          )}
+                          {selectedInvoiceDetails.police_liaison_required && (
+                            <p className="text-gray-300">
+                              <strong>Police Liaison:</strong> 
+                              <span className="ml-2 px-2 py-1 rounded text-xs bg-blue-600 text-white">Required</span>
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  )}
+                    
+                    {/* Work Details */}
+                    <div className="mt-6">
+                      <h4 className="text-white font-medium mb-3 text-sm uppercase tracking-wide border-b border-gray-600 pb-1">
+                        ⏰ Work Details
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div className="bg-gray-900 rounded p-3 border-l-4 border-orange-500">
+                          <p className="text-gray-400 text-xs uppercase tracking-wide">Hours Worked</p>
+                          <p className="text-white font-bold text-lg">{selectedInvoiceDetails.hours || 0}h</p>
+                        </div>
+                        <div className="bg-gray-900 rounded p-3 border-l-4 border-green-500">
+                          <p className="text-gray-400 text-xs uppercase tracking-wide">Hourly Rate</p>
+                          <p className="text-white font-bold text-lg">£{selectedInvoiceDetails.rate_per_hour || 0}</p>
+                        </div>
+                        <div className="bg-gray-900 rounded p-3 border-l-4 border-blue-500">
+                          <p className="text-gray-400 text-xs uppercase tracking-wide">Work Value</p>
+                          <p className="text-white font-bold text-lg">£{selectedInvoiceDetails.subtotal?.toFixed(2) || '0.00'}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Instructions & Notes */}
+                    {(selectedInvoiceDetails.job_notes || selectedInvoiceDetails.instructions) && (
+                      <div className="mt-6 p-4 bg-gray-900 rounded border-l-4 border-orange-500">
+                        <h4 className="text-white font-medium mb-2 flex items-center gap-2">
+                          📝 Job Instructions & Notes
+                        </h4>
+                        <div className="text-gray-300 text-sm space-y-2">
+                          {selectedInvoiceDetails.instructions && selectedInvoiceDetails.instructions !== 'N/A' && (
+                            <div>
+                              <p className="text-gray-400 text-xs uppercase tracking-wide">Instructions:</p>
+                              <p className="mt-1">{selectedInvoiceDetails.instructions}</p>
+                            </div>
+                          )}
+                          {selectedInvoiceDetails.job_notes && selectedInvoiceDetails.job_notes !== 'No job details available' && (
+                            <div>
+                              <p className="text-gray-400 text-xs uppercase tracking-wide">Additional Notes:</p>
+                              <p className="mt-1">{selectedInvoiceDetails.job_notes}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Location Links */}
+                    {selectedInvoiceDetails.maps_link && (
+                      <div className="mt-4 flex gap-2">
+                        <a 
+                          href={selectedInvoiceDetails.maps_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-orange-500 text-white px-4 py-2 rounded text-sm hover:bg-orange-600 flex items-center gap-2"
+                        >
+                          🗺️ View on Maps
+                        </a>
+                        {selectedInvoiceDetails.what3words_address && (
+                          <a 
+                            href={`https://what3words.com/${selectedInvoiceDetails.what3words_address}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600 flex items-center gap-2"
+                          >
+                            📍 What3Words
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   
                   {/* Invoice Breakdown */}
                   <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
