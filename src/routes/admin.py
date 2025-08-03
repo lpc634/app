@@ -1465,6 +1465,133 @@ def get_admin_dashboard_stats():
         current_app.logger.error(f"Error fetching admin dashboard stats: {e}")
         return jsonify({'error': 'Failed to fetch dashboard statistics'}), 500
 
+# === ENHANCED AGENT JOBS AND INVOICE DETAILS ENDPOINTS ===
+
+@admin_bp.route('/admin/agents/<int:agent_id>/jobs', methods=['GET'])
+@jwt_required()
+def get_agent_jobs(agent_id):
+    """Get all jobs for a specific agent with full job details."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        agent = User.query.get(agent_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Agent not found'}), 404
+        
+        # Get jobs through assignments and invoices
+        assignments = JobAssignment.query.filter_by(agent_id=agent_id).all()
+        
+        jobs = []
+        for assignment in assignments:
+            job = assignment.job
+            job_data = job.to_dict()
+            job_data['assignment_status'] = assignment.status
+            
+            # Check if there's an invoice for this job
+            invoice_job = InvoiceJob.query.filter_by(job_id=job.id).first()
+            if invoice_job:
+                invoice = Invoice.query.filter_by(
+                    agent_id=agent_id,
+                    id=invoice_job.invoice_id
+                ).first()
+                
+                if invoice:
+                    job_data['invoice_id'] = invoice.id
+                    job_data['invoice_number'] = invoice.invoice_number
+                    job_data['invoice_status'] = invoice.status
+                    job_data['hours_worked'] = float(invoice_job.hours_worked or 0)
+                    job_data['hourly_rate'] = float(invoice_job.hourly_rate_at_invoice or job.hourly_rate or 20)
+            
+            jobs.append(job_data)
+        
+        # Sort by most recent first
+        jobs.sort(key=lambda x: x.get('arrival_time', ''), reverse=True)
+        
+        return jsonify({
+            'agent': {
+                'id': agent.id,
+                'name': f"{agent.first_name} {agent.last_name}",
+                'email': agent.email
+            },
+            'jobs': jobs,
+            'total_count': len(jobs)
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching agent jobs: {e}")
+        return jsonify({'error': 'Failed to fetch agent jobs'}), 500
+
+@admin_bp.route('/admin/invoices/<int:invoice_id>/details', methods=['GET'])
+@jwt_required()
+def get_detailed_invoice(invoice_id):
+    """Get comprehensive invoice details including job information."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        invoice = Invoice.query.get(invoice_id)
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+        
+        # Get job details associated with this invoice
+        invoice_jobs = InvoiceJob.query.filter_by(invoice_id=invoice_id).all()
+        job_details = []
+        
+        for invoice_job in invoice_jobs:
+            if invoice_job.job:
+                job = invoice_job.job
+                job_details.append({
+                    'job_id': job.id,
+                    'title': job.title or f'Job #{job.id}',
+                    'address': job.address or 'Address not specified',
+                    'date': job.arrival_time.isoformat() if job.arrival_time else None,
+                    'job_type': job.job_type or 'General',
+                    'hours_worked': float(invoice_job.hours_worked or 0),
+                    'hourly_rate': float(invoice_job.hourly_rate_at_invoice or job.hourly_rate or 20),
+                    'subtotal': float(invoice_job.hours_worked or 0) * float(invoice_job.hourly_rate_at_invoice or job.hourly_rate or 20),
+                    'notes': job.notes or ''
+                })
+        
+        # Build comprehensive invoice details
+        details = {
+            'id': invoice.id,
+            'invoice_number': invoice.invoice_number,
+            'agent_id': invoice.agent_id,
+            'agent_name': f"{invoice.agent.first_name} {invoice.agent.last_name}",
+            'agent_email': invoice.agent.email,
+            'issue_date': invoice.issue_date.isoformat() if invoice.issue_date else None,
+            'due_date': invoice.due_date.isoformat() if invoice.due_date else None,
+            'status': invoice.status,
+            'total_amount': float(invoice.total_amount or 0),
+            'hours': float(invoice.hours or 0),
+            'rate_per_hour': float(invoice.rate_per_hour or 20),
+            'subtotal': float(invoice.hours or 0) * float(invoice.rate_per_hour or 20),
+            'expenses': float(invoice.expenses or 0),
+            'job_details': job_details,
+            'created_at': invoice.created_at.isoformat() if invoice.created_at else None,
+            'generated_at': invoice.generated_at.isoformat() if invoice.generated_at else None
+        }
+        
+        # Add payment information if paid
+        if invoice.status == 'paid':
+            details['paid_date'] = invoice.paid_date.isoformat() if invoice.paid_date else None
+            if invoice.paid_by_admin_id:
+                paid_by_admin = User.query.get(invoice.paid_by_admin_id)
+                details['paid_by_admin'] = f"{paid_by_admin.first_name} {paid_by_admin.last_name}" if paid_by_admin else 'Admin'
+        
+        return jsonify(details), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching invoice details: {e}")
+        return jsonify({'error': 'Failed to fetch invoice details'}), 500
+
 # === SIMPLE AGENT DETAILS ENDPOINT FOR AGENT MANAGEMENT PAGE ===
 
 @admin_bp.route('/admin/agent-management/<int:agent_id>/details', methods=['GET'])

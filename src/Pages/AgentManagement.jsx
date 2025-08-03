@@ -31,6 +31,12 @@ export default function AgentManagement() {
   const [showAgentDetails, setShowAgentDetails] = useState(false)
   const [agentDetails, setAgentDetails] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
+  const [selectedJobsModal, setSelectedJobsModal] = useState(false)
+  const [agentJobs, setAgentJobs] = useState([])
+  const [loadingJobs, setLoadingJobs] = useState(false)
+  const [selectedInvoiceModal, setSelectedInvoiceModal] = useState(false)
+  const [selectedInvoiceDetails, setSelectedInvoiceDetails] = useState(null)
+  const [loadingInvoice, setLoadingInvoice] = useState(false)
   const { apiCall } = useAuth()
 
   useEffect(() => {
@@ -110,6 +116,39 @@ export default function AgentManagement() {
     }
   }
 
+  const handleViewJobs = async (agent) => {
+    try {
+      setSelectedAgentForDetails(agent)
+      setSelectedJobsModal(true)
+      setLoadingJobs(true)
+      setAgentJobs([])
+      
+      const response = await apiCall(`/admin/agents/${agent.id}/jobs`)
+      setAgentJobs(response.jobs || [])
+    } catch (error) {
+      console.error('Failed to fetch agent jobs:', error)
+      setError('Failed to load agent jobs')
+    } finally {
+      setLoadingJobs(false)
+    }
+  }
+
+  const handleViewInvoiceDetails = async (invoiceId) => {
+    try {
+      setSelectedInvoiceModal(true)
+      setLoadingInvoice(true)
+      setSelectedInvoiceDetails(null)
+      
+      const response = await apiCall(`/admin/invoices/${invoiceId}/details`)
+      setSelectedInvoiceDetails(response)
+    } catch (error) {
+      console.error('Failed to fetch invoice details:', error)
+      setError('Failed to load invoice details')
+    } finally {
+      setLoadingInvoice(false)
+    }
+  }
+
   const handleMarkAsPaid = async (invoiceId) => {
     try {
       console.log('Marking invoice as paid:', invoiceId)
@@ -122,6 +161,11 @@ export default function AgentManagement() {
       // Refresh agent details to show updated status
       if (selectedAgentForDetails) {
         await handleViewDetails(selectedAgentForDetails)
+      }
+      
+      // If invoice details modal is open, refresh it too
+      if (selectedInvoiceDetails) {
+        await handleViewInvoiceDetails(selectedInvoiceDetails.id)
       }
       
       console.log('Invoice marked as paid successfully')
@@ -745,6 +789,7 @@ export default function AgentManagement() {
                                       e.currentTarget.style.borderColor = 'var(--v3-border)';
                                       e.currentTarget.style.color = 'var(--v3-text-light)';
                                     }}
+                                    onClick={() => handleViewInvoiceDetails(invoice.id)}
                                   >
                                     👁️ View Details
                                   </button>
@@ -834,6 +879,7 @@ export default function AgentManagement() {
                   e.currentTarget.style.borderColor = 'var(--v3-border)';
                   e.currentTarget.style.color = 'var(--v3-text-light)';
                 }}
+                onClick={() => handleViewJobs(selectedAgentForDetails)}
               >
                 💼 View Jobs
               </button>
@@ -844,6 +890,247 @@ export default function AgentManagement() {
                 ✕ Close
               </button>
             </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Agent Jobs Modal */}
+      {selectedJobsModal && selectedAgentForDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
+          <div className="bg-gray-900 rounded-lg shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-700">
+              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                <span className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                  📋
+                </span>
+                Agent Jobs - {selectedAgentForDetails.first_name} {selectedAgentForDetails.last_name}
+              </h2>
+              <button 
+                onClick={() => setSelectedJobsModal(false)}
+                className="text-gray-400 hover:text-white text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Jobs List */}
+            <div className="p-6 overflow-y-auto max-h-96">
+              {loadingJobs ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-gray-300">Loading agent jobs...</p>
+                </div>
+              ) : agentJobs.length > 0 ? (
+                <div className="space-y-4">
+                  {agentJobs.map(job => (
+                    <div key={job.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="text-lg font-semibold text-white">{job.title || `Job #${job.id}`}</h3>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          job.status === 'completed' ? 'bg-green-600 text-white' : 
+                          job.status === 'in_progress' ? 'bg-orange-600 text-white' : 
+                          'bg-gray-600 text-white'
+                        }`}>
+                          {job.status}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-300">📍 <strong>Address:</strong> {job.address || 'Not specified'}</p>
+                          <p className="text-gray-300">📅 <strong>Date:</strong> {job.arrival_time ? new Date(job.arrival_time).toLocaleString() : 'Not specified'}</p>
+                          <p className="text-gray-300">👥 <strong>Agents Required:</strong> {job.agents_required || 1}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-300">🏢 <strong>Job Type:</strong> {job.job_type || 'General'}</p>
+                          <p className="text-gray-300">📋 <strong>Assignment:</strong> {job.assignment_status || 'assigned'}</p>
+                          {job.invoice_number && (
+                            <p className="text-gray-300">🧾 <strong>Invoice:</strong> {job.invoice_number}</p>
+                          )}
+                          {job.hours_worked && (
+                            <p className="text-gray-300">⏰ <strong>Hours:</strong> {job.hours_worked}h @ £{job.hourly_rate || 20}/hr</p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {job.notes && (
+                        <div className="mt-3 p-3 bg-gray-900 rounded border-l-4 border-orange-500">
+                          <p className="text-gray-300 text-sm"><strong>Notes:</strong> {job.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📋</div>
+                  <p className="text-lg text-white">No jobs found</p>
+                  <p className="text-sm text-gray-400">This agent hasn't been assigned to any jobs yet.</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-700 bg-gray-900">
+              <button 
+                onClick={() => setSelectedJobsModal(false)}
+                className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Details Modal */}
+      {selectedInvoiceModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
+          <div className="bg-gray-900 rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-700">
+              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                <span className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                  🧾
+                </span>
+                Invoice Details
+              </h2>
+              <button 
+                onClick={() => setSelectedInvoiceModal(false)}
+                className="text-gray-400 hover:text-white text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Invoice Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              {loadingInvoice ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-gray-300">Loading invoice details...</p>
+                </div>
+              ) : selectedInvoiceDetails ? (
+                <div className="space-y-6">
+                  {/* Invoice Header */}
+                  <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-2">Invoice Information</h3>
+                        <p className="text-gray-300"><strong>Invoice ID:</strong> {selectedInvoiceDetails.invoice_number}</p>
+                        <p className="text-gray-300"><strong>Agent:</strong> {selectedInvoiceDetails.agent_name}</p>
+                        <p className="text-gray-300"><strong>Issue Date:</strong> {selectedInvoiceDetails.issue_date ? new Date(selectedInvoiceDetails.issue_date).toLocaleDateString() : 'N/A'}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-2">Status & Amount</h3>
+                        <p className="text-gray-300">
+                          <strong>Status:</strong> 
+                          <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                            selectedInvoiceDetails.status === 'paid' ? 'bg-green-600' : 
+                            selectedInvoiceDetails.status === 'overdue' ? 'bg-red-600' : 
+                            'bg-orange-600'
+                          } text-white`}>
+                            {selectedInvoiceDetails.status?.toUpperCase()}
+                          </span>
+                        </p>
+                        <p className="text-gray-300"><strong>Due Date:</strong> {selectedInvoiceDetails.due_date ? new Date(selectedInvoiceDetails.due_date).toLocaleDateString() : 'N/A'}</p>
+                        <p className="text-green-400 text-xl font-bold"><strong>Total: £{selectedInvoiceDetails.total_amount}</strong></p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Job Details */}
+                  {selectedInvoiceDetails.job_details && selectedInvoiceDetails.job_details.length > 0 && (
+                    <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                      <h3 className="text-lg font-semibold text-white mb-3">Job Details</h3>
+                      <div className="space-y-3">
+                        {selectedInvoiceDetails.job_details.map((job, index) => (
+                          <div key={index} className="border-l-4 border-orange-500 pl-4">
+                            <p className="text-gray-300"><strong>Job:</strong> {job.title}</p>
+                            <p className="text-gray-300"><strong>Location:</strong> {job.address}</p>
+                            <p className="text-gray-300"><strong>Date:</strong> {job.date ? new Date(job.date).toLocaleString() : 'N/A'}</p>
+                            <p className="text-gray-300"><strong>Type:</strong> {job.job_type}</p>
+                            <p className="text-gray-300"><strong>Hours:</strong> {job.hours_worked}h @ £{job.hourly_rate}/hr = £{job.subtotal?.toFixed(2)}</p>
+                            {job.notes && (
+                              <p className="text-gray-400 text-sm"><strong>Notes:</strong> {job.notes}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Invoice Breakdown */}
+                  <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <h3 className="text-lg font-semibold text-white mb-3">Invoice Breakdown</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-700">
+                        <span className="text-gray-300">Hours Worked:</span>
+                        <span className="text-white font-medium">{selectedInvoiceDetails.hours} hours</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-700">
+                        <span className="text-gray-300">Rate per Hour:</span>
+                        <span className="text-white font-medium">£{selectedInvoiceDetails.rate_per_hour}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-700">
+                        <span className="text-gray-300">Subtotal:</span>
+                        <span className="text-white font-medium">£{selectedInvoiceDetails.subtotal?.toFixed(2)}</span>
+                      </div>
+                      {selectedInvoiceDetails.expenses > 0 && (
+                        <div className="flex justify-between items-center py-2 border-b border-gray-700">
+                          <span className="text-gray-300">Expenses:</span>
+                          <span className="text-white font-medium">£{selectedInvoiceDetails.expenses}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center py-2 text-lg font-bold">
+                        <span className="text-white">Total Amount:</span>
+                        <span className="text-green-400">£{selectedInvoiceDetails.total_amount}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Payment Information */}
+                  {selectedInvoiceDetails.status === 'paid' && (
+                    <div className="bg-green-900 rounded-lg p-4 border border-green-600">
+                      <h3 className="text-lg font-semibold text-white mb-2">Payment Information</h3>
+                      <p className="text-green-200">
+                        <strong>Paid on:</strong> {selectedInvoiceDetails.paid_date ? new Date(selectedInvoiceDetails.paid_date).toLocaleDateString() : 'N/A'}
+                      </p>
+                      {selectedInvoiceDetails.paid_by_admin && (
+                        <p className="text-green-200">
+                          <strong>Paid by:</strong> {selectedInvoiceDetails.paid_by_admin}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">❌</div>
+                  <p className="text-lg text-red-400">Failed to load invoice details</p>
+                  <p className="text-sm text-gray-400">Please try again later</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-700 bg-gray-900 flex justify-end gap-3">
+              {selectedInvoiceDetails?.status !== 'paid' && (
+                <button 
+                  onClick={() => handleMarkAsPaid(selectedInvoiceDetails.id)}
+                  className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
+                >
+                  Mark as Paid
+                </button>
+              )}
+              <button 
+                onClick={() => setSelectedInvoiceModal(false)}
+                className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
