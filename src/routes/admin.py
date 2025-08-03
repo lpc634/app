@@ -1487,26 +1487,43 @@ def get_agent_jobs(agent_id):
         
         jobs = []
         for assignment in assignments:
-            job = assignment.job
-            job_data = job.to_dict()
-            job_data['assignment_status'] = assignment.status
-            
-            # Check if there's an invoice for this job
-            invoice_job = InvoiceJob.query.filter_by(job_id=job.id).first()
-            if invoice_job:
-                invoice = Invoice.query.filter_by(
-                    agent_id=agent_id,
-                    id=invoice_job.invoice_id
-                ).first()
+            try:
+                job = assignment.job
+                if not job:
+                    continue
+                    
+                # Safely get job data
+                job_data = {}
+                job_data['id'] = job.id
+                job_data['title'] = getattr(job, 'title', f'Job #{job.id}')
+                job_data['address'] = getattr(job, 'address', 'Address not specified')
+                job_data['arrival_time'] = job.arrival_time.isoformat() if hasattr(job, 'arrival_time') and job.arrival_time else None
+                job_data['job_type'] = getattr(job, 'job_type', 'General')
+                job_data['agents_required'] = getattr(job, 'agents_required', 1)
+                job_data['status'] = getattr(job, 'status', 'active')
+                job_data['notes'] = getattr(job, 'notes', '')
+                job_data['assignment_status'] = getattr(assignment, 'status', 'assigned')
                 
-                if invoice:
-                    job_data['invoice_id'] = invoice.id
-                    job_data['invoice_number'] = invoice.invoice_number
-                    job_data['invoice_status'] = invoice.status
-                    job_data['hours_worked'] = float(invoice_job.hours_worked or 0)
-                    job_data['hourly_rate'] = float(invoice_job.hourly_rate_at_invoice or job.hourly_rate or 20)
-            
-            jobs.append(job_data)
+                # Check if there's an invoice for this job
+                invoice_job = InvoiceJob.query.filter_by(job_id=job.id).first()
+                if invoice_job:
+                    invoice = Invoice.query.filter_by(
+                        agent_id=agent_id,
+                        id=invoice_job.invoice_id
+                    ).first()
+                    
+                    if invoice:
+                        job_data['invoice_id'] = invoice.id
+                        job_data['invoice_number'] = getattr(invoice, 'invoice_number', f'INV-{invoice.id}')
+                        job_data['invoice_status'] = getattr(invoice, 'status', 'draft')
+                        job_data['hours_worked'] = float(getattr(invoice_job, 'hours_worked', 0) or 0)
+                        job_data['hourly_rate'] = float(getattr(invoice_job, 'hourly_rate_at_invoice', None) or getattr(job, 'hourly_rate', 20) or 20)
+                
+                jobs.append(job_data)
+                
+            except Exception as job_error:
+                current_app.logger.error(f"Error processing job {assignment.job_id}: {job_error}")
+                continue
         
         # Sort by most recent first
         jobs.sort(key=lambda x: x.get('arrival_time', ''), reverse=True)
@@ -1547,36 +1564,39 @@ def get_detailed_invoice(invoice_id):
         for invoice_job in invoice_jobs:
             if invoice_job.job:
                 job = invoice_job.job
+                hours_worked = float(getattr(invoice_job, 'hours_worked', 0) or 0)
+                hourly_rate = float(getattr(invoice_job, 'hourly_rate_at_invoice', None) or getattr(job, 'hourly_rate', 20) or 20)
+                
                 job_details.append({
                     'job_id': job.id,
-                    'title': job.title or f'Job #{job.id}',
-                    'address': job.address or 'Address not specified',
-                    'date': job.arrival_time.isoformat() if job.arrival_time else None,
-                    'job_type': job.job_type or 'General',
-                    'hours_worked': float(invoice_job.hours_worked or 0),
-                    'hourly_rate': float(invoice_job.hourly_rate_at_invoice or job.hourly_rate or 20),
-                    'subtotal': float(invoice_job.hours_worked or 0) * float(invoice_job.hourly_rate_at_invoice or job.hourly_rate or 20),
-                    'notes': job.notes or ''
+                    'title': getattr(job, 'title', f'Job #{job.id}'),
+                    'address': getattr(job, 'address', 'Address not specified'),
+                    'date': job.arrival_time.isoformat() if hasattr(job, 'arrival_time') and job.arrival_time else None,
+                    'job_type': getattr(job, 'job_type', 'General'),
+                    'hours_worked': hours_worked,
+                    'hourly_rate': hourly_rate,
+                    'subtotal': hours_worked * hourly_rate,
+                    'notes': getattr(job, 'notes', '')
                 })
         
-        # Build comprehensive invoice details
+        # Build comprehensive invoice details with safe attribute access
         details = {
             'id': invoice.id,
-            'invoice_number': invoice.invoice_number,
-            'agent_id': invoice.agent_id,
-            'agent_name': f"{invoice.agent.first_name} {invoice.agent.last_name}",
-            'agent_email': invoice.agent.email,
-            'issue_date': invoice.issue_date.isoformat() if invoice.issue_date else None,
-            'due_date': invoice.due_date.isoformat() if invoice.due_date else None,
-            'status': invoice.status,
-            'total_amount': float(invoice.total_amount or 0),
-            'hours': float(invoice.hours or 0),
-            'rate_per_hour': float(invoice.rate_per_hour or 20),
-            'subtotal': float(invoice.hours or 0) * float(invoice.rate_per_hour or 20),
-            'expenses': float(invoice.expenses or 0),
+            'invoice_number': getattr(invoice, 'invoice_number', f'INV-{invoice.id}'),
+            'agent_id': getattr(invoice, 'agent_id', None),
+            'agent_name': f"{invoice.agent.first_name} {invoice.agent.last_name}" if invoice.agent else 'Unknown Agent',
+            'agent_email': getattr(invoice.agent, 'email', 'No email') if invoice.agent else 'No email',
+            'issue_date': invoice.issue_date.isoformat() if hasattr(invoice, 'issue_date') and invoice.issue_date else None,
+            'due_date': invoice.due_date.isoformat() if hasattr(invoice, 'due_date') and invoice.due_date else None,
+            'status': getattr(invoice, 'status', 'draft'),
+            'total_amount': float(getattr(invoice, 'total_amount', 0) or 0),
+            'hours': float(getattr(invoice, 'hours', 0) or 0),
+            'rate_per_hour': float(getattr(invoice, 'rate_per_hour', 20) or 20),
+            'subtotal': float(getattr(invoice, 'hours', 0) or 0) * float(getattr(invoice, 'rate_per_hour', 20) or 20),
+            'expenses': float(getattr(invoice, 'expenses', 0) or 0),
             'job_details': job_details,
-            'created_at': invoice.created_at.isoformat() if invoice.created_at else None,
-            'generated_at': invoice.generated_at.isoformat() if invoice.generated_at else None
+            'created_at': invoice.created_at.isoformat() if hasattr(invoice, 'created_at') and invoice.created_at else None,
+            'generated_at': invoice.generated_at.isoformat() if hasattr(invoice, 'generated_at') and invoice.generated_at else None
         }
         
         # Add payment information if paid

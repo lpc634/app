@@ -123,11 +123,18 @@ export default function AgentManagement() {
       setLoadingJobs(true)
       setAgentJobs([])
       
+      console.log(`Fetching jobs for agent ${agent.id}`) // Debug logging
       const response = await apiCall(`/admin/agents/${agent.id}/jobs`)
-      setAgentJobs(response.jobs || [])
+      console.log('Jobs response:', response) // Debug logging
+      
+      // Handle different response formats
+      const jobs = response.jobs || response || []
+      setAgentJobs(jobs)
     } catch (error) {
       console.error('Failed to fetch agent jobs:', error)
       setError('Failed to load agent jobs')
+      // Keep modal open with empty state to show error
+      setAgentJobs([])
     } finally {
       setLoadingJobs(false)
     }
@@ -139,11 +146,16 @@ export default function AgentManagement() {
       setLoadingInvoice(true)
       setSelectedInvoiceDetails(null)
       
+      console.log(`Fetching invoice details for ${invoiceId}`) // Debug logging
       const response = await apiCall(`/admin/invoices/${invoiceId}/details`)
+      console.log('Invoice response:', response) // Debug logging
+      
       setSelectedInvoiceDetails(response)
     } catch (error) {
       console.error('Failed to fetch invoice details:', error)
       setError('Failed to load invoice details')
+      // Keep modal open with null state to show error
+      setSelectedInvoiceDetails(null)
     } finally {
       setLoadingInvoice(false)
     }
@@ -967,7 +979,20 @@ export default function AgentManagement() {
                 <div className="text-center py-12">
                   <div className="text-6xl mb-4">📋</div>
                   <p className="text-lg text-white">No jobs found</p>
-                  <p className="text-sm text-gray-400">This agent hasn't been assigned to any jobs yet.</p>
+                  <p className="text-sm text-gray-400">
+                    {error && error.includes('job') ? 
+                      'Failed to load jobs. Please check the console for details.' :
+                      "This agent hasn't been assigned to any jobs yet."
+                    }
+                  </p>
+                  {error && error.includes('job') && (
+                    <button 
+                      onClick={() => handleViewJobs(selectedAgentForDetails)}
+                      className="mt-4 bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600"
+                    >
+                      Retry
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1110,7 +1135,18 @@ export default function AgentManagement() {
                 <div className="text-center py-12">
                   <div className="text-6xl mb-4">❌</div>
                   <p className="text-lg text-red-400">Failed to load invoice details</p>
-                  <p className="text-sm text-gray-400">Please try again later</p>
+                  <p className="text-sm text-gray-400">
+                    {error && error.includes('invoice') ? 
+                      'Failed to load invoice. Please check the console for details.' :
+                      'Please try again later'
+                    }
+                  </p>
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="mt-4 bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600"
+                  >
+                    Retry
+                  </button>
                 </div>
               )}
             </div>
