@@ -26,11 +26,58 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
         model: '',
         colour: ''
     });
+    
+    // DVLA lookup state for modal
+    const [modalLookupLoading, setModalLookupLoading] = useState(false);
+    const [modalVehicleLookupData, setModalVehicleLookupData] = useState(null);
+
+    // DVLA lookup function for modal
+    const performModalVehicleLookup = async (plateValue) => {
+        if (!plateValue || plateValue.length < 7) return;
+        
+        setModalLookupLoading(true);
+        try {
+            console.log(`[DVLA Modal] Looking up vehicle: ${plateValue}`);
+            const response = await apiCall(`/vehicles/lookup-cached/${plateValue.toUpperCase()}`);
+            
+            if (response.dvla_lookup) {
+                setModalVehicleLookupData(response);
+                setModalVehicleDetails({
+                    make: response.make,
+                    model: response.model,
+                    colour: response.colour
+                });
+                toast.success('Vehicle details found automatically!');
+            } else {
+                setModalVehicleLookupData(null);
+            }
+        } catch (error) {
+            console.log('[DVLA Modal] Auto-lookup failed:', error);
+            setModalVehicleLookupData(null);
+        } finally {
+            setModalLookupLoading(false);
+        }
+    };
+    
+    // Auto-lookup when plate changes in modal
+    useEffect(() => {
+        if (plate.length >= 7) {
+            const timeoutId = setTimeout(() => {
+                performModalVehicleLookup(plate);
+            }, 1000);
+            
+            return () => clearTimeout(timeoutId);
+        } else {
+            setModalVehicleLookupData(null);
+        }
+    }, [plate]);
 
     useEffect(() => {
         if (!isOpen) {
             setPlate(''); setNotes(''); setAddress(''); setIsDangerous(false);
             setModalVehicleDetails({ make: '', model: '', colour: '' });
+            setModalLookupLoading(false);
+            setModalVehicleLookupData(null);
             setErrors({});
         }
     }, [isOpen]);
@@ -187,25 +234,44 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                         >
                             Registration Plate *
                         </label>
-                        <input
-                            type="text"
-                            value={plate}
-                            onChange={e => {
-                                setPlate(e.target.value);
-                                if (errors.plate) setErrors(prev => ({ ...prev, plate: null }));
-                            }}
-                            required
-                            className="w-full px-4 py-3 rounded-lg focus:ring-1 transition-colors"
-                            style={{
-                                backgroundColor: '#242424',
-                                borderColor: errors.plate ? '#ef4444' : '#333333',
-                                color: '#f5f5f5',
-                                border: '1px solid'
-                            }}
-                            placeholder="Enter registration plate (e.g. AB12 CDE)"
-                        />
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={plate}
+                                onChange={e => {
+                                    setPlate(e.target.value.toUpperCase());
+                                    if (errors.plate) setErrors(prev => ({ ...prev, plate: null }));
+                                }}
+                                required
+                                className="w-full px-4 py-3 rounded-lg focus:ring-1 transition-colors"
+                                style={{
+                                    backgroundColor: '#242424',
+                                    borderColor: errors.plate ? '#ef4444' : '#333333',
+                                    color: '#f5f5f5',
+                                    border: '1px solid'
+                                }}
+                                placeholder="Enter registration plate (e.g. AB12 CDE)"
+                            />
+                            {modalLookupLoading && (
+                                <div className="absolute right-3 top-3">
+                                    <div className="animate-spin w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full"></div>
+                                </div>
+                            )}
+                        </div>
                         {errors.plate && (
                             <p className="mt-1 text-sm" style={{ color: '#ef4444' }}>{errors.plate}</p>
+                        )}
+                        
+                        {/* DVLA Lookup Success Indicator */}
+                        {modalVehicleLookupData && (
+                            <div className="mt-3 p-3 bg-green-900 rounded-lg border border-green-600">
+                                <p className="text-green-200 text-sm flex items-center gap-2">
+                                    ✅ <span className="font-medium">Vehicle found:</span> {modalVehicleLookupData.make} {modalVehicleLookupData.model} ({modalVehicleLookupData.colour})
+                                </p>
+                                <p className="text-green-300 text-xs mt-1">
+                                    💡 Details automatically filled from DVLA
+                                </p>
+                            </div>
                         )}
                     </div>
                     
@@ -255,6 +321,9 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                 🚗
                             </span>
                             Vehicle Details
+                            {modalVehicleLookupData && (
+                                <span className="text-green-500 text-sm ml-2">(Auto-detected)</span>
+                            )}
                         </h4>
                         
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -326,7 +395,7 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                         </div>
                         
                         <p className="text-sm" style={{ color: '#888888' }}>
-                            💡 Vehicle details are optional but help with identification
+                            💡 Vehicle details are automatically looked up from DVLA when you enter the registration plate. You can override these if needed.
                         </p>
                     </div>
                     
@@ -501,10 +570,53 @@ const VehicleSearchPage = () => {
     const [vehicleDetailsLoading, setVehicleDetailsLoading] = useState(false);
     const [hasVehicleDetails, setHasVehicleDetails] = useState(false);
     
+    // DVLA Vehicle Lookup state
+    const [vehicleLookupData, setVehicleLookupData] = useState(null);
+    const [lookupLoading, setLookupLoading] = useState(false);
+    const [autoLookupEnabled, setAutoLookupEnabled] = useState(true);
+    
     const { apiCall } = useAuth();
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
     const markersRef = useRef({});
+    
+    // DVLA Vehicle Lookup Functions
+    const performVehicleLookup = async (plate) => {
+        if (!plate || plate.length < 7) return;
+        
+        setLookupLoading(true);
+        try {
+            console.log(`[DVLA] Looking up vehicle: ${plate}`);
+            const response = await apiCall(`/vehicles/lookup-cached/${plate.toUpperCase()}`);
+            
+            if (response.dvla_lookup) {
+                setVehicleLookupData(response);
+                toast.success(`Vehicle found: ${response.make} ${response.model} (${response.colour})`);
+            } else {
+                setVehicleLookupData(null);
+            }
+        } catch (error) {
+            console.log('[DVLA] Vehicle lookup failed:', error);
+            setVehicleLookupData(null);
+            // Don't show error toast - lookup failures are expected for some plates
+        } finally {
+            setLookupLoading(false);
+        }
+    };
+    
+    // Auto-lookup when plate is entered (with debounce)
+    useEffect(() => {
+        if (searchPlate.length >= 7 && autoLookupEnabled) {
+            const timeoutId = setTimeout(() => {
+                performVehicleLookup(searchPlate);
+            }, 1000); // Wait 1 second after user stops typing
+            
+            return () => clearTimeout(timeoutId);
+        } else {
+            // Clear lookup data if plate is too short
+            setVehicleLookupData(null);
+        }
+    }, [searchPlate, autoLookupEnabled]);
 
     const getCoordinates = async (address) => {
         if (!address) return null;
@@ -696,11 +808,67 @@ const VehicleSearchPage = () => {
                 </div>
 
                 <div className="mb-6">
-                    <form onSubmit={handleSearch} className="flex gap-2">
-                        <Input value={searchPlate} onChange={(e) => setSearchPlate(e.target.value)} placeholder="Enter registration plate..." />
-                        <Button type="submit" className="flex items-center justify-center gap-2 w-32" disabled={loading}>
-                            {loading ? <Loader2 className="animate-spin" /> : <><Search size={18}/> Search</>}
-                        </Button>
+                    <form onSubmit={handleSearch} className="space-y-4">
+                        {/* Search Input with Lookup Indicator */}
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <Input 
+                                    value={searchPlate} 
+                                    onChange={(e) => setSearchPlate(e.target.value.toUpperCase())} 
+                                    placeholder="Enter registration plate (e.g. AB12 CDE)..." 
+                                />
+                                {lookupLoading && (
+                                    <div className="absolute right-3 top-3">
+                                        <div className="animate-spin w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full"></div>
+                                    </div>
+                                )}
+                            </div>
+                            <Button type="submit" className="flex items-center justify-center gap-2 w-32" disabled={loading}>
+                                {loading ? <Loader2 className="animate-spin" /> : <><Search size={18}/> Search</>}
+                            </Button>
+                        </div>
+                        
+                        {/* DVLA Vehicle Lookup Results */}
+                        {vehicleLookupData && (
+                            <div className="bg-green-900 border border-green-600 rounded-lg p-4">
+                                <h3 className="text-white font-semibold mb-2 flex items-center gap-2">
+                                    ✅ Vehicle Details Found (DVLA)
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p className="text-green-200"><strong>Make:</strong> {vehicleLookupData.make}</p>
+                                        <p className="text-green-200"><strong>Model:</strong> {vehicleLookupData.model}</p>
+                                        <p className="text-green-200"><strong>Colour:</strong> {vehicleLookupData.colour}</p>
+                                    </div>
+                                    <div>
+                                        {vehicleLookupData.year_of_manufacture && (
+                                            <p className="text-green-200"><strong>Year:</strong> {vehicleLookupData.year_of_manufacture}</p>
+                                        )}
+                                        {vehicleLookupData.fuel_type && (
+                                            <p className="text-green-200"><strong>Fuel:</strong> {vehicleLookupData.fuel_type}</p>
+                                        )}
+                                        {vehicleLookupData.mot_status && (
+                                            <p className="text-green-200"><strong>MOT:</strong> {vehicleLookupData.mot_status}</p>
+                                        )}
+                                        {vehicleLookupData.tax_status && (
+                                            <p className="text-green-200"><strong>Tax:</strong> {vehicleLookupData.tax_status}</p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="mt-3 flex items-center justify-between">
+                                    <p className="text-green-300 text-xs">
+                                        💡 Vehicle details automatically retrieved from DVLA
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAutoLookupEnabled(!autoLookupEnabled)}
+                                        className="text-xs text-green-300 hover:text-green-100 underline"
+                                    >
+                                        {autoLookupEnabled ? 'Disable auto-lookup' : 'Enable auto-lookup'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </form>
                 </div>
                 
