@@ -196,10 +196,21 @@ def lookup_vehicle_dvla(registration_plate):
                     model_value = None
                     
                     # Enhanced logging for model field debugging
-                    current_app.logger.info(f"[DVLA] Raw make field: '{data.get('make', 'NOT_FOUND')}'")
-                    current_app.logger.info(f"[DVLA] Raw model field: '{data.get('model', 'NOT_FOUND')}'")
-                    current_app.logger.info(f"[DVLA] Model field exists: {'model' in data}")
-                    current_app.logger.info(f"[DVLA] Model field type: {type(data.get('model', None))}")
+                    current_app.logger.info(f"[DVLA DEBUG] Raw make field: '{data.get('make', 'NOT_FOUND')}'")
+                    current_app.logger.info(f"[DVLA DEBUG] Raw model field: '{data.get('model', 'NOT_FOUND')}'")
+                    current_app.logger.info(f"[DVLA DEBUG] Model field exists: {'model' in data}")
+                    current_app.logger.info(f"[DVLA DEBUG] Model field type: {type(data.get('model', None))}")
+                    current_app.logger.info(f"[DVLA DEBUG] Model field is None: {data.get('model') is None}")
+                    current_app.logger.info(f"[DVLA DEBUG] Model field is empty string: {data.get('model') == ''}")
+                    current_app.logger.info(f"[DVLA DEBUG] All DVLA fields: {list(data.keys())}")
+                    
+                    # Log raw values for debugging
+                    print(f"\n[SIMPLE DEBUG] DVLA Raw Response for {plate_upper}:")
+                    print(f"  make: '{data.get('make', 'MISSING')}'")
+                    print(f"  model: '{data.get('model', 'MISSING')}'")
+                    print(f"  colour: '{data.get('colour', 'MISSING')}'")
+                    print(f"  All fields: {list(data.keys())}")
+                    print(f"  Full response: {json.dumps(data, indent=2)}\n")
                     
                     # Strategy 1: Direct 'model' field
                     if 'model' in data and data['model'] is not None:
@@ -488,6 +499,88 @@ def debug_dvla_response(registration_plate):
             'error': str(e),
             'registration_plate': registration_plate,
             'endpoint': 'debug_dvla_response'
+        }), 500
+
+@vehicles_bp.route('/vehicles/raw-dvla/<registration_plate>', methods=['GET'])
+@jwt_required()
+def raw_dvla_debug(registration_plate):
+    """Show exactly what DVLA returns - no processing"""
+    try:
+        plate_upper = registration_plate.upper().strip()
+        api_key = os.getenv('DVLA_API_KEY')
+        
+        if not api_key:
+            return jsonify({'error': 'API key not configured'}), 503
+        
+        # Direct DVLA API call
+        dvla_url = "https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles"
+        headers = {
+            'x-api-key': api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'V3-Services-Vehicle-Lookup/1.0'
+        }
+        payload = {'registrationNumber': plate_upper}
+        
+        current_app.logger.info(f"[RAW DVLA DEBUG] Looking up: {plate_upper}")
+        
+        response = requests.post(dvla_url, headers=headers, json=payload, timeout=15)
+        
+        if response.status_code == 200:
+            raw_data = response.json()
+            
+            # Return EVERYTHING exactly as DVLA sends it
+            return jsonify({
+                'plate': plate_upper,
+                'dvla_raw_response': raw_data,
+                'status': 'success',
+                'timestamp': datetime.utcnow().isoformat(),
+                
+                # Quick field check
+                'make_field': raw_data.get('make', 'MISSING'),
+                'model_field': raw_data.get('model', 'MISSING'), 
+                'colour_field': raw_data.get('colour', 'MISSING'),
+                
+                # Show ALL field names DVLA returns
+                'all_fields_returned': list(raw_data.keys()),
+                'field_count': len(raw_data.keys()),
+                
+                # Field existence check
+                'has_make': 'make' in raw_data,
+                'has_model': 'model' in raw_data,
+                'has_colour': 'colour' in raw_data,
+                
+                # Check for alternative model fields
+                'alternative_model_fields': {
+                    field: raw_data.get(field, 'NOT_FOUND') 
+                    for field in ['vehicleModel', 'genericDescription', 'bodyType', 'vehicleDescription', 'makeModel']
+                    if field in raw_data
+                },
+                
+                # Debug summary
+                'debug_summary': {
+                    'total_fields': len(raw_data.keys()),
+                    'has_standard_fields': all(field in raw_data for field in ['make', 'colour']),
+                    'model_field_status': 'FOUND' if 'model' in raw_data and raw_data.get('model') else 'MISSING_OR_EMPTY',
+                    'response_size_kb': len(str(raw_data)) / 1024
+                }
+            }), 200
+        else:
+            return jsonify({
+                'plate': plate_upper,
+                'status': 'error',
+                'error': f'DVLA returned {response.status_code}',
+                'response_text': response.text,
+                'timestamp': datetime.utcnow().isoformat()
+            }), response.status_code
+            
+    except Exception as e:
+        current_app.logger.error(f"[RAW DVLA DEBUG] Exception: {str(e)}")
+        return jsonify({
+            'plate': registration_plate,
+            'status': 'exception',
+            'error': str(e),
+            'endpoint': 'raw_dvla_debug'
         }), 500
 
 @vehicles_bp.route('/vehicles/test-dvla', methods=['GET'])
