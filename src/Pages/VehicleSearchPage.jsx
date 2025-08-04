@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../useAuth.jsx';
 import { toast } from 'sonner';
-import { Loader2, Search, AlertTriangle, Send, PlusCircle, X, MapPin, NotebookText, User, Calendar, Users, CheckCircle, Edit3, Save, Car, Info, Plus } from 'lucide-react';
+import { Loader2, Search, AlertTriangle, Send, PlusCircle, X, MapPin, NotebookText, User, Calendar, Users, CheckCircle, Car, Info, Plus } from 'lucide-react';
 
 
 // --- Reusable UI Components ---
@@ -616,15 +616,7 @@ const VehicleSearchPage = () => {
     const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     
-    // Vehicle details state
-    const [vehicleDetails, setVehicleDetails] = useState({
-        make: '',
-        model: '',
-        colour: ''
-    });
-    const [isEditingVehicle, setIsEditingVehicle] = useState(false);
-    const [vehicleDetailsLoading, setVehicleDetailsLoading] = useState(false);
-    const [hasVehicleDetails, setHasVehicleDetails] = useState(false);
+    // Removed old vehicle details editing state - now using DVLA lookup only
     
     // DVLA Vehicle Lookup state
     const [vehicleLookupData, setVehicleLookupData] = useState(null);
@@ -707,17 +699,27 @@ const VehicleSearchPage = () => {
         setError('');
         setSightings([]);
         setSelectedSighting(null);
+        setVehicleLookupData(null); // Reset previous lookup
+        
         try {
+            // Perform sightings search
             const data = await apiCall(`/vehicles/${searchPlate.trim().toUpperCase()}`);
             setSightings(data);
             if (data.length > 0) {
                 setSelectedSighting(data[0]);
             } else {
-                 setError('No records found for this registration plate.');
+                setError('No records found for this registration plate.');
             }
+            
+            // Auto-lookup vehicle details for any search (whether sightings found or not)
+            performVehicleLookup(searchPlate);
+            
         } catch (err) {
             setSightings([]);
             setError(err.message.includes('404') ? 'No records found for this registration plate.' : 'An error occurred while searching.');
+            
+            // Still try to lookup vehicle details even if no sightings found
+            performVehicleLookup(searchPlate);
         } finally {
             setLoading(false);
         }
@@ -737,71 +739,7 @@ const VehicleSearchPage = () => {
         }
     };
 
-    // Load vehicle details for the current plate
-    const loadVehicleDetails = async (plate) => {
-        try {
-            const data = await apiCall(`/vehicles/${plate}/details`);
-            setVehicleDetails({
-                make: data.make || '',
-                model: data.model || '',
-                colour: data.colour || ''
-            });
-            setHasVehicleDetails(true);
-        } catch (error) {
-            // No vehicle details found, reset to empty
-            setVehicleDetails({ make: '', model: '', colour: '' });
-            setHasVehicleDetails(false);
-        }
-    };
-
-    // Save vehicle details
-    const saveVehicleDetails = async () => {
-        if (!selectedSighting) return;
-        
-        setVehicleDetailsLoading(true);
-        try {
-            const plate = selectedSighting.registration_plate;
-            await apiCall(`/vehicles/${plate}/details`, {
-                method: 'PUT',
-                body: JSON.stringify(vehicleDetails)
-            });
-            
-            toast.success('Vehicle details saved successfully!');
-            setIsEditingVehicle(false);
-            setHasVehicleDetails(true);
-        } catch (error) {
-            toast.error('Failed to save vehicle details', { description: error.message });
-        } finally {
-            setVehicleDetailsLoading(false);
-        }
-    };
-
-    // Reset vehicle editing state
-    const cancelVehicleEdit = () => {
-        setIsEditingVehicle(false);
-        // If we had details before, restore them
-        if (selectedSighting) {
-            loadVehicleDetails(selectedSighting.registration_plate);
-        }
-    };
-
-    // Display text for vehicle details
-    const getVehicleDisplayText = () => {
-        const parts = [];
-        if (vehicleDetails.make) parts.push(vehicleDetails.make);
-        if (vehicleDetails.model) parts.push(vehicleDetails.model);
-        
-        const vehicleText = parts.join(' ');
-        
-        if (vehicleDetails.colour && vehicleText) {
-            return `${vehicleText} (${vehicleDetails.colour})`;
-        } else if (vehicleText) {
-            return vehicleText;
-        } else if (vehicleDetails.colour) {
-            return vehicleDetails.colour;
-        }
-        return '';
-    };
+    // Old vehicle details functions removed - now using DVLA lookup exclusively
 
     // --- REVISED MAP LOGIC ---
     useEffect(() => {
@@ -855,13 +793,7 @@ const VehicleSearchPage = () => {
         }
     }, [selectedSighting]);
 
-    // Load vehicle details when a sighting is selected
-    useEffect(() => {
-        if (selectedSighting) {
-            loadVehicleDetails(selectedSighting.registration_plate);
-            setIsEditingVehicle(false); // Reset editing state
-        }
-    }, [selectedSighting]);
+    // No need to load vehicle details - using DVLA lookup instead
     
     return (
         <>
@@ -897,103 +829,59 @@ const VehicleSearchPage = () => {
                             </Button>
                         </div>
                         
-                        {/* DVLA Vehicle Lookup Results - COMPREHENSIVE */}
+                        {/* DVLA Vehicle Lookup Results - COMPACT MOBILE-OPTIMIZED */}
                         {vehicleLookupData && (
-                            <div className="bg-green-900 border border-green-600 rounded-lg p-6 mt-4">
-                                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-                                    ✅ Complete Vehicle Details Found (DVLA Official Database)
-                                </h3>
-                                
-                                {/* Basic Vehicle Information */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                                    <div>
-                                        <h4 className="text-green-200 font-medium mb-2">🚗 Basic Information</h4>
-                                        <div className="space-y-1 text-sm">
-                                            <p className="text-green-200"><strong>Make:</strong> {vehicleLookupData.make || 'Not specified'}</p>
-                                            <p className="text-green-200"><strong>Model:</strong> {vehicleLookupData.model || 'Not specified'}</p>
-                                            <p className="text-green-200"><strong>Colour:</strong> {vehicleLookupData.colour || 'Not specified'}</p>
-                                            <p className="text-green-200"><strong>Year:</strong> {vehicleLookupData.year_of_manufacture || 'Not specified'}</p>
-                                        </div>
+                            <div className="bg-green-900 border border-green-600 rounded-lg p-3 mt-3">
+                                {/* Compact Header */}
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-green-400">✅</span>
+                                        <span className="text-white font-medium text-sm">
+                                            {vehicleLookupData.make} {vehicleLookupData.model || 'Unknown Model'} ({vehicleLookupData.colour}) - {vehicleLookupData.year_of_manufacture}
+                                        </span>
                                     </div>
-                                    
-                                    <div>
-                                        <h4 className="text-green-200 font-medium mb-2">⚙️ Engine & Fuel</h4>
-                                        <div className="space-y-1 text-sm">
-                                            <p className="text-green-200"><strong>Fuel Type:</strong> {vehicleLookupData.fuel_type || 'Not specified'}</p>
-                                            <p className="text-green-200"><strong>Engine:</strong> {vehicleLookupData.engine_capacity ? `${vehicleLookupData.engine_capacity}cc` : 'Not specified'}</p>
-                                            <p className="text-green-200"><strong>CO2 Emissions:</strong> {vehicleLookupData.co2_emissions ? `${vehicleLookupData.co2_emissions}g/km` : 'Not specified'}</p>
-                                            <p className="text-green-200"><strong>Euro Status:</strong> {vehicleLookupData.euro_status || 'Not specified'}</p>
-                                        </div>
-                                    </div>
-                                    
-                                    <div>
-                                        <h4 className="text-green-200 font-medium mb-2">📋 Legal Status</h4>
-                                        <div className="space-y-1 text-sm">
-                                            <p className="text-green-200">
-                                                <strong>Tax Status:</strong> 
-                                                <span className={`ml-1 px-2 py-1 rounded text-xs ${
-                                                    vehicleLookupData.tax_status === 'Taxed' ? 'bg-green-600' : 
-                                                    vehicleLookupData.tax_status === 'SORN' ? 'bg-yellow-600' : 
-                                                    'bg-red-600'
-                                                }`}>
-                                                    {vehicleLookupData.tax_status || 'Unknown'}
-                                                </span>
-                                            </p>
-                                            <p className="text-green-200"><strong>Tax Due:</strong> {vehicleLookupData.tax_due_date || 'Not specified'}</p>
-                                            <p className="text-green-200">
-                                                <strong>MOT Status:</strong> 
-                                                <span className={`ml-1 px-2 py-1 rounded text-xs ${
-                                                    vehicleLookupData.mot_status === 'Valid' ? 'bg-green-600' : 'bg-red-600'
-                                                }`}>
-                                                    {vehicleLookupData.mot_status || 'Unknown'}
-                                                </span>
-                                            </p>
-                                            <p className="text-green-200"><strong>MOT Expires:</strong> {vehicleLookupData.mot_expiry_date || 'Not specified'}</p>
-                                        </div>
+                                    <div className="flex items-center gap-1 text-xs">
+                                        <span className={`px-2 py-1 rounded ${
+                                            vehicleLookupData.tax_status === 'Taxed' ? 'bg-green-600' : 
+                                            vehicleLookupData.tax_status === 'SORN' ? 'bg-yellow-600' : 
+                                            'bg-red-600'
+                                        } text-white`}>
+                                            {vehicleLookupData.tax_status || 'Unknown'}
+                                        </span>
+                                        <span className={`px-2 py-1 rounded ${
+                                            vehicleLookupData.mot_status === 'Valid' ? 'bg-green-600' : 'bg-red-600'
+                                        } text-white`}>
+                                            MOT {vehicleLookupData.mot_status || 'Unknown'}
+                                        </span>
                                     </div>
                                 </div>
                                 
-                                {/* Technical Details (Collapsible) */}
-                                <details className="bg-green-800 rounded-lg p-4 mb-4">
-                                    <summary className="text-green-200 font-medium cursor-pointer mb-2">
-                                        🔧 Technical Details (Click to expand)
+                                {/* Expandable Details */}
+                                <details className="mt-2">
+                                    <summary className="text-green-300 text-sm cursor-pointer hover:text-green-200 flex items-center gap-1">
+                                        📋 View Complete DVLA Details
                                     </summary>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <p className="text-green-200"><strong>Wheelplan:</strong> {vehicleLookupData.wheelplan || 'Not specified'}</p>
-                                            <p className="text-green-200"><strong>Type Approval:</strong> {vehicleLookupData.type_approval || 'Not specified'}</p>
-                                            <p className="text-green-200"><strong>Revenue Weight:</strong> {vehicleLookupData.revenue_weight ? `${vehicleLookupData.revenue_weight}kg` : 'Not specified'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-green-200"><strong>V5C Last Issued:</strong> {vehicleLookupData.date_of_last_v5c_issued || 'Not specified'}</p>
-                                            <p className="text-green-200"><strong>Marked for Export:</strong> {vehicleLookupData.marked_for_export ? 'Yes' : 'No'}</p>
-                                            <p className="text-green-200"><strong>RDE:</strong> {vehicleLookupData.real_driving_emissions || 'Not specified'}</p>
-                                        </div>
-                                    </div>
-                                </details>
-                                
-                                {/* Debug Information (Collapsible) */}
-                                <details className="bg-green-800 rounded-lg p-4">
-                                    <summary className="text-green-200 font-medium cursor-pointer mb-2">
-                                        🔍 Debug Information (Click to expand)
-                                    </summary>
-                                    <div className="text-sm text-green-200 space-y-2">
-                                        <p><strong>Available Fields:</strong> {vehicleLookupData.field_count || 0} total</p>
-                                        <p><strong>Lookup Time:</strong> {vehicleLookupData.lookup_timestamp}</p>
-                                        {vehicleLookupData.available_fields && (
+                                    <div className="mt-3 pt-3 border-t border-green-700">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                                             <div>
-                                                <strong>All Fields:</strong> 
-                                                <div className="text-xs bg-green-900 p-2 rounded mt-1 font-mono">
-                                                    {vehicleLookupData.available_fields.join(', ')}
-                                                </div>
+                                                <h5 className="text-green-200 font-medium mb-1">⚙️ Engine & Fuel</h5>
+                                                <p className="text-green-300">Fuel: {vehicleLookupData.fuel_type || 'Not specified'}</p>
+                                                <p className="text-green-300">Engine: {vehicleLookupData.engine_capacity ? `${vehicleLookupData.engine_capacity}cc` : 'Not specified'}</p>
+                                                <p className="text-green-300">CO2: {vehicleLookupData.co2_emissions ? `${vehicleLookupData.co2_emissions}g/km` : 'Not specified'}</p>
                                             </div>
-                                        )}
+                                            <div>
+                                                <h5 className="text-green-200 font-medium mb-1">📋 Legal Status</h5>
+                                                <p className="text-green-300">Tax Due: {vehicleLookupData.tax_due_date || 'Not specified'}</p>
+                                                <p className="text-green-300">MOT Expires: {vehicleLookupData.mot_expiry_date || 'Not specified'}</p>
+                                                <p className="text-green-300">Weight: {vehicleLookupData.revenue_weight ? `${vehicleLookupData.revenue_weight}kg` : 'Not specified'}</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </details>
                                 
-                                <div className="mt-4 flex items-center justify-between">
-                                    <p className="text-green-300 text-xs">
-                                        💡 Vehicle details automatically retrieved from DVLA
+                                <div className="mt-2 flex items-center justify-between">
+                                    <p className="text-green-400 text-xs">
+                                        🔗 Data from DVLA Official Database
                                     </p>
                                     <button
                                         type="button"
@@ -1071,92 +959,92 @@ const VehicleSearchPage = () => {
                                                 </div>
                                             </div>
                                             
-                                            {/* Vehicle Details Edit Section */}
+                                            {/* Vehicle Details Section - ENHANCED WITH DVLA DATA */}
                                             <div className="vehicle-details-section mb-6 p-4 bg-v3-bg-darker rounded-lg border border-v3-border">
                                                 <div className="flex items-center justify-between mb-3">
                                                     <div className="flex items-center gap-2">
                                                         <Car className="text-v3-orange" size={18} />
                                                         <h4 className="font-semibold text-v3-text-lightest">Vehicle Details</h4>
                                                     </div>
-                                                    {!isEditingVehicle && (
+                                                    {!vehicleLookupData && (
                                                         <button 
-                                                            onClick={() => setIsEditingVehicle(true)}
+                                                            onClick={() => performVehicleLookup(selectedSighting.registration_plate)}
                                                             className="flex items-center gap-1 text-v3-orange text-sm hover:text-orange-400 transition-colors"
+                                                            disabled={lookupLoading}
                                                         >
-                                                            <Edit3 size={14} />
-                                                            {hasVehicleDetails ? 'Edit Details' : 'Add Details'}
+                                                            {lookupLoading ? (
+                                                                <Loader2 className="animate-spin" size={14} />
+                                                            ) : (
+                                                                <Search size={14} />
+                                                            )}
+                                                            {lookupLoading ? 'Looking up...' : 'Lookup Details'}
                                                         </button>
                                                     )}
                                                 </div>
                                                 
-                                                {isEditingVehicle ? (
-                                                    <div className="space-y-3">
-                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                                            <Input
-                                                                placeholder="Make"
-                                                                value={vehicleDetails.make}
-                                                                onChange={e => setVehicleDetails({...vehicleDetails, make: e.target.value})}
-                                                            />
-                                                            <Input
-                                                                placeholder="Model"
-                                                                value={vehicleDetails.model}
-                                                                onChange={e => setVehicleDetails({...vehicleDetails, model: e.target.value})}
-                                                            />
-                                                            <Input
-                                                                placeholder="Colour"
-                                                                value={vehicleDetails.colour}
-                                                                onChange={e => setVehicleDetails({...vehicleDetails, colour: e.target.value})}
-                                                            />
+                                                {vehicleLookupData ? (
+                                                    // Show DVLA vehicle details
+                                                    <div className="bg-v3-bg-dark rounded-lg p-3 border border-v3-border">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <span className="text-lg font-medium text-v3-text-lightest">
+                                                                {vehicleLookupData.make} {vehicleLookupData.model || 'Unknown Model'} ({vehicleLookupData.colour})
+                                                            </span>
+                                                            <span className="text-v3-text-muted text-sm">{vehicleLookupData.year_of_manufacture}</span>
                                                         </div>
-                                                        <div className="flex gap-2 pt-2">
-                                                            <button 
-                                                                onClick={saveVehicleDetails}
-                                                                disabled={vehicleDetailsLoading}
-                                                                className="flex items-center gap-2 bg-v3-orange text-white px-4 py-2 rounded-md hover:bg-orange-600 disabled:opacity-50 transition-colors"
-                                                            >
-                                                                {vehicleDetailsLoading ? (
-                                                                    <Loader2 className="animate-spin" size={16} />
-                                                                ) : (
-                                                                    <Save size={16} />
+                                                        
+                                                        <div className="flex gap-2 text-xs mb-2">
+                                                            <span className={`px-2 py-1 rounded ${
+                                                                vehicleLookupData.tax_status === 'Taxed' ? 'bg-green-600' : 
+                                                                vehicleLookupData.tax_status === 'SORN' ? 'bg-yellow-600' : 
+                                                                'bg-red-600'
+                                                            } text-white`}>
+                                                                {vehicleLookupData.tax_status || 'Unknown'}
+                                                            </span>
+                                                            <span className={`px-2 py-1 rounded ${
+                                                                vehicleLookupData.mot_status === 'Valid' ? 'bg-green-600' : 'bg-red-600'
+                                                            } text-white`}>
+                                                                MOT {vehicleLookupData.mot_status || 'Unknown'}
+                                                            </span>
+                                                            {vehicleLookupData.fuel_type && (
+                                                                <span className="px-2 py-1 rounded bg-blue-600 text-white">
+                                                                    {vehicleLookupData.fuel_type}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        
+                                                        {/* Quick expand for more details */}
+                                                        <details className="mt-2">
+                                                            <summary className="text-v3-orange text-xs cursor-pointer hover:text-orange-400">More Details</summary>
+                                                            <div className="mt-2 text-xs text-v3-text-muted space-y-1">
+                                                                {vehicleLookupData.engine_capacity && (
+                                                                    <p>Engine: {vehicleLookupData.engine_capacity}cc</p>
                                                                 )}
-                                                                {vehicleDetailsLoading ? 'Saving...' : 'Save'}
-                                                            </button>
-                                                            <button 
-                                                                onClick={cancelVehicleEdit}
-                                                                disabled={vehicleDetailsLoading}
-                                                                className="bg-v3-bg-dark text-v3-text-lightest px-4 py-2 rounded-md hover:bg-v3-bg-darkest transition-colors"
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                        </div>
+                                                                {vehicleLookupData.co2_emissions && (
+                                                                    <p>CO2: {vehicleLookupData.co2_emissions}g/km</p>
+                                                                )}
+                                                                {vehicleLookupData.mot_expiry_date && (
+                                                                    <p>MOT Expires: {vehicleLookupData.mot_expiry_date}</p>
+                                                                )}
+                                                                {vehicleLookupData.tax_due_date && (
+                                                                    <p>Tax Due: {vehicleLookupData.tax_due_date}</p>
+                                                                )}
+                                                                {vehicleLookupData.revenue_weight && (
+                                                                    <p>Weight: {vehicleLookupData.revenue_weight}kg</p>
+                                                                )}
+                                                            </div>
+                                                        </details>
+                                                        
+                                                        <p className="text-v3-orange text-xs mt-2">
+                                                            🔗 Data from DVLA Official Database
+                                                        </p>
                                                     </div>
                                                 ) : (
-                                                    <div>
-                                                        {hasVehicleDetails && getVehicleDisplayText() ? (
-                                                            <div 
-                                                                className="rounded-lg p-3 border"
-                                                                style={{ 
-                                                                    backgroundColor: '#0f0f0f', 
-                                                                    borderColor: '#333333' 
-                                                                }}
-                                                            >
-                                                                <span className="text-lg flex items-center gap-2" style={{ color: '#f5f5f5' }}>
-                                                                    🚗 <span className="font-medium">{getVehicleDisplayText()}</span>
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <div 
-                                                                className="rounded-lg p-3 border border-dashed"
-                                                                style={{ 
-                                                                    backgroundColor: '#0f0f0f', 
-                                                                    borderColor: '#333333' 
-                                                                }}
-                                                            >
-                                                                <span className="flex items-center gap-2" style={{ color: '#888888' }}>
-                                                                    🚗 <span className="italic">Click "Add Details" to specify make, model & colour</span>
-                                                                </span>
-                                                            </div>
-                                                        )}
+                                                    // Fallback when no DVLA data available
+                                                    <div className="bg-v3-bg-dark rounded-lg p-3 border border-v3-border border-dashed">
+                                                        <span className="text-v3-text-muted text-sm flex items-center gap-2">
+                                                            <Info size={16} />
+                                                            Click "Lookup Details" to get vehicle information from DVLA
+                                                        </span>
                                                     </div>
                                                 )}
                                             </div>
