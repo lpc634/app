@@ -286,7 +286,7 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs mb-3">
                                     <div className="space-y-1">
                                         <p className="text-green-200"><strong>Make:</strong> {modalVehicleLookupData.make || 'Not specified'}</p>
-                                        <p className="text-green-200"><strong>Model:</strong> {modalVehicleLookupData.model || 'Not specified'}</p>
+                                        <p className="text-green-200"><strong>Model:</strong> {modalVehicleLookupData.model && modalVehicleLookupData.model.trim() ? modalVehicleLookupData.model.trim() : 'Not specified'}</p>
                                         <p className="text-green-200"><strong>Colour:</strong> {modalVehicleLookupData.colour || 'Not specified'}</p>
                                         {modalVehicleLookupData.year_of_manufacture && (
                                             <p className="text-green-200"><strong>Year:</strong> {modalVehicleLookupData.year_of_manufacture}</p>
@@ -837,7 +837,19 @@ const VehicleSearchPage = () => {
                                     <div className="flex items-center gap-2">
                                         <span className="text-green-400">✅</span>
                                         <span className="text-white font-medium text-sm">
-                                            {vehicleLookupData.make} {vehicleLookupData.model || 'Unknown Model'} ({vehicleLookupData.colour}) - {vehicleLookupData.year_of_manufacture}
+                                            {(() => {
+                                                const make = vehicleLookupData.make || 'Unknown Make';
+                                                const model = vehicleLookupData.model && vehicleLookupData.model.trim() ? vehicleLookupData.model.trim() : '';
+                                                const colour = vehicleLookupData.colour || 'Unknown Colour';
+                                                const year = vehicleLookupData.year_of_manufacture || '';
+                                                
+                                                let display = make;
+                                                if (model) display += ` ${model}`;
+                                                if (colour) display += ` (${colour})`;
+                                                if (year) display += ` - ${year}`;
+                                                
+                                                return display;
+                                            })()}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-1 text-xs">
@@ -987,7 +999,17 @@ const VehicleSearchPage = () => {
                                                     <div className="bg-v3-bg-dark rounded-lg p-3 border border-v3-border">
                                                         <div className="flex items-center justify-between mb-2">
                                                             <span className="text-lg font-medium text-v3-text-lightest">
-                                                                {vehicleLookupData.make} {vehicleLookupData.model || 'Unknown Model'} ({vehicleLookupData.colour})
+                                                                {(() => {
+                                                                    const make = vehicleLookupData.make || 'Unknown Make';
+                                                                    const model = vehicleLookupData.model && vehicleLookupData.model.trim() ? vehicleLookupData.model.trim() : '';
+                                                                    const colour = vehicleLookupData.colour || 'Unknown Colour';
+                                                                    
+                                                                    let display = make;
+                                                                    if (model) display += ` ${model}`;
+                                                                    if (colour) display += ` (${colour})`;
+                                                                    
+                                                                    return display;
+                                                                })()}
                                                             </span>
                                                             <span className="text-v3-text-muted text-sm">{vehicleLookupData.year_of_manufacture}</span>
                                                         </div>

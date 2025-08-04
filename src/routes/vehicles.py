@@ -191,15 +191,57 @@ def lookup_vehicle_dvla(registration_plate):
                     data = response.json()
                     current_app.logger.info(f"[DVLA] Response data: {data}")
                     
+                    # Enhanced model field extraction with multiple strategies
+                    make_value = str(data.get('make', '')).strip()
+                    model_value = None
+                    
+                    # Enhanced logging for model field debugging
+                    current_app.logger.info(f"[DVLA] Raw make field: '{data.get('make', 'NOT_FOUND')}'")
+                    current_app.logger.info(f"[DVLA] Raw model field: '{data.get('model', 'NOT_FOUND')}'")
+                    current_app.logger.info(f"[DVLA] Model field exists: {'model' in data}")
+                    current_app.logger.info(f"[DVLA] Model field type: {type(data.get('model', None))}")
+                    
+                    # Strategy 1: Direct 'model' field
+                    if 'model' in data and data['model'] is not None:
+                        model_candidate = str(data['model']).strip()
+                        if model_candidate:
+                            model_value = model_candidate
+                            current_app.logger.info(f"[DVLA] Model extracted from 'model' field: '{model_value}'")
+                    
+                    # Strategy 2: Check for alternative field names
+                    if not model_value:
+                        alternative_fields = ['vehicleModel', 'makeModel', 'description', 'bodyType']
+                        for field_name in alternative_fields:
+                            if field_name in data and data[field_name]:
+                                candidate = str(data[field_name]).strip()
+                                if candidate:
+                                    model_value = candidate
+                                    current_app.logger.info(f"[DVLA] Model extracted from '{field_name}' field: '{model_value}'")
+                                    break
+                    
+                    # Strategy 3: Extract from combined make/model field
+                    if not model_value and 'makeModel' in data:
+                        make_model = str(data['makeModel']).strip()
+                        if make_model and make_value and make_model.upper().startswith(make_value.upper()):
+                            model_candidate = make_model[len(make_value):].strip()
+                            if model_candidate:
+                                model_value = model_candidate
+                                current_app.logger.info(f"[DVLA] Model extracted from combined field: '{model_value}'")
+                    
+                    # Final fallback - use empty string (don't default to "Unknown Model")
+                    if not model_value:
+                        model_value = ""
+                        current_app.logger.warning(f"[DVLA] No model field found for {plate_upper}, using empty string")
+                    
                     # Extract ALL available DVLA data fields
                     vehicle_details = {
                         # Registration
                         'registration_plate': plate_upper,
                         
-                        # Basic Vehicle Information
-                        'make': data.get('make', '').strip(),
-                        'model': data.get('model', '').strip(),
-                        'colour': data.get('colour', '').strip(),
+                        # Basic Vehicle Information - Enhanced
+                        'make': make_value,
+                        'model': model_value,  # Use our enhanced model extraction
+                        'colour': str(data.get('colour', '')).strip(),
                         'year_of_manufacture': data.get('yearOfManufacture'),
                         
                         # Engine & Fuel
@@ -362,12 +404,91 @@ def lookup_vehicle_cached(registration_plate):
         current_app.logger.error(f"[DVLA] Error in cached lookup: {str(e)}")
         return lookup_vehicle_dvla(plate_upper)
 
-# DEBUG ENDPOINT - COMMENTED OUT FOR PRODUCTION
-# @vehicles_bp.route('/vehicles/debug-lookup/<registration_plate>', methods=['GET'])
-# @jwt_required()
-# def debug_dvla_lookup(registration_plate):
-#     """Debug endpoint to see raw DVLA response data - DISABLED IN PRODUCTION"""
-#     return jsonify({'error': 'Debug endpoint disabled in production'}), 404
+@vehicles_bp.route('/vehicles/debug-response/<registration_plate>', methods=['GET'])
+@jwt_required()
+def debug_dvla_response(registration_plate):
+    """Debug endpoint to see exactly what DVLA returns - Model Field Debugging"""
+    try:
+        plate_upper = registration_plate.upper().strip()
+        api_key = os.getenv('DVLA_API_KEY')
+        
+        if not api_key:
+            return jsonify({'error': 'API key not configured'}), 503
+        
+        dvla_url = "https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles"
+        headers = {
+            'x-api-key': api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'V3-Services-Vehicle-Lookup/1.0'
+        }
+        payload = {'registrationNumber': plate_upper}
+        
+        current_app.logger.info(f"[DVLA Debug] Looking up: {plate_upper}")
+        
+        response = requests.post(dvla_url, headers=headers, json=payload, timeout=15)
+        
+        if response.status_code == 200:
+            raw_data = response.json()
+            
+            # Comprehensive model field analysis
+            model_analysis = {
+                'model_field_value': raw_data.get('model', 'NOT_FOUND'),
+                'model_field_exists': 'model' in raw_data,
+                'model_field_type': type(raw_data.get('model', None)).__name__,
+                'model_field_length': len(str(raw_data.get('model', ''))) if raw_data.get('model') else 0,
+                'model_is_empty': not bool(raw_data.get('model', '').strip()) if raw_data.get('model') else True,
+                'model_is_none': raw_data.get('model') is None,
+                'model_is_string': isinstance(raw_data.get('model'), str)
+            }
+            
+            # Check for alternative model field names
+            alternative_fields = {}
+            for field_name in ['vehicleModel', 'makeModel', 'description', 'bodyType', 'typeDescription']:
+                if field_name in raw_data:
+                    alternative_fields[field_name] = raw_data[field_name]
+            
+            return jsonify({
+                'success': True,
+                'registration_plate': plate_upper,
+                'timestamp': datetime.utcnow().isoformat(),
+                'raw_dvla_response': raw_data,
+                'all_fields': list(raw_data.keys()),
+                'field_count': len(raw_data.keys()),
+                
+                # Key field analysis
+                'make_field_value': raw_data.get('make', 'NOT_FOUND'),
+                'model_analysis': model_analysis,
+                'colour_field_value': raw_data.get('colour', 'NOT_FOUND'),
+                
+                # Alternative field search
+                'alternative_model_fields': alternative_fields,
+                'has_alternative_fields': bool(alternative_fields),
+                
+                # Debug recommendations
+                'debug_recommendations': [
+                    f"Model field exists: {'YES' if model_analysis['model_field_exists'] else 'NO'}",
+                    f"Model field has value: {'YES' if not model_analysis['model_is_empty'] else 'NO'}",
+                    f"Alternative fields found: {list(alternative_fields.keys()) if alternative_fields else 'NONE'}",
+                    f"Field count: {len(raw_data.keys())} total fields available"
+                ]
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'registration_plate': plate_upper,
+                'status_code': response.status_code,
+                'error_response': response.text,
+                'error_message': f'DVLA API returned status {response.status_code}'
+            }), response.status_code
+            
+    except Exception as e:
+        current_app.logger.error(f"[DVLA Debug] Exception: {str(e)}")
+        return jsonify({
+            'error': str(e),
+            'registration_plate': registration_plate,
+            'endpoint': 'debug_dvla_response'
+        }), 500
 
 @vehicles_bp.route('/vehicles/test-dvla', methods=['GET'])
 @jwt_required()
