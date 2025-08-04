@@ -191,20 +191,45 @@ def lookup_vehicle_dvla(registration_plate):
                     data = response.json()
                     current_app.logger.info(f"[DVLA] Response data: {data}")
                     
-                    # Extract and validate vehicle details
+                    # Extract ALL available DVLA data fields
                     vehicle_details = {
+                        # Registration
                         'registration_plate': plate_upper,
+                        
+                        # Basic Vehicle Information
                         'make': data.get('make', '').strip(),
-                        'model': data.get('model', '').strip(), 
+                        'model': data.get('model', '').strip(),
                         'colour': data.get('colour', '').strip(),
                         'year_of_manufacture': data.get('yearOfManufacture'),
-                        'fuel_type': data.get('fuelType', '').strip(),
+                        
+                        # Engine & Fuel
                         'engine_capacity': data.get('engineCapacity'),
+                        'fuel_type': data.get('fuelType', '').strip(),
                         'co2_emissions': data.get('co2Emissions'),
-                        'mot_status': data.get('motStatus', '').strip(),
+                        'euro_status': data.get('euroStatus', '').strip(),
+                        'real_driving_emissions': data.get('realDrivingEmissions', '').strip(),
+                        
+                        # Legal Status
                         'tax_status': data.get('taxStatus', '').strip(),
+                        'tax_due_date': data.get('taxDueDate', '').strip(),
+                        'mot_status': data.get('motStatus', '').strip(),
+                        'mot_expiry_date': data.get('motExpiryDate', '').strip(),
+                        
+                        # Technical Details
+                        'wheelplan': data.get('wheelplan', '').strip(),
+                        'type_approval': data.get('typeApproval', '').strip(),
+                        'revenue_weight': data.get('revenueWeight'),
+                        
+                        # Administrative
+                        'date_of_last_v5c_issued': data.get('dateOfLastV5CIssued', '').strip(),
+                        'marked_for_export': data.get('markedForExport', False),
+                        
+                        # Metadata
                         'dvla_lookup': True,
-                        'lookup_timestamp': datetime.utcnow().isoformat()
+                        'lookup_timestamp': datetime.utcnow().isoformat(),
+                        'raw_response': data,  # Include full response for debugging
+                        'available_fields': list(data.keys()),
+                        'field_count': len(data.keys())
                     }
                     
                     current_app.logger.info(f"[DVLA] Processed vehicle details: {vehicle_details}")
@@ -339,6 +364,73 @@ def lookup_vehicle_cached(registration_plate):
     except Exception as e:
         current_app.logger.error(f"[DVLA] Error in cached lookup: {str(e)}")
         return lookup_vehicle_dvla(plate_upper)
+
+@vehicles_bp.route('/vehicles/debug-lookup/<registration_plate>', methods=['GET'])
+@jwt_required()
+def debug_dvla_lookup(registration_plate):
+    """Debug endpoint to see raw DVLA response data"""
+    try:
+        plate_upper = registration_plate.upper().strip()
+        api_key = os.getenv('DVLA_API_KEY')
+        
+        if not api_key:
+            return jsonify({'error': 'API key not configured'}), 503
+        
+        dvla_url = "https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles"
+        headers = {
+            'x-api-key': api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'V3-Services-Vehicle-Lookup/1.0'
+        }
+        payload = {'registrationNumber': plate_upper}
+        
+        current_app.logger.info(f"[DVLA Debug] Looking up: {plate_upper}")
+        
+        response = requests.post(dvla_url, headers=headers, json=payload, timeout=15)
+        
+        debug_info = {
+            'status_code': response.status_code,
+            'registration_plate': plate_upper,
+            'api_endpoint': dvla_url,
+            'request_payload': payload
+        }
+        
+        if response.status_code == 200:
+            raw_data = response.json()
+            debug_info.update({
+                'raw_response': raw_data,
+                'make_field': raw_data.get('make'),
+                'model_field': raw_data.get('model'), 
+                'colour_field': raw_data.get('colour'),
+                'all_available_fields': list(raw_data.keys()),
+                'field_count': len(raw_data.keys())
+            })
+            
+            # Check for common field variations
+            model_variations = []
+            for key in raw_data.keys():
+                if 'model' in key.lower():
+                    model_variations.append({key: raw_data[key]})
+            debug_info['model_field_variations'] = model_variations
+            
+            current_app.logger.info(f"[DVLA Debug] Success - Found {len(raw_data.keys())} fields")
+            return jsonify(debug_info), 200
+        else:
+            debug_info.update({
+                'error_response': response.text,
+                'error_message': f'API returned status {response.status_code}'
+            })
+            current_app.logger.error(f"[DVLA Debug] Error {response.status_code}: {response.text}")
+            return jsonify(debug_info), response.status_code
+        
+    except Exception as e:
+        current_app.logger.error(f"[DVLA Debug] Exception: {str(e)}")
+        return jsonify({
+            'error': str(e),
+            'registration_plate': registration_plate,
+            'endpoint': 'debug_dvla_lookup'
+        }), 500
 
 @vehicles_bp.route('/vehicles/test-dvla', methods=['GET'])
 @jwt_required()

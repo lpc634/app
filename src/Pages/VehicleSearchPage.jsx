@@ -276,14 +276,56 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                             <p className="mt-1 text-sm" style={{ color: '#ef4444' }}>{errors.plate}</p>
                         )}
                         
-                        {/* DVLA Lookup Success Indicator */}
+                        {/* DVLA Lookup Success Indicator - ENHANCED */}
                         {modalVehicleLookupData && (
-                            <div className="mt-3 p-3 bg-green-900 rounded-lg border border-green-600">
-                                <p className="text-green-200 text-sm flex items-center gap-2">
-                                    ✅ <span className="font-medium">Vehicle found:</span> {modalVehicleLookupData.make} {modalVehicleLookupData.model} ({modalVehicleLookupData.colour})
+                            <div className="mt-3 p-4 bg-green-900 rounded-lg border border-green-600">
+                                <p className="text-green-200 text-sm flex items-center gap-2 mb-3">
+                                    ✅ <span className="font-medium">Vehicle found in DVLA database:</span>
                                 </p>
-                                <p className="text-green-300 text-xs mt-1">
-                                    💡 Details automatically filled from DVLA
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs mb-3">
+                                    <div className="space-y-1">
+                                        <p className="text-green-200"><strong>Make:</strong> {modalVehicleLookupData.make || 'Not specified'}</p>
+                                        <p className="text-green-200"><strong>Model:</strong> {modalVehicleLookupData.model || 'Not specified'}</p>
+                                        <p className="text-green-200"><strong>Colour:</strong> {modalVehicleLookupData.colour || 'Not specified'}</p>
+                                        {modalVehicleLookupData.year_of_manufacture && (
+                                            <p className="text-green-200"><strong>Year:</strong> {modalVehicleLookupData.year_of_manufacture}</p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1">
+                                        {modalVehicleLookupData.fuel_type && (
+                                            <p className="text-green-200"><strong>Fuel:</strong> {modalVehicleLookupData.fuel_type}</p>
+                                        )}
+                                        {modalVehicleLookupData.engine_capacity && (
+                                            <p className="text-green-200"><strong>Engine:</strong> {modalVehicleLookupData.engine_capacity}cc</p>
+                                        )}
+                                        {modalVehicleLookupData.tax_status && (
+                                            <p className="text-green-200">
+                                                <strong>Tax:</strong> 
+                                                <span className={`ml-1 px-1 py-0.5 rounded text-xs ${
+                                                    modalVehicleLookupData.tax_status === 'Taxed' ? 'bg-green-600' : 
+                                                    modalVehicleLookupData.tax_status === 'SORN' ? 'bg-yellow-600' : 
+                                                    'bg-red-600'
+                                                }`}>
+                                                    {modalVehicleLookupData.tax_status}
+                                                </span>
+                                            </p>
+                                        )}
+                                        {modalVehicleLookupData.mot_status && (
+                                            <p className="text-green-200">
+                                                <strong>MOT:</strong> 
+                                                <span className={`ml-1 px-1 py-0.5 rounded text-xs ${
+                                                    modalVehicleLookupData.mot_status === 'Valid' ? 'bg-green-600' : 'bg-red-600'
+                                                }`}>
+                                                    {modalVehicleLookupData.mot_status}
+                                                </span>
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                <p className="text-green-300 text-xs">
+                                    💡 Details automatically filled from DVLA - you can override these if needed
                                 </p>
                             </div>
                         )}
@@ -855,34 +897,101 @@ const VehicleSearchPage = () => {
                             </Button>
                         </div>
                         
-                        {/* DVLA Vehicle Lookup Results */}
+                        {/* DVLA Vehicle Lookup Results - COMPREHENSIVE */}
                         {vehicleLookupData && (
-                            <div className="bg-green-900 border border-green-600 rounded-lg p-4">
-                                <h3 className="text-white font-semibold mb-2 flex items-center gap-2">
-                                    ✅ Vehicle Details Found (DVLA)
+                            <div className="bg-green-900 border border-green-600 rounded-lg p-6 mt-4">
+                                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                                    ✅ Complete Vehicle Details Found (DVLA Official Database)
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                
+                                {/* Basic Vehicle Information */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                                     <div>
-                                        <p className="text-green-200"><strong>Make:</strong> {vehicleLookupData.make}</p>
-                                        <p className="text-green-200"><strong>Model:</strong> {vehicleLookupData.model}</p>
-                                        <p className="text-green-200"><strong>Colour:</strong> {vehicleLookupData.colour}</p>
+                                        <h4 className="text-green-200 font-medium mb-2">🚗 Basic Information</h4>
+                                        <div className="space-y-1 text-sm">
+                                            <p className="text-green-200"><strong>Make:</strong> {vehicleLookupData.make || 'Not specified'}</p>
+                                            <p className="text-green-200"><strong>Model:</strong> {vehicleLookupData.model || 'Not specified'}</p>
+                                            <p className="text-green-200"><strong>Colour:</strong> {vehicleLookupData.colour || 'Not specified'}</p>
+                                            <p className="text-green-200"><strong>Year:</strong> {vehicleLookupData.year_of_manufacture || 'Not specified'}</p>
+                                        </div>
                                     </div>
+                                    
                                     <div>
-                                        {vehicleLookupData.year_of_manufacture && (
-                                            <p className="text-green-200"><strong>Year:</strong> {vehicleLookupData.year_of_manufacture}</p>
-                                        )}
-                                        {vehicleLookupData.fuel_type && (
-                                            <p className="text-green-200"><strong>Fuel:</strong> {vehicleLookupData.fuel_type}</p>
-                                        )}
-                                        {vehicleLookupData.mot_status && (
-                                            <p className="text-green-200"><strong>MOT:</strong> {vehicleLookupData.mot_status}</p>
-                                        )}
-                                        {vehicleLookupData.tax_status && (
-                                            <p className="text-green-200"><strong>Tax:</strong> {vehicleLookupData.tax_status}</p>
-                                        )}
+                                        <h4 className="text-green-200 font-medium mb-2">⚙️ Engine & Fuel</h4>
+                                        <div className="space-y-1 text-sm">
+                                            <p className="text-green-200"><strong>Fuel Type:</strong> {vehicleLookupData.fuel_type || 'Not specified'}</p>
+                                            <p className="text-green-200"><strong>Engine:</strong> {vehicleLookupData.engine_capacity ? `${vehicleLookupData.engine_capacity}cc` : 'Not specified'}</p>
+                                            <p className="text-green-200"><strong>CO2 Emissions:</strong> {vehicleLookupData.co2_emissions ? `${vehicleLookupData.co2_emissions}g/km` : 'Not specified'}</p>
+                                            <p className="text-green-200"><strong>Euro Status:</strong> {vehicleLookupData.euro_status || 'Not specified'}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <h4 className="text-green-200 font-medium mb-2">📋 Legal Status</h4>
+                                        <div className="space-y-1 text-sm">
+                                            <p className="text-green-200">
+                                                <strong>Tax Status:</strong> 
+                                                <span className={`ml-1 px-2 py-1 rounded text-xs ${
+                                                    vehicleLookupData.tax_status === 'Taxed' ? 'bg-green-600' : 
+                                                    vehicleLookupData.tax_status === 'SORN' ? 'bg-yellow-600' : 
+                                                    'bg-red-600'
+                                                }`}>
+                                                    {vehicleLookupData.tax_status || 'Unknown'}
+                                                </span>
+                                            </p>
+                                            <p className="text-green-200"><strong>Tax Due:</strong> {vehicleLookupData.tax_due_date || 'Not specified'}</p>
+                                            <p className="text-green-200">
+                                                <strong>MOT Status:</strong> 
+                                                <span className={`ml-1 px-2 py-1 rounded text-xs ${
+                                                    vehicleLookupData.mot_status === 'Valid' ? 'bg-green-600' : 'bg-red-600'
+                                                }`}>
+                                                    {vehicleLookupData.mot_status || 'Unknown'}
+                                                </span>
+                                            </p>
+                                            <p className="text-green-200"><strong>MOT Expires:</strong> {vehicleLookupData.mot_expiry_date || 'Not specified'}</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="mt-3 flex items-center justify-between">
+                                
+                                {/* Technical Details (Collapsible) */}
+                                <details className="bg-green-800 rounded-lg p-4 mb-4">
+                                    <summary className="text-green-200 font-medium cursor-pointer mb-2">
+                                        🔧 Technical Details (Click to expand)
+                                    </summary>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <p className="text-green-200"><strong>Wheelplan:</strong> {vehicleLookupData.wheelplan || 'Not specified'}</p>
+                                            <p className="text-green-200"><strong>Type Approval:</strong> {vehicleLookupData.type_approval || 'Not specified'}</p>
+                                            <p className="text-green-200"><strong>Revenue Weight:</strong> {vehicleLookupData.revenue_weight ? `${vehicleLookupData.revenue_weight}kg` : 'Not specified'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-green-200"><strong>V5C Last Issued:</strong> {vehicleLookupData.date_of_last_v5c_issued || 'Not specified'}</p>
+                                            <p className="text-green-200"><strong>Marked for Export:</strong> {vehicleLookupData.marked_for_export ? 'Yes' : 'No'}</p>
+                                            <p className="text-green-200"><strong>RDE:</strong> {vehicleLookupData.real_driving_emissions || 'Not specified'}</p>
+                                        </div>
+                                    </div>
+                                </details>
+                                
+                                {/* Debug Information (Collapsible) */}
+                                <details className="bg-green-800 rounded-lg p-4">
+                                    <summary className="text-green-200 font-medium cursor-pointer mb-2">
+                                        🔍 Debug Information (Click to expand)
+                                    </summary>
+                                    <div className="text-sm text-green-200 space-y-2">
+                                        <p><strong>Available Fields:</strong> {vehicleLookupData.field_count || 0} total</p>
+                                        <p><strong>Lookup Time:</strong> {vehicleLookupData.lookup_timestamp}</p>
+                                        {vehicleLookupData.available_fields && (
+                                            <div>
+                                                <strong>All Fields:</strong> 
+                                                <div className="text-xs bg-green-900 p-2 rounded mt-1 font-mono">
+                                                    {vehicleLookupData.available_fields.join(', ')}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </details>
+                                
+                                <div className="mt-4 flex items-center justify-between">
                                     <p className="text-green-300 text-xs">
                                         💡 Vehicle details automatically retrieved from DVLA
                                     </p>
