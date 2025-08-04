@@ -54,6 +54,20 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
         } catch (error) {
             console.log('[DVLA Modal] Auto-lookup failed:', error);
             setModalVehicleLookupData(null);
+            
+            // Enhanced modal error handling with specific messages
+            if (error.message && error.message.includes('401')) {
+                console.error('[DVLA Modal] Authentication failed - check API key');
+            } else if (error.message && error.message.includes('404')) {
+                console.log('[DVLA Modal] Vehicle not found in DVLA database');
+            } else if (error.message && error.message.includes('429')) {
+                toast.error('Vehicle lookup rate limited - please try again later');
+            } else if (error.message && error.message.includes('503')) {
+                toast.error('Vehicle lookup service temporarily unavailable');
+            } else if (error.message && error.message.includes('timeout')) {
+                toast.error('Vehicle lookup timed out - please try again');
+            }
+            // Most lookup failures are expected (invalid/unregistered plates) so no toast
         } finally {
             setModalLookupLoading(false);
         }
@@ -598,7 +612,20 @@ const VehicleSearchPage = () => {
         } catch (error) {
             console.log('[DVLA] Vehicle lookup failed:', error);
             setVehicleLookupData(null);
-            // Don't show error toast - lookup failures are expected for some plates
+            
+            // Enhanced error handling with specific messages
+            if (error.message && error.message.includes('401')) {
+                console.error('[DVLA] Authentication failed - check API key');
+            } else if (error.message && error.message.includes('404')) {
+                console.log('[DVLA] Vehicle not found in DVLA database');
+            } else if (error.message && error.message.includes('429')) {
+                toast.error('Vehicle lookup rate limited - please try again later');
+            } else if (error.message && error.message.includes('503')) {
+                toast.error('Vehicle lookup service temporarily unavailable');
+            } else if (error.message && error.message.includes('timeout')) {
+                toast.error('Vehicle lookup timed out - please try again');
+            }
+            // Most lookup failures are expected (invalid/unregistered plates) so no toast
         } finally {
             setLookupLoading(false);
         }
