@@ -7,7 +7,7 @@ import { Loader2, Search, AlertTriangle, PlusCircle, X, MapPin, NotebookText, Us
 // --- Reusable UI Components ---
 const Input = (props) => <input className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest placeholder-gray-400 focus:outline-none focus:ring-v3-orange focus:border-v3-orange text-base" style={{minHeight: '48px', fontSize: '16px'}} {...props} />;
 const Textarea = (props) => <textarea className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest placeholder-gray-400 focus:outline-none focus:ring-v3-orange focus:border-v3-orange" rows="3" {...props} />;
-const Button = ({ children, ...props }) => <button className="button-refresh" {...props}>{children}</button>;
+const Button = ({ children, ...props }) => <button className="button-refresh touch-manipulation" style={{minHeight: '44px', ...props.style}} {...props}>{children}</button>;
 const Select = (props) => <select className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange" {...props} />;
 
 // --- AddSightingModal Component ---
@@ -838,18 +838,18 @@ const VehicleSearchPage = () => {
             <AddSightingModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSightingAdded={handleSightingAdded} />
             <GroupViewModal isOpen={isGroupModalOpen} onClose={() => setIsGroupModalOpen(false)} groupData={selectedSighting?.group} />
 
-            <div className="p-4 sm:p-6 lg:p-8 h-full flex flex-col">
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-3xl font-bold tracking-tight text-v3-text-lightest">Vehicle Intelligence</h1>
-                    <Button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2">
+            <div className="p-3 sm:p-4 lg:p-6 h-full flex flex-col">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
+                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-v3-text-lightest">Vehicle Intelligence</h1>
+                    <Button onClick={() => setIsAddModalOpen(true)} className="flex items-center justify-center gap-2 w-full sm:w-auto py-3 sm:py-2 text-base font-medium" style={{minHeight: '48px'}}>
                         <PlusCircle size={18} /> Add New Sighting
                     </Button>
                 </div>
 
-                <div className="mb-6">
-                    <form onSubmit={handleSearch} className="space-y-4">
+                <div className="mb-4 sm:mb-6">
+                    <form onSubmit={handleSearch} className="space-y-3 sm:space-y-4">
                         {/* Search Input with Lookup Indicator */}
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                             <div className="relative flex-1">
                                 <Input 
                                     value={searchPlate} 
@@ -862,19 +862,19 @@ const VehicleSearchPage = () => {
                                     </div>
                                 )}
                             </div>
-                            <Button type="submit" className="flex items-center justify-center gap-2 w-32" disabled={loading}>
+                            <Button type="submit" className="flex items-center justify-center gap-2 w-full sm:w-auto sm:min-w-[120px] py-3 sm:py-2 text-base font-medium" style={{minHeight: '48px'}} disabled={loading}>
                                 {loading ? <Loader2 className="animate-spin" /> : <><Search size={18}/> Search</>}
                             </Button>
                         </div>
                         
                         {/* DVLA Vehicle Lookup Results - COMPACT MOBILE-OPTIMIZED */}
                         {vehicleLookupData && (
-                            <div className="bg-green-900 border border-green-600 rounded-lg p-3 mt-3">
+                            <div className="bg-green-900 border border-green-600 rounded-lg p-3 sm:p-4 mt-3">
                                 {/* Compact Header */}
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3">
+                                    <div className="flex items-center gap-2 flex-1">
                                         <span className="text-green-400">✅</span>
-                                        <span className="text-white font-medium text-sm">
+                                        <span className="text-white font-medium text-sm sm:text-base leading-tight">
                                             {(() => {
                                                 const make = vehicleLookupData.make || 'Unknown Make';
                                                 const model = vehicleLookupData.model && vehicleLookupData.model.trim() ? vehicleLookupData.model.trim() : '';
@@ -890,7 +890,7 @@ const VehicleSearchPage = () => {
                                             })()}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-1 text-xs">
+                                    <div className="flex items-center gap-1 text-xs flex-wrap sm:justify-end">
                                         <span className={`px-2 py-1 rounded ${
                                             vehicleLookupData.tax_status === 'Taxed' ? 'bg-green-600' : 
                                             vehicleLookupData.tax_status === 'SORN' ? 'bg-yellow-600' : 
@@ -947,34 +947,34 @@ const VehicleSearchPage = () => {
                 </div>
                 
                 {!hasSearched ? (
-                    <div className="flex-grow flex items-center justify-center text-center text-v3-text-muted">
-                        <div>
-                           <Search size={48} className="mx-auto mb-4" />
-                           <h2 className="text-xl font-semibold text-v3-text-lightest">Start a Search</h2>
-                           <p>Enter a registration plate to view sighting history.</p>
+                    <div className="flex-grow flex items-center justify-center text-center text-v3-text-muted px-4">
+                        <div className="max-w-sm">
+                           <Search size={40} className="mx-auto mb-3 sm:mb-4" />
+                           <h2 className="text-lg sm:text-xl font-semibold text-v3-text-lightest mb-2">Start a Search</h2>
+                           <p className="text-sm sm:text-base leading-relaxed">Enter a registration plate to view sighting history and vehicle details.</p>
                         </div>
                     </div>
                 ) : (
-                    <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
+                    <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 min-h-0">
                         <div className="lg:col-span-1 bg-v3-bg-card rounded-lg flex flex-col overflow-hidden">
-                           <div className="p-4 border-b border-v3-border">
+                           <div className="p-3 sm:p-4 border-b border-v3-border">
                                 <h2 className="text-lg font-semibold text-v3-text-lightest">
                                     {loading ? 'Searching...' : sightings.length > 0 ? `${sightings.length} Sighting(s)` : 'No Results'}
                                 </h2>
                            </div>
-                           <div className="flex-grow overflow-y-auto">
-                                {loading && <div className="p-6 text-center text-v3-text-muted"><Loader2 className="animate-spin inline-block" /></div>}
-                                {!loading && error && <div className="p-6 text-center text-red-400">{error}</div>}
-                                {!loading && !error && sightings.length === 0 && <div className="p-6 text-center text-v3-text-muted">No sightings found for this plate.</div>}
+                           <div className="flex-grow overflow-y-auto max-h-[50vh] lg:max-h-none">
+                                {loading && <div className="p-4 sm:p-6 text-center text-v3-text-muted"><Loader2 className="animate-spin inline-block" /></div>}
+                                {!loading && error && <div className="p-4 sm:p-6 text-center text-red-400">{error}</div>}
+                                {!loading && !error && sightings.length === 0 && <div className="p-4 sm:p-6 text-center text-v3-text-muted">No sightings found for this plate.</div>}
                                 
                                 {sightings.map(sighting => (
-                                    <div key={sighting.id} onClick={() => setSelectedSighting(sighting)} className={`p-4 border-b border-v3-border cursor-pointer hover:bg-v3-bg-dark ${selectedSighting?.id === sighting.id ? 'bg-v3-orange/20' : ''}`}>
+                                    <div key={sighting.id} onClick={() => setSelectedSighting(sighting)} className={`p-3 sm:p-4 border-b border-v3-border cursor-pointer hover:bg-v3-bg-dark transition-colors ${selectedSighting?.id === sighting.id ? 'bg-v3-orange/20' : ''}`} style={{minHeight: '80px'}}>
                                         <div className="mb-2">
-                                            <p className="font-bold text-v3-text-lightest">{sighting.registration_plate}</p>
+                                            <p className="font-bold text-base sm:text-lg text-v3-text-lightest">{sighting.registration_plate}</p>
                                             <p className="text-xs text-v3-text-muted">Registration Plate</p>
                                         </div>
-                                        <p className="font-medium text-v3-text-light">{sighting.address_seen}</p>
-                                        <p className="text-sm text-v3-text-muted">{new Date(sighting.sighted_at).toLocaleString()}</p>
+                                        <p className="font-medium text-sm sm:text-base text-v3-text-light truncate">{sighting.address_seen}</p>
+                                        <p className="text-xs sm:text-sm text-v3-text-muted">{new Date(sighting.sighted_at).toLocaleString()}</p>
                                     </div>
                                 ))}
                            </div>
@@ -983,14 +983,14 @@ const VehicleSearchPage = () => {
                         <div className="lg:col-span-2 bg-v3-bg-card rounded-lg flex flex-col overflow-hidden">
                             {sightings.length > 0 ? (
                                 <>
-                                    <div ref={mapRef} className="flex-grow w-full h-1/2 min-h-[300px]" style={{backgroundColor: '#1a202c'}}></div>
+                                    <div ref={mapRef} className="flex-grow w-full h-[40vh] sm:h-1/2 min-h-[250px] sm:min-h-[300px]" style={{backgroundColor: '#1a202c'}}></div>
                                     {selectedSighting && (
-                                        <div className="p-4 border-t border-v3-border">
+                                        <div className="p-3 sm:p-4 border-t border-v3-border overflow-y-auto max-h-[60vh] lg:max-h-none">
                                             {/* Vehicle Header */}
-                                            <div className="vehicle-header mb-6 p-4 bg-v3-bg-dark rounded-lg border border-v3-border">
+                                            <div className="vehicle-header mb-4 sm:mb-6 p-3 sm:p-4 bg-v3-bg-dark rounded-lg border border-v3-border">
                                                 <div className="flex justify-between items-start">
                                                     <div>
-                                                        <h3 className="font-bold text-2xl text-v3-text-lightest mb-1">
+                                                        <h3 className="font-bold text-lg sm:text-xl lg:text-2xl text-v3-text-lightest mb-1">
                                                             {selectedSighting.registration_plate}
                                                         </h3>
                                                         <p className="text-v3-text-muted text-sm mb-2">
@@ -1010,7 +1010,7 @@ const VehicleSearchPage = () => {
                                             </div>
                                             
                                             {/* Vehicle Details Section - ENHANCED WITH DVLA DATA */}
-                                            <div className="vehicle-details-section mb-6 p-4 bg-v3-bg-darker rounded-lg border border-v3-border">
+                                            <div className="vehicle-details-section mb-4 sm:mb-6 p-3 sm:p-4 bg-v3-bg-darker rounded-lg border border-v3-border">
                                                 <div className="flex items-center justify-between mb-3">
                                                     <div className="flex items-center gap-2">
                                                         <Car className="text-v3-orange" size={18} />
@@ -1146,11 +1146,11 @@ const VehicleSearchPage = () => {
                                     )}
                                 </>
                             ) : (
-                                <div className="flex-grow flex items-center justify-center text-center text-v3-text-muted p-6">
-                                    <div>
-                                       <MapPin size={48} className="mx-auto mb-4" />
-                                       <h2 className="text-xl font-semibold text-v3-text-lightest">No Location Data</h2>
-                                       <p>The map will be displayed here when a search returns valid sightings.</p>
+                                <div className="flex-grow flex items-center justify-center text-center text-v3-text-muted p-4 sm:p-6">
+                                    <div className="max-w-xs">
+                                       <MapPin size={40} className="mx-auto mb-3 sm:mb-4" />
+                                       <h2 className="text-lg sm:text-xl font-semibold text-v3-text-lightest mb-2">No Location Data</h2>
+                                       <p className="text-sm sm:text-base leading-relaxed">The map will be displayed here when a search returns valid sightings.</p>
                                     </div>
                                 </div>
                             )}
