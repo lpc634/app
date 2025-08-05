@@ -7,6 +7,7 @@ from src.extensions import db
 from sqlalchemy import desc
 import requests
 import os
+import json
 from datetime import datetime, timedelta
 
 vehicles_bp = Blueprint('vehicles', __name__)
