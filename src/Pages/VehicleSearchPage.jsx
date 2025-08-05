@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../useAuth.jsx';
 import { toast } from 'sonner';
-import { Loader2, Search, AlertTriangle, Send, PlusCircle, X, MapPin, NotebookText, User, Calendar, Users, CheckCircle, Car, Info, Plus } from 'lucide-react';
+import { Loader2, Search, AlertTriangle, PlusCircle, X, MapPin, NotebookText, User, Calendar, Users, Car, Info, Plus } from 'lucide-react';
 
 
 // --- Reusable UI Components ---
-const Input = (props) => <input className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest placeholder-gray-400 focus:outline-none focus:ring-v3-orange focus:border-v3-orange" {...props} />;
+const Input = (props) => <input className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest placeholder-gray-400 focus:outline-none focus:ring-v3-orange focus:border-v3-orange text-base" style={{minHeight: '48px', fontSize: '16px'}} {...props} />;
 const Textarea = (props) => <textarea className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest placeholder-gray-400 focus:outline-none focus:ring-v3-orange focus:border-v3-orange" rows="3" {...props} />;
 const Button = ({ children, ...props }) => <button className="button-refresh" {...props}>{children}</button>;
 const Select = (props) => <select className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange" {...props} />;
@@ -194,27 +194,29 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
 
     return (
         <div 
-            className="fixed inset-0 z-[9999] flex justify-center items-center p-4 overflow-y-auto modal-backdrop" 
+            className="fixed inset-0 z-[9999] flex justify-center items-start sm:items-center p-2 sm:p-4 overflow-y-auto modal-backdrop" 
             style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)' }}
             onClick={handleBackdropClick}
         >
             <div 
-                className="relative z-[10000] rounded-lg shadow-2xl w-full max-w-2xl border modal-content"
+                className="relative z-[10000] rounded-lg shadow-2xl w-full max-w-sm sm:max-w-2xl border modal-content my-2 sm:my-0"
                 style={{ 
                     backgroundColor: '#1a1a1a',
                     borderColor: '#333333',
-                    opacity: 1
+                    opacity: 1,
+                    minHeight: 'fit-content',
+                    maxHeight: '95vh'
                 }}
             >
                 {/* Header */}
                 <div 
-                    className="flex justify-between items-center p-6 border-b"
+                    className="flex justify-between items-center p-3 sm:p-6 border-b"
                     style={{ 
                         backgroundColor: '#1a1a1a',
                         borderBottomColor: '#333333'
                     }}
                 >
-                    <h2 className="text-2xl font-bold flex items-center gap-3" style={{ color: '#f5f5f5' }}>
+                    <h2 className="text-lg sm:text-2xl font-bold flex items-center gap-2 sm:gap-3" style={{ color: '#f5f5f5' }}>
                         <span 
                             className="w-8 h-8 rounded-full flex items-center justify-center"
                             style={{ backgroundColor: '#FF5722' }}
@@ -237,8 +239,8 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                 {/* Body */}
                 <form 
                     onSubmit={handleSubmit} 
-                    className="p-6 space-y-6"
-                    style={{ backgroundColor: '#1a1a1a' }}
+                    className="p-3 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto"
+                    style={{ backgroundColor: '#1a1a1a', maxHeight: 'calc(95vh - 180px)' }}
                 >
                     {/* Registration Plate */}
                     <div>
@@ -257,14 +259,18 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                     if (errors.plate) setErrors(prev => ({ ...prev, plate: null }));
                                 }}
                                 required
-                                className="w-full px-4 py-3 rounded-lg focus:ring-1 transition-colors"
+                                className="w-full px-3 sm:px-4 py-3 rounded-lg focus:ring-1 transition-colors text-base"
                                 style={{
                                     backgroundColor: '#242424',
                                     borderColor: errors.plate ? '#ef4444' : '#333333',
                                     color: '#f5f5f5',
-                                    border: '1px solid'
+                                    border: '1px solid',
+                                    minHeight: '48px',
+                                    fontSize: '16px' // Prevents zoom on iOS
                                 }}
                                 placeholder="Enter registration plate (e.g. AB12 CDE)"
+                                autoComplete="off"
+                                autoCapitalize="characters"
                             />
                             {modalLookupLoading && (
                                 <div className="absolute right-3 top-3">
@@ -278,12 +284,12 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                         
                         {/* DVLA Lookup Success Indicator - ENHANCED */}
                         {modalVehicleLookupData && (
-                            <div className="mt-3 p-4 bg-green-900 rounded-lg border border-green-600">
+                            <div className="mt-3 p-3 sm:p-4 bg-green-900 rounded-lg border border-green-600">
                                 <p className="text-green-200 text-sm flex items-center gap-2 mb-3">
                                     ✅ <span className="font-medium">Vehicle found in DVLA database:</span>
                                 </p>
                                 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs mb-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs mb-3">
                                     <div className="space-y-1">
                                         <p className="text-green-200"><strong>Make:</strong> {modalVehicleLookupData.make || 'Not specified'}</p>
                                         <p className="text-green-200"><strong>Model:</strong> {modalVehicleLookupData.model && modalVehicleLookupData.model.trim() ? modalVehicleLookupData.model.trim() : 'Not specified'}</p>
@@ -347,14 +353,17 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                 if (errors.address) setErrors(prev => ({ ...prev, address: null }));
                             }}
                             required
-                            className="w-full px-4 py-3 rounded-lg focus:ring-1 transition-colors"
+                            className="w-full px-3 sm:px-4 py-3 rounded-lg focus:ring-1 transition-colors text-base"
                             style={{
                                 backgroundColor: '#242424',
                                 borderColor: errors.address ? '#ef4444' : '#333333',
                                 color: '#f5f5f5',
-                                border: '1px solid'
+                                border: '1px solid',
+                                minHeight: '48px',
+                                fontSize: '16px'
                             }}
                             placeholder="Location where vehicle was spotted"
+                            autoComplete="street-address"
                         />
                         {errors.address && (
                             <p className="mt-1 text-sm" style={{ color: '#ef4444' }}>{errors.address}</p>
@@ -382,7 +391,7 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                             )}
                         </h4>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                             <div>
                                 <label 
                                     className="block text-sm font-medium mb-2"
@@ -395,13 +404,16 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                     placeholder="e.g. BMW"
                                     value={modalVehicleDetails.make}
                                     onChange={e => setModalVehicleDetails({...modalVehicleDetails, make: e.target.value})}
-                                    className="w-full px-3 py-2 rounded-lg transition-colors"
+                                    className="w-full px-3 py-2 rounded-lg transition-colors text-base"
                                     style={{
                                         backgroundColor: '#1a1a1a',
                                         borderColor: '#333333',
                                         color: '#f5f5f5',
-                                        border: '1px solid'
+                                        border: '1px solid',
+                                        minHeight: '44px',
+                                        fontSize: '16px'
                                     }}
+                                    autoComplete="off"
                                 />
                             </div>
                             
@@ -417,13 +429,16 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                     placeholder="e.g. 3 Series"
                                     value={modalVehicleDetails.model}
                                     onChange={e => setModalVehicleDetails({...modalVehicleDetails, model: e.target.value})}
-                                    className="w-full px-3 py-2 rounded-lg transition-colors"
+                                    className="w-full px-3 py-2 rounded-lg transition-colors text-base"
                                     style={{
                                         backgroundColor: '#1a1a1a',
                                         borderColor: '#333333',
                                         color: '#f5f5f5',
-                                        border: '1px solid'
+                                        border: '1px solid',
+                                        minHeight: '44px',
+                                        fontSize: '16px'
                                     }}
+                                    autoComplete="off"
                                 />
                             </div>
                             
@@ -439,13 +454,16 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                     placeholder="e.g. Blue"
                                     value={modalVehicleDetails.colour}
                                     onChange={e => setModalVehicleDetails({...modalVehicleDetails, colour: e.target.value})}
-                                    className="w-full px-3 py-2 rounded-lg transition-colors"
+                                    className="w-full px-3 py-2 rounded-lg transition-colors text-base"
                                     style={{
                                         backgroundColor: '#1a1a1a',
                                         borderColor: '#333333',
                                         color: '#f5f5f5',
-                                        border: '1px solid'
+                                        border: '1px solid',
+                                        minHeight: '44px',
+                                        fontSize: '16px'
                                     }}
+                                    autoComplete="off"
                                 />
                             </div>
                         </div>
@@ -464,15 +482,17 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                             Notes
                         </label>
                         <textarea
-                            rows="4"
+                            rows="3"
                             value={notes}
                             onChange={e => setNotes(e.target.value)}
-                            className="w-full px-4 py-3 rounded-lg transition-colors resize-vertical"
+                            className="w-full px-3 sm:px-4 py-3 rounded-lg transition-colors resize-vertical text-base"
                             style={{
                                 backgroundColor: '#242424',
                                 borderColor: '#333333',
                                 color: '#f5f5f5',
-                                border: '1px solid'
+                                border: '1px solid',
+                                minHeight: '80px',
+                                fontSize: '16px'
                             }}
                             placeholder="Describe the situation, individuals, or any relevant details"
                         />
@@ -510,7 +530,7 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                 
                 {/* Footer */}
                 <div 
-                    className="flex justify-end gap-3 p-6 border-t"
+                    className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 p-3 sm:p-6 border-t"
                     style={{ 
                         backgroundColor: '#0f0f0f', 
                         borderTopColor: '#333333' 
@@ -519,10 +539,11 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-6 py-3 rounded-lg transition-colors font-medium"
+                        className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg transition-colors font-medium text-base"
                         style={{ 
                             backgroundColor: '#525252', 
-                            color: 'white' 
+                            color: 'white',
+                            minHeight: '48px'
                         }}
                         onMouseEnter={e => e.target.style.backgroundColor = '#404040'}
                         onMouseLeave={e => e.target.style.backgroundColor = '#525252'}
@@ -533,11 +554,12 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                         type="submit"
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="px-6 py-3 rounded-lg transition-colors flex items-center gap-2 font-medium"
+                        className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium text-base"
                         style={{ 
                             backgroundColor: loading ? '#cc4400' : '#FF5722', 
                             color: 'white',
-                            opacity: loading ? 0.5 : 1
+                            opacity: loading ? 0.5 : 1,
+                            minHeight: '48px'
                         }}
                         onMouseEnter={e => !loading && (e.target.style.backgroundColor = '#E64A19')}
                         onMouseLeave={e => !loading && (e.target.style.backgroundColor = '#FF5722')}
