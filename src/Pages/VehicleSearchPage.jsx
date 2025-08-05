@@ -630,21 +630,28 @@ const VehicleSearchPage = () => {
     
     // DVLA Vehicle Lookup Functions
     const performVehicleLookup = async (plate) => {
-        if (!plate || plate.length < 7) return;
+        if (!plate || plate.length < 6) {
+            console.log(`[DVLA] Plate too short: ${plate}`);
+            return;
+        }
         
+        console.log(`[DVLA] Starting lookup for vehicle: ${plate}`);
         setLookupLoading(true);
+        
         try {
-            console.log(`[DVLA] Looking up vehicle: ${plate}`);
-            const response = await apiCall(`/vehicles/lookup-cached/${plate.toUpperCase()}`);
+            const response = await apiCall(`/vehicles/lookup/${plate.toUpperCase()}`);
+            console.log(`[DVLA] Response received:`, response);
             
-            if (response.dvla_lookup) {
+            if (response && response.dvla_lookup) {
                 setVehicleLookupData(response);
-                toast.success(`Vehicle found: ${response.make} ${response.model} (${response.colour})`);
+                console.log(`[DVLA] SUCCESS - Vehicle found: ${response.make} ${response.model || ''} (${response.colour})`);
+                toast.success(`Vehicle found: ${response.make} ${response.model || ''} (${response.colour})`);
             } else {
+                console.log(`[DVLA] No vehicle data returned`);
                 setVehicleLookupData(null);
             }
         } catch (error) {
-            console.log('[DVLA] Vehicle lookup failed:', error);
+            console.error('[DVLA] Vehicle lookup failed:', error);
             setVehicleLookupData(null);
             
             // Enhanced error handling with specific messages
@@ -659,7 +666,6 @@ const VehicleSearchPage = () => {
             } else if (error.message && error.message.includes('timeout')) {
                 toast.error('Vehicle lookup timed out - please try again');
             }
-            // Most lookup failures are expected (invalid/unregistered plates) so no toast
         } finally {
             setLookupLoading(false);
         }
@@ -694,6 +700,10 @@ const VehicleSearchPage = () => {
     const handleSearch = async (e) => {
         e.preventDefault();
         if (!searchPlate) return;
+        
+        const plate = searchPlate.trim().toUpperCase();
+        console.log(`[Search] Starting search for plate: ${plate}`);
+        
         setLoading(true);
         setHasSearched(true);
         setError('');
@@ -702,27 +712,33 @@ const VehicleSearchPage = () => {
         setVehicleLookupData(null); // Reset previous lookup
         
         try {
+            console.log(`[Search] Searching for existing sightings...`);
             // Perform sightings search
-            const data = await apiCall(`/vehicles/${searchPlate.trim().toUpperCase()}`);
+            const data = await apiCall(`/vehicles/${plate}`);
             setSightings(data);
             if (data.length > 0) {
                 setSelectedSighting(data[0]);
+                console.log(`[Search] Found ${data.length} sightings`);
             } else {
                 setError('No records found for this registration plate.');
+                console.log(`[Search] No sightings found`);
             }
             
-            // Auto-lookup vehicle details for any search (whether sightings found or not)
-            performVehicleLookup(searchPlate);
-            
         } catch (err) {
+            console.error(`[Search] Sighting search failed:`, err);
             setSightings([]);
             setError(err.message.includes('404') ? 'No records found for this registration plate.' : 'An error occurred while searching.');
-            
-            // Still try to lookup vehicle details even if no sightings found
-            performVehicleLookup(searchPlate);
-        } finally {
-            setLoading(false);
         }
+        
+        // ALWAYS do DVLA lookup regardless of sighting results
+        console.log(`[Search] Starting DVLA lookup for: ${plate}`);
+        try {
+            await performVehicleLookup(plate);
+        } catch (dvlaError) {
+            console.error(`[Search] DVLA lookup failed:`, dvlaError);
+        }
+        
+        setLoading(false);
     };
 
     const handleSightingAdded = (newSighting) => {
