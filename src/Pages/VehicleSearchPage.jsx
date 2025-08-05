@@ -639,7 +639,7 @@ const VehicleSearchPage = () => {
         setLookupLoading(true);
         
         try {
-            const response = await apiCall(`/vehicles/lookup/${plate.toUpperCase()}`);
+            const response = await apiCall(`/vehicles/lookup-cached/${plate.toUpperCase()}`);
             console.log(`[DVLA] Response received:`, response);
             
             if (response && response.dvla_lookup) {
