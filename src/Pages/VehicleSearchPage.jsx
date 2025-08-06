@@ -39,7 +39,7 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     const [modalLookupLoading, setModalLookupLoading] = useState(false);
     const [modalVehicleLookupData, setModalVehicleLookupData] = useState(null);
 
-    // Enhanced geocoding function with better UK address handling
+    // Enhanced geocoding function with better UK address handling for modal
     const geocodeAddress = async (addressValue) => {
         if (!addressValue || addressValue.trim().length < 3) {
             setCoordinates(null);
@@ -50,53 +50,25 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
         setGeocodingLoading(true);
         setLocationError('');
         
+        // Use the same enhanced getCoordinates function
         try {
-            // Try multiple search strategies for UK addresses
-            const searchStrategies = [
-                addressValue, // Original address
-                addressValue.replace(/([A-Z]{1,2}\d{1,2})(\d[A-Z]{2})/, '$1 $2'), // Fix postcode spacing
-                addressValue.split(',').slice(-2).join(',').trim(), // Last two parts (usually area + postcode)
-                addressValue.split(',').slice(-1)[0].trim() // Just the postcode/area
-            ].filter((addr, index, arr) => addr && arr.indexOf(addr) === index); // Remove duplicates
+            const result = await getCoordinates(addressValue);
             
-            let coords = null;
-            let foundAddress = null;
-            
-            // Try each strategy until one works
-            for (const searchAddr of searchStrategies) {
-                try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchAddr)}&format=json&limit=1&countrycodes=gb`);
-                    const data = await response.json();
-                    
-                    if (data && data.length > 0) {
-                        coords = { 
-                            lat: parseFloat(data[0].lat), 
-                            lng: parseFloat(data[0].lon), 
-                            displayName: data[0].display_name 
-                        };
-                        foundAddress = searchAddr;
-                        break;
-                    }
-                } catch (strategyError) {
-                    console.warn(`Geocoding strategy failed for "${searchAddr}":`, strategyError);
-                }
-            }
-            
-            if (coords) {
-                setCoordinates(coords);
+            if (result) {
+                setCoordinates(result);
                 setLocationError('');
                 
                 // Update map if it exists
                 if (modalMapInstance.current) {
-                    updateModalMapPin(coords);
+                    updateModalMapPin(result);
                 }
                 
-                // Show success message if we had to use a fallback strategy
-                if (foundAddress !== addressValue) {
-                    toast.success(`Location found using: "${foundAddress}"`);
+                // Show success message if we used a fallback strategy
+                if (result.searchStrategy !== addressValue) {
+                    toast.success(`Location found using: "${result.searchStrategy}"`);
                 }
                 
-                return coords;
+                return result;
             } else {
                 setCoordinates(null);
                 setLocationError('Address not found. Try using just the postcode (e.g. "CV47 1AS") or click on the map to select location manually.');
@@ -990,16 +962,129 @@ const VehicleSearchPage = () => {
         }
     }, [searchPlate, autoLookupEnabled]);
 
+    // Enhanced geocoding function with multiple UK address strategies and caching
     const getCoordinates = async (address) => {
         if (!address) return null;
-        try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=gb`);
-            const data = await response.json();
-            if (data && data.length > 0) {
-                return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), displayName: data[0].display_name };
+        
+        // Check cache first
+        const cacheKey = `geocode_${address.toLowerCase().trim()}`;
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            try {
+                const parsedCache = JSON.parse(cached);
+                // Cache for 7 days
+                if (Date.now() - parsedCache.timestamp < 7 * 24 * 60 * 60 * 1000) {
+                    return parsedCache.coords;
+                } else {
+                    localStorage.removeItem(cacheKey);
+                }
+            } catch (e) {
+                localStorage.removeItem(cacheKey);
             }
+        }
+        
+        try {
+            // Multiple search strategies for UK addresses
+            const searchStrategies = [
+                address, // Original address
+                address.replace(/([A-Z]{1,2}\d{1,2}[A-Z]?)(\d[A-Z]{2})/i, '$1 $2'), // Fix postcode spacing
+                address.replace(/^[\d\s]*([A-Z\s]+)$/i, '$1').trim(), // Remove house numbers for street-only searches
+                address.split(',').slice(-2).join(',').trim(), // Last two parts (usually area + postcode)
+                address.split(',').slice(-1)[0].trim(), // Just the postcode/area
+                // Extract just the main street and area
+                address.replace(/^[^,]*,?\s*([A-Z\s]+(?:ROAD|STREET|LANE|AVENUE|CLOSE|DRIVE|WAY|PLACE|CRESCENT|GARDENS))[,\s]+([A-Z\s]+).*$/i, '$1, $2'),
+                // Extract just the town/city
+                address.match(/([A-Z\s]+)(?:,\s*[A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2})?$/i)?.[1]?.trim()
+            ].filter((addr, index, arr) => addr && addr.length > 2 && arr.indexOf(addr) === index); // Remove duplicates and short strings
+            
+            let bestResult = null;
+            let bestScore = 0;
+            
+            for (const searchAddr of searchStrategies) {
+                try {
+                    console.log(`[Geocoding] Trying strategy: "${searchAddr}"`);
+                    
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchAddr)}&format=json&limit=3&countrycodes=gb&addressdetails=1`,
+                        {
+                            headers: {
+                                'User-Agent': 'VehicleIntelligenceSystem/1.0'
+                            }
+                        }
+                    );
+                    
+                    if (!response.ok) {
+                        console.warn(`[Geocoding] HTTP error ${response.status} for "${searchAddr}"`);
+                        continue;
+                    }
+                    
+                    const data = await response.json();
+                    console.log(`[Geocoding] Found ${data.length} results for "${searchAddr}"`);
+                    
+                    if (data && data.length > 0) {
+                        // Score results based on relevance to original address
+                        for (const result of data) {
+                            let score = 0;
+                            const displayName = result.display_name.toLowerCase();
+                            const originalLower = address.toLowerCase();
+                            
+                            // Scoring system
+                            if (result.importance) score += result.importance * 10;
+                            if (displayName.includes(originalLower.split(',')[0]?.trim())) score += 5;
+                            if (result.address?.postcode && originalLower.includes(result.address.postcode.toLowerCase())) score += 8;
+                            if (result.address?.city && originalLower.includes(result.address.city.toLowerCase())) score += 6;
+                            if (result.address?.town && originalLower.includes(result.address.town.toLowerCase())) score += 6;
+                            if (result.address?.road && originalLower.includes(result.address.road.toLowerCase())) score += 7;
+                            
+                            console.log(`[Geocoding] Result score: ${score.toFixed(2)} for "${result.display_name}"`);
+                            
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestResult = {
+                                    lat: parseFloat(result.lat),
+                                    lng: parseFloat(result.lon),
+                                    displayName: result.display_name,
+                                    searchStrategy: searchAddr,
+                                    confidence: Math.min(score / 10, 1)
+                                };
+                            }
+                        }
+                        
+                        // If we found a good result, break early
+                        if (bestScore > 8) {
+                            console.log(`[Geocoding] High confidence result found, stopping search`);
+                            break;
+                        }
+                    }
+                    
+                    // Rate limiting: wait 100ms between requests
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                } catch (strategyError) {
+                    console.warn(`[Geocoding] Strategy failed for "${searchAddr}":`, strategyError);
+                }
+            }
+            
+            if (bestResult) {
+                console.log(`[Geocoding] SUCCESS: Found coordinates for "${address}" using strategy "${bestResult.searchStrategy}"`);
+                console.log(`[Geocoding] Result: ${bestResult.lat}, ${bestResult.lng} (confidence: ${(bestResult.confidence * 100).toFixed(1)}%)`);
+                
+                // Cache the result
+                localStorage.setItem(cacheKey, JSON.stringify({
+                    coords: bestResult,
+                    timestamp: Date.now()
+                }));
+                
+                return bestResult;
+            } else {
+                console.warn(`[Geocoding] FAILED: No coordinates found for "${address}"`);
+                return null;
+            }
+            
+        } catch (error) {
+            console.error(`[Geocoding] ERROR for "${address}":`, error);
             return null;
-        } catch (error) { console.error("Geocoding error:", error); return null; }
+        }
     };
 
     const handleSearch = async (e) => {
@@ -1084,32 +1169,92 @@ const VehicleSearchPage = () => {
             markersRef.current = {};
             
             const locations = [];
+            let geocodingPromises = [];
+            
+            // Process all sightings concurrently but with rate limiting
             for (const s of sightings) {
-                let coords = null;
+                const promise = (async () => {
+                    let coords = null;
+                    
+                    // Use stored coordinates if available
+                    if (s.latitude && s.longitude) {
+                        coords = { 
+                            lat: s.latitude, 
+                            lng: s.longitude, 
+                            displayName: s.address_seen,
+                            source: 'database'
+                        };
+                        console.log(`[Map] Using stored coordinates for ${s.registration_plate}: ${coords.lat}, ${coords.lng}`);
+                    } else {
+                        // Fall back to enhanced geocoding
+                        console.log(`[Map] Geocoding address for ${s.registration_plate}: ${s.address_seen}`);
+                        coords = await getCoordinates(s.address_seen);
+                        if (coords) {
+                            coords.source = 'geocoded';
+                        }
+                    }
+                    
+                    if (coords) {
+                        // Create marker with enhanced popup
+                        const marker = window.L.marker([coords.lat, coords.lng]).addTo(mapInstance.current);
+                        
+                        // Enhanced popup with more information
+                        const popupContent = `
+                            <div style="min-width: 200px;">
+                                <h4 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">
+                                    🚗 <b>${s.registration_plate}</b>
+                                </h4>
+                                <p style="margin: 2px 0; font-size: 12px;">
+                                    📍 <strong>Location:</strong><br/>
+                                    ${coords.displayName || s.address_seen}
+                                </p>
+                                <p style="margin: 2px 0; font-size: 12px;">
+                                    ⏰ <strong>Sighted:</strong><br/>
+                                    ${new Date(s.sighted_at).toLocaleString()}
+                                </p>
+                                ${s.is_dangerous ? '<p style="margin: 2px 0; font-size: 12px; color: #d32f2f;">⚠️ <strong>Flagged as potentially dangerous</strong></p>' : ''}
+                                ${s.notes ? `<p style="margin: 2px 0; font-size: 12px;"><strong>Notes:</strong> ${s.notes}</p>` : ''}
+                                <p style="margin: 6px 0 0 0; font-size: 11px; color: #666;">
+                                    ${coords.source === 'database' ? '📊 Stored location' : '🗺️ Geocoded location'}
+                                    ${coords.confidence ? ` (${(coords.confidence * 100).toFixed(0)}% confidence)` : ''}
+                                </p>
+                            </div>
+                        `;
+                        
+                        marker.bindPopup(popupContent);
+                        markersRef.current[s.id] = marker;
+                        
+                        return { sighting: s, coords };
+                    } else {
+                        console.warn(`[Map] Failed to get coordinates for ${s.registration_plate} at ${s.address_seen}`);
+                        return null;
+                    }
+                })();
                 
-                // Use stored coordinates if available
-                if (s.latitude && s.longitude) {
-                    coords = { 
-                        lat: s.latitude, 
-                        lng: s.longitude, 
-                        displayName: s.address_seen 
-                    };
-                } else {
-                    // Fall back to geocoding
-                    coords = await getCoordinates(s.address_seen);
-                }
-                
-                if (coords) {
-                    const marker = window.L.marker([coords.lat, coords.lng]).addTo(mapInstance.current);
-                    marker.bindPopup(`<b>${coords.displayName || s.address_seen}</b><br>${new Date(s.sighted_at).toLocaleString()}<br><em>Plate: ${s.registration_plate}</em>`);
-                    markersRef.current[s.id] = marker;
-                    locations.push([coords.lat, coords.lng]);
+                geocodingPromises.push(promise);
+            }
+            
+            // Wait for all geocoding to complete
+            const results = await Promise.all(geocodingPromises);
+            
+            // Collect valid locations
+            for (const result of results) {
+                if (result && result.coords) {
+                    locations.push([result.coords.lat, result.coords.lng]);
                 }
             }
             
-            // Auto-zoom to fit all markers
-            if (locations.length > 0) {
+            console.log(`[Map] Successfully placed ${locations.length} pins out of ${sightings.length} sightings`);
+            
+            // Auto-zoom to fit all markers with better bounds
+            if (locations.length > 1) {
                 mapInstance.current.fitBounds(locations, { padding: [50, 50], maxZoom: 14 });
+            } else if (locations.length === 1) {
+                mapInstance.current.setView(locations[0], 12);
+            } else {
+                // No locations found, center on UK
+                mapInstance.current.setView([54.5, -3.5], 6);
+                console.warn('[Map] No valid coordinates found for any sightings');
             }
         };
 
