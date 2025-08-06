@@ -10,8 +10,8 @@ class VehicleSighting(db.Model):
     sighted_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     address_seen = db.Column(db.String(255), nullable=False)
-    latitude = db.Column(db.Float, nullable=True)
-    longitude = db.Column(db.Float, nullable=True)
+    # latitude = db.Column(db.Float, nullable=True)  # TODO: Add back after proper migration
+    # longitude = db.Column(db.Float, nullable=True)  # TODO: Add back after proper migration
     agent_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     # This relationship connects back to the User model
@@ -25,7 +25,7 @@ class VehicleSighting(db.Model):
             'is_dangerous': self.is_dangerous,
             'sighted_at': self.sighted_at.isoformat(),
             'agent_name': f"{self.agent.first_name} {self.agent.last_name}" if self.agent else "Unknown",
-            'address_seen': self.address_seen,
-            'latitude': self.latitude,
-            'longitude': self.longitude
+            'address_seen': self.address_seen
+            # 'latitude': self.latitude,  # TODO: Add back after proper migration
+            # 'longitude': self.longitude  # TODO: Add back after proper migration
         }
