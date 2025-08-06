@@ -20,6 +20,14 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
     
+    // Location picker state
+    const [coordinates, setCoordinates] = useState(null);
+    const [locationError, setLocationError] = useState('');
+    const [geocodingLoading, setGeocodingLoading] = useState(false);
+    const modalMapRef = useRef(null);
+    const modalMapInstance = useRef(null);
+    const modalMarkerRef = useRef(null);
+    
     // Vehicle details state for modal
     const [modalVehicleDetails, setModalVehicleDetails] = useState({
         make: '',
@@ -31,6 +39,142 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     const [modalLookupLoading, setModalLookupLoading] = useState(false);
     const [modalVehicleLookupData, setModalVehicleLookupData] = useState(null);
 
+    // Enhanced geocoding function with better UK address handling
+    const geocodeAddress = async (addressValue) => {
+        if (!addressValue || addressValue.trim().length < 3) {
+            setCoordinates(null);
+            setLocationError('');
+            return null;
+        }
+        
+        setGeocodingLoading(true);
+        setLocationError('');
+        
+        try {
+            // Try multiple search strategies for UK addresses
+            const searchStrategies = [
+                addressValue, // Original address
+                addressValue.replace(/([A-Z]{1,2}\d{1,2})(\d[A-Z]{2})/, '$1 $2'), // Fix postcode spacing
+                addressValue.split(',').slice(-2).join(',').trim(), // Last two parts (usually area + postcode)
+                addressValue.split(',').slice(-1)[0].trim() // Just the postcode/area
+            ].filter((addr, index, arr) => addr && arr.indexOf(addr) === index); // Remove duplicates
+            
+            let coords = null;
+            let foundAddress = null;
+            
+            // Try each strategy until one works
+            for (const searchAddr of searchStrategies) {
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchAddr)}&format=json&limit=1&countrycodes=gb`);
+                    const data = await response.json();
+                    
+                    if (data && data.length > 0) {
+                        coords = { 
+                            lat: parseFloat(data[0].lat), 
+                            lng: parseFloat(data[0].lon), 
+                            displayName: data[0].display_name 
+                        };
+                        foundAddress = searchAddr;
+                        break;
+                    }
+                } catch (strategyError) {
+                    console.warn(`Geocoding strategy failed for "${searchAddr}":`, strategyError);
+                }
+            }
+            
+            if (coords) {
+                setCoordinates(coords);
+                setLocationError('');
+                
+                // Update map if it exists
+                if (modalMapInstance.current) {
+                    updateModalMapPin(coords);
+                }
+                
+                // Show success message if we had to use a fallback strategy
+                if (foundAddress !== addressValue) {
+                    toast.success(`Location found using: "${foundAddress}"`);
+                }
+                
+                return coords;
+            } else {
+                setCoordinates(null);
+                setLocationError('Address not found. Try using just the postcode (e.g. "CV47 1AS") or click on the map to select location manually.');
+                return null;
+            }
+        } catch (error) {
+            console.error("Modal geocoding error:", error);
+            setCoordinates(null);
+            setLocationError('Unable to find location. Please check the address, try using just the postcode, or use current location.');
+            return null;
+        } finally {
+            setGeocodingLoading(false);
+        }
+    };
+    
+    // Update map pin function for modal
+    const updateModalMapPin = (coords) => {
+        if (!modalMapInstance.current) return;
+        
+        // Remove existing marker
+        if (modalMarkerRef.current) {
+            modalMarkerRef.current.remove();
+        }
+        
+        // Add new marker
+        modalMarkerRef.current = window.L.marker([coords.lat, coords.lng]).addTo(modalMapInstance.current);
+        modalMarkerRef.current.bindPopup(`<b>Selected Location</b><br/>${coords.displayName || address}`);
+        
+        // Center map on location
+        modalMapInstance.current.setView([coords.lat, coords.lng], 15);
+    };
+    
+    // Get current location function
+    const getCurrentLocation = () => {
+        if ("geolocation" in navigator) {
+            setGeocodingLoading(true);
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const coords = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                        displayName: 'Current Location'
+                    };
+                    setCoordinates(coords);
+                    setLocationError('');
+                    
+                    // Reverse geocode to get address
+                    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lng}&format=json`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data && data.display_name) {
+                                setAddress(data.display_name);
+                                coords.displayName = data.display_name;
+                            }
+                        })
+                        .catch(console.error);
+                    
+                    // Update map
+                    if (modalMapInstance.current) {
+                        updateModalMapPin(coords);
+                    }
+                    
+                    setGeocodingLoading(false);
+                    toast.success('Current location detected successfully!');
+                },
+                (error) => {
+                    console.error("Geolocation error:", error);
+                    setLocationError('Unable to get current location. Please enter an address or click on the map.');
+                    setGeocodingLoading(false);
+                    toast.error('Location access denied. Please enter an address manually.');
+                }
+            );
+        } else {
+            setLocationError('Geolocation is not supported by this browser.');
+            toast.error('Geolocation not supported. Please enter an address manually.');
+        }
+    };
+    
     // DVLA lookup function for modal
     const performModalVehicleLookup = async (plateValue) => {
         if (!plateValue || plateValue.length < 7) return;
@@ -86,6 +230,58 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
         }
     }, [plate]);
 
+    // Auto-geocode when address changes
+    useEffect(() => {
+        if (address.trim().length >= 3) {
+            const timeoutId = setTimeout(() => {
+                geocodeAddress(address);
+            }, 1500); // Wait 1.5 seconds after user stops typing
+            
+            return () => clearTimeout(timeoutId);
+        } else {
+            setCoordinates(null);
+            setLocationError('');
+        }
+    }, [address]);
+
+    // Initialize map when modal opens
+    useEffect(() => {
+        if (isOpen && modalMapRef.current && !modalMapInstance.current) {
+            // Initialize map centered on UK
+            modalMapInstance.current = window.L.map(modalMapRef.current).setView([52.3555, -1.1743], 8); // Centered on UK
+            window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(modalMapInstance.current);
+            
+            // Add click handler for map
+            modalMapInstance.current.on('click', function(e) {
+                const coords = {
+                    lat: e.latlng.lat,
+                    lng: e.latlng.lng,
+                    displayName: `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`
+                };
+                setCoordinates(coords);
+                setLocationError('');
+                updateModalMapPin(coords);
+                
+                // Reverse geocode to get address
+                setGeocodingLoading(true);
+                fetch(`https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lng}&format=json`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && data.display_name) {
+                            setAddress(data.display_name);
+                            coords.displayName = data.display_name;
+                        }
+                    })
+                    .catch(console.error)
+                    .finally(() => setGeocodingLoading(false));
+                
+                toast.success('Location selected on map!');
+            });
+        }
+    }, [isOpen]);
+
     useEffect(() => {
         if (!isOpen) {
             setPlate(''); setNotes(''); setAddress(''); setIsDangerous(false);
@@ -93,6 +289,16 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
             setModalLookupLoading(false);
             setModalVehicleLookupData(null);
             setErrors({});
+            setCoordinates(null);
+            setLocationError('');
+            setGeocodingLoading(false);
+            
+            // Destroy map when closing modal
+            if (modalMapInstance.current) {
+                modalMapInstance.current.remove();
+                modalMapInstance.current = null;
+                modalMarkerRef.current = null;
+            }
         }
     }, [isOpen]);
 
@@ -151,7 +357,8 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                 registration_plate: plate.toUpperCase(),
                 notes,
                 is_dangerous: isDangerous,
-                address_seen: address
+                address_seen: address,
+                coordinates: coordinates // Include coordinates if available
             };
             
             // First, create the sighting
@@ -362,11 +569,87 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                 minHeight: '48px',
                                 fontSize: '16px'
                             }}
-                            placeholder="Location where vehicle was spotted"
+                            placeholder="e.g. Daventry Road, Southam, CV47 1AS or just CV47 1AS"
                             autoComplete="street-address"
                         />
                         {errors.address && (
                             <p className="mt-1 text-sm" style={{ color: '#ef4444' }}>{errors.address}</p>
+                        )}
+                        
+                        <div className="mt-2 p-2 rounded text-xs" style={{ backgroundColor: '#1a3a2e', color: '#a7f3d0' }}>
+                            <p className="mb-1">💡 <strong>Address Tips:</strong></p>
+                            <ul className="list-disc list-inside space-y-1">
+                                <li>Use postcodes for best results (e.g., "CV47 1AS")</li>
+                                <li>Include area name (e.g., "Southam, CV47 1AS")</li>
+                                <li>Or click "Use Current Location" for GPS location</li>
+                                <li>You can also click directly on the map below</li>
+                            </ul>
+                        </div>
+                        
+                        {/* Location Status and Actions */}
+                        <div className="flex flex-col sm:flex-row gap-2 mt-3">
+                            <button
+                                type="button"
+                                onClick={getCurrentLocation}
+                                disabled={geocodingLoading}
+                                className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium"
+                                style={{
+                                    backgroundColor: '#FF5722',
+                                    color: 'white',
+                                    opacity: geocodingLoading ? 0.7 : 1,
+                                    minHeight: '44px'
+                                }}
+                            >
+                                {geocodingLoading ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <MapPin className="w-4 h-4" />
+                                )}
+                                {geocodingLoading ? 'Getting Location...' : 'Use Current Location'}
+                            </button>
+                            
+                            {coordinates && (
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: '#065f46', color: '#a7f3d0' }}>
+                                    <MapPin className="w-4 h-4" />
+                                    <span>Location found: {coordinates.lat.toFixed(4)}, {coordinates.lng.toFixed(4)}</span>
+                                </div>
+                            )}
+                        </div>
+                        
+                        {locationError && (
+                            <div className="mt-2 p-3 rounded-lg" style={{ backgroundColor: '#7f1d1d', borderColor: '#dc2626', border: '1px solid' }}>
+                                <p className="text-sm" style={{ color: '#fca5a5' }}>{locationError}</p>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Map Section */}
+                    <div 
+                        className="rounded-lg border overflow-hidden"
+                        style={{ 
+                            backgroundColor: '#242424', 
+                            borderColor: '#333333',
+                            minHeight: '200px'
+                        }}
+                    >
+                        <div className="flex items-center justify-between p-3 border-b" style={{ borderBottomColor: '#333333' }}>
+                            <h4 className="font-medium flex items-center gap-2" style={{ color: '#f5f5f5' }}>
+                                <MapPin className="w-4 h-4 text-orange-500" />
+                                Location Map
+                            </h4>
+                            <span className="text-xs" style={{ color: '#888888' }}>
+                                Click on map to select location
+                            </span>
+                        </div>
+                        <div 
+                            ref={modalMapRef} 
+                            className="w-full h-48 sm:h-52"
+                            style={{ backgroundColor: '#1a202c' }}
+                        />
+                        {coordinates && (
+                            <div className="p-2 text-xs" style={{ backgroundColor: '#1a1a1a', color: '#888888' }}>
+                                📍 Selected: {coordinates.displayName || `${coordinates.lat.toFixed(6)}, ${coordinates.lng.toFixed(6)}`}
+                            </div>
                         )}
                     </div>
                     
@@ -802,10 +1085,23 @@ const VehicleSearchPage = () => {
             
             const locations = [];
             for (const s of sightings) {
-                const coords = await getCoordinates(s.address_seen);
+                let coords = null;
+                
+                // Use stored coordinates if available
+                if (s.latitude && s.longitude) {
+                    coords = { 
+                        lat: s.latitude, 
+                        lng: s.longitude, 
+                        displayName: s.address_seen 
+                    };
+                } else {
+                    // Fall back to geocoding
+                    coords = await getCoordinates(s.address_seen);
+                }
+                
                 if (coords) {
                     const marker = window.L.marker([coords.lat, coords.lng]).addTo(mapInstance.current);
-                    marker.bindPopup(`<b>${coords.displayName}</b><br>${new Date(s.sighted_at).toLocaleString()}`);
+                    marker.bindPopup(`<b>${coords.displayName || s.address_seen}</b><br>${new Date(s.sighted_at).toLocaleString()}<br><em>Plate: ${s.registration_plate}</em>`);
                     markersRef.current[s.id] = marker;
                     locations.push([coords.lat, coords.lng]);
                 }

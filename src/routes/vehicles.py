@@ -35,11 +35,18 @@ def add_sighting():
     if not data['address_seen'].strip():
          return jsonify({'error': 'Address or area seen cannot be empty.'}), 400
 
+    # Extract coordinates if provided
+    coordinates = data.get('coordinates')
+    latitude = coordinates.get('lat') if coordinates else None
+    longitude = coordinates.get('lng') if coordinates else None
+
     new_sighting = VehicleSighting(
         registration_plate=data['registration_plate'].upper().strip(),
         notes=data['notes'],
         is_dangerous=data['is_dangerous'],
         address_seen=data['address_seen'],
+        latitude=latitude,
+        longitude=longitude,
         agent_id=current_user_id
     )
     db.session.add(new_sighting)
