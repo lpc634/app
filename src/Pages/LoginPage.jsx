@@ -30,7 +30,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-v3-bg-darkest">
       <div className="dashboard-card w-full max-w-md">
-        <img src={logo} alt="Company Name Logo" className="mx-auto mb-6 h-16 w-auto" />
+        <img src={logo} alt="Company Name Logo" className="mx-auto mb-8 h-16 w-auto" />
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-v3-text-lightest">V3 Services Portal</CardTitle>
           <CardDescription className="text-v3-text-muted">
