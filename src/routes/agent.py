@@ -328,13 +328,15 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         right_margin = width - 0.75 * inch
         top_margin = height - 0.75 * inch
         
-        # Helper function for consistent spacing
+        # Enhanced helper function for consistent spacing
         def add_spacing(current_y, space_type='normal'):
             spacing = {
-                'small': 8,
+                'tiny': 5,
+                'small': 10,
                 'normal': 15,
-                'large': 25,
-                'section': 35
+                'large': 20,
+                'section': 25,
+                'major': 35
             }
             return current_y - spacing.get(space_type, 15)
         
@@ -343,8 +345,8 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         
         y_pos = top_margin
         
-        # Company header box with background
-        header_box_height = 2.2 * inch
+        # Enhanced header box with subtle background
+        header_box_height = 2.0 * inch  # Reduced excessive whitespace
         c.setFillColor(light_gray)
         c.rect(left_margin - 10, y_pos - header_box_height + 15, 
                right_margin - left_margin + 20, header_box_height, 
@@ -353,36 +355,51 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         # Reset to black for text
         c.setFillColor(black)
         
-        # Company name (large, prominent)
+        # Agent name (large, prominent) - AGENT IS ISSUING THE INVOICE
+        first_name = agent.first_name or ""
+        last_name = agent.last_name or ""
+        agent_full_name = f"{first_name} {last_name}".strip() or "Agent"
+        
         c.setFont("Helvetica-Bold", 24)
         c.setFillColor(primary_color)
         company_name_y = y_pos - 25
-        c.drawString(left_margin, company_name_y, "V3 SERVICES LTD")
+        c.drawString(left_margin, company_name_y, agent_full_name.upper())
         
         # Professional tagline
         c.setFont("Helvetica", 11)
         c.setFillColor(black)
-        c.drawString(left_margin, company_name_y - 20, "Professional Security & Investigation Services")
+        c.drawString(left_margin, company_name_y - 20, "Security Services Contractor")
         
-        # Company address in structured format
+        # Agent address in structured format
         c.setFont("Helvetica", 10)
         address_y = company_name_y - 45
-        c.drawString(left_margin, address_y, "117 Dartford Road")
-        c.drawString(left_margin, address_y - 12, "Dartford, England")
-        c.drawString(left_margin, address_y - 24, "DA1 3EN")
+        agent_address_line_1 = agent.address_line_1 or "Address not provided"
+        agent_address_line_2 = agent.address_line_2 or ""
+        agent_city = agent.city or "City not provided"
+        agent_postcode = agent.postcode or "Postcode not provided"
         
-        # Contact information (right side of header)
+        c.drawString(left_margin, address_y, agent_address_line_1)
+        if agent_address_line_2.strip():
+            c.drawString(left_margin, address_y - 12, agent_address_line_2)
+            c.drawString(left_margin, address_y - 24, f"{agent_city}")
+            c.drawString(left_margin, address_y - 36, agent_postcode)
+        else:
+            c.drawString(left_margin, address_y - 12, f"{agent_city}")
+            c.drawString(left_margin, address_y - 24, agent_postcode)
+        
+        # Agent contact information (right side of header)
         c.setFont("Helvetica", 10)
         contact_x = right_margin - 120
-        c.drawString(contact_x, address_y, "Email: accounts@v3services.co.uk")
-        c.drawString(contact_x, address_y - 12, "Phone: +44 (0)1322 123456")
-        c.drawString(contact_x, address_y - 24, "www.v3services.co.uk")
+        c.drawString(contact_x, address_y, f"Email: {agent.email or 'Not provided'}")
+        c.drawString(contact_x, address_y - 12, f"Phone: {agent.phone or 'Not provided'}")
+        if agent.utr_number:
+            c.drawString(contact_x, address_y - 24, f"UTR: {agent.utr_number}")
         
         # Invoice title and metadata box
         invoice_meta_y = y_pos - header_box_height - 15
         
-        # Invoice title
-        c.setFont("Helvetica-Bold", 20)
+        # Invoice title - LARGER AND MORE PROMINENT
+        c.setFont("Helvetica-Bold", 24)
         c.setFillColor(accent_color)
         c.drawString(left_margin, invoice_meta_y, "INVOICE")
         
@@ -411,56 +428,47 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         # ===== CLIENT DETAILS SECTION =====
         current_app.logger.info("PDF GENERATION: Drawing client details section")
         
-        # Section header
-        c.setFont("Helvetica-Bold", 14)
+        # Section header - MORE PROMINENT
+        c.setFont("Helvetica-Bold", 16)
         c.setFillColor(primary_color)
-        c.drawString(left_margin, y_pos, "Bill To:")
-        y_pos = add_spacing(y_pos, 'large')
+        c.drawString(left_margin, y_pos, "BILL TO:")
+        y_pos = add_spacing(y_pos, 'section')
         
-        # Client details box
+        # Client details box with subtle background - V3 SERVICES IS BEING BILLED
+        client_box_height = 80
+        c.setFillColor(HexColor('#FAFAFA'))
+        c.rect(left_margin, y_pos - client_box_height, 300, client_box_height, fill=True, stroke=False)
+        
         c.setStrokeColor(border_color)
         c.setLineWidth(1)
-        client_box_height = 80
         c.rect(left_margin, y_pos - client_box_height, 300, client_box_height, fill=False, stroke=True)
         
-        # Handle potential None values in agent data
-        first_name = agent.first_name or ""
-        last_name = agent.last_name or ""
-        address_line_1 = agent.address_line_1 or "Address not provided"
-        address_line_2 = agent.address_line_2 or ""
-        city = agent.city or "City not provided"
-        postcode = agent.postcode or "Postcode not provided"
-        
-        # Client information with proper formatting
+        # V3 Services company information (they are being billed)
         c.setFillColor(black)
         c.setFont("Helvetica-Bold", 12)
         client_y = y_pos - 18
-        c.drawString(left_margin + 10, client_y, f"{first_name} {last_name}")
+        c.drawString(left_margin + 10, client_y, "V3 SERVICES LTD")
         
         c.setFont("Helvetica", 11)
         client_y = add_spacing(client_y, 'normal')
-        c.drawString(left_margin + 10, client_y, address_line_1)
-        
-        if address_line_2.strip():
-            client_y = add_spacing(client_y, 'small')
-            c.drawString(left_margin + 10, client_y, address_line_2)
+        c.drawString(left_margin + 10, client_y, "117 Dartford Road")
         
         client_y = add_spacing(client_y, 'small')
-        c.drawString(left_margin + 10, client_y, f"{city}")
+        c.drawString(left_margin + 10, client_y, "Dartford, England")
         
         client_y = add_spacing(client_y, 'small')
-        c.drawString(left_margin + 10, client_y, postcode)
+        c.drawString(left_margin + 10, client_y, "DA1 3EN")
         
-        y_pos = y_pos - client_box_height - 30
+        y_pos = y_pos - client_box_height - 25  # Reduced spacing
         
         # ===== PROFESSIONAL INVOICE TABLE SECTION =====
         current_app.logger.info("PDF GENERATION: Drawing professional invoice table")
         
-        # Table header with professional styling
-        c.setFont("Helvetica-Bold", 14)
+        # Table header with enhanced professional styling - MORE PROMINENT
+        c.setFont("Helvetica-Bold", 16)
         c.setFillColor(primary_color)
-        c.drawString(left_margin, y_pos, "Services Provided:")
-        y_pos = add_spacing(y_pos, 'large')
+        c.drawString(left_margin, y_pos, "SERVICES PROVIDED:")
+        y_pos = add_spacing(y_pos, 'section')
         
         # Table structure definition
         table_left = left_margin
@@ -485,36 +493,36 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
             'amount': table_right - col_widths['amount']
         }
         
-        # Draw table header with professional styling
-        header_height = 30
-        c.setFillColor(light_gray)
+        # Draw table header with enhanced professional styling
+        header_height = 35
+        c.setFillColor(primary_color)
         c.rect(table_left, y_pos - header_height, table_width, header_height, fill=True, stroke=True)
         
-        c.setFillColor(primary_color)
-        c.setFont("Helvetica-Bold", 11)
-        header_text_y = y_pos - 20
+        c.setFillColor(HexColor('#FFFFFF'))
+        c.setFont("Helvetica-Bold", 12)
+        header_text_y = y_pos - 22
         
-        c.drawString(col_positions['date'] + 5, header_text_y, "Date")
-        c.drawString(col_positions['description'] + 5, header_text_y, "Description")
-        c.drawString(col_positions['hours'] + 5, header_text_y, "Hours")
-        c.drawString(col_positions['rate'] + 5, header_text_y, "Rate")
-        c.drawRightString(col_positions['amount'] + col_widths['amount'] - 5, header_text_y, "Amount")
+        c.drawString(col_positions['date'] + 8, header_text_y, "Date")
+        c.drawString(col_positions['description'] + 8, header_text_y, "Description")
+        c.drawString(col_positions['hours'] + 8, header_text_y, "Hours")
+        c.drawString(col_positions['rate'] + 8, header_text_y, "Rate")
+        c.drawRightString(col_positions['amount'] + col_widths['amount'] - 8, header_text_y, "Amount")
         
         y_pos -= header_height
         
-        # Process each job with professional table rows
+        # Process each job with enhanced professional table rows
         c.setFillColor(black)
         c.setFont("Helvetica", 10)
-        row_height = 25
+        row_height = 30
         
         for i, job_item in enumerate(jobs_data):
             job = job_item['job']
             
-            # Alternate row colors for better readability
+            # Enhanced alternating row colors for better readability
             if i % 2 == 0:
                 c.setFillColor(HexColor('#FFFFFF'))
             else:
-                c.setFillColor(HexColor('#F8F9FA'))
+                c.setFillColor(HexColor('#F5F5F5'))
             
             c.rect(table_left, y_pos - row_height, table_width, row_height, fill=True, stroke=True)
             c.setFillColor(black)
@@ -548,20 +556,20 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
                 job_title = job.title or "Service"
                 job_description = f"{job_title}\n{job_address}"
                 
-                # Draw table row data
-                text_y = y_pos - 15
-                c.drawString(col_positions['date'] + 5, text_y, job_datetime)
+                # Draw table row data with improved padding
+                text_y = y_pos - 18
+                c.drawString(col_positions['date'] + 8, text_y, job_datetime)
                 
-                # Handle multi-line description
+                # Handle multi-line description with better text wrapping
                 desc_lines = job_description.split('\n')
                 for idx, line in enumerate(desc_lines[:2]):  # Limit to 2 lines
-                    if len(line) > 25:  # Truncate long lines
-                        line = line[:25] + "..."
-                    c.drawString(col_positions['description'] + 5, text_y - (idx * 10), line)
+                    if len(line) > 30:  # Increased character limit
+                        line = line[:30] + "..."
+                    c.drawString(col_positions['description'] + 8, text_y - (idx * 10), line)
                 
-                c.drawString(col_positions['hours'] + 5, text_y, hours_str)
-                c.drawString(col_positions['rate'] + 5, text_y, rate_str)
-                c.drawRightString(col_positions['amount'] + col_widths['amount'] - 5, text_y, amount_str)
+                c.drawString(col_positions['hours'] + 8, text_y, hours_str)
+                c.drawString(col_positions['rate'] + 8, text_y, rate_str)
+                c.drawRightString(col_positions['amount'] + col_widths['amount'] - 8, text_y, amount_str)
                 
                 y_pos -= row_height
                 
@@ -575,45 +583,49 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         c.line(table_left, y_pos, table_right, y_pos)
         y_pos = add_spacing(y_pos, 'large')
         
-        # ===== PROFESSIONAL TOTAL SECTION =====
-        current_app.logger.info("PDF GENERATION: Drawing professional total section")
+        # ===== ENHANCED PROFESSIONAL TOTAL SECTION =====
+        current_app.logger.info("PDF GENERATION: Drawing enhanced professional total section")
         
-        # Total calculations box
-        total_box_width = 200
-        total_box_height = 80
+        # Enhanced total calculations box with better alignment
+        total_box_width = 220
+        total_box_height = 90
         total_box_x = right_margin - total_box_width
         
-        c.setStrokeColor(border_color)
-        c.setLineWidth(1)
+        # Add light background
+        c.setFillColor(light_gray)
+        c.rect(total_box_x, y_pos - total_box_height, total_box_width, total_box_height, fill=True, stroke=False)
+        
+        c.setStrokeColor(primary_color)
+        c.setLineWidth(2)
         c.rect(total_box_x, y_pos - total_box_height, total_box_width, total_box_height, fill=False, stroke=True)
         
         try:
             total_decimal = Decimal(str(total_amount))
             total_str = f"£{float(total_decimal):.2f}"
             
-            # Subtotal row
-            c.setFont("Helvetica", 11)
+            # Subtotal row with better formatting
+            c.setFont("Helvetica", 12)
             c.setFillColor(black)
-            subtotal_y = y_pos - 20
-            c.drawString(total_box_x + 10, subtotal_y, "Subtotal:")
-            c.drawRightString(total_box_x + total_box_width - 10, subtotal_y, total_str)
+            subtotal_y = y_pos - 22
+            c.drawString(total_box_x + 15, subtotal_y, "Subtotal:")
+            c.drawRightString(total_box_x + total_box_width - 15, subtotal_y, total_str)
             
             # VAT row (0% for contractor services)
-            vat_y = subtotal_y - 20
-            c.drawString(total_box_x + 10, vat_y, "VAT (0%):")
-            c.drawRightString(total_box_x + total_box_width - 10, vat_y, "£0.00")
+            vat_y = subtotal_y - 18
+            c.drawString(total_box_x + 15, vat_y, "VAT (0%):")
+            c.drawRightString(total_box_x + total_box_width - 15, vat_y, "£0.00")
             
-            # Total line
+            # Enhanced total line
             c.setStrokeColor(primary_color)
-            c.setLineWidth(1)
-            c.line(total_box_x + 10, vat_y - 8, total_box_x + total_box_width - 10, vat_y - 8)
+            c.setLineWidth(2)
+            c.line(total_box_x + 15, vat_y - 10, total_box_x + total_box_width - 15, vat_y - 10)
             
-            # Final total
-            c.setFont("Helvetica-Bold", 14)
+            # Final total with enhanced styling
+            c.setFont("Helvetica-Bold", 16)
             c.setFillColor(primary_color)
-            total_y = vat_y - 25
-            c.drawString(total_box_x + 10, total_y, "TOTAL:")
-            c.drawRightString(total_box_x + total_box_width - 10, total_y, total_str)
+            total_y = vat_y - 30
+            c.drawString(total_box_x + 15, total_y, "TOTAL:")
+            c.drawRightString(total_box_x + total_box_width - 15, total_y, total_str)
             
             y_pos = y_pos - total_box_height - 30
             
@@ -624,45 +636,65 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         # ===== PROFESSIONAL PAYMENT SECTION =====
         current_app.logger.info("PDF GENERATION: Drawing professional payment section")
         
-        # Payment terms header
-        c.setFont("Helvetica-Bold", 14)
+        # Payment terms header - MORE PROMINENT
+        c.setFont("Helvetica-Bold", 16)
         c.setFillColor(primary_color)
-        c.drawString(left_margin, y_pos, "Payment Details:")
-        y_pos = add_spacing(y_pos, 'large')
+        c.drawString(left_margin, y_pos, "PAYMENT DETAILS:")
+        y_pos = add_spacing(y_pos, 'section')
         
-        # Payment information box
-        payment_box_height = 100
+        # Enhanced payment information box with background
+        payment_box_height = 110
+        c.setFillColor(light_gray)
+        c.rect(left_margin, y_pos - payment_box_height, right_margin - left_margin, payment_box_height, fill=True, stroke=False)
+        
         c.setStrokeColor(border_color)
         c.setLineWidth(1)
         c.rect(left_margin, y_pos - payment_box_height, right_margin - left_margin, payment_box_height, fill=False, stroke=True)
         
-        # Payment instruction
-        c.setFont("Helvetica-Bold", 12)
-        c.setFillColor(black)
-        payment_y = y_pos - 20
-        c.drawString(left_margin + 10, payment_y, "Payment Method: BACS Transfer Only")
+        # Payment instruction - more structured
+        c.setFont("Helvetica-Bold", 13)
+        c.setFillColor(primary_color)
+        payment_y = y_pos - 18
+        c.drawString(left_margin + 15, payment_y, "Payment Method: BACS Transfer Only")
         
-        # Bank details with better formatting
+        # Bank details with enhanced structured formatting
         bank_name = agent.bank_name or "Bank not provided"
         account_number = agent.bank_account_number or "Account not provided" 
         sort_code = agent.bank_sort_code or "Sort code not provided"
         utr_number = agent.utr_number or "UTR not provided"
         
+        c.setFont("Helvetica-Bold", 11)
+        c.setFillColor(black)
+        payment_y = add_spacing(payment_y, 'normal')
+        c.drawString(left_margin + 15, payment_y, "Account Name:")
         c.setFont("Helvetica", 11)
-        payment_y = add_spacing(payment_y, 'normal')
-        c.drawString(left_margin + 10, payment_y, f"Account Name: {first_name} {last_name}")
+        c.drawString(left_margin + 120, payment_y, f"{first_name} {last_name}")
         
+        c.setFont("Helvetica-Bold", 11)
         payment_y = add_spacing(payment_y, 'normal')
-        c.drawString(left_margin + 10, payment_y, f"Bank: {bank_name}")
+        c.drawString(left_margin + 15, payment_y, "Bank Name:")
+        c.setFont("Helvetica", 11)
+        c.drawString(left_margin + 120, payment_y, bank_name)
         
+        c.setFont("Helvetica-Bold", 11)
         payment_y = add_spacing(payment_y, 'normal')
-        c.drawString(left_margin + 10, payment_y, f"Account Number: {account_number}")
-        c.drawString(left_margin + 250, payment_y, f"Sort Code: {sort_code}")
+        c.drawString(left_margin + 15, payment_y, "Account Number:")
+        c.setFont("Helvetica", 11)
+        c.drawString(left_margin + 120, payment_y, account_number)
         
-        payment_y = add_spacing(payment_y, 'normal')
-        c.drawString(left_margin + 10, payment_y, f"UTR Number: {utr_number}")
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(left_margin + 300, payment_y, "Sort Code:")
+        c.setFont("Helvetica", 11)
+        c.drawString(left_margin + 370, payment_y, sort_code)
         
-        y_pos = y_pos - payment_box_height - 30
+        if utr_number and utr_number != "UTR not provided":
+            c.setFont("Helvetica-Bold", 11)
+            payment_y = add_spacing(payment_y, 'normal')
+            c.drawString(left_margin + 15, payment_y, "UTR Number:")
+            c.setFont("Helvetica", 11)
+            c.drawString(left_margin + 120, payment_y, utr_number)
+        
+        y_pos = y_pos - payment_box_height - 20  # Reduced spacing
         
         # ===== PROFESSIONAL FOOTER SECTION =====
         current_app.logger.info("PDF GENERATION: Drawing professional footer")
