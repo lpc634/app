@@ -66,7 +66,7 @@ const ReviewInvoicePage = () => {
 
     } catch (error) {
       if (error.status === 409 && error.suggestedNext) {
-        toast.error('Duplicate Agent Invoice Number', { 
+        toast.error('Duplicate Invoice Number', { 
           description: `Number ${agentInvoiceNumber} is already in use. Try ${error.suggestedNext} instead.`
         });
         setAgentInvoiceNumber(error.suggestedNext.toString());
@@ -119,16 +119,17 @@ const ReviewInvoicePage = () => {
                <p className="text-gray-800">{new Date().toLocaleDateString('en-GB')}</p>
                <p className="font-semibold text-gray-500 mt-2">Due Date:</p>
                <p className="text-gray-800">{new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB')}</p>
-               <p className="font-semibold text-gray-500 mt-2">Agent No:</p>
+               <p className="font-semibold text-gray-500 mt-2">Invoice Number:</p>
                <input 
                  type="number" 
                  value={agentInvoiceNumber}
                  onChange={(e) => setAgentInvoiceNumber(e.target.value)}
                  min="1"
                  max="999999999"
-                 className="text-gray-800 bg-gray-50 border border-gray-300 rounded px-2 py-1 text-sm w-20"
-                 placeholder={suggestedNext?.toString()}
+                 placeholder="e.g. 300"
+                 className="text-gray-800 bg-gray-50 border border-gray-300 rounded px-3 py-2 text-sm w-28"
                />
+               <p className="text-xs text-gray-500 mt-1">Your own invoice number. We'll remember it and suggest the next one.</p>
             </div>
           </div>
           <table className="w-full text-left">

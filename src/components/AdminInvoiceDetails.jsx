@@ -105,7 +105,7 @@ const AdminInvoiceDetails = ({ invoice, agent, isOpen, onClose, onMarkAsPaid, on
               <h2 className="text-2xl font-bold text-gray-900">Invoice Details</h2>
               <p className="text-gray-600">{invoice.invoice_number}</p>
               <p className="text-sm text-gray-500">
-                Agent No: {invoice.agent_invoice_number ? `#${invoice.agent_invoice_number}` : 'Not set'}
+                Invoice Number: {invoice.agent_invoice_number ? `#${invoice.agent_invoice_number}` : 'Not set'}
               </p>
             </div>
           </div>
@@ -149,7 +149,7 @@ const AdminInvoiceDetails = ({ invoice, agent, isOpen, onClose, onMarkAsPaid, on
                     <label className="text-sm font-medium text-gray-600">Invoice Number</label>
                     <p className="font-mono text-lg font-semibold">{invoice.invoice_number}</p>
                     <div className="mt-1">
-                      <label className="text-sm font-medium text-gray-600">Agent No</label>
+                      <label className="text-sm font-medium text-gray-600">Invoice Number</label>
                       <p className="text-sm text-gray-800">
                         {invoice.agent_invoice_number ? `#${invoice.agent_invoice_number}` : 'Not set'}
                       </p>

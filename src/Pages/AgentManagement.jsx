@@ -715,7 +715,7 @@ export default function AgentManagement() {
                                     </Badge>
                                   </div>
                                   <div className="text-sm mb-2" style={{ color: 'var(--v3-text-muted)' }}>
-                                    Agent No: {invoice.agent_invoice_number ? `#${invoice.agent_invoice_number}` : 'Not set'}
+                                    Invoice Number: {invoice.agent_invoice_number ? `#${invoice.agent_invoice_number}` : 'Not set'}
                                   </div>
                                   
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">

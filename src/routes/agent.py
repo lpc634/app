@@ -614,7 +614,8 @@ def create_invoice():
 
         data = request.get_json()
         job_items = data.get('items')
-        agent_invoice_number = data.get('agent_invoice_number')  # Optional agent invoice number
+        # Accept both agent_invoice_number and invoice_number (alias)
+        agent_invoice_number = data.get('agent_invoice_number') or data.get('invoice_number')
 
         if not job_items:
             return jsonify({'error': 'No items provided for invoicing.'}), 400
@@ -642,11 +643,11 @@ def create_invoice():
             try:
                 agent_invoice_number = int(agent_invoice_number)
                 if agent_invoice_number <= 0:
-                    return jsonify({'error': 'Agent invoice number must be greater than 0'}), 400
+                    return jsonify({'error': 'Invoice number must be greater than 0'}), 400
                 if agent_invoice_number > 999999999:  # Max 9 digits
-                    return jsonify({'error': 'Agent invoice number cannot exceed 9 digits'}), 400
+                    return jsonify({'error': 'Invoice number cannot exceed 9 digits'}), 400
             except (ValueError, TypeError):
-                return jsonify({'error': 'Agent invoice number must be a valid integer'}), 400
+                return jsonify({'error': 'Invoice number must be a valid integer'}), 400
             
             # Check for uniqueness (per agent) - only if field exists
             existing = None
@@ -654,7 +655,7 @@ def create_invoice():
                 existing = Invoice.query.filter_by(agent_id=current_user_id, agent_invoice_number=agent_invoice_number).first()
             if existing:
                 return jsonify({
-                    'message': 'Duplicate agent invoice number',
+                    'message': 'Duplicate invoice number',
                     'suggestedNext': getattr(agent, 'agent_invoice_next', None) or 1
                 }), 409
             
@@ -1255,21 +1256,20 @@ def update_invoice_agent_number(invoice_id):
             return jsonify({'error': 'Invoice not found'}), 404
         
         data = request.get_json()
-        if not data or 'agent_invoice_number' not in data:
-            return jsonify({'error': 'Agent invoice number is required'}), 400
-        
-        new_agent_number = data['agent_invoice_number']
-        update_next = data.get('update_next', 'auto')
+        # Accept both agent_invoice_number and invoice_number (alias)
+        new_agent_number = data.get('agent_invoice_number') or data.get('invoice_number')
+        if not new_agent_number:
+            return jsonify({'error': 'Invoice number is required'}), 400
         
         # Validate integer > 0
         try:
             new_agent_number = int(new_agent_number)
             if new_agent_number <= 0:
-                return jsonify({'error': 'Agent invoice number must be greater than 0'}), 400
+                return jsonify({'error': 'Invoice number must be greater than 0'}), 400
             if new_agent_number > 999999999:  # Max 9 digits
-                return jsonify({'error': 'Agent invoice number cannot exceed 9 digits'}), 400
+                return jsonify({'error': 'Invoice number cannot exceed 9 digits'}), 400
         except (ValueError, TypeError):
-            return jsonify({'error': 'Agent invoice number must be a valid integer'}), 400
+            return jsonify({'error': 'Invoice number must be a valid integer'}), 400
         
         # Check for uniqueness (per agent) - only if field exists
         existing = None
@@ -1282,7 +1282,7 @@ def update_invoice_agent_number(invoice_id):
         
         if existing:
             return jsonify({
-                'message': 'Duplicate agent invoice number',
+                'message': 'Duplicate invoice number',
                 'suggestedNext': getattr(agent, 'agent_invoice_next', None) or 1
             }), 409
         
@@ -1292,14 +1292,10 @@ def update_invoice_agent_number(invoice_id):
         else:
             current_app.logger.warning("agent_invoice_number field not found on invoice - database migration needed")
         
-        # Handle update_next option
+        # Always update agent's next number automatically
         if hasattr(agent, 'agent_invoice_next'):
-            if update_next == 'force':
-                agent.agent_invoice_next = new_agent_number + 1
-            elif update_next == 'auto':
-                current_next = getattr(agent, 'agent_invoice_next', None) or 1
-                agent.agent_invoice_next = max(current_next, new_agent_number + 1)
-            # 'nochange' - don't update agent_invoice_next
+            current_next = getattr(agent, 'agent_invoice_next', None) or 1
+            agent.agent_invoice_next = max(current_next, new_agent_number + 1)
         
         db.session.commit()
         

@@ -236,16 +236,21 @@ def _create_invoice_meta(invoice_number, invoice_date, agent_invoice_number=None
     formatted_date = fmt_date(invoice_date)
     
     meta_data = [
-        [Paragraph("<b>Invoice Number:</b>", styles['small_caps']), Paragraph(invoice_number, styles['body'])],
         [Paragraph("<b>Invoice Date:</b>", styles['small_caps']), Paragraph(formatted_date, styles['body'])]
     ]
     
-    # Add Agent No if provided
+    # Add Invoice Number if provided (agent's own invoice number)
     if agent_invoice_number is not None:
-        meta_data.append([
-            Paragraph("<b>Agent No:</b>", styles['small_caps']), 
+        meta_data.insert(0, [
+            Paragraph("<b>Invoice Number:</b>", styles['small_caps']), 
             Paragraph(str(agent_invoice_number), styles['body'])
         ])
+    
+    # Add internal reference as a smaller secondary line
+    meta_data.append([
+        Paragraph("<b>Reference:</b>", styles['small_caps']), 
+        Paragraph(invoice_number, styles['body'])
+    ])
     
     meta_table = Table(meta_data, colWidths=[100, 100])
     meta_table.setStyle(TableStyle([
