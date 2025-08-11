@@ -327,7 +327,7 @@ const UpdateInvoicePage = () => {
                   <div className="flex justify-end gap-2 mt-6">
                     <Button
                       variant="outline"
-                      onClick={() => setShowInvoiceNoDialog(false))
+                      onClick={() => setShowInvoiceNoDialog(false)}
                       disabled={updatingInvoiceNo}
                       className="text-v3-text-muted border-v3-border hover:bg-v3-bg-dark"
                     >
