@@ -353,15 +353,21 @@ def _create_services_section(jobs, invoice=None):
         # Use first job for table data (assuming single job per invoice for now)
         first_job = jobs[0]
         
-        # Extract actual job date (when the work was performed)
+        # Extract actual job date - normalized jobs have 'date' at top level
         job_date = fmt_date(first_job.get('date') or first_job.get('arrival_time'))
         
-        # If no job date available, fall back to invoice date as last resort
+        # If no date in normalized data, fall back to invoice date
         if not job_date and invoice and hasattr(invoice, 'issue_date'):
             job_date = fmt_date(invoice.issue_date)
             current_app.logger.warning(f"PDF: No job date found, using invoice date as fallback: {job_date}")
         else:
             current_app.logger.info(f"PDF: Using job date: {job_date}")
+        
+        # For address, use normalized job data first, then fallback to snapshotted data
+        normalized_address = first_job.get('address', '')
+        if normalized_address:
+            job_address = normalized_address
+            current_app.logger.info(f"PDF: Using normalized job address: '{job_address}'")
         
         # Extract job details
         job_hours = fmt_hours(first_job.get('hours', 0))
