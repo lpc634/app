@@ -481,12 +481,12 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         table_right = right_margin
         table_width = table_right - table_left
         
-        # Column definitions (proportional widths) - wider description for full addresses
+        # Column definitions (proportional widths) - fixed spacing to prevent blur
         col_widths = {
-            'date': 100,
-            'description': 260,  # Increased from 200 to 260
-            'hours': 70,
-            'rate': 70,
+            'date': 90,
+            'description': 250,  # Address column
+            'hours': 60,
+            'rate': 80,         # Increased rate column width
             'amount': 100
         }
         
@@ -509,7 +509,7 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         header_text_y = y_pos - 22
         
         c.drawString(col_positions['date'] + 8, header_text_y, "Date")
-        c.drawString(col_positions['description'] + 8, header_text_y, "Description")
+        c.drawString(col_positions['description'] + 8, header_text_y, "Address")
         c.drawString(col_positions['hours'] + 8, header_text_y, "Hours")
         c.drawString(col_positions['rate'] + 8, header_text_y, "Rate")
         c.drawRightString(col_positions['amount'] + col_widths['amount'] - 8, header_text_y, "Amount")
@@ -557,25 +557,17 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
                 else:
                     job_datetime = "Date not set"
                 
-                # Job description - only show location since job type is shown above table
-                job_address = job.address or "Address not provided"
-                job_title = job.title or ""
-                # Combine title and address for full context
-                if job_title:
-                    job_description = f"{job_title}\n{job_address}"
-                else:
-                    job_description = job_address
+                # Job description - only show address/location (no job title)
+                job_description = job.address or "Address not provided"
                 
                 # Draw table row data with improved padding
                 text_y = y_pos - 18
                 c.drawString(col_positions['date'] + 8, text_y, job_datetime)
                 
-                # Handle multi-line description with better text wrapping - no truncation for addresses
-                desc_lines = job_description.split('\n')
-                for idx, line in enumerate(desc_lines[:2]):  # Limit to 2 lines
-                    if len(line) > 40:  # Increased character limit for wider column
-                        line = line[:40] + "..."
-                    c.drawString(col_positions['description'] + 8, text_y - (idx * 10), line)
+                # Display address (single line) with proper wrapping
+                if len(job_description) > 45:  # Truncate if too long for column
+                    job_description = job_description[:45] + "..."
+                c.drawString(col_positions['description'] + 8, text_y, job_description)
                 
                 c.drawString(col_positions['hours'] + 8, text_y, hours_str)
                 c.drawString(col_positions['rate'] + 8, text_y, rate_str)
@@ -652,8 +644,8 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         c.drawString(left_margin, y_pos, "PAYMENT DETAILS:")
         y_pos = add_spacing(y_pos, 'section')
         
-        # Enhanced payment information box with background - increased height for tax statement
-        payment_box_height = 150
+        # Enhanced payment information box with background
+        payment_box_height = 110
         c.setFillColor(light_gray)
         c.rect(left_margin, y_pos - payment_box_height, right_margin - left_margin, payment_box_height, fill=True, stroke=False)
         
@@ -698,20 +690,12 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         c.drawString(left_margin + 370, payment_y, sort_code)
         
         # Always show UTR number
-        c.setFont("Helvetica-Bold", 11)
-        payment_y = add_spacing(payment_y, 'normal')
-        c.drawString(left_margin + 15, payment_y, "UTR Number:")
-        c.setFont("Helvetica", 11)
-        c.drawString(left_margin + 120, payment_y, utr_number)
-        
-        # Add tax responsibility statement at bottom of payment section
-        payment_y = add_spacing(payment_y, 'section')
-        c.setFont("Helvetica", 10)
-        c.setFillColor(primary_color)
-        tax_statement = "I confirm that I am responsible for any Tax or National Insurance due on all"
-        c.drawString(left_margin + 15, payment_y, tax_statement)
-        payment_y = add_spacing(payment_y, 'small')
-        c.drawString(left_margin + 15, payment_y, "invoices that I have submitted to V3 Services Ltd.")
+        if utr_number and utr_number != "UTR not provided":
+            c.setFont("Helvetica-Bold", 11)
+            payment_y = add_spacing(payment_y, 'normal')
+            c.drawString(left_margin + 15, payment_y, "UTR Number:")
+            c.setFont("Helvetica", 11)
+            c.drawString(left_margin + 120, payment_y, utr_number)
         
         y_pos = y_pos - payment_box_height - 20  # Reduced spacing
         
@@ -731,7 +715,6 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         terms = [
             "• Payment to be made within 14 days of invoice issue date",
             "• All invoice queries must be raised within 7 days of issue",
-            "• The contractor is responsible for any Tax or National Insurance due on all invoices",
             "• Late payment charges may apply as per the Late Payment of Commercial Debts Act"
         ]
         
@@ -756,6 +739,18 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         # Thank you message
         c.setFont("Helvetica-Bold", 10)
         c.drawRightString(right_margin, footer_y + 8, "Thank you for your business!")
+        
+        # ===== TAX RESPONSIBILITY STATEMENT AT BOTTOM =====
+        current_app.logger.info("PDF GENERATION: Drawing tax responsibility statement at bottom")
+        
+        # Tax statement at very bottom with emphasis
+        tax_y = footer_y - 35
+        c.setFont("Helvetica", 10)
+        c.setFillColor(primary_color)
+        tax_statement = "I confirm that I am responsible for any Tax or National Insurance due on all invoices"
+        c.drawString(left_margin, tax_y, tax_statement)
+        tax_y = add_spacing(tax_y, 'small')
+        c.drawString(left_margin, tax_y, "that I have submitted to V3 Services Ltd.")
         
         current_app.logger.info("PDF GENERATION: Saving PDF")
         c.save()
