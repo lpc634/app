@@ -295,7 +295,7 @@ def delete_agent_document(document_type):
 
 # --- PDF AND EMAIL HELPER FUNCTIONS ---
 
-def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_to_s3=True):
+def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=None):
     """Generates a professional PDF invoice using Platypus layout and uploads to S3."""
     import traceback
     from datetime import date
@@ -338,7 +338,7 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         
         # Use the new Platypus-based builder
         current_app.logger.info("PDF GENERATION: Using Platypus layout builder")
-        build_invoice_pdf(file_path, agent, normalized_jobs, totals, invoice_number, invoice_date)
+        build_invoice_pdf(file_path, agent, normalized_jobs, totals, invoice_number, invoice_date, agent_invoice_number)
         
         current_app.logger.info(f"PDF GENERATION SUCCESS: V3 Services invoice PDF saved to {file_path}")
         
@@ -614,6 +614,7 @@ def create_invoice():
 
         data = request.get_json()
         job_items = data.get('items')
+        agent_invoice_number = data.get('agent_invoice_number')  # Optional agent invoice number
 
         if not job_items:
             return jsonify({'error': 'No items provided for invoicing.'}), 400
@@ -633,6 +634,33 @@ def create_invoice():
             total_amount += hours * Decimal(job.hourly_rate)
             jobs_to_invoice.append({'job': job, 'hours': hours})
 
+        # --- Agent Invoice Number Handling ---
+        final_agent_invoice_number = None
+        
+        if agent_invoice_number is not None:
+            # Validate the provided agent invoice number
+            try:
+                agent_invoice_number = int(agent_invoice_number)
+                if agent_invoice_number <= 0:
+                    return jsonify({'error': 'Agent invoice number must be greater than 0'}), 400
+                if agent_invoice_number > 999999999:  # Max 9 digits
+                    return jsonify({'error': 'Agent invoice number cannot exceed 9 digits'}), 400
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Agent invoice number must be a valid integer'}), 400
+            
+            # Check for uniqueness (per agent)
+            existing = Invoice.query.filter_by(agent_id=current_user_id, agent_invoice_number=agent_invoice_number).first()
+            if existing:
+                return jsonify({
+                    'message': 'Duplicate agent invoice number',
+                    'suggestedNext': agent.agent_invoice_next or 1
+                }), 409
+            
+            final_agent_invoice_number = agent_invoice_number
+        else:
+            # Use the agent's next number
+            final_agent_invoice_number = agent.agent_invoice_next or 1
+
         # --- Database Transaction ---
         
         # 1. Create the new invoice record
@@ -644,6 +672,7 @@ def create_invoice():
         new_invoice = Invoice(
             agent_id=current_user_id,
             invoice_number=invoice_number,
+            agent_invoice_number=final_agent_invoice_number,
             issue_date=issue_date,
             due_date=issue_date + timedelta(days=30),
             total_amount=total_amount,
@@ -651,6 +680,9 @@ def create_invoice():
         )
         db.session.add(new_invoice)
         db.session.flush()
+
+        # Update agent's next invoice number
+        agent.agent_invoice_next = max(agent.agent_invoice_next or 1, final_agent_invoice_number + 1)
 
         # 2. Link the jobs to the new invoice
         for item in jobs_to_invoice:
@@ -662,7 +694,7 @@ def create_invoice():
             db.session.add(invoice_job_link)
             
         # --- PDF and Emailing ---
-        pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True)
+        pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
         
         # Handle different return formats (with or without S3 upload)
         if isinstance(pdf_result, tuple):
@@ -760,7 +792,7 @@ def update_invoice(invoice_id):
             }]
             
             # Generate PDF and upload to S3
-            pdf_result = generate_invoice_pdf(user, jobs_data, float(total_amount), invoice.invoice_number, upload_to_s3=True)
+            pdf_result = generate_invoice_pdf(user, jobs_data, float(total_amount), invoice.invoice_number, upload_to_s3=True, agent_invoice_number=invoice.agent_invoice_number)
             
             # Handle different return formats
             if isinstance(pdf_result, tuple):
@@ -991,7 +1023,8 @@ def download_agent_invoice(invoice_id):
                 jobs_data, 
                 total_amount_float, 
                 invoice.invoice_number, 
-                upload_to_s3=True
+                upload_to_s3=True,
+                agent_invoice_number=invoice.agent_invoice_number
             )
             current_app.logger.info(f"STEP 8 SUCCESS: PDF generation completed, result type: {type(pdf_result)}")
             
@@ -1128,3 +1161,134 @@ def diagnose_s3_invoice(invoice_id):
     except Exception as e:
         current_app.logger.error(f"S3 diagnosis failed for invoice {invoice_id}: {str(e)}")
         return jsonify({'error': 'Diagnosis failed', 'details': str(e)}), 500
+
+# --- AGENT INVOICE NUMBERING ENDPOINTS ---
+
+@agent_bp.route('/agent/next-invoice-number', methods=['GET'])
+@jwt_required()
+def get_next_invoice_number():
+    """Get the suggested next invoice number for the current agent."""
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        return jsonify({
+            'next': agent.agent_invoice_next or 1
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching next invoice number: {str(e)}")
+        return jsonify({'error': 'Failed to fetch next invoice number'}), 500
+
+@agent_bp.route('/agent/numbering', methods=['PATCH'])
+@jwt_required()
+def update_agent_numbering():
+    """Update the agent's default next invoice number."""
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        if not data or 'next' not in data:
+            return jsonify({'error': 'Next number is required'}), 400
+        
+        next_number = data['next']
+        
+        # Validate integer > 0
+        try:
+            next_number = int(next_number)
+            if next_number <= 0:
+                return jsonify({'error': 'Next number must be greater than 0'}), 400
+            if next_number > 999999999:  # Max 9 digits
+                return jsonify({'error': 'Next number cannot exceed 9 digits'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Next number must be a valid integer'}), 400
+        
+        # Update agent's next number
+        agent.agent_invoice_next = next_number
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Next invoice number updated successfully',
+            'next': next_number
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating agent numbering: {str(e)}")
+        return jsonify({'error': 'Failed to update numbering'}), 500
+
+@agent_bp.route('/agent/invoices/<int:invoice_id>/agent-number', methods=['PATCH'])
+@jwt_required()
+def update_invoice_agent_number(invoice_id):
+    """Update the agent invoice number for an existing invoice."""
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Find the invoice
+        invoice = Invoice.query.filter_by(id=invoice_id, agent_id=agent.id).first()
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+        
+        data = request.get_json()
+        if not data or 'agent_invoice_number' not in data:
+            return jsonify({'error': 'Agent invoice number is required'}), 400
+        
+        new_agent_number = data['agent_invoice_number']
+        update_next = data.get('update_next', 'auto')
+        
+        # Validate integer > 0
+        try:
+            new_agent_number = int(new_agent_number)
+            if new_agent_number <= 0:
+                return jsonify({'error': 'Agent invoice number must be greater than 0'}), 400
+            if new_agent_number > 999999999:  # Max 9 digits
+                return jsonify({'error': 'Agent invoice number cannot exceed 9 digits'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Agent invoice number must be a valid integer'}), 400
+        
+        # Check for uniqueness (per agent)
+        existing = Invoice.query.filter(
+            Invoice.agent_id == agent.id,
+            Invoice.agent_invoice_number == new_agent_number,
+            Invoice.id != invoice_id
+        ).first()
+        
+        if existing:
+            return jsonify({
+                'message': 'Duplicate agent invoice number',
+                'suggestedNext': agent.agent_invoice_next
+            }), 409
+        
+        # Update the invoice
+        invoice.agent_invoice_number = new_agent_number
+        
+        # Handle update_next option
+        if update_next == 'force':
+            agent.agent_invoice_next = new_agent_number + 1
+        elif update_next == 'auto':
+            agent.agent_invoice_next = max(agent.agent_invoice_next or 1, new_agent_number + 1)
+        # 'nochange' - don't update agent_invoice_next
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Agent invoice number updated successfully',
+            'invoice': invoice.to_dict(),
+            'agent_invoice_next': agent.agent_invoice_next
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating agent invoice number: {str(e)}")
+        return jsonify({'error': 'Failed to update agent invoice number'}), 500

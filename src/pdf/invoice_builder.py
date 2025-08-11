@@ -28,7 +28,7 @@ BLACK = colors.black
 WHITE = colors.white
 
 
-def build_invoice_pdf(file_path, agent, jobs, totals, invoice_number, invoice_date):
+def build_invoice_pdf(file_path, agent, jobs, totals, invoice_number, invoice_date, agent_invoice_number=None):
     """
     Build a professional invoice PDF using ReportLab Platypus.
     
@@ -76,7 +76,7 @@ def build_invoice_pdf(file_path, agent, jobs, totals, invoice_number, invoice_da
     story.append(Spacer(1, 16))
     
     # Invoice meta (number and date)
-    story.append(_create_invoice_meta(invoice_number, invoice_date))
+    story.append(_create_invoice_meta(invoice_number, invoice_date, agent_invoice_number))
     story.append(Spacer(1, 20))
     
     # Bill To section
@@ -229,7 +229,7 @@ def _create_header(agent):
     return header_table
 
 
-def _create_invoice_meta(invoice_number, invoice_date):
+def _create_invoice_meta(invoice_number, invoice_date, agent_invoice_number=None):
     """Create right-aligned meta box with invoice number and date."""
     styles = _create_styles()
     
@@ -239,6 +239,13 @@ def _create_invoice_meta(invoice_number, invoice_date):
         [Paragraph("<b>Invoice Number:</b>", styles['small_caps']), Paragraph(invoice_number, styles['body'])],
         [Paragraph("<b>Invoice Date:</b>", styles['small_caps']), Paragraph(formatted_date, styles['body'])]
     ]
+    
+    # Add Agent No if provided
+    if agent_invoice_number is not None:
+        meta_data.append([
+            Paragraph("<b>Agent No:</b>", styles['small_caps']), 
+            Paragraph(str(agent_invoice_number), styles['body'])
+        ])
     
     meta_table = Table(meta_data, colWidths=[100, 100])
     meta_table.setStyle(TableStyle([

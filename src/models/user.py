@@ -27,6 +27,9 @@ class User(db.Model):
     sia_document_url = db.Column(db.String(255), nullable=True)
     verification_status = db.Column(db.String(20), nullable=False, default='pending')
     
+    # Agent invoice numbering
+    agent_invoice_next = db.Column(db.Integer, nullable=False, default=1)
+    
     
     assignments = db.relationship('JobAssignment', back_populates='agent', lazy=True)
     availability = db.relationship('AgentAvailability', back_populates='agent', lazy=True, cascade="all, delete-orphan")
@@ -70,7 +73,7 @@ class User(db.Model):
 class Job(db.Model):
     __tablename__ = 'jobs'
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
+    title = db.Column(db.String(100), nullable=True)
     job_type = db.Column(db.String(50), nullable=False)
     address = db.Column(db.String(200), nullable=False)
     postcode = db.Column(db.String(10))
@@ -244,10 +247,17 @@ class Invoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     agent_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     invoice_number = db.Column(db.String(50), unique=True, nullable=False)
+    agent_invoice_number = db.Column(db.Integer, nullable=True)
     issue_date = db.Column(db.Date, nullable=False)
     due_date = db.Column(db.Date, nullable=False)
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
     status = db.Column(db.String(20), default='draft')
+    
+    # Add unique constraint for agent_id + agent_invoice_number
+    __table_args__ = (
+        db.Index('ix_agent_invoice_unique', 'agent_id', 'agent_invoice_number', 
+                 unique=True, postgresql_where=db.text('agent_invoice_number IS NOT NULL')),
+    )
     
     agent = db.relationship('User', back_populates='invoices', foreign_keys=[agent_id])
     jobs = db.relationship('InvoiceJob', back_populates='invoice', cascade="all, delete-orphan")
@@ -257,6 +267,7 @@ class Invoice(db.Model):
             'id': self.id,
             'agent_id': self.agent_id,
             'invoice_number': self.invoice_number,
+            'agent_invoice_number': self.agent_invoice_number,
             'issue_date': self.issue_date.isoformat() if self.issue_date else None,
             'due_date': self.due_date.isoformat() if self.due_date else None,
             'total_amount': float(self.total_amount) if self.total_amount else 0.0,

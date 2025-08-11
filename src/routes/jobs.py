@@ -609,9 +609,14 @@ def create_job():
         print(f"[DEBUG] Job data received: {data.get('title', 'NO_TITLE')}")
         logger.error(f"[DEBUG] Job data received: {data.get('title', 'NO_TITLE')}")
 
+        # Handle title - use address if title is missing or empty
+        title = data.get('title', '').strip()
+        if not title:
+            title = data['address']
+
         # Create the job first
         new_job = Job(
-            title=data['title'],
+            title=title,
             job_type=data['job_type'],
             address=data['address'],
             postcode=data.get('postcode'),
