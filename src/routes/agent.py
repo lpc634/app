@@ -295,56 +295,108 @@ def delete_agent_document(document_type):
 
 # --- PDF AND EMAIL HELPER FUNCTIONS ---
 
-def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=None, invoice=None):
-    """Generates a professional PDF invoice using Platypus layout and uploads to S3."""
+def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=None):
+    """
+    Generates a professional PDF invoice using Platypus layout and uploads to S3.
+
+    Hardened to accept both shapes of jobs_data:
+      1) [{'job': <Job>, 'hours': number, 'rate'?: number}, ...]
+      2) [{'address': str,
+           'arrival_time'|'date': date|str,
+           'hours_worked'|'hours': number,
+           'hourly_rate'|'rate': number,
+           'amount'?: number}, ...]
+    """
     import traceback
     from datetime import date
+    from decimal import Decimal
     from src.pdf.invoice_builder import build_invoice_pdf
-    
+
     try:
         current_app.logger.info(f"PDF GENERATION START: Creating professional V3 Services invoice PDF for {invoice_number}")
         current_app.logger.info(f"PDF GENERATION: Agent ID {agent.id}, jobs count: {len(jobs_data)}, total: {total_amount}")
-        
+
         # Create invoice directory
         invoice_folder = os.path.join('/tmp', 'invoices')
         os.makedirs(invoice_folder, exist_ok=True)
         file_path = os.path.join(invoice_folder, f"{invoice_number}.pdf")
-        
+
         current_app.logger.info(f"PDF GENERATION: Creating professional PDF at path: {file_path}")
-        
-        # Prepare normalized job data for the table
+
+        # Normalize job data into a consistent list for the PDF builder
         normalized_jobs = []
-        for job_item in jobs_data:
-            job = job_item.get('job')
-            if job:
-                normalized_job = {
-                    'date': job.arrival_time,
-                    'address': job.address,
-                    'hours': job_item.get('hours', 0),
-                    'rate': job_item.get('rate', job.hourly_rate if hasattr(job, 'hourly_rate') else 0),
-                    'amount': float(job_item.get('hours', 0)) * float(job_item.get('rate', job.hourly_rate if hasattr(job, 'hourly_rate') else 0))
-                }
-                normalized_jobs.append(normalized_job)
-        
-        # Prepare totals dictionary
+        for item in (jobs_data or []):
+            job_obj = item.get('job') if isinstance(item, dict) else None
+
+            # hours
+            hours = item.get('hours', item.get('hours_worked', 0))
+            try:
+                hours = float(hours)
+            except Exception:
+                try:
+                    hours = float(Decimal(str(hours)))
+                except Exception:
+                    hours = 0.0
+
+            # rate
+            rate = item.get('rate', item.get('hourly_rate', None))
+            if rate is None and job_obj is not None:
+                rate = getattr(job_obj, 'hourly_rate', 0)
+            try:
+                rate = float(rate)
+            except Exception:
+                try:
+                    rate = float(Decimal(str(rate)))
+                except Exception:
+                    rate = 0.0
+
+            # amount
+            amount = item.get('amount', None)
+            if amount is None:
+                amount = hours * rate
+            try:
+                amount = float(amount)
+            except Exception:
+                amount = 0.0
+
+            if job_obj is not None:
+                # Shape 1: Job object present
+                normalized_jobs.append({
+                    'date': getattr(job_obj, 'arrival_time', None),
+                    'address': getattr(job_obj, 'address', None),
+                    'hours': hours,
+                    'rate': rate,
+                    'amount': amount,
+                })
+            else:
+                # Shape 2: already-flat dict
+                date_val = item.get('date', item.get('arrival_time'))
+                address_val = item.get('address')
+                normalized_jobs.append({
+                    'date': date_val,
+                    'address': address_val,
+                    'hours': hours,
+                    'rate': rate,
+                    'amount': amount,
+                })
+
+        # Totals
         totals = {
             'subtotal': total_amount,
-            'vat': 0,  # Always 0% for contractor services
-            'total': total_amount
+            'vat': 0,
+            'total': total_amount,
         }
-        
+
         # Invoice date (today) in UK format
         invoice_date = date.today()
-        
-        # Use the new Platypus-based builder
+
+        # Build PDF
         current_app.logger.info("PDF GENERATION: Using Platypus layout builder")
-        current_app.logger.error(f"PDF DEBUG: Passing normalized_jobs: {normalized_jobs}")
-        current_app.logger.error(f"PDF DEBUG: Passing invoice object: {invoice}")
-        build_invoice_pdf(file_path, agent, normalized_jobs, totals, invoice_number, invoice_date, agent_invoice_number, invoice)
-        
+        build_invoice_pdf(file_path, agent, normalized_jobs, totals, invoice_number, invoice_date, agent_invoice_number, None)
+
         current_app.logger.info(f"PDF GENERATION SUCCESS: V3 Services invoice PDF saved to {file_path}")
-        
-        # Always upload to S3 for in-app access
+
+        # Always upload to S3 for in-app access (preserves your original behaviour)
         if upload_to_s3:
             current_app.logger.info("PDF GENERATION: Starting S3 upload")
             try:
@@ -370,14 +422,14 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
                 current_app.logger.error(f"PDF GENERATION: S3 upload error - {str(s3_error)}")
                 current_app.logger.error(f"PDF GENERATION: S3 upload traceback: {traceback.format_exc()}")
                 return file_path
-        
-        current_app.logger.info(f"PDF GENERATION SUCCESS: Returning local path - {file_path}")
+
         return file_path
-        
+
     except Exception as e:
-        current_app.logger.error(f"PDF GENERATION FAILED: {str(e)}")
-        current_app.logger.error(f"PDF GENERATION FAILED: Traceback: {traceback.format_exc()}")
-        raise e
+        current_app.logger.error(f"PDF GENERATION ERROR: {e}")
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({"error": "Failed to generate invoice PDF"}), 500
+
 
 def send_invoice_email(recipient_email, agent_name, pdf_path, invoice_number, cc_email=None):
     """Sends the invoice PDF via email."""
@@ -645,11 +697,11 @@ def create_invoice():
             try:
                 agent_invoice_number = int(agent_invoice_number)
                 if agent_invoice_number <= 0:
-                    return jsonify({'error': 'Invoice number must be greater than 0'}), 400
+                    return jsonify({'error': 'Agent invoice number must be greater than 0'}), 400
                 if agent_invoice_number > 999999999:  # Max 9 digits
-                    return jsonify({'error': 'Invoice number cannot exceed 9 digits'}), 400
+                    return jsonify({'error': 'Agent invoice number cannot exceed 9 digits'}), 400
             except (ValueError, TypeError):
-                return jsonify({'error': 'Invoice number must be a valid integer'}), 400
+                return jsonify({'error': 'Agent invoice number must be a valid integer'}), 400
             
             # Check for uniqueness (per agent) - only if field exists
             existing = None
@@ -657,7 +709,7 @@ def create_invoice():
                 existing = Invoice.query.filter_by(agent_id=current_user_id, agent_invoice_number=agent_invoice_number).first()
             if existing:
                 return jsonify({
-                    'message': 'Duplicate invoice number',
+                    'message': 'Duplicate agent invoice number',
                     'suggestedNext': getattr(agent, 'agent_invoice_next', None) or 1
                 }), 409
             
@@ -674,9 +726,6 @@ def create_invoice():
         new_invoice_id = (last_invoice.id + 1) if last_invoice else 1
         invoice_number = f"V3-{issue_date.year}-{new_invoice_id:04d}"
 
-        # Snapshot job details for PDF generation (use first job as primary source)
-        first_job = jobs_to_invoice[0]['job'] if jobs_to_invoice else None
-        
         # Create invoice - only set agent_invoice_number if field exists
         invoice_kwargs = {
             'agent_id': current_user_id,
@@ -686,11 +735,6 @@ def create_invoice():
             'total_amount': total_amount,
             'status': 'submitted'
         }
-        
-        # Add job details for PDF generation if first job exists
-        if first_job:
-            invoice_kwargs['job_type'] = first_job.job_type
-            invoice_kwargs['address'] = first_job.address
         
         # Only add agent_invoice_number if the field exists in the model
         if hasattr(Invoice, 'agent_invoice_number'):
@@ -715,7 +759,7 @@ def create_invoice():
             db.session.add(invoice_job_link)
             
         # --- PDF and Emailing ---
-        pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number, invoice=new_invoice)
+        pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
         
         # Handle different return formats (with or without S3 upload)
         if isinstance(pdf_result, tuple):
@@ -796,15 +840,6 @@ def update_invoice(invoice_id):
         invoice.status = 'sent'
         invoice.issue_date = date.today()
         
-        # Snapshot job details if not already set
-        if not invoice.job_type or not invoice.address:
-            job = invoice_job.job
-            if job:
-                if not invoice.job_type:
-                    invoice.job_type = job.job_type
-                if not invoice.address:
-                    invoice.address = job.address
-        
         db.session.commit()
         
         # Generate PDF and send email
@@ -813,6 +848,7 @@ def update_invoice(invoice_id):
             job = invoice_job.job
             jobs_data = [{
                 'job_id': job.id,
+                'title': job.title,
                 'address': job.address,
                 'arrival_time': job.arrival_time,
                 'hours_worked': float(hours_worked),
@@ -821,7 +857,7 @@ def update_invoice(invoice_id):
             }]
             
             # Generate PDF and upload to S3
-            pdf_result = generate_invoice_pdf(user, jobs_data, float(total_amount), invoice.invoice_number, upload_to_s3=True, agent_invoice_number=invoice.agent_invoice_number, invoice=invoice)
+            pdf_result = generate_invoice_pdf(user, jobs_data, float(total_amount), invoice.invoice_number, upload_to_s3=True, agent_invoice_number=invoice.agent_invoice_number)
             
             # Handle different return formats
             if isinstance(pdf_result, tuple):
@@ -1053,8 +1089,7 @@ def download_agent_invoice(invoice_id):
                 total_amount_float, 
                 invoice.invoice_number, 
                 upload_to_s3=True,
-                agent_invoice_number=invoice.agent_invoice_number,
-                invoice=invoice
+                agent_invoice_number=invoice.agent_invoice_number
             )
             current_app.logger.info(f"STEP 8 SUCCESS: PDF generation completed, result type: {type(pdf_result)}")
             
@@ -1275,20 +1310,21 @@ def update_invoice_agent_number(invoice_id):
             return jsonify({'error': 'Invoice not found'}), 404
         
         data = request.get_json()
-        # Accept both agent_invoice_number and invoice_number (alias)
-        new_agent_number = data.get('agent_invoice_number') or data.get('invoice_number')
-        if not new_agent_number:
-            return jsonify({'error': 'Invoice number is required'}), 400
+        if not data or 'agent_invoice_number' not in data:
+            return jsonify({'error': 'Agent invoice number is required'}), 400
+        
+        new_agent_number = data['agent_invoice_number']
+        update_next = data.get('update_next', 'auto')
         
         # Validate integer > 0
         try:
             new_agent_number = int(new_agent_number)
             if new_agent_number <= 0:
-                return jsonify({'error': 'Invoice number must be greater than 0'}), 400
+                return jsonify({'error': 'Agent invoice number must be greater than 0'}), 400
             if new_agent_number > 999999999:  # Max 9 digits
-                return jsonify({'error': 'Invoice number cannot exceed 9 digits'}), 400
+                return jsonify({'error': 'Agent invoice number cannot exceed 9 digits'}), 400
         except (ValueError, TypeError):
-            return jsonify({'error': 'Invoice number must be a valid integer'}), 400
+            return jsonify({'error': 'Agent invoice number must be a valid integer'}), 400
         
         # Check for uniqueness (per agent) - only if field exists
         existing = None
@@ -1301,7 +1337,7 @@ def update_invoice_agent_number(invoice_id):
         
         if existing:
             return jsonify({
-                'message': 'Duplicate invoice number',
+                'message': 'Duplicate agent invoice number',
                 'suggestedNext': getattr(agent, 'agent_invoice_next', None) or 1
             }), 409
         
@@ -1311,10 +1347,14 @@ def update_invoice_agent_number(invoice_id):
         else:
             current_app.logger.warning("agent_invoice_number field not found on invoice - database migration needed")
         
-        # Always update agent's next number automatically
+        # Handle update_next option
         if hasattr(agent, 'agent_invoice_next'):
-            current_next = getattr(agent, 'agent_invoice_next', None) or 1
-            agent.agent_invoice_next = max(current_next, new_agent_number + 1)
+            if update_next == 'force':
+                agent.agent_invoice_next = new_agent_number + 1
+            elif update_next == 'auto':
+                current_next = getattr(agent, 'agent_invoice_next', None) or 1
+                agent.agent_invoice_next = max(current_next, new_agent_number + 1)
+            # 'nochange' - don't update agent_invoice_next
         
         db.session.commit()
         
