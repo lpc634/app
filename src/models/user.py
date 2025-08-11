@@ -27,8 +27,8 @@ class User(db.Model):
     sia_document_url = db.Column(db.String(255), nullable=True)
     verification_status = db.Column(db.String(20), nullable=False, default='pending')
     
-    # Agent invoice numbering
-    agent_invoice_next = db.Column(db.Integer, nullable=False, default=1)
+    # Agent invoice numbering (backward compatible - will be added by migration)
+    agent_invoice_next = db.Column(db.Integer, nullable=True, default=1)
     
     
     assignments = db.relationship('JobAssignment', back_populates='agent', lazy=True)
@@ -253,11 +253,7 @@ class Invoice(db.Model):
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
     status = db.Column(db.String(20), default='draft')
     
-    # Add unique constraint for agent_id + agent_invoice_number
-    __table_args__ = (
-        db.Index('ix_agent_invoice_unique', 'agent_id', 'agent_invoice_number', 
-                 unique=True, postgresql_where=db.text('agent_invoice_number IS NOT NULL')),
-    )
+    # Unique constraint will be added by migration script
     
     agent = db.relationship('User', back_populates='invoices', foreign_keys=[agent_id])
     jobs = db.relationship('InvoiceJob', back_populates='invoice', cascade="all, delete-orphan")
@@ -267,7 +263,7 @@ class Invoice(db.Model):
             'id': self.id,
             'agent_id': self.agent_id,
             'invoice_number': self.invoice_number,
-            'agent_invoice_number': self.agent_invoice_number,
+            'agent_invoice_number': getattr(self, 'agent_invoice_number', None),
             'issue_date': self.issue_date.isoformat() if self.issue_date else None,
             'due_date': self.due_date.isoformat() if self.due_date else None,
             'total_amount': float(self.total_amount) if self.total_amount else 0.0,

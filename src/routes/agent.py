@@ -648,18 +648,20 @@ def create_invoice():
             except (ValueError, TypeError):
                 return jsonify({'error': 'Agent invoice number must be a valid integer'}), 400
             
-            # Check for uniqueness (per agent)
-            existing = Invoice.query.filter_by(agent_id=current_user_id, agent_invoice_number=agent_invoice_number).first()
+            # Check for uniqueness (per agent) - only if field exists
+            existing = None
+            if hasattr(Invoice, 'agent_invoice_number'):
+                existing = Invoice.query.filter_by(agent_id=current_user_id, agent_invoice_number=agent_invoice_number).first()
             if existing:
                 return jsonify({
                     'message': 'Duplicate agent invoice number',
-                    'suggestedNext': agent.agent_invoice_next or 1
+                    'suggestedNext': getattr(agent, 'agent_invoice_next', None) or 1
                 }), 409
             
             final_agent_invoice_number = agent_invoice_number
         else:
             # Use the agent's next number
-            final_agent_invoice_number = agent.agent_invoice_next or 1
+            final_agent_invoice_number = getattr(agent, 'agent_invoice_next', None) or 1
 
         # --- Database Transaction ---
         
@@ -669,20 +671,28 @@ def create_invoice():
         new_invoice_id = (last_invoice.id + 1) if last_invoice else 1
         invoice_number = f"V3-{issue_date.year}-{new_invoice_id:04d}"
 
-        new_invoice = Invoice(
-            agent_id=current_user_id,
-            invoice_number=invoice_number,
-            agent_invoice_number=final_agent_invoice_number,
-            issue_date=issue_date,
-            due_date=issue_date + timedelta(days=30),
-            total_amount=total_amount,
-            status='submitted'
-        )
+        # Create invoice - only set agent_invoice_number if field exists
+        invoice_kwargs = {
+            'agent_id': current_user_id,
+            'invoice_number': invoice_number,
+            'issue_date': issue_date,
+            'due_date': issue_date + timedelta(days=30),
+            'total_amount': total_amount,
+            'status': 'submitted'
+        }
+        
+        # Only add agent_invoice_number if the field exists in the model
+        if hasattr(Invoice, 'agent_invoice_number'):
+            invoice_kwargs['agent_invoice_number'] = final_agent_invoice_number
+        
+        new_invoice = Invoice(**invoice_kwargs)
         db.session.add(new_invoice)
         db.session.flush()
 
         # Update agent's next invoice number
-        agent.agent_invoice_next = max(agent.agent_invoice_next or 1, final_agent_invoice_number + 1)
+        current_next = getattr(agent, 'agent_invoice_next', None) or 1
+        if hasattr(agent, 'agent_invoice_next'):
+            agent.agent_invoice_next = max(current_next, final_agent_invoice_number + 1)
 
         # 2. Link the jobs to the new invoice
         for item in jobs_to_invoice:
@@ -1176,7 +1186,7 @@ def get_next_invoice_number():
             return jsonify({'error': 'Access denied'}), 403
         
         return jsonify({
-            'next': agent.agent_invoice_next or 1
+            'next': getattr(agent, 'agent_invoice_next', None) or 1
         }), 200
         
     except Exception as e:
@@ -1210,8 +1220,12 @@ def update_agent_numbering():
         except (ValueError, TypeError):
             return jsonify({'error': 'Next number must be a valid integer'}), 400
         
-        # Update agent's next number
-        agent.agent_invoice_next = next_number
+        # Update agent's next number (safely handle if field doesn't exist yet)
+        if hasattr(agent, 'agent_invoice_next'):
+            agent.agent_invoice_next = next_number
+        else:
+            # Field doesn't exist yet - migration needed
+            current_app.logger.warning("agent_invoice_next field not found - database migration needed")
         db.session.commit()
         
         return jsonify({
@@ -1257,35 +1271,42 @@ def update_invoice_agent_number(invoice_id):
         except (ValueError, TypeError):
             return jsonify({'error': 'Agent invoice number must be a valid integer'}), 400
         
-        # Check for uniqueness (per agent)
-        existing = Invoice.query.filter(
-            Invoice.agent_id == agent.id,
-            Invoice.agent_invoice_number == new_agent_number,
-            Invoice.id != invoice_id
-        ).first()
+        # Check for uniqueness (per agent) - only if field exists
+        existing = None
+        if hasattr(Invoice, 'agent_invoice_number'):
+            existing = Invoice.query.filter(
+                Invoice.agent_id == agent.id,
+                Invoice.agent_invoice_number == new_agent_number,
+                Invoice.id != invoice_id
+            ).first()
         
         if existing:
             return jsonify({
                 'message': 'Duplicate agent invoice number',
-                'suggestedNext': agent.agent_invoice_next
+                'suggestedNext': getattr(agent, 'agent_invoice_next', None) or 1
             }), 409
         
-        # Update the invoice
-        invoice.agent_invoice_number = new_agent_number
+        # Update the invoice - only if field exists
+        if hasattr(invoice, 'agent_invoice_number'):
+            invoice.agent_invoice_number = new_agent_number
+        else:
+            current_app.logger.warning("agent_invoice_number field not found on invoice - database migration needed")
         
         # Handle update_next option
-        if update_next == 'force':
-            agent.agent_invoice_next = new_agent_number + 1
-        elif update_next == 'auto':
-            agent.agent_invoice_next = max(agent.agent_invoice_next or 1, new_agent_number + 1)
-        # 'nochange' - don't update agent_invoice_next
+        if hasattr(agent, 'agent_invoice_next'):
+            if update_next == 'force':
+                agent.agent_invoice_next = new_agent_number + 1
+            elif update_next == 'auto':
+                current_next = getattr(agent, 'agent_invoice_next', None) or 1
+                agent.agent_invoice_next = max(current_next, new_agent_number + 1)
+            # 'nochange' - don't update agent_invoice_next
         
         db.session.commit()
         
         return jsonify({
             'message': 'Agent invoice number updated successfully',
             'invoice': invoice.to_dict(),
-            'agent_invoice_next': agent.agent_invoice_next
+            'agent_invoice_next': getattr(agent, 'agent_invoice_next', None) or 1
         }), 200
         
     except Exception as e:
