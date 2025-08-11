@@ -177,6 +177,9 @@ const AgentInvoices = () => {
                                             {getStatusText(invoice.status)}
                                         </Badge>
                                     </div>
+                                    <div className="text-sm text-v3-text-muted mb-2">
+                                        Agent No: {invoice.agent_invoice_number ? `#${invoice.agent_invoice_number}` : 'Not set'}
+                                    </div>
                                     
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                                         <div className="flex items-center gap-2 text-v3-text-muted">

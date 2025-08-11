@@ -12,6 +12,8 @@ const ReviewInvoicePage = () => {
   const [agentProfile, setAgentProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [agentInvoiceNumber, setAgentInvoiceNumber] = useState('');
+  const [suggestedNext, setSuggestedNext] = useState(null);
 
   const { items, total } = state || {};
 
@@ -21,18 +23,23 @@ const ReviewInvoicePage = () => {
       navigate('/agent/invoices/new/from-jobs');
       return;
     }
-    const fetchProfile = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const data = await apiCall('/agent/profile');
-        setAgentProfile(data);
+        const [profileData, nextNumberData] = await Promise.all([
+          apiCall('/agent/profile'),
+          apiCall('/agent/next-invoice-number')
+        ]);
+        setAgentProfile(profileData);
+        setSuggestedNext(nextNumberData.next);
+        setAgentInvoiceNumber(nextNumberData.next.toString());
       } catch (error) {
-        toast.error('Failed to load agent profile', { description: error.message });
+        toast.error('Failed to load data', { description: error.message });
       } finally {
         setLoading(false);
       }
     };
-    fetchProfile();
+    fetchData();
   }, [apiCall, items, navigate]);
 
   // This function is now fully implemented
@@ -42,6 +49,7 @@ const ReviewInvoicePage = () => {
       const payload = {
         items: items,
         total: total,
+        agent_invoice_number: agentInvoiceNumber ? parseInt(agentInvoiceNumber) : undefined,
       };
 
       const result = await apiCall('/agent/invoices', {
@@ -57,7 +65,15 @@ const ReviewInvoicePage = () => {
       navigate('/agent/invoices');
 
     } catch (error) {
-      toast.error('Failed to create invoice', { description: error.message });
+      if (error.status === 409 && error.suggestedNext) {
+        toast.error('Duplicate Agent Invoice Number', { 
+          description: `Number ${agentInvoiceNumber} is already in use. Try ${error.suggestedNext} instead.`
+        });
+        setAgentInvoiceNumber(error.suggestedNext.toString());
+        setSuggestedNext(error.suggestedNext);
+      } else {
+        toast.error('Failed to create invoice', { description: error.message });
+      }
     } finally {
       setIsSending(false);
     }
@@ -103,6 +119,16 @@ const ReviewInvoicePage = () => {
                <p className="text-gray-800">{new Date().toLocaleDateString('en-GB')}</p>
                <p className="font-semibold text-gray-500 mt-2">Due Date:</p>
                <p className="text-gray-800">{new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB')}</p>
+               <p className="font-semibold text-gray-500 mt-2">Agent No:</p>
+               <input 
+                 type="number" 
+                 value={agentInvoiceNumber}
+                 onChange={(e) => setAgentInvoiceNumber(e.target.value)}
+                 min="1"
+                 max="999999999"
+                 className="text-gray-800 bg-gray-50 border border-gray-300 rounded px-2 py-1 text-sm w-20"
+                 placeholder={suggestedNext?.toString()}
+               />
             </div>
           </div>
           <table className="w-full text-left">

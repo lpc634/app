@@ -18,6 +18,10 @@ const UpdateInvoicePage = () => {
   const [job, setJob] = useState(null);
   const [hoursWorked, setHoursWorked] = useState('');
   const [hourlyRate, setHourlyRate] = useState('');
+  const [showAgentNoDialog, setShowAgentNoDialog] = useState(false);
+  const [newAgentNo, setNewAgentNo] = useState('');
+  const [updateNextMode, setUpdateNextMode] = useState('auto');
+  const [updatingAgentNo, setUpdatingAgentNo] = useState(false);
 
   useEffect(() => {
     const fetchInvoiceDetails = async () => {
@@ -82,6 +86,44 @@ const UpdateInvoicePage = () => {
     const hours = parseFloat(hoursWorked) || 0;
     const rate = parseFloat(hourlyRate) || 0;
     return (hours * rate).toFixed(2);
+  };
+
+  const handleEditAgentNo = () => {
+    setNewAgentNo(invoice.agent_invoice_number?.toString() || '');
+    setShowAgentNoDialog(true);
+  };
+
+  const handleUpdateAgentNo = async () => {
+    if (!newAgentNo || parseInt(newAgentNo) <= 0) {
+      toast.error('Please enter a valid agent invoice number');
+      return;
+    }
+
+    try {
+      setUpdatingAgentNo(true);
+      const result = await apiCall(`/agent/invoices/${invoiceId}/agent-number`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          agent_invoice_number: parseInt(newAgentNo),
+          update_next: updateNextMode
+        })
+      });
+
+      setInvoice(result.invoice);
+      setShowAgentNoDialog(false);
+      toast.success('Agent invoice number updated successfully');
+    } catch (error) {
+      if (error.status === 409 && error.suggestedNext) {
+        toast.error('Duplicate Agent Invoice Number', {
+          description: `Number ${newAgentNo} is already in use. Try ${error.suggestedNext} instead.`
+        });
+        setNewAgentNo(error.suggestedNext.toString());
+      } else {
+        toast.error('Failed to update agent invoice number', { description: error.message });
+      }
+    } finally {
+      setUpdatingAgentNo(false);
+    }
   };
 
   if (loading) {
@@ -225,6 +267,86 @@ const UpdateInvoicePage = () => {
                 Send Invoice
               </Button>
             </form>
+
+            {/* Agent Invoice Number Section */}
+            <div className="border-t border-v3-border pt-6 mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <Label className="text-v3-text-lightest text-base font-medium">Agent Invoice Number</Label>
+                  <p className="text-sm text-v3-text-muted">Your personal invoice sequence number</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEditAgentNo}
+                  className="text-v3-text-lightest border-v3-border hover:bg-v3-bg-dark"
+                >
+                  Edit
+                </Button>
+              </div>
+              <div className="text-lg font-semibold text-v3-orange">
+                Agent No: {invoice.agent_invoice_number || 'Not set'}
+              </div>
+            </div>
+
+            {/* Agent No Edit Dialog */}
+            {showAgentNoDialog && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-v3-bg-card rounded-lg p-6 w-full max-w-md border border-v3-border">
+                  <h3 className="text-lg font-semibold text-v3-text-lightest mb-4">Edit Agent Invoice Number</h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="newAgentNo" className="text-v3-text-lightest">Agent Invoice Number</Label>
+                      <Input
+                        id="newAgentNo"
+                        type="number"
+                        min="1"
+                        max="999999999"
+                        value={newAgentNo}
+                        onChange={(e) => setNewAgentNo(e.target.value)}
+                        placeholder="Enter new agent invoice number"
+                        className="bg-v3-bg-dark border-v3-border text-v3-text-lightest mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-v3-text-lightest">Update next number</Label>
+                      <select
+                        value={updateNextMode}
+                        onChange={(e) => setUpdateNextMode(e.target.value)}
+                        className="w-full mt-1 bg-v3-bg-dark border-v3-border rounded-md px-3 py-2 text-v3-text-lightest"
+                      >
+                        <option value="auto">Auto (next = max(current, new + 1))</option>
+                        <option value="force">Force (next = new + 1)</option>
+                        <option value="nochange">No change (keep current next)</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAgentNoDialog(false)}
+                      disabled={updatingAgentNo}
+                      className="text-v3-text-muted border-v3-border hover:bg-v3-bg-dark"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleUpdateAgentNo}
+                      disabled={updatingAgentNo || !newAgentNo}
+                      className="button-refresh"
+                    >
+                      {updatingAgentNo ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
+                      Update
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

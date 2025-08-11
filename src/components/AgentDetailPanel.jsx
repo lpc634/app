@@ -422,6 +422,9 @@ const AgentDetailPanel = ({ agent, isOpen, onClose, onRefresh }) => {
                             <div className="flex items-center space-x-3">
                               <div>
                                 <h4 className="font-semibold text-gray-900">{invoice.invoice_number}</h4>
+                                <p className="text-sm text-gray-500">
+                                  Agent No: {invoice.agent_invoice_number ? `#${invoice.agent_invoice_number}` : 'Not set'}
+                                </p>
                                 <p className="text-sm text-gray-600">
                                   Issue Date: {new Date(invoice.issue_date).toLocaleDateString()}
                                   {invoice.due_date && (
