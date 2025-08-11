@@ -17,7 +17,8 @@
       "Bash(mkdir:*)",
       "Bash(git add -A)",
       "Bash(git push:*)",
-      "Bash(git grep:*)"
+      "Bash(git grep:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }
