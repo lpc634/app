@@ -15,7 +15,8 @@
       "Bash(pip install:*)",
       "Bash(ls:*)",
       "Bash(mkdir:*)",
-      "Bash(git add -A)"
+      "Bash(git add -A)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }
