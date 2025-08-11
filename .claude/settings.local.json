@@ -13,7 +13,8 @@
       "Bash(set DATABASE_URL=sqlite:///vehicle_intelligence.db)",
       "Bash(del \"C:\\Dev\\app\\test_vehicle_details_api.py\")",
       "Bash(pip install:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }
