@@ -295,7 +295,12 @@ def delete_agent_document(document_type):
 
 # --- PDF AND EMAIL HELPER FUNCTIONS ---
 
-def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=None):
+def generate_invoice_pdf(agent,
+                         jobs_data,
+                         total_amount,
+                         invoice_number,
+                         upload_to_s3=True,
+                         agent_invoice_number=None):
     """
     Generates a professional PDF invoice using Platypus layout and uploads to S3.
 
@@ -306,99 +311,127 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
            'hours_worked'|'hours': number,
            'hourly_rate'|'rate': number,
            'amount'?: number}, ...]
+    Falls back to invoice/job data if fields are missing, so the PDF
+    always has a services row with a date and an address.
     """
     import traceback
-    from datetime import date
+    from datetime import date as date_cls
     from decimal import Decimal
+    from sqlalchemy.orm import joinedload
     from src.pdf.invoice_builder import build_invoice_pdf
 
     try:
-        current_app.logger.info(f"PDF GENERATION START: Creating professional V3 Services invoice PDF for {invoice_number}")
-        current_app.logger.info(f"PDF GENERATION: Agent ID {agent.id}, jobs count: {len(jobs_data)}, total: {total_amount}")
+        current_app.logger.info(f"PDF GENERATION START: {invoice_number} jobs_count={len(jobs_data or [])}")
+
+        # Resolve invoice from DB (for fallbacks)
+        invoice = Invoice.query.options(joinedload(Invoice.jobs)).filter_by(invoice_number=invoice_number).first()
+        # In some schemas, Invoice.jobs relationship is named differently; that's fine if None.
+
+        # Helper: safe float
+        def _f(x, default=0.0):
+            try:
+                return float(x)
+            except Exception:
+                try:
+                    return float(Decimal(str(x)))
+                except Exception:
+                    return default
+
+        # Build a map of first linked job (for fallback address/date)
+        first_invoice_job = None
+        first_job = None
+        try:
+            if invoice:
+                first_invoice_job = InvoiceJob.query.filter_by(invoice_id=invoice.id).first()
+                if first_invoice_job:
+                    first_job = first_invoice_job.job
+        except Exception:
+            first_job = None
+
+        normalized_jobs = []
+        for item in (jobs_data or []):
+            if not isinstance(item, dict):
+                continue
+
+            job_obj = item.get('job')
+            # numbers
+            hours = _f(item.get('hours', item.get('hours_worked', 0)))
+            rate = _f(item.get('rate', item.get('hourly_rate', getattr(job_obj, 'hourly_rate', 0) if job_obj else 0)))
+            amount = _f(item.get('amount', hours * rate))
+
+            # date + address
+            when = item.get('date', item.get('arrival_time'))
+            addr = item.get('address')
+
+            if job_obj is not None:
+                when = when or getattr(job_obj, 'arrival_time', None)
+                addr = addr or getattr(job_obj, 'address', None)
+
+            # fallbacks from DB invoice/job if still missing
+            if not addr and first_job is not None:
+                addr = getattr(first_job, 'address', None)
+            if not when and invoice is not None:
+                when = getattr(invoice, 'issue_date', None) or getattr(invoice, 'created_at', None)
+
+            normalized_jobs.append({
+                'date': when,
+                'address': addr or '',
+                'hours': hours,
+                'rate': rate,
+                'amount': amount,
+            })
+
+        # If nothing made it through (e.g., update flows with odd payloads), synthesize one row
+        if not normalized_jobs:
+            current_app.logger.info("PDF: jobs_data empty after normalization, synthesizing from DB")
+            hours = _f(getattr(first_invoice_job, 'hours_worked', getattr(invoice, 'hours_worked', 0)))
+            rate = _f(getattr(first_invoice_job, 'hourly_rate_at_invoice',
+                              getattr(first_job, 'hourly_rate', getattr(invoice, 'hourly_rate', 0))))
+            amount = _f(hours * rate)
+            when = getattr(invoice, 'issue_date', None) or getattr(invoice, 'created_at', None)
+            addr = getattr(first_job, 'address', None) if first_job else getattr(invoice, 'address', '')
+            normalized_jobs = [{
+                'date': when,
+                'address': addr or '',
+                'hours': hours,
+                'rate': rate,
+                'amount': amount,
+            }]
+
+        # Totals
+        calc_total = sum(_f(r['amount']) for r in normalized_jobs) if total_amount is None else _f(total_amount)
+        totals = {
+            'subtotal': calc_total,
+            'vat': 0.0,
+            'total': calc_total,
+        }
+
+        # Invoice date
+        invoice_date = getattr(invoice, 'issue_date', None) or date_cls.today()
 
         # Create invoice directory
         invoice_folder = os.path.join('/tmp', 'invoices')
         os.makedirs(invoice_folder, exist_ok=True)
         file_path = os.path.join(invoice_folder, f"{invoice_number}.pdf")
 
-        current_app.logger.info(f"PDF GENERATION: Creating professional PDF at path: {file_path}")
+        current_app.logger.info(f"PDF GENERATION: Building to {file_path}")
 
-        # Normalize job data into a consistent list for the PDF builder
-        normalized_jobs = []
-        for item in (jobs_data or []):
-            job_obj = item.get('job') if isinstance(item, dict) else None
+        # Build PDF (pass invoice for header/meta if builder uses it)
+        build_invoice_pdf(
+            file_path=file_path,
+            agent=agent,
+            jobs_rows=normalized_jobs,
+            totals=totals,
+            invoice_number=invoice_number,
+            invoice_date=invoice_date,
+            agent_invoice_number=agent_invoice_number,
+            invoice=invoice
+        )
 
-            # hours
-            hours = item.get('hours', item.get('hours_worked', 0))
-            try:
-                hours = float(hours)
-            except Exception:
-                try:
-                    hours = float(Decimal(str(hours)))
-                except Exception:
-                    hours = 0.0
+        current_app.logger.info(f"PDF GENERATION SUCCESS: {file_path}")
 
-            # rate
-            rate = item.get('rate', item.get('hourly_rate', None))
-            if rate is None and job_obj is not None:
-                rate = getattr(job_obj, 'hourly_rate', 0)
-            try:
-                rate = float(rate)
-            except Exception:
-                try:
-                    rate = float(Decimal(str(rate)))
-                except Exception:
-                    rate = 0.0
-
-            # amount
-            amount = item.get('amount', None)
-            if amount is None:
-                amount = hours * rate
-            try:
-                amount = float(amount)
-            except Exception:
-                amount = 0.0
-
-            if job_obj is not None:
-                # Shape 1: Job object present
-                normalized_jobs.append({
-                    'date': getattr(job_obj, 'arrival_time', None),
-                    'address': getattr(job_obj, 'address', None),
-                    'hours': hours,
-                    'rate': rate,
-                    'amount': amount,
-                })
-            else:
-                # Shape 2: already-flat dict
-                date_val = item.get('date', item.get('arrival_time'))
-                address_val = item.get('address')
-                normalized_jobs.append({
-                    'date': date_val,
-                    'address': address_val,
-                    'hours': hours,
-                    'rate': rate,
-                    'amount': amount,
-                })
-
-        # Totals
-        totals = {
-            'subtotal': total_amount,
-            'vat': 0,
-            'total': total_amount,
-        }
-
-        # Invoice date (today) in UK format
-        invoice_date = date.today()
-
-        # Build PDF
-        current_app.logger.info("PDF GENERATION: Using Platypus layout builder")
-        build_invoice_pdf(file_path, agent, normalized_jobs, totals, invoice_number, invoice_date, agent_invoice_number, None)
-
-        current_app.logger.info(f"PDF GENERATION SUCCESS: V3 Services invoice PDF saved to {file_path}")
-
-        # Always upload to S3 for in-app access (preserves your original behaviour)
+        # Upload to S3
         if upload_to_s3:
-            current_app.logger.info("PDF GENERATION: Starting S3 upload")
             try:
                 upload_result = s3_client.upload_invoice_pdf(
                     agent_id=agent.id,
@@ -406,28 +439,28 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
                     pdf_data=file_path,
                     filename=f"{invoice_number}.pdf"
                 )
-                
                 if upload_result.get('success'):
-                    current_app.logger.info(f"PDF GENERATION: S3 upload successful - {upload_result.get('file_key')}")
+                    current_app.logger.info(f"PDF S3 upload OK: {upload_result.get('file_key')}")
                     try:
                         os.remove(file_path)
-                        current_app.logger.info(f"PDF GENERATION: Local file cleaned up - {file_path}")
+                        current_app.logger.info(f"PDF local cleanup OK: {file_path}")
                     except Exception as cleanup_error:
-                        current_app.logger.warning(f"PDF GENERATION: Failed to clean up local file - {str(cleanup_error)}")
+                        current_app.logger.warning(f"PDF cleanup failed: {cleanup_error}")
                     return file_path, upload_result.get('file_key')
                 else:
-                    current_app.logger.error(f"PDF GENERATION: S3 upload failed - {upload_result.get('error')}")
+                    current_app.logger.error(f"PDF S3 upload failed: {upload_result.get('error')}")
                     return file_path
             except Exception as s3_error:
-                current_app.logger.error(f"PDF GENERATION: S3 upload error - {str(s3_error)}")
-                current_app.logger.error(f"PDF GENERATION: S3 upload traceback: {traceback.format_exc()}")
+                current_app.logger.error(f"PDF S3 exception: {s3_error}")
+                current_app.logger.error(traceback.format_exc())
                 return file_path
 
         return file_path
 
     except Exception as e:
         current_app.logger.error(f"PDF GENERATION ERROR: {e}")
-        current_app.logger.error(traceback.format_exc())
+        import traceback as _tb
+        current_app.logger.error(_tb.format_exc())
         return jsonify({"error": "Failed to generate invoice PDF"}), 500
 
 
@@ -842,34 +875,32 @@ def update_invoice(invoice_id):
         
         db.session.commit()
         
-        # Generate PDF and send email
+        # Generate PDF (no title usage; we rely on job/address/date)
         try:
-            # Get job details for the invoice
             job = invoice_job.job
             jobs_data = [{
-                'job_id': job.id,
-                'title': job.title,
-                'address': job.address,
-                'arrival_time': job.arrival_time,
-                'hours_worked': float(hours_worked),
-                'hourly_rate': float(hourly_rate),
-                'subtotal': float(total_amount)
+                'job': job,
+                'hours': float(hours_worked),
+                'rate': float(hourly_rate)
             }]
             
-            # Generate PDF and upload to S3
-            pdf_result = generate_invoice_pdf(user, jobs_data, float(total_amount), invoice.invoice_number, upload_to_s3=True, agent_invoice_number=invoice.agent_invoice_number)
+            pdf_result = generate_invoice_pdf(
+                user,
+                jobs_data,
+                float(total_amount),
+                invoice.invoice_number,
+                upload_to_s3=True,
+                agent_invoice_number=invoice.agent_invoice_number
+            )
             
-            # Handle different return formats
             if isinstance(pdf_result, tuple):
                 pdf_path, s3_file_key = pdf_result
-                # Update invoice with S3 file key
-                # Temporarily disabled - pdf_file_url field doesn't exist in database yet
+                # Optional: persist file key if schema supports it
                 # invoice.pdf_file_url = s3_file_key
-                db.session.commit()  # Save the S3 file key
+                db.session.commit()
             else:
                 pdf_path = pdf_result
             
-            # Send in-app notification to agent instead of email
             notification = Notification(
                 user_id=user.id,
                 title=f"Invoice {invoice.invoice_number} Updated",
@@ -878,15 +909,13 @@ def update_invoice(invoice_id):
             )
             db.session.add(notification)
             
-            # Clean up the temporary PDF file
             try:
                 os.remove(pdf_path)
-            except:
-                pass  # Don't fail if cleanup fails
+            except Exception:
+                pass
                 
         except Exception as e:
-            current_app.logger.error(f"Failed to generate PDF or send email for invoice {invoice.invoice_number}: {str(e)}")
-            # Don't fail the invoice update if PDF/email fails
+            current_app.logger.error(f"Failed to generate PDF or notify for invoice {invoice.invoice_number}: {str(e)}")
             pass
         
         return jsonify({
