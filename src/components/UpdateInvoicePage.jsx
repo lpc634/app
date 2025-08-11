@@ -95,7 +95,7 @@ const UpdateInvoicePage = () => {
 
   const handleUpdateInvoiceNo = async () => {
     if (!newInvoiceNo || parseInt(newInvoiceNo) <= 0) {
-      toast.error('Please enter a valid agent invoice number');
+      toast.error('Please enter a valid invoice number');
       return;
     }
 
@@ -111,15 +111,15 @@ const UpdateInvoicePage = () => {
 
       setInvoice(result.invoice);
       setShowInvoiceNoDialog(false);
-      toast.success('Agent invoice number updated successfully');
+      toast.success('Invoice number updated successfully');
     } catch (error) {
       if (error.status === 409 && error.suggestedNext) {
-        toast.error('Duplicate Agent Invoice Number', {
+        toast.error('Duplicate Invoice Number', {
           description: `Number ${newInvoiceNo} is already in use. Try ${error.suggestedNext} instead.`
         });
         setNewInvoiceNo(error.suggestedNext.toString());
       } else {
-        toast.error('Failed to update agent invoice number', { description: error.message });
+        toast.error('Failed to update invoice number', { description: error.message });
       }
     } finally {
       setUpdatingInvoiceNo(false);
