@@ -13,7 +13,7 @@ import {
 const JobListItem = ({ job, children }) => (
     <div className="agent-job-card">
         <div className="agent-job-card-header">
-            <h3 className="agent-job-card-title">{job.title}</h3>
+            <h3 className="agent-job-card-title">{job.address}</h3>
             <div className="agent-job-card-meta">
                 <div className="agent-job-card-meta-item">
                     <MapPin className="agent-job-card-meta-icon" />
@@ -264,7 +264,7 @@ export default function AgentDashboard() {
                 className="agent-mobile-card block hover:border-v3-orange transition-colors"
               >
                 <div className="agent-mobile-card-header">
-                  <h3 className="agent-mobile-card-title">{job.title}</h3>
+                  <h3 className="agent-mobile-card-title">{job.address}</h3>
                   <p className="agent-mobile-card-subtitle">
                     {new Date(job.arrival_time).toLocaleDateString('en-GB', { dateStyle: 'full' })} at {new Date(job.arrival_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                   </p>

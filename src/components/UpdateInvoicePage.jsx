@@ -130,8 +130,8 @@ const UpdateInvoicePage = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-v3-text-muted">Job Title</Label>
-              <p className="text-v3-text-lightest font-medium">{job.title}</p>
+              <Label className="text-v3-text-muted">Job Address</Label>
+              <p className="text-v3-text-lightest font-medium">{job.address}</p>
             </div>
             
             <div className="space-y-2">

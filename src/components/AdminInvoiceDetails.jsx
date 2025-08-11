@@ -245,8 +245,8 @@ const AdminInvoiceDetails = ({ invoice, agent, isOpen, onClose, onMarkAsPaid, on
                       <div key={index} className="p-4 bg-gray-50 rounded-lg">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                           <div>
-                            <label className="text-sm font-medium text-gray-600">Job Title</label>
-                            <p className="font-medium">{jobItem.job?.title || 'N/A'}</p>
+                            <label className="text-sm font-medium text-gray-600">Job Address</label>
+                            <p className="font-medium">{jobItem.job?.address || 'N/A'}</p>
                           </div>
                           <div>
                             <label className="text-sm font-medium text-gray-600">Hours Worked</label>

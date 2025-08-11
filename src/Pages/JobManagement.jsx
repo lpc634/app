@@ -141,7 +141,7 @@ export default function JobManagement() {
   }
 
   const filteredJobs = jobs.filter(job => {
-    const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = job.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          job.job_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          job.address.toLowerCase().includes(searchTerm.toLowerCase())
     
@@ -237,7 +237,7 @@ export default function JobManagement() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="title">Job Title</Label>
+                    <Label htmlFor="title">Job Address</Label>
                     <Input
                       id="title"
                       value={newJob.title}
@@ -413,7 +413,7 @@ export default function JobManagement() {
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <CardTitle className="flex items-center gap-2">
-                      {job.title}
+                      {job.address}
                       {getUrgencyBadge(job.urgency_level)}
                     </CardTitle>
                     <CardDescription className="flex items-center gap-4">

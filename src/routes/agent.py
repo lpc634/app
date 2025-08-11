@@ -629,7 +629,7 @@ def create_invoice():
             
             hours = Decimal(item.get('hours', 0))
             if hours <= 0:
-                return jsonify({'error': f"Invalid hours for job {job.title}."}), 400
+                return jsonify({'error': f"Invalid hours for job at {job.address}."}), 400
 
             total_amount += hours * Decimal(job.hourly_rate)
             jobs_to_invoice.append({'job': job, 'hours': hours})

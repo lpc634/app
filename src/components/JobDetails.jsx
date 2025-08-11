@@ -136,7 +136,7 @@ const JobDetails = () => {
             }}>
                 <div className="agent-mobile-card-header">
                     <h1 className="agent-mobile-card-title" style={{ color: 'white', fontSize: '1.5rem' }}>
-                        {job.title}
+                        {job.address}
                     </h1>
                     <p className="text-orange-100 text-lg capitalize font-medium">
                         {job.job_type}

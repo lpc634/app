@@ -475,7 +475,7 @@ def update_job(job_id):
                 return jsonify({'error': 'Invalid arrival_time format'}), 400
         
         updatable_fields = [
-            'title', 'job_type', 'address', 'postcode', 'arrival_time', 
+            'job_type', 'address', 'postcode', 'arrival_time', 
             'agents_required', 'hourly_rate', 'lead_agent_name', 
             'instructions', 'urgency_level', 'status'
         ]
@@ -483,6 +483,10 @@ def update_job(job_id):
         for field in updatable_fields:
             if field in data:
                 setattr(job, field, data[field])
+        
+        # Sync title with address if address is updated
+        if 'address' in data and data['address']:
+            job.title = data['address']
         
         job.updated_at = datetime.utcnow()
         db.session.commit()
@@ -554,7 +558,7 @@ def delete_job(job_id):
             logger.warning(f"Job not found for deletion: {job_id}")
             return jsonify({'error': 'Job not found'}), 404
         
-        logger.info(f"Deleting job {job_id} ({job.title}) by admin {current_user_id}")
+        logger.info(f"Deleting job {job_id} at {job.address} by admin {current_user_id}")
         
         # Delete related assignments first
         assignments_count = JobAssignment.query.filter_by(job_id=job_id).count()
@@ -594,7 +598,7 @@ def delete_job(job_id):
 
 @jobs_bp.route('/jobs', methods=['POST'])
 @jwt_required()
-@validate_json_fields(['title', 'job_type', 'address', 'arrival_time', 'agents_required'])
+@validate_json_fields(['job_type', 'address', 'arrival_time', 'agents_required'])
 def create_job():
     """Admin creates a new job, and the system assigns it to available agents."""
     try:
@@ -753,7 +757,7 @@ def create_job():
             print(f"[DEBUG] Creating notifications for {len(assigned_agent_ids)} assigned agents: {assigned_agent_ids}")
             logger.error(f"[DEBUG] Creating notifications for {len(assigned_agent_ids)} assigned agents: {assigned_agent_ids}")
             notification_title = "New Job Available"
-            notification_message = f"A new job, '{new_job.title}', is available for your response."
+            notification_message = f"A new job at '{new_job.address}' is available for your response."
             
             # Include Google Maps link in notification if available
             if new_job.maps_link:
@@ -810,7 +814,7 @@ def create_job():
             raise
 
         # Log successful job creation
-        logger.info(f"Job '{new_job.title}' created by admin {current_user.id} and assigned to {len(assigned_agent_ids)} agents")
+        logger.info(f"Job at '{new_job.address}' created by admin {current_user.id} and assigned to {len(assigned_agent_ids)} agents")
 
         return jsonify({
             'message': f'Job created successfully and assigned to {len(assigned_agent_ids)} available agents.',

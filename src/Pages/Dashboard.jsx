@@ -299,7 +299,7 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-v3-text-lightest">{job.title}</h3>
+                          <h3 className="font-semibold text-v3-text-lightest">{job.address}</h3>
                           {job.status === 'completed' && (
                             <span className="px-2 py-1 bg-green-900/50 text-green-400 border border-green-500/50 rounded-full text-xs">
                               Completed

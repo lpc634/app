@@ -189,7 +189,7 @@ const JobReports = () => {
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-v3-text-lightest">{job.title}</h3>
+                        <h3 className="font-semibold text-v3-text-lightest">{job.address}</h3>
                         <p className="text-v3-text-muted text-sm">Completed: {new Date(job.arrival_time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                       </div>
                       <div className="text-right">
@@ -217,7 +217,7 @@ const JobReports = () => {
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-v3-text-light">{job.title}</h3>
+                        <h3 className="font-semibold text-v3-text-light">{job.address}</h3>
                         <p className="text-v3-text-muted text-sm">Completed: {new Date(job.arrival_time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                       </div>
                       <div className="text-right flex items-center gap-2 text-green-400">

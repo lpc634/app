@@ -113,7 +113,7 @@ const CreateInvoiceFromJobs = () => {
                 <div className="flex items-center gap-4 flex-shrink-0 cursor-pointer" onClick={() => handleToggleJob(job)}>
                   {selected[job.id] ? <CheckSquare className="w-6 h-6 text-v3-orange" /> : <Square className="w-6 h-6 text-v3-text-muted" />}
                   <div>
-                    <p className="font-semibold text-v3-text-lightest">{job.title}</p>
+                    <p className="font-semibold text-v3-text-lightest">{job.address}</p>
                     <p className="text-sm text-v3-text-muted">Completed: {new Date(job.arrival_time).toLocaleDateString('en-GB')}</p>
                   </div>
                 </div>

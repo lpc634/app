@@ -134,7 +134,7 @@ const AvailableJobs = () => {
               <div key={assignment.id} className="agent-job-card">
                 <div className="agent-job-card-header">
                   <h3 className="agent-job-card-title">
-                    {job.title || 'Untitled Job'}
+                    {job.address || 'Unknown Address'}
                   </h3>
                   <div className="agent-job-card-meta">
                     <div className="agent-job-card-meta-item">

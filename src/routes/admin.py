@@ -1237,7 +1237,7 @@ def get_agent_invoices_detailed(agent_id):
                 if invoice_job.job:
                     job_details.append({
                         'job_id': invoice_job.job.id,
-                        'job_title': invoice_job.job.title,
+                        'job_title': invoice_job.job.address,
                         'job_address': invoice_job.job.address,
                         'job_date': invoice_job.job.arrival_time.isoformat() if invoice_job.job.arrival_time else None,
                         'hours_worked': float(invoice_job.hours_worked or 0),
@@ -1720,7 +1720,7 @@ def get_agent_management_details(agent_id):
                     jobs_info.append({
                         'job_id': ij.job.id,
                         'address': ij.job.address or 'Address not specified',
-                        'title': ij.job.title or f'Job #{ij.job.id}',
+                        'title': ij.job.address or f'Job #{ij.job.id}',
                         'hours_worked': float(ij.hours_worked or 0),
                         'hourly_rate_at_invoice': float(ij.hourly_rate_at_invoice or 20)
                     })

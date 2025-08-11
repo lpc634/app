@@ -182,7 +182,7 @@ export default function JobsPage() {
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
                       <CardTitle className="flex items-center gap-2 text-lg text-v3-text-lightest">
-                        {job.title}
+                        {job.address}
                         {getUrgencyBadge(job.urgency_level)}
                       </CardTitle>
                       <CardDescription className="flex items-center gap-4 text-v3-text-muted">
@@ -309,7 +309,7 @@ export default function JobsPage() {
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
-                      <CardTitle className="text-base text-v3-text-lightest">{job.title}</CardTitle>
+                      <CardTitle className="text-base text-v3-text-lightest">{job.address}</CardTitle>
                       <CardDescription className="flex items-center gap-4 text-v3-text-muted">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />

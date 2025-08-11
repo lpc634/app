@@ -6,7 +6,6 @@ import { Briefcase, MapPin, Calendar, Users, MessageSquare, Send, Loader2, Navig
 const CreateJob = () => {
     const { apiCall } = useAuth();
     const [formData, setFormData] = useState({
-        title: '',
         job_type: 'Traveller Eviction',
         address: '',
         arrival_time: '',
@@ -346,7 +345,6 @@ const CreateJob = () => {
             });
             
             setFormData({
-                title: '', 
                 job_type: 'Traveller Eviction', 
                 address: '',
                 arrival_time: '', 
@@ -385,22 +383,6 @@ const CreateJob = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Job Title */}
-                    <div className="dashboard-card p-6">
-                        <label htmlFor="title" className="flex items-center gap-2 text-sm font-semibold text-v3-text-lightest mb-4">
-                            <Briefcase className="w-4 h-4 text-v3-orange" />
-                            Job Title
-                        </label>
-                        <input 
-                            type="text" 
-                            id="title" 
-                            name="title" 
-                            value={formData.title} 
-                            onChange={handleChange} 
-                            required 
-                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
-                        />
-                    </div>
 
                     {/* Address & Location */}
                     <div className="dashboard-card p-6">

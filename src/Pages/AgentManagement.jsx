@@ -939,7 +939,7 @@ export default function AgentManagement() {
                   {agentJobs.map(job => (
                     <div key={job.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
                       <div className="flex justify-between items-start mb-3">
-                        <h3 className="text-lg font-semibold text-white">{job.title || `Job #${job.id}`}</h3>
+                        <h3 className="text-lg font-semibold text-white">{job.address || `Job #${job.id}`}</h3>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           job.status === 'completed' ? 'bg-green-600 text-white' : 
                           job.status === 'in_progress' ? 'bg-orange-600 text-white' : 
@@ -1080,7 +1080,7 @@ export default function AgentManagement() {
                         </h4>
                         <div className="space-y-2 text-sm">
                           <p className="text-gray-300">
-                            <strong>Job Title:</strong> {selectedInvoiceDetails.job_title || 'N/A'}
+                            <strong>Job Address:</strong> {selectedInvoiceDetails.job_title || 'N/A'}
                           </p>
                           <p className="text-gray-300">
                             <strong>Job Type:</strong> {selectedInvoiceDetails.job_type || 'N/A'}
