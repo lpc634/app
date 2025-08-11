@@ -353,16 +353,23 @@ def _create_services_section(jobs, invoice=None):
         # Use first job for table data (assuming single job per invoice for now)
         first_job = jobs[0]
         
-        # Extract date from invoice if available, otherwise from job
-        if invoice and hasattr(invoice, 'issue_date'):
-            job_date = fmt_date(invoice.issue_date)
-        else:
-            job_date = fmt_date(first_job.get('date') or first_job.get('arrival_time'))
+        # Extract actual job date (when the work was performed)
+        job_date = fmt_date(first_job.get('date') or first_job.get('arrival_time'))
         
-        # Use extracted address
+        # If no job date available, fall back to invoice date as last resort
+        if not job_date and invoice and hasattr(invoice, 'issue_date'):
+            job_date = fmt_date(invoice.issue_date)
+            current_app.logger.warning(f"PDF: No job date found, using invoice date as fallback: {job_date}")
+        else:
+            current_app.logger.info(f"PDF: Using job date: {job_date}")
+        
+        # Extract job details
         job_hours = fmt_hours(first_job.get('hours', 0))
         job_rate = fmt_money(first_job.get('rate', 0))
         job_amount = fmt_money(first_job.get('amount', 0))
+        
+        # Log the final values being used in the PDF
+        current_app.logger.info(f"PDF: Final row data - Date: '{job_date}', Address: '{job_address}', Hours: '{job_hours}', Rate: '{job_rate}', Amount: '{job_amount}'")
         
         # Create table row
         row = [
