@@ -14,7 +14,8 @@
       "Bash(del \"C:\\Dev\\app\\test_vehicle_details_api.py\")",
       "Bash(pip install:*)",
       "Bash(ls:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(git add -A)"
     ],
     "deny": []
   }

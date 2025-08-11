@@ -27,8 +27,8 @@ class User(db.Model):
     sia_document_url = db.Column(db.String(255), nullable=True)
     verification_status = db.Column(db.String(20), nullable=False, default='pending')
     
-    # Agent invoice numbering (backward compatible - will be added by migration)
-    agent_invoice_next = db.Column(db.Integer, nullable=True, default=1)
+    # Agent invoice numbering - DISABLED until migration runs
+    # agent_invoice_next = db.Column(db.Integer, nullable=True, default=1)
     
     
     assignments = db.relationship('JobAssignment', back_populates='agent', lazy=True)
@@ -247,7 +247,7 @@ class Invoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     agent_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     invoice_number = db.Column(db.String(50), unique=True, nullable=False)
-    agent_invoice_number = db.Column(db.Integer, nullable=True)
+    # agent_invoice_number = db.Column(db.Integer, nullable=True)  # DISABLED until migration
     issue_date = db.Column(db.Date, nullable=False)
     due_date = db.Column(db.Date, nullable=False)
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
@@ -263,7 +263,7 @@ class Invoice(db.Model):
             'id': self.id,
             'agent_id': self.agent_id,
             'invoice_number': self.invoice_number,
-            'agent_invoice_number': getattr(self, 'agent_invoice_number', None),
+            # 'agent_invoice_number': getattr(self, 'agent_invoice_number', None),  # DISABLED until migration
             'issue_date': self.issue_date.isoformat() if self.issue_date else None,
             'due_date': self.due_date.isoformat() if self.due_date else None,
             'total_amount': float(self.total_amount) if self.total_amount else 0.0,
