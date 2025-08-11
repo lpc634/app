@@ -699,6 +699,16 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         
         y_pos = y_pos - payment_box_height - 20  # Reduced spacing
         
+        # ===== TAX RESPONSIBILITY STATEMENT =====
+        current_app.logger.info("PDF GENERATION: Drawing tax responsibility statement after payment details")
+        
+        # Add tax statement right after payment details section with proper spacing
+        c.setFont("Helvetica-Bold", 12)
+        c.setFillColor(primary_color)
+        tax_statement = "I confirm that I am responsible for any Tax or National Insurance due on all invoices that I have submitted to V3 Services Ltd."
+        c.drawString(left_margin, y_pos, tax_statement)
+        y_pos = add_spacing(y_pos, 'section')
+        
         # ===== PROFESSIONAL FOOTER SECTION =====
         current_app.logger.info("PDF GENERATION: Drawing professional footer")
         
@@ -740,17 +750,6 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         c.setFont("Helvetica-Bold", 10)
         c.drawRightString(right_margin, footer_y + 8, "Thank you for your business!")
         
-        # ===== TAX RESPONSIBILITY STATEMENT AT BOTTOM =====
-        current_app.logger.info("PDF GENERATION: Drawing tax responsibility statement at bottom")
-        
-        # Tax statement at very bottom with emphasis
-        tax_y = footer_y - 35
-        c.setFont("Helvetica", 10)
-        c.setFillColor(primary_color)
-        tax_statement = "I confirm that I am responsible for any Tax or National Insurance due on all invoices"
-        c.drawString(left_margin, tax_y, tax_statement)
-        tax_y = add_spacing(tax_y, 'small')
-        c.drawString(left_margin, tax_y, "that I have submitted to V3 Services Ltd.")
         
         current_app.logger.info("PDF GENERATION: Saving PDF")
         c.save()
