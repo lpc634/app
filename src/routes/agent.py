@@ -377,6 +377,16 @@ def generate_invoice_pdf(agent,
         except Exception:
             first_job = None
 
+        # Ensure PDF builder has a job type and address to show in header/section
+        try:
+            if invoice is not None:
+                if not getattr(invoice, 'job_type', None) and first_job is not None:
+                    invoice.job_type = getattr(first_job, 'job_type', None)
+                if not getattr(invoice, 'address', None) and first_job is not None:
+                    invoice.address = _one_line_address(first_job)
+        except Exception:
+            pass
+
         normalized_jobs = []
         for item in (jobs_data or []):
             if not isinstance(item, dict):
@@ -403,11 +413,13 @@ def generate_invoice_pdf(agent,
                 when = getattr(invoice, 'issue_date', None) or getattr(invoice, 'created_at', None)
 
             normalized_jobs.append({
+                'job': job_obj,
                 'date': when,
                 'address': addr or '',
                 'hours': hours,
                 'rate': rate,
                 'amount': amount,
+                'service': getattr(job_obj, 'job_type', None) if job_obj is not None else None,
             })
 
         # If nothing made it through (e.g., update flows with odd payloads), synthesize one row
