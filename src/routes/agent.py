@@ -338,6 +338,34 @@ def generate_invoice_pdf(agent,
                 except Exception:
                     return default
 
+        # Helper functions for reliable date and address handling
+        def _first_non_empty(*vals):
+            for v in vals:
+                if v is not None and str(v).strip():
+                    return str(v).strip()
+            return ""
+
+        def _one_line_address(job):
+            parts = []
+            # Choose best address source
+            best = getattr(job, "full_address", None)
+            if not best:
+                parts = [getattr(job, "address_line_1", ""), getattr(job, "city", ""), getattr(job, "postcode", ""), getattr(job, "country", "")]
+                parts = [p for p in parts if p and str(p).strip()]
+                best = ", ".join(parts)
+            best = best or getattr(job, "address", "") or getattr(job, "location", "")
+            return best.strip() or "Address not provided"
+
+        def _job_date(job):
+            # Pick a sensible date field
+            for field in ("service_date", "start_date", "job_date", "arrival_time", "created_at"):
+                if hasattr(job, field) and getattr(job, field):
+                    try:
+                        return getattr(job, field).strftime("%d/%m/%Y")
+                    except Exception:
+                        return str(getattr(job, field))[:10]
+            return "N/A"
+
         # Build a map of first linked job (for fallback address/date)
         first_invoice_job = None
         first_job = None
@@ -360,17 +388,17 @@ def generate_invoice_pdf(agent,
             rate = _f(item.get('rate', item.get('hourly_rate', getattr(job_obj, 'hourly_rate', 0) if job_obj else 0)))
             amount = _f(item.get('amount', hours * rate))
 
-            # date + address
+            # date + address - use helper functions for reliable extraction
             when = item.get('date', item.get('arrival_time'))
             addr = item.get('address')
 
             if job_obj is not None:
-                when = when or getattr(job_obj, 'arrival_time', None)
-                addr = addr or getattr(job_obj, 'address', None)
+                when = when or _job_date(job_obj)
+                addr = addr or _one_line_address(job_obj)
 
             # fallbacks from DB invoice/job if still missing
             if not addr and first_job is not None:
-                addr = getattr(first_job, 'address', None)
+                addr = _one_line_address(first_job)
             if not when and invoice is not None:
                 when = getattr(invoice, 'issue_date', None) or getattr(invoice, 'created_at', None)
 
@@ -390,7 +418,7 @@ def generate_invoice_pdf(agent,
                               getattr(first_job, 'hourly_rate', getattr(invoice, 'hourly_rate', 0))))
             amount = _f(hours * rate)
             when = getattr(invoice, 'issue_date', None) or getattr(invoice, 'created_at', None)
-            addr = getattr(first_job, 'address', None) if first_job else getattr(invoice, 'address', '')
+            addr = _one_line_address(first_job) if first_job else getattr(invoice, 'address', '')
             normalized_jobs = [{
                 'date': when,
                 'address': addr or '',
@@ -994,234 +1022,111 @@ def get_agent_invoices():
 @agent_bp.route('/agent/invoices/<int:invoice_id>/download', methods=['GET'])
 @jwt_required()
 def download_agent_invoice(invoice_id):
-    """Generate download URL for agent's invoice."""
-    import traceback
-    
+    """
+    Return a URL the frontend can use to download the PDF.
+    If S3 works -> signed S3 URL.
+    Otherwise -> our own /download-direct route which streams the PDF.
+    """
     try:
-        current_app.logger.info(f"STEP 1: Starting invoice download for ID {invoice_id}")
-        
-        # Step 1: Verify user permissions
-        current_app.logger.info("STEP 2: Verifying user permissions")
         current_user_id = int(get_jwt_identity())
         agent = User.query.get(current_user_id)
-        
-        if not agent:
-            current_app.logger.error(f"STEP 2 FAILED: User not found for ID {current_user_id}")
-            return jsonify({'error': 'User not found'}), 404
-            
-        if agent.role != 'agent':
-            current_app.logger.error(f"STEP 2 FAILED: Access denied - user role is {agent.role}, expected 'agent'")
+        if not agent or agent.role != 'agent':
             return jsonify({'error': 'Access denied'}), 403
-        
-        current_app.logger.info(f"STEP 2 SUCCESS: User verified - {agent.email} (ID: {agent.id})")
-        
-        # Step 2: Get the invoice and verify ownership
-        current_app.logger.info("STEP 3: Fetching invoice data")
+
         invoice = Invoice.query.filter_by(id=invoice_id, agent_id=agent.id).first()
-        
         if not invoice:
-            current_app.logger.error(f"STEP 3 FAILED: Invoice {invoice_id} not found for agent {agent.id}")
             return jsonify({'error': 'Invoice not found'}), 404
-        
-        current_app.logger.info(f"STEP 3 SUCCESS: Invoice found - {invoice.invoice_number}, status: {invoice.status}, amount: {invoice.total_amount}")
-        
-        # Step 3: Check if invoice is ready for download
-        current_app.logger.info("STEP 4: Checking invoice status")
         if invoice.status == 'draft':
-            current_app.logger.error(f"STEP 4 FAILED: Invoice {invoice.invoice_number} is in draft status")
             return jsonify({'error': 'Cannot download draft invoices. Please complete the invoice first.'}), 400
-        
-        current_app.logger.info(f"STEP 4 SUCCESS: Invoice {invoice.invoice_number} is ready for download")
-        
-        # Step 4: Check S3 configuration
-        current_app.logger.info("STEP 5: Checking S3 configuration")
-        if not s3_client.is_configured():
-            error_msg = s3_client.get_configuration_error()
-            current_app.logger.error(f"STEP 5 FAILED: S3 not configured - {error_msg}")
-            return jsonify({'error': 'File storage service unavailable', 'details': 'S3 not configured'}), 503
-        
-        current_app.logger.info("STEP 5 SUCCESS: S3 client is configured")
-        
-        # Step 5: Try to find existing PDF in S3 using the improved method
-        current_app.logger.info("STEP 6: Checking for existing PDF in S3")
-        
-        download_result = s3_client.generate_invoice_download_url(
-            agent.id,
-            invoice.invoice_number,
-            expiration=3600  # 1 hour
-        )
-        
-        if download_result['success']:
-            current_app.logger.info(f"STEP 6 SUCCESS: Found existing PDF in S3 for invoice {invoice.invoice_number}")
-            current_app.logger.info(f"Agent {agent.email} downloaded existing invoice {invoice.invoice_number}")
-            return jsonify({
-                'download_url': download_result['download_url'],
-                'expires_in': download_result['expires_in'],
-                'invoice_number': download_result['invoice_number'],
-                'filename': download_result['filename'],
-                'file_size': download_result.get('file_size', 'Unknown')
-            }), 200
-        
-        current_app.logger.info(f"STEP 6: PDF not found in S3 ({download_result.get('error', 'Unknown error')}), will generate on-demand")
-        
-        # Step 6: Generate PDF on-demand
-        current_app.logger.info("STEP 7: Generating PDF on-demand")
-        
-        # Get invoice jobs for PDF generation
-        current_app.logger.info("STEP 7.1: Fetching invoice jobs")
-        invoice_jobs = InvoiceJob.query.filter_by(invoice_id=invoice.id).all()
-        current_app.logger.info(f"STEP 7.1 SUCCESS: Found {len(invoice_jobs)} invoice jobs")
-        
-        jobs_data = []
-        for i, invoice_job in enumerate(invoice_jobs):
-            current_app.logger.info(f"STEP 7.2: Processing invoice job {i+1}/{len(invoice_jobs)} - ID: {invoice_job.id}")
-            
-            if not invoice_job.job:
-                current_app.logger.error(f"STEP 7.2 ERROR: Invoice job {invoice_job.id} has no associated job")
-                continue
-            
-            # Handle potential None values and convert to proper types
-            hours_worked = invoice_job.hours_worked or 0
-            hourly_rate = invoice_job.hourly_rate_at_invoice or invoice_job.job.hourly_rate or 0
-            
-            current_app.logger.info(f"STEP 7.2: Job details - hours: {hours_worked}, rate: {hourly_rate}")
-            
-            try:
-                hours_float = float(hours_worked)
-                rate_float = float(hourly_rate)
-                current_app.logger.info(f"STEP 7.2 SUCCESS: Converted to float - hours: {hours_float}, rate: {rate_float}")
-                
-                jobs_data.append({
-                    'job': invoice_job.job,
-                    'hours': hours_float,
-                    'rate': rate_float
-                })
-            except (ValueError, TypeError) as convert_error:
-                current_app.logger.error(f"STEP 7.2 ERROR: Failed to convert data types - {str(convert_error)}")
-                current_app.logger.error(f"STEP 7.2 ERROR: Original values - hours: {hours_worked} (type: {type(hours_worked)}), rate: {hourly_rate} (type: {type(hourly_rate)})")
-                return jsonify({'error': 'Invalid invoice data - cannot convert amounts'}), 500
-        
-        if not jobs_data:
-            current_app.logger.error("STEP 7.2 FAILED: No valid job data found for PDF generation")
-            return jsonify({'error': 'No valid job data found for invoice'}), 500
-        
-        current_app.logger.info(f"STEP 7.2 SUCCESS: Prepared {len(jobs_data)} jobs for PDF generation")
-        
-        # Step 7: Generate PDF
-        current_app.logger.info("STEP 8: Calling generate_invoice_pdf function")
-        try:
-            total_amount_float = float(invoice.total_amount)
-            current_app.logger.info(f"STEP 8: Total amount converted to float: {total_amount_float}")
-            
-            pdf_result = generate_invoice_pdf(
-                agent, 
-                jobs_data, 
-                total_amount_float, 
-                invoice.invoice_number, 
-                upload_to_s3=True,
-                agent_invoice_number=invoice.agent_invoice_number
-            )
-            current_app.logger.info(f"STEP 8 SUCCESS: PDF generation completed, result type: {type(pdf_result)}")
-            
-        except Exception as pdf_error:
-            current_app.logger.error(f"STEP 8 FAILED: PDF generation error - {str(pdf_error)}")
-            current_app.logger.error(f"STEP 8 FAILED: PDF generation traceback: {traceback.format_exc()}")
-            return jsonify({'error': 'Failed to generate PDF document'}), 500
-        
-        # Step 8: Process PDF result
-        current_app.logger.info("STEP 9: Processing PDF generation result")
-        if isinstance(pdf_result, tuple):
-            pdf_path, s3_file_key = pdf_result
-            current_app.logger.info(f"STEP 9: PDF uploaded to S3 with key: {s3_file_key}")
-            
-            # Generate download URL for the newly created PDF using the improved method
-            current_app.logger.info("STEP 10: Generating download URL for new PDF")
-            download_result = s3_client.generate_invoice_download_url(
-                agent.id,
-                invoice.invoice_number,
-                expiration=3600
-            )
-            
-            if download_result['success']:
-                current_app.logger.info(f"STEP 10 SUCCESS: Download URL generated for invoice {invoice.invoice_number}")
-                current_app.logger.info(f"Agent {agent.email} downloaded newly generated invoice {invoice.invoice_number}")
+
+        if s3_client.is_configured():
+            signed = s3_client.generate_invoice_download_url(agent.id, invoice.invoice_number, expiration=3600)
+            if signed.get('success'):
                 return jsonify({
-                    'download_url': download_result['download_url'],
-                    'expires_in': download_result['expires_in'],
-                    'invoice_number': download_result['invoice_number'],
-                    'filename': download_result['filename'],
-                    'file_size': download_result.get('file_size', 'Unknown')
+                    'download_url': signed['download_url'],
+                    'expires_in': signed['expires_in'],
+                    'invoice_number': signed['invoice_number'],
+                    'filename': signed['filename'],
+                    'file_size': signed.get('file_size', 'Unknown')
                 }), 200
-            else:
-                current_app.logger.error(f"STEP 10 FAILED: Failed to generate download URL - {download_result.get('error', 'Unknown error')}")
-                return jsonify({'error': 'Failed to generate download URL', 'details': download_result.get('error')}), 500
-        else:
-            current_app.logger.error(f"STEP 9 FAILED: PDF generation returned unexpected result type: {type(pdf_result)}")
-            current_app.logger.error(f"STEP 9 FAILED: PDF result value: {pdf_result}")
-            return jsonify({'error': 'Failed to generate PDF - unexpected result format'}), 500
-                
+
+        return jsonify({
+            'download_url': url_for('agent.download_invoice_direct', invoice_id=invoice_id),
+            'invoice_number': invoice.invoice_number
+        }), 200
+
     except Exception as e:
-        current_app.logger.error(f"DETAILED ERROR in invoice download {invoice_id}: {str(e)}")
-        current_app.logger.error(f"Error type: {type(e).__name__}")
-        current_app.logger.error(f"Full traceback: {traceback.format_exc()}")
-        return jsonify({'error': 'Download failed - internal server error'}), 500
+        current_app.logger.error(f"DOWNLOAD JSON ERROR for invoice {invoice_id}: {e}")
+        return jsonify({'error': 'Failed to generate download URL'}), 500
 
 @agent_bp.route('/agent/invoices/<int:invoice_id>/download-direct', methods=['GET'])
 @jwt_required()
 def download_invoice_direct(invoice_id):
-    """Direct download route that redirects to signed S3 URL for immediate download."""
-    import traceback
-    
+    """
+    If S3 works, redirect to signed URL.
+    Otherwise generate the PDF now and stream it; then delete the temp file.
+    """
     try:
-        current_app.logger.info(f"DIRECT DOWNLOAD: Starting direct download for invoice {invoice_id}")
-        
-        # Step 1: Verify user permissions
         current_user_id = int(get_jwt_identity())
         agent = User.query.get(current_user_id)
-        
-        if not agent:
-            current_app.logger.error(f"DIRECT DOWNLOAD FAILED: User not found for ID {current_user_id}")
-            return jsonify({'error': 'User not found'}), 404
-            
-        if agent.role != 'agent':
-            current_app.logger.error(f"DIRECT DOWNLOAD FAILED: Access denied - user role is {agent.role}")
+        if not agent or agent.role != 'agent':
             return jsonify({'error': 'Access denied'}), 403
-        
-        # Step 2: Get the invoice and verify ownership
+
         invoice = Invoice.query.filter_by(id=invoice_id, agent_id=agent.id).first()
-        
         if not invoice:
-            current_app.logger.error(f"DIRECT DOWNLOAD FAILED: Invoice {invoice_id} not found for agent {agent.id}")
             return jsonify({'error': 'Invoice not found'}), 404
-        
-        # Step 3: Check if invoice is ready for download
         if invoice.status == 'draft':
-            current_app.logger.error(f"DIRECT DOWNLOAD FAILED: Invoice {invoice.invoice_number} is in draft status")
             return jsonify({'error': 'Cannot download draft invoices'}), 400
-        
-        # Step 4: Generate signed URL and redirect
-        current_app.logger.info(f"DIRECT DOWNLOAD: Generating signed URL for invoice {invoice.invoice_number}")
-        
-        download_result = s3_client.generate_invoice_download_url(
-            agent.id,
+
+        if s3_client.is_configured():
+            signed = s3_client.generate_invoice_download_url(agent.id, invoice.invoice_number, expiration=300)
+            if signed.get('success'):
+                return redirect(signed['download_url'])
+
+        invoice_jobs = InvoiceJob.query.filter_by(invoice_id=invoice.id).all()
+        if not invoice_jobs:
+            return jsonify({'error': 'No invoice jobs found for PDF'}), 404
+
+        jobs_data = []
+        for ij in invoice_jobs:
+            job = ij.job
+            if not job:
+                continue
+            hours = float(ij.hours_worked or 0)
+            rate = float(ij.hourly_rate_at_invoice or job.hourly_rate or 0)
+            jobs_data.append({'job': job, 'hours': hours, 'rate': rate})
+        if not jobs_data:
+            return jsonify({'error': 'No valid job data to render PDF'}), 500
+
+        total_amount_float = float(invoice.total_amount or 0)
+        pdf_result = generate_invoice_pdf(
+            agent,
+            jobs_data,
+            total_amount_float,
             invoice.invoice_number,
-            expiration=300  # 5 minutes for direct download
+            upload_to_s3=False,
+            agent_invoice_number=getattr(invoice, 'agent_invoice_number', None)
         )
-        
-        if download_result['success']:
-            current_app.logger.info(f"DIRECT DOWNLOAD SUCCESS: Redirecting to signed URL for invoice {invoice.invoice_number}")
-            # Direct redirect to S3 signed URL for immediate download
-            return redirect(download_result['download_url'])
-        else:
-            current_app.logger.error(f"DIRECT DOWNLOAD FAILED: Could not generate signed URL - {download_result.get('error')}")
-            return jsonify({
-                'error': 'Download temporarily unavailable', 
-                'details': download_result.get('error', 'Could not generate download link')
-            }), 503
-            
+        pdf_path = pdf_result[0] if isinstance(pdf_result, tuple) else pdf_result
+        if not pdf_path or not os.path.exists(pdf_path):
+            return jsonify({'error': 'PDF generation failed'}), 500
+
+        resp = send_file(
+            pdf_path,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f"{invoice.invoice_number}.pdf"
+        )
+        @resp.call_on_close
+        def _cleanup():
+            try:
+                os.remove(pdf_path)
+            except Exception:
+                pass
+        return resp
+
     except Exception as e:
-        current_app.logger.error(f"DIRECT DOWNLOAD FAILED: Unexpected error for invoice {invoice_id}: {str(e)}")
-        current_app.logger.error(f"DIRECT DOWNLOAD FAILED: Traceback: {traceback.format_exc()}")
+        current_app.logger.error(f"DIRECT DOWNLOAD ERROR for invoice {invoice_id}: {e}")
         return jsonify({'error': 'Download failed'}), 500
 
 @agent_bp.route('/agent/s3-diagnosis/<int:invoice_id>', methods=['GET'])

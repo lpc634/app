@@ -97,6 +97,12 @@ def build_invoice_pdf(file_path, agent, jobs, totals, invoice_number, invoice_da
     payment_items = _create_payment_details(agent)
     story.extend(payment_items)
     
+    # Add tax statement flowable after payment details
+    # Estimate payment table height (6 rows * 20 points + padding)
+    payment_table_height = 120
+    tax_statement = TaxStatementFlowable(payment_table_height)
+    story.append(tax_statement)
+    
     # Build the PDF
     doc.build(story)
 
@@ -366,6 +372,11 @@ def _create_services_section(jobs, invoice=None):
         if not job_date and invoice and hasattr(invoice, 'issue_date'):
             job_date = fmt_date(invoice.issue_date)
             current_app.logger.warning(f"PDF: No job date found, using invoice date as fallback: {job_date}")
+        
+        # Ensure we always have a date - if still missing, use today
+        if not job_date:
+            job_date = "Date not provided"
+            current_app.logger.warning(f"PDF: No job date available, using fallback: {job_date}")
         else:
             current_app.logger.info(f"PDF: Using job date: {job_date}")
         
@@ -374,6 +385,11 @@ def _create_services_section(jobs, invoice=None):
         if normalized_address:
             job_address = normalized_address
             current_app.logger.info(f"PDF: Using normalized job address: '{job_address}'")
+        
+        # Ensure we always have an address - if still missing, use fallback
+        if not job_address:
+            job_address = "Address not provided"
+            current_app.logger.warning(f"PDF: No job address available, using fallback: {job_address}")
         
         # Extract job details
         job_hours = fmt_hours(first_job.get('hours', 0))
@@ -486,22 +502,7 @@ def _create_payment_details(agent):
         kv_row("UTR Number:", _safe_str(agent.utr_number))
     ]
     
-    # Add tax responsibility statement
-    tax_label = Paragraph("<b>Tax Responsibility Statement:</b>", 
-                         ParagraphStyle('TaxLabel', parent=styles['body'], 
-                                       fontName='Helvetica-Bold', fontSize=11, 
-                                       spaceAfter=4, textColor=DARK))
-    
-    tax_statement = Paragraph(
-        "I confirm that I am responsible for any Tax or National Insurance "
-        "due on all invoices that I have submitted to V3 Services Ltd.",
-        ParagraphStyle('TaxStatement', parent=styles['body'], 
-                      fontSize=10, leading=13, spaceAfter=6)
-    )
-    
-    # Add tax statement as a spanning row
-    payment_rows.append([tax_label, ""])
-    payment_rows.append([tax_statement, ""])
+    # Tax statement will be drawn inside the payment box using canvas drawing
     
     payment_table = Table(payment_rows, colWidths=[120, 240])
     payment_table.setStyle(TableStyle([
@@ -512,12 +513,85 @@ def _create_payment_details(agent):
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),  # Reduced padding
         ('TOPPADDING', (0, 0), (-1, -1), 4),    # Reduced padding
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4), # Reduced padding
-        # Span tax statement across both columns
-        ('SPAN', (0, -2), (1, -2)),  # Tax label spans both columns
-        ('SPAN', (0, -1), (1, -1)),  # Tax statement spans both columns
     ]))
     
-    return [title, Spacer(1, 6), payment_table]  # Reduced spacing
+    # Create a container that includes the payment table
+    # The tax statement will be drawn inside the payment box using canvas drawing
+    container_data = [["", payment_table]]
+    container_table = Table(container_data, colWidths=[320, 160])
+    container_table.setStyle(TableStyle([
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    
+    return [title, Spacer(1, 6), container_table]  # Reduced spacing
+
+
+class TaxStatementFlowable(Flowable):
+    """Custom flowable to draw tax statement inside the payment box."""
+    
+    def __init__(self, payment_table_height):
+        Flowable.__init__(self)
+        self.payment_table_height = payment_table_height
+    
+    def wrap(self, availWidth, availHeight):
+        # Reserve space for the tax statement
+        return (availWidth, 30)  # 30 points height for tax statement
+    
+    def draw(self):
+        canvas = self.canv
+        canvas.saveState()
+        
+        # Tax statement text
+        tax_statement = (
+            "I confirm that I am responsible for any Tax or National Insurance "
+            "due on all invoices that I have submitted to V3 Services Ltd."
+        )
+        
+        # Position the tax statement inside the payment box
+        # The payment box is positioned at the right side of the page
+        left_margin = 24  # Page left margin
+        right_margin = A4[0] - 24  # Page right margin
+        
+        # Payment box position (right-aligned, 160 points wide)
+        payment_box_left = right_margin - 160
+        payment_box_right = right_margin
+        
+        # Inner box area (with padding)
+        inner_left = payment_box_left + 15
+        inner_right = payment_box_right - 15
+        inner_width = inner_right - inner_left
+        
+        # Position below the UTR line (approximately 30 points below the table)
+        tax_y = self.payment_table_height + 30
+        
+        # Draw tax statement
+        canvas.setFont("Helvetica", 10)
+        canvas.setFillColor(BLACK)
+        
+        # Text wrapping for the tax statement
+        words = tax_statement.split()
+        lines = []
+        current_line = ""
+        
+        for word in words:
+            test_line = current_line + " " + word if current_line else word
+            if canvas.stringWidth(test_line, "Helvetica", 10) <= inner_width:
+                current_line = test_line
+            else:
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+        
+        if current_line:
+            lines.append(current_line)
+        
+        # Draw each line
+        for i, line in enumerate(lines):
+            y_pos = tax_y - (i * 12)  # 12 points line spacing
+            canvas.drawString(inner_left, y_pos, line)
+        
+        canvas.restoreState()
 
 
 def _conditional_page_break(min_space):
