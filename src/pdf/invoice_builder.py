@@ -40,19 +40,19 @@ def build_invoice_pdf(file_path, agent, jobs, totals, invoice_number, invoice_da
         invoice_number: Invoice number string
         invoice_date: Invoice date (date object)
     """
-    # Create document with A4 page size and 36pt margins
+    # Create document with A4 page size and smaller margins for single-page layout
     doc = BaseDocTemplate(
         file_path,
         pagesize=A4,
-        rightMargin=36,
-        leftMargin=36,
-        topMargin=36,
-        bottomMargin=36
+        rightMargin=24,
+        leftMargin=24,
+        topMargin=24,
+        bottomMargin=24
     )
     
-    # Define frame for main content
+    # Define frame for main content with smaller margins
     frame = Frame(
-        36, 36, A4[0] - 72, A4[1] - 72,
+        24, 24, A4[0] - 48, A4[1] - 48,
         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0
     )
     
@@ -64,39 +64,36 @@ def build_invoice_pdf(file_path, agent, jobs, totals, invoice_number, invoice_da
     )
     doc.addPageTemplates([template])
     
-    # Build story (content flowables)
+    # Build story (content flowables) - optimized for single page
     story = []
     
     # Title
     story.append(_create_title())
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 8))  # Reduced from 12
     
     # Header with agent info and contact panel
     story.append(_create_header(agent))
-    story.append(Spacer(1, 16))
+    story.append(Spacer(1, 10))  # Reduced from 16
     
     # Invoice meta (number and date)
     story.append(_create_invoice_meta(invoice_number, invoice_date, agent_invoice_number))
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 12))  # Reduced from 20
     
     # Bill To section
     bill_to_items = _create_bill_to_section()
     story.extend(bill_to_items)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 12))  # Reduced from 20
     
     # Services table - use snapshotted invoice data if available
     services_items = _create_services_section(jobs, invoice)
     story.extend(services_items)
-    story.append(Spacer(1, 16))
+    story.append(Spacer(1, 10))  # Reduced from 16
     
     # Totals
     story.append(_create_totals_section(totals))
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 12))  # Reduced from 20
     
-    # Check space for payment details - if less than 120pt, add page break
-    story.append(_conditional_page_break(120))
-    
-    # Payment Details with tax statement
+    # Payment Details with tax statement (no page break check - keep on same page)
     payment_items = _create_payment_details(agent)
     story.extend(payment_items)
     
@@ -206,14 +203,14 @@ def _create_header(agent):
         [Paragraph("<b>UTR:</b>", styles['small_caps']), Paragraph(_safe_str(agent.utr_number), styles['small'])]
     ]
     
-    contact_table = Table(contact_data, colWidths=[60, 120])
+    contact_table = Table(contact_data, colWidths=[50, 110])  # Reduced widths
     contact_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), LIGHT_BG),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),  # Reduced padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),  # Reduced padding
+        ('TOPPADDING', (0, 0), (-1, -1), 4),   # Reduced padding
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4), # Reduced padding
         ('BOX', (0, 0), (-1, -1), 1, GRID)
     ]))
     
@@ -252,14 +249,14 @@ def _create_invoice_meta(invoice_number, invoice_date, agent_invoice_number=None
         Paragraph(invoice_number, styles['body'])
     ])
     
-    meta_table = Table(meta_data, colWidths=[100, 100])
+    meta_table = Table(meta_data, colWidths=[90, 90])  # Reduced widths
     meta_table.setStyle(TableStyle([
         ('BOX', (0, 0), (-1, -1), 1, GRID),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),  # Reduced padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6), # Reduced padding
+        ('TOPPADDING', (0, 0), (-1, -1), 4),   # Reduced padding
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4), # Reduced padding
     ]))
     
     # Right-align the meta table
@@ -289,13 +286,13 @@ def _create_bill_to_section():
     v3_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), LIGHT_BG),
         ('BOX', (0, 0), (-1, -1), 1, GRID),
-        ('LEFTPADDING', (0, 0), (-1, -1), 12),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
-        ('TOPPADDING', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),   # Reduced padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),  # Reduced padding
+        ('TOPPADDING', (0, 0), (-1, -1), 6),    # Reduced padding
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6), # Reduced padding
     ]))
     
-    return [title, Spacer(1, 8), v3_table]
+    return [title, Spacer(1, 6), v3_table]  # Reduced spacing
 
 
 def _create_services_section(jobs, invoice=None):
@@ -334,10 +331,10 @@ def _create_services_section(jobs, invoice=None):
         return [title, Spacer(1, 8), no_jobs]
     
     # Create service description subheading if service exists
-    story_items = [title, Spacer(1, 8)]
+    story_items = [title, Spacer(1, 6)]  # Reduced spacing
     if service:
         service_desc = Paragraph(f"<b>{service}</b>", styles['body'])
-        story_items.extend([service_desc, Spacer(1, 6)])
+        story_items.extend([service_desc, Spacer(1, 4)])  # Reduced spacing
         current_app.logger.info(f"PDF: Added service description: '{service}'")
     
     # Table headers
@@ -387,16 +384,16 @@ def _create_services_section(jobs, invoice=None):
         ('TEXTCOLOR', (0, 0), (-1, 0), WHITE),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 9),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-        ('TOPPADDING', (0, 0), (-1, 0), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 5),  # Reduced padding
+        ('TOPPADDING', (0, 0), (-1, 0), 5),     # Reduced padding
         
         # Data rows
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 1), (-1, -1), 9),
-        ('TOPPADDING', (0, 1), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 1), (-1, -1), 4),    # Reduced padding
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 4), # Reduced padding
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),   # Reduced padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),  # Reduced padding
         
         # Amount column right-aligned
         ('ALIGN', (-1, 0), (-1, -1), 'RIGHT'),
@@ -433,10 +430,10 @@ def _create_totals_section(totals):
         ('BOX', (0, 0), (-1, -1), 1, GRID),
         ('BACKGROUND', (0, 0), (-1, -1), LIGHT_BG),
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),   # Reduced padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),  # Reduced padding
+        ('TOPPADDING', (0, 0), (-1, -1), 4),    # Reduced padding
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4), # Reduced padding
         # Emphasize total row
         ('LINEABOVE', (0, -1), (-1, -1), 2, DARK),
         ('BACKGROUND', (0, -1), (-1, -1), HexColor('#E8F4FD'))
@@ -492,16 +489,16 @@ def _create_payment_details(agent):
         ('BACKGROUND', (0, 0), (-1, -1), LIGHT_BG),
         ('BOX', (0, 0), (-1, -1), 1, GRID),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 12),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),   # Reduced padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),  # Reduced padding
+        ('TOPPADDING', (0, 0), (-1, -1), 4),    # Reduced padding
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4), # Reduced padding
         # Span tax statement across both columns
         ('SPAN', (0, -2), (1, -2)),  # Tax label spans both columns
         ('SPAN', (0, -1), (1, -1)),  # Tax statement spans both columns
     ]))
     
-    return [title, Spacer(1, 8), payment_table]
+    return [title, Spacer(1, 6), payment_table]  # Reduced spacing
 
 
 def _conditional_page_break(min_space):
