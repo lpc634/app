@@ -449,7 +449,7 @@ def generate_invoice_pdf(agent,
         build_invoice_pdf(
             file_path=file_path,
             agent=agent,
-            jobs_rows=normalized_jobs,
+            jobs=normalized_jobs,
             totals=totals,
             invoice_number=invoice_number,
             invoice_date=invoice_date,
@@ -490,7 +490,8 @@ def generate_invoice_pdf(agent,
         current_app.logger.error(f"PDF GENERATION ERROR: {e}")
         import traceback as _tb
         current_app.logger.error(_tb.format_exc())
-        return jsonify({"error": "Failed to generate invoice PDF"}), 500
+        # Return None to indicate failure instead of Flask response
+        return None
 
 
 def send_invoice_email(recipient_email, agent_name, pdf_path, invoice_number, cc_email=None):
@@ -1107,6 +1108,11 @@ def download_invoice_direct(invoice_id):
             upload_to_s3=False,
             agent_invoice_number=getattr(invoice, 'agent_invoice_number', None)
         )
+        
+        # Handle PDF generation failure
+        if pdf_result is None:
+            return jsonify({'error': 'PDF generation failed'}), 500
+            
         pdf_path = pdf_result[0] if isinstance(pdf_result, tuple) else pdf_result
         if not pdf_path or not os.path.exists(pdf_path):
             return jsonify({'error': 'PDF generation failed'}), 500
