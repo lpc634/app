@@ -365,14 +365,9 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         company_name_y = y_pos - 25
         c.drawString(left_margin, company_name_y, agent_full_name.upper())
         
-        # Professional tagline
-        c.setFont("Helvetica", 11)
-        c.setFillColor(black)
-        c.drawString(left_margin, company_name_y - 20, "Security Services Contractor")
-        
-        # Agent address in structured format
+        # Agent address in structured format (removed tagline)
         c.setFont("Helvetica", 10)
-        address_y = company_name_y - 45
+        address_y = company_name_y - 30
         agent_address_line_1 = agent.address_line_1 or "Address not provided"
         agent_address_line_2 = agent.address_line_2 or ""
         agent_city = agent.city or "City not provided"
@@ -551,10 +546,11 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
                 else:
                     job_datetime = "Date not set"
                 
-                # Job description (combine address and title)
+                # Enhanced job description with job type and proper formatting
+                job_type = getattr(job, 'job_type', None) or "Service"
                 job_address = job.address or "Address not provided"
                 job_title = job.title or "Service"
-                job_description = f"{job_title}\n{job_address}"
+                job_description = f"Job Type: {job_type}\nLocation: {job_address}"
                 
                 # Draw table row data with improved padding
                 text_y = y_pos - 18
@@ -695,6 +691,34 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
             c.drawString(left_margin + 120, payment_y, utr_number)
         
         y_pos = y_pos - payment_box_height - 20  # Reduced spacing
+        
+        # ===== TAX RESPONSIBILITY STATEMENT =====
+        current_app.logger.info("PDF GENERATION: Drawing tax responsibility statement")
+        
+        # Tax responsibility statement with prominent styling
+        c.setFont("Helvetica-Bold", 12)
+        c.setFillColor(primary_color)
+        tax_statement_y = y_pos
+        c.drawString(left_margin, tax_statement_y, "Tax Responsibility Declaration:")
+        
+        # Tax statement box with background
+        statement_height = 40
+        c.setFillColor(HexColor('#FFF9E6'))  # Light yellow background for emphasis
+        c.rect(left_margin, tax_statement_y - statement_height, right_margin - left_margin, statement_height, fill=True, stroke=False)
+        
+        c.setStrokeColor(accent_color)
+        c.setLineWidth(1)
+        c.rect(left_margin, tax_statement_y - statement_height, right_margin - left_margin, statement_height, fill=False, stroke=True)
+        
+        # Tax statement text
+        c.setFont("Helvetica", 11)
+        c.setFillColor(black)
+        statement_text_y = tax_statement_y - 18
+        tax_statement = "I confirm that I am responsible for any Tax or National Insurance due on all invoices"
+        c.drawString(left_margin + 10, statement_text_y, tax_statement)
+        c.drawString(left_margin + 10, statement_text_y - 12, "that I have submitted to V3 Services Ltd.")
+        
+        y_pos = tax_statement_y - statement_height - 20
         
         # ===== PROFESSIONAL FOOTER SECTION =====
         current_app.logger.info("PDF GENERATION: Drawing professional footer")
