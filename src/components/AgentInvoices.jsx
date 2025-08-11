@@ -78,18 +78,42 @@ const AgentInvoices = () => {
       const response = await apiCall(`/agent/invoices/${invoiceId}/download`);
       
       if (response && response.download_url) {
-        // Create a temporary link and trigger download
-        const link = document.createElement('a');
-        link.href = response.download_url;
-        link.download = response.filename || `${invoiceNumber}.pdf`;
-        link.target = '_blank'; // Open in new tab as fallback
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        toast.success('Download started', { 
-          description: `${invoiceNumber}.pdf` 
-        });
+        // Check if this is a direct download URL (our fallback endpoint)
+        if (response.download_url.includes('/download-direct')) {
+          // For our fallback endpoint, make an authenticated request to get the PDF
+          const pdfResponse = await apiCall(`/agent/invoices/${invoiceId}/download-direct`, {
+            method: 'GET',
+            responseType: 'blob' // Important: expect binary data
+          });
+          
+          // Create blob URL and trigger download
+          const blob = new Blob([pdfResponse], { type: 'application/pdf' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = response.filename || `${invoiceNumber}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url); // Clean up blob URL
+          
+          toast.success('Download started', { 
+            description: `${invoiceNumber}.pdf` 
+          });
+        } else {
+          // For S3 URLs, use the original method
+          const link = document.createElement('a');
+          link.href = response.download_url;
+          link.download = response.filename || `${invoiceNumber}.pdf`;
+          link.target = '_blank'; // Open in new tab as fallback
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          toast.success('Download started', { 
+            description: `${invoiceNumber}.pdf` 
+          });
+        }
       } else {
         throw new Error('Invalid download response');
       }

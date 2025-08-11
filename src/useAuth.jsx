@@ -125,18 +125,31 @@ export function AuthProvider({ children }) {
         throw new Error('Authentication required');
       }
 
-      // Handle responses that might not have a JSON body
-      const contentType = response.headers.get("content-type");
-      let data = null;
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      }
-
       if (!response.ok) {
-        throw new Error(data?.error || `HTTP error! status: ${response.status}`);
+        // Try to get error message from JSON response
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
+        } catch {
+          // If JSON parsing fails, throw generic error
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
       }
 
-      return data;
+      // Handle different response types
+      if (options.responseType === 'blob') {
+        // Return blob for binary data (like PDFs)
+        return await response.blob();
+      } else {
+        // Handle JSON responses
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          return await response.json();
+        } else {
+          // Return text for non-JSON responses
+          return await response.text();
+        }
+      }
     } catch (error) {
       console.error(`API call failed for ${endpoint}:`, error);
       throw error;
