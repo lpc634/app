@@ -13,7 +13,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, 
-    PageTemplate, Frame, BaseDocTemplate, NextPageTemplate, PageBreak
+    PageTemplate, Frame, BaseDocTemplate, NextPageTemplate, PageBreak, Flowable
 )
 from reportlab.platypus.tableofcontents import SimpleIndex
 
@@ -80,11 +80,13 @@ def build_invoice_pdf(file_path, agent, jobs, totals, invoice_number, invoice_da
     story.append(Spacer(1, 20))
     
     # Bill To section
-    story.append(_create_bill_to_section())
+    bill_to_items = _create_bill_to_section()
+    story.extend(bill_to_items)
     story.append(Spacer(1, 20))
     
     # Services table
-    story.append(_create_services_section(jobs))
+    services_items = _create_services_section(jobs)
+    story.extend(services_items)
     story.append(Spacer(1, 16))
     
     # Totals
@@ -95,7 +97,8 @@ def build_invoice_pdf(file_path, agent, jobs, totals, invoice_number, invoice_da
     story.append(_conditional_page_break(120))
     
     # Payment Details with tax statement
-    story.append(_create_payment_details(agent))
+    payment_items = _create_payment_details(agent)
+    story.extend(payment_items)
     
     # Build the PDF
     doc.build(story)
@@ -453,8 +456,9 @@ def _create_payment_details(agent):
 
 def _conditional_page_break(min_space):
     """Add page break if less than min_space points remaining."""
-    class ConditionalPageBreak:
+    class ConditionalPageBreak(Flowable):
         def __init__(self, min_space):
+            Flowable.__init__(self)
             self.min_space = min_space
         
         def wrap(self, availWidth, availHeight):
