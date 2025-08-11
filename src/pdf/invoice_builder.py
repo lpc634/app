@@ -300,6 +300,12 @@ def _create_services_section(jobs, invoice=None):
     from flask import current_app
     styles = _create_styles()
     
+    # DEBUG: Log the actual data structure we receive
+    current_app.logger.error(f"PDF DEBUG: jobs data structure: {jobs}")
+    current_app.logger.error(f"PDF DEBUG: invoice data: {invoice}")
+    if jobs:
+        current_app.logger.error(f"PDF DEBUG: first job: {jobs[0]}")
+    
     # Section title
     title = Paragraph("SERVICES PROVIDED:", styles['h2'])
     

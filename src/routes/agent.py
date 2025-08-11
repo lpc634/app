@@ -338,6 +338,8 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         
         # Use the new Platypus-based builder
         current_app.logger.info("PDF GENERATION: Using Platypus layout builder")
+        current_app.logger.error(f"PDF DEBUG: Passing normalized_jobs: {normalized_jobs}")
+        current_app.logger.error(f"PDF DEBUG: Passing invoice object: {invoice}")
         build_invoice_pdf(file_path, agent, normalized_jobs, totals, invoice_number, invoice_date, agent_invoice_number, invoice)
         
         current_app.logger.info(f"PDF GENERATION SUCCESS: V3 Services invoice PDF saved to {file_path}")
