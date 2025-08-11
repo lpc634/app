@@ -645,7 +645,7 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         y_pos = add_spacing(y_pos, 'section')
         
         # Enhanced payment information box with background
-        payment_box_height = 110
+        payment_box_height = 160  # Increased to accommodate tax statement
         c.setFillColor(light_gray)
         c.rect(left_margin, y_pos - payment_box_height, right_margin - left_margin, payment_box_height, fill=True, stroke=False)
         
@@ -697,17 +697,65 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
             c.setFont("Helvetica", 11)
             c.drawString(left_margin + 120, payment_y, utr_number)
         
+        # Helper function for text wrapping
+        def wrap_text(canvas, text, max_width, font_name="Helvetica", font_size=10):
+            """Wrap text to fit within max_width using ReportLab canvas."""
+            canvas.setFont(font_name, font_size)
+            words = text.split()
+            lines = []
+            current_line = ""
+            
+            for word in words:
+                test_line = current_line + (" " if current_line else "") + word
+                if canvas.stringWidth(test_line) <= max_width:
+                    current_line = test_line
+                else:
+                    if current_line:
+                        lines.append(current_line)
+                        current_line = word
+                    else:
+                        # Word is too long, force it
+                        lines.append(word)
+                        current_line = ""
+            
+            if current_line:
+                lines.append(current_line)
+            
+            return lines
+        
+        # ===== TAX RESPONSIBILITY STATEMENT INSIDE PAYMENT BOX =====
+        current_app.logger.info("PDF GENERATION: Drawing tax responsibility statement inside payment box")
+        
+        # Calculate safe text area inside payment box
+        px_left = left_margin + 15
+        px_right = right_margin - 15
+        px_width = px_right - px_left
+        
+        # Position below UTR with proper spacing
+        payment_y = add_spacing(payment_y, 'normal')
+        
+        # Add label (optional, bold)
+        c.setFont("Helvetica-Bold", 11)
+        c.setFillColor(black)
+        c.drawString(px_left, payment_y, "Tax Responsibility Statement:")
+        payment_y = add_spacing(payment_y, 'small')
+        
+        # Exact statement text (verbatim as required)
+        tax_statement = (
+            "I confirm that I am responsible for any Tax or National Insurance "
+            "due on all invoices that I have submitted to V3 Services Ltd."
+        )
+        
+        # Wrap and draw the statement
+        c.setFont("Helvetica", 10)
+        c.setFillColor(black)
+        wrapped_lines = wrap_text(c, tax_statement, px_width, "Helvetica", 10)
+        
+        for line in wrapped_lines:
+            c.drawString(px_left, payment_y, line)
+            payment_y = add_spacing(payment_y, 'tiny')
+        
         y_pos = y_pos - payment_box_height - 20  # Reduced spacing
-        
-        # ===== TAX RESPONSIBILITY STATEMENT =====
-        current_app.logger.info("PDF GENERATION: Drawing tax responsibility statement after payment details")
-        
-        # Add tax statement right after payment details section with proper spacing
-        c.setFont("Helvetica-Bold", 12)
-        c.setFillColor(primary_color)
-        tax_statement = "I confirm that I am responsible for any Tax or National Insurance due on all invoices that I have submitted to V3 Services Ltd."
-        c.drawString(left_margin, y_pos, tax_statement)
-        y_pos = add_spacing(y_pos, 'section')
         
         # ===== PROFESSIONAL FOOTER SECTION =====
         current_app.logger.info("PDF GENERATION: Drawing professional footer")
