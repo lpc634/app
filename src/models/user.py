@@ -252,6 +252,9 @@ class Invoice(db.Model):
     due_date = db.Column(db.Date, nullable=False)
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
     status = db.Column(db.String(20), default='draft')
+    # Snapshotted job details for PDF generation
+    job_type = db.Column(db.String(50), nullable=True)
+    address = db.Column(db.String(200), nullable=True)
     
     # Unique constraint will be added by migration script
     
@@ -268,6 +271,8 @@ class Invoice(db.Model):
             'due_date': self.due_date.isoformat() if self.due_date else None,
             'total_amount': float(self.total_amount) if self.total_amount else 0.0,
             'status': self.status,
+            'job_type': getattr(self, 'job_type', None),
+            'address': getattr(self, 'address', None),
             'jobs': [job.to_dict() for job in self.jobs] if self.jobs else []
         }
 

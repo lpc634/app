@@ -295,7 +295,7 @@ def delete_agent_document(document_type):
 
 # --- PDF AND EMAIL HELPER FUNCTIONS ---
 
-def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=None):
+def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=None, invoice=None):
     """Generates a professional PDF invoice using Platypus layout and uploads to S3."""
     import traceback
     from datetime import date
@@ -338,7 +338,7 @@ def generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_
         
         # Use the new Platypus-based builder
         current_app.logger.info("PDF GENERATION: Using Platypus layout builder")
-        build_invoice_pdf(file_path, agent, normalized_jobs, totals, invoice_number, invoice_date, agent_invoice_number)
+        build_invoice_pdf(file_path, agent, normalized_jobs, totals, invoice_number, invoice_date, agent_invoice_number, invoice)
         
         current_app.logger.info(f"PDF GENERATION SUCCESS: V3 Services invoice PDF saved to {file_path}")
         
@@ -672,6 +672,9 @@ def create_invoice():
         new_invoice_id = (last_invoice.id + 1) if last_invoice else 1
         invoice_number = f"V3-{issue_date.year}-{new_invoice_id:04d}"
 
+        # Snapshot job details for PDF generation (use first job as primary source)
+        first_job = jobs_to_invoice[0]['job'] if jobs_to_invoice else None
+        
         # Create invoice - only set agent_invoice_number if field exists
         invoice_kwargs = {
             'agent_id': current_user_id,
@@ -681,6 +684,11 @@ def create_invoice():
             'total_amount': total_amount,
             'status': 'submitted'
         }
+        
+        # Add job details for PDF generation if first job exists
+        if first_job:
+            invoice_kwargs['job_type'] = first_job.job_type
+            invoice_kwargs['address'] = first_job.address
         
         # Only add agent_invoice_number if the field exists in the model
         if hasattr(Invoice, 'agent_invoice_number'):
@@ -705,7 +713,7 @@ def create_invoice():
             db.session.add(invoice_job_link)
             
         # --- PDF and Emailing ---
-        pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
+        pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number, invoice=new_invoice)
         
         # Handle different return formats (with or without S3 upload)
         if isinstance(pdf_result, tuple):
@@ -786,6 +794,15 @@ def update_invoice(invoice_id):
         invoice.status = 'sent'
         invoice.issue_date = date.today()
         
+        # Snapshot job details if not already set
+        if not invoice.job_type or not invoice.address:
+            job = invoice_job.job
+            if job:
+                if not invoice.job_type:
+                    invoice.job_type = job.job_type
+                if not invoice.address:
+                    invoice.address = job.address
+        
         db.session.commit()
         
         # Generate PDF and send email
@@ -794,7 +811,6 @@ def update_invoice(invoice_id):
             job = invoice_job.job
             jobs_data = [{
                 'job_id': job.id,
-                'title': job.title,
                 'address': job.address,
                 'arrival_time': job.arrival_time,
                 'hours_worked': float(hours_worked),
@@ -803,7 +819,7 @@ def update_invoice(invoice_id):
             }]
             
             # Generate PDF and upload to S3
-            pdf_result = generate_invoice_pdf(user, jobs_data, float(total_amount), invoice.invoice_number, upload_to_s3=True, agent_invoice_number=invoice.agent_invoice_number)
+            pdf_result = generate_invoice_pdf(user, jobs_data, float(total_amount), invoice.invoice_number, upload_to_s3=True, agent_invoice_number=invoice.agent_invoice_number, invoice=invoice)
             
             # Handle different return formats
             if isinstance(pdf_result, tuple):
@@ -1035,7 +1051,8 @@ def download_agent_invoice(invoice_id):
                 total_amount_float, 
                 invoice.invoice_number, 
                 upload_to_s3=True,
-                agent_invoice_number=invoice.agent_invoice_number
+                agent_invoice_number=invoice.agent_invoice_number,
+                invoice=invoice
             )
             current_app.logger.info(f"STEP 8 SUCCESS: PDF generation completed, result type: {type(pdf_result)}")
             

@@ -28,7 +28,7 @@ BLACK = colors.black
 WHITE = colors.white
 
 
-def build_invoice_pdf(file_path, agent, jobs, totals, invoice_number, invoice_date, agent_invoice_number=None):
+def build_invoice_pdf(file_path, agent, jobs, totals, invoice_number, invoice_date, agent_invoice_number=None, invoice=None):
     """
     Build a professional invoice PDF using ReportLab Platypus.
     
@@ -84,8 +84,8 @@ def build_invoice_pdf(file_path, agent, jobs, totals, invoice_number, invoice_da
     story.extend(bill_to_items)
     story.append(Spacer(1, 20))
     
-    # Services table
-    services_items = _create_services_section(jobs)
+    # Services table - use snapshotted invoice data if available
+    services_items = _create_services_section(jobs, invoice)
     story.extend(services_items)
     story.append(Spacer(1, 16))
     
@@ -298,17 +298,47 @@ def _create_bill_to_section():
     return [title, Spacer(1, 8), v3_table]
 
 
-def _create_services_section(jobs):
+def _create_services_section(jobs, invoice=None):
     """Create services table with proper formatting and pagination."""
+    from flask import current_app
     styles = _create_styles()
     
     # Section title
     title = Paragraph("SERVICES PROVIDED:", styles['h2'])
     
-    if not jobs:
-        # Handle empty jobs case
+    # Extract job details with fallbacks
+    job_address = ""
+    service = ""
+    
+    if invoice:
+        # Use snapshotted data first
+        job_address = getattr(invoice, 'address', None) or ""
+        service = getattr(invoice, 'job_type', None) or ""
+        current_app.logger.info(f"PDF: Using snapshotted invoice data - service: '{service}', address: '{job_address}'")
+    
+    # Fallback to job data if snapshotted data is missing
+    if (not service or not job_address) and jobs:
+        first_job = jobs[0]
+        job_obj = first_job.get('job') if isinstance(first_job, dict) else None
+        if job_obj:
+            if not job_address:
+                job_address = getattr(job_obj, 'address', '') or ""
+            if not service:
+                service = getattr(job_obj, 'job_type', '') or ""
+        current_app.logger.info(f"PDF: Applied fallback from job data - service: '{service}', address: '{job_address}'")
+    
+    # Check if we should show "No services recorded"
+    if not service and not job_address:
         no_jobs = Paragraph("No services recorded", styles['body'])
+        current_app.logger.info("PDF: Showing 'No services recorded' because both service and address are empty")
         return [title, Spacer(1, 8), no_jobs]
+    
+    # Create service description subheading if service exists
+    story_items = [title, Spacer(1, 8)]
+    if service:
+        service_desc = Paragraph(f"<b>{service}</b>", styles['body'])
+        story_items.extend([service_desc, Spacer(1, 6)])
+        current_app.logger.info(f"PDF: Added service description: '{service}'")
     
     # Table headers
     headers = [
@@ -319,16 +349,23 @@ def _create_services_section(jobs):
         Paragraph("<b>Amount</b>", styles['small'])
     ]
     
-    # Table data
+    # Table data - use invoice data if available
     table_data = [headers]
     
-    for i, job in enumerate(jobs):
-        # Format job data
-        job_date = fmt_date(job.get('date') or job.get('arrival_time'))
-        job_address = _safe_str(job.get('address', 'Address not provided'))
-        job_hours = fmt_hours(job.get('hours', 0))
-        job_rate = fmt_money(job.get('rate', 0))
-        job_amount = fmt_money(job.get('amount', 0))
+    if jobs:
+        # Use first job for table data (assuming single job per invoice for now)
+        first_job = jobs[0]
+        
+        # Extract date from invoice if available, otherwise from job
+        if invoice and hasattr(invoice, 'issue_date'):
+            job_date = fmt_date(invoice.issue_date)
+        else:
+            job_date = fmt_date(first_job.get('date') or first_job.get('arrival_time'))
+        
+        # Use extracted address
+        job_hours = fmt_hours(first_job.get('hours', 0))
+        job_rate = fmt_money(first_job.get('rate', 0))
+        job_amount = fmt_money(first_job.get('amount', 0))
         
         # Create table row
         row = [
@@ -372,8 +409,9 @@ def _create_services_section(jobs):
     ]
     
     services_table.setStyle(TableStyle(table_style))
+    story_items.append(services_table)
     
-    return [title, Spacer(1, 8), services_table]
+    return story_items
 
 
 def _create_totals_section(totals):
