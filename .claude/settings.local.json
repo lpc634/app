@@ -22,7 +22,8 @@
       "Bash(git rm:*)",
       "Bash(del add_invoice_job_details.py)",
       "Bash(heroku run:*)",
-      "Bash(heroku:*)"
+      "Bash(heroku:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }
