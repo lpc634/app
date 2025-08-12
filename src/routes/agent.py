@@ -296,6 +296,36 @@ def delete_agent_document(document_type):
 
 # --- PDF AND EMAIL HELPER FUNCTIONS ---
 
+def generate_misc_invoice_pdf(agent, misc_items, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=None):
+    """
+    Generates a PDF for miscellaneous invoice items.
+    """
+    from src.pdf.invoice_builder import build_invoice_pdf
+    from datetime import date as date_cls
+    
+    try:
+        current_app.logger.info(f"MISC PDF GENERATION START: {invoice_number} items_count={len(misc_items or [])}")
+        
+        # Transform misc items to job-like format for PDF builder
+        jobs_data = []
+        for item in misc_items:
+            jobs_data.append({
+                'job': None,
+                'hours': item.get('quantity', 1),
+                'rate': item.get('unit_price', 0),
+                'amount': item.get('amount', 0),
+                'address': item.get('description', 'Miscellaneous Service'),
+                'arrival_time': date_cls.today().strftime('%Y-%m-%d'),
+                'job_type': 'Misc'
+            })
+        
+        # Use the regular PDF builder
+        return generate_invoice_pdf(agent, jobs_data, total_amount, invoice_number, upload_to_s3, agent_invoice_number)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error generating misc invoice PDF: {str(e)}")
+        raise
+
 def generate_invoice_pdf(agent,
                          jobs_data,
                          total_amount,
@@ -819,9 +849,8 @@ def create_invoice():
         
         # 1. Create the new invoice record
         issue_date = date.today()
-        last_invoice = Invoice.query.order_by(Invoice.id.desc()).first()
-        new_invoice_id = (last_invoice.id + 1) if last_invoice else 1
-        invoice_number = f"V3-{issue_date.year}-{new_invoice_id:04d}"
+        # Use simple agent sequential numbering (e.g., "325", "326", etc.)
+        invoice_number = str(final_agent_invoice_number)
 
         # Snapshot job details from the first job for PDF generation
         first_job = jobs_to_invoice[0]['job'] if jobs_to_invoice else None
@@ -909,6 +938,177 @@ def create_invoice():
             os.remove(pdf_path)
         import traceback
         return jsonify({"error": "An internal server error occurred.", "details": traceback.format_exc()}), 500
+
+@agent_bp.route('/agent/invoice/misc', methods=['POST'])
+@jwt_required()
+def create_misc_invoice():
+    """
+    Creates a miscellaneous invoice with custom line items.
+    """
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied.'}), 403
+
+        data = request.get_json()
+        line_items = data.get('items', [])
+        custom_invoice_number = data.get('agent_invoice_number') or data.get('invoice_number')
+
+        if not line_items:
+            return jsonify({'error': 'No items provided for invoicing.'}), 400
+
+        # --- Data Validation and Calculation ---
+        total_amount = Decimal(0)
+        misc_items = []
+        
+        for item in line_items:
+            description = item.get('description', '').strip()
+            if not description:
+                return jsonify({'error': 'Each item must have a description.'}), 400
+            
+            try:
+                quantity = Decimal(str(item.get('quantity', 1)))
+                unit_price = Decimal(str(item.get('unit_price', 0)))
+                if quantity <= 0:
+                    return jsonify({'error': f'Invalid quantity for item: {description}'}), 400
+                if unit_price < 0:
+                    return jsonify({'error': f'Invalid unit price for item: {description}'}), 400
+            except (InvalidOperation, ValueError):
+                return jsonify({'error': f'Invalid numeric values for item: {description}'}), 400
+            
+            amount = quantity * unit_price
+            total_amount += amount
+            
+            misc_items.append({
+                'description': description,
+                'quantity': quantity,
+                'unit_price': unit_price,
+                'amount': amount
+            })
+
+        if total_amount <= 0:
+            return jsonify({'error': 'Invoice total must be greater than zero.'}), 400
+
+        # --- Flexible Agent Invoice Number Handling ---
+        final_agent_invoice_number = None
+        
+        if custom_invoice_number is not None:
+            # Validate the provided custom invoice number
+            try:
+                custom_invoice_number = int(custom_invoice_number)
+                if custom_invoice_number <= 0:
+                    return jsonify({'error': 'Invoice number must be greater than 0'}), 400
+                if custom_invoice_number > 999999999:  # Max 9 digits
+                    return jsonify({'error': 'Invoice number cannot exceed 9 digits'}), 400
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Invoice number must be a valid integer'}), 400
+            
+            # Check for uniqueness (per agent)
+            existing = None
+            if hasattr(Invoice, 'agent_invoice_number'):
+                existing = Invoice.query.filter_by(agent_id=current_user_id, agent_invoice_number=custom_invoice_number).first()
+            if existing:
+                current_number = getattr(agent, 'current_invoice_number', 0) or 0
+                suggested_next = current_number + 1
+                return jsonify({
+                    'message': 'Invoice number already used',
+                    'error': f'Invoice number {custom_invoice_number} has already been used',
+                    'suggested': suggested_next,
+                    'current': current_number
+                }), 409
+            
+            final_agent_invoice_number = custom_invoice_number
+        else:
+            # Auto-generate next number based on current sequence
+            current_number = getattr(agent, 'current_invoice_number', 0) or 0
+            final_agent_invoice_number = current_number + 1
+
+        # --- Database Transaction ---
+        issue_date = date.today()
+        # Use simple agent sequential numbering
+        invoice_number = str(final_agent_invoice_number)
+        
+        # Create invoice for misc items (no job snapshot needed)
+        invoice_kwargs = {
+            'agent_id': current_user_id,
+            'invoice_number': invoice_number,
+            'issue_date': issue_date,
+            'due_date': issue_date + timedelta(days=30),
+            'total_amount': total_amount,
+            'status': 'submitted',
+            'job_type': 'Miscellaneous Services',
+            'address': 'Various'
+        }
+        
+        # Only add agent_invoice_number if the field exists in the model
+        if hasattr(Invoice, 'agent_invoice_number'):
+            invoice_kwargs['agent_invoice_number'] = final_agent_invoice_number
+        
+        new_invoice = Invoice(**invoice_kwargs)
+        db.session.add(new_invoice)
+        db.session.flush()
+
+        # Update agent's invoice numbering system
+        if hasattr(agent, 'current_invoice_number'):
+            agent.current_invoice_number = final_agent_invoice_number
+            
+        # Also update the legacy system for backward compatibility
+        current_next = getattr(agent, 'agent_invoice_next', None) or 1
+        if hasattr(agent, 'agent_invoice_next'):
+            agent.agent_invoice_next = max(current_next, final_agent_invoice_number + 1)
+
+        # Create fake job-style data for PDF generation
+        jobs_data_for_pdf = []
+        for item in misc_items:
+            jobs_data_for_pdf.append({
+                'job': None,  # No actual job
+                'description': item['description'],
+                'quantity': float(item['quantity']),
+                'unit_price': float(item['unit_price']),
+                'hours': float(item['quantity']),  # For PDF compatibility
+                'rate': float(item['unit_price']),  # For PDF compatibility
+                'amount': float(item['amount']),
+                'address': 'Miscellaneous Service',
+                'arrival_time': issue_date.strftime('%Y-%m-%d'),
+                'job_type': 'Misc'
+            })
+
+        # Generate PDF
+        pdf_result = generate_misc_invoice_pdf(agent, jobs_data_for_pdf, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
+        
+        # Handle different return formats (with or without S3 upload)
+        if isinstance(pdf_result, tuple):
+            pdf_path, s3_file_key = pdf_result
+        else:
+            pdf_path = pdf_result
+
+        # Send in-app notification to agent
+        notification = Notification(
+            user_id=agent.id,
+            title=f"Misc Invoice {invoice_number} Generated",
+            message=f"Your miscellaneous invoice {invoice_number} for £{total_amount:.2f} has been generated and is ready for download.",
+            type="invoice_generated"
+        )
+        db.session.add(notification)
+        
+        current_app.logger.info(f"Misc Invoice {invoice_number} created for agent {agent.email}")
+
+        # Commit transaction
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Miscellaneous invoice created successfully!',
+            'invoice_number': invoice_number
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        if 'pdf_path' in locals() and os.path.exists(pdf_path):
+            os.remove(pdf_path)
+        import traceback
+        current_app.logger.error(f"Error creating misc invoice: {traceback.format_exc()}")
+        return jsonify({"error": "An internal server error occurred.", "details": str(e)}), 500
 
 @agent_bp.route('/agent/invoices/<int:invoice_id>', methods=['PUT'])
 @jwt_required()
