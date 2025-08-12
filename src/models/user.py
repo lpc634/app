@@ -27,8 +27,9 @@ class User(db.Model):
     sia_document_url = db.Column(db.String(255), nullable=True)
     verification_status = db.Column(db.String(20), nullable=False, default='pending')
     
-    # Agent invoice numbering (backward compatible - will be added by migration)
-    agent_invoice_next = db.Column(db.Integer, nullable=True, default=1)
+    # Agent invoice numbering - flexible per-agent system
+    agent_invoice_next = db.Column(db.Integer, nullable=True, default=1)  # Keep for backward compatibility
+    current_invoice_number = db.Column(db.Integer, nullable=True, default=0)  # New flexible numbering system
     
     
     assignments = db.relationship('JobAssignment', back_populates='agent', lazy=True)

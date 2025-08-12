@@ -757,8 +757,8 @@ def create_invoice():
 
         data = request.get_json()
         job_items = data.get('items')
-        # Accept both agent_invoice_number and invoice_number (alias)
-        agent_invoice_number = data.get('agent_invoice_number') or data.get('invoice_number')
+        # Accept agent_invoice_number from frontend (their personal invoice number)
+        custom_invoice_number = data.get('agent_invoice_number') or data.get('invoice_number')
 
         if not job_items:
             return jsonify({'error': 'No items provided for invoicing.'}), 400
@@ -780,34 +780,40 @@ def create_invoice():
             total_amount += amount
             jobs_to_invoice.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
 
-        # --- Agent Invoice Number Handling ---
+        # --- Flexible Agent Invoice Number Handling ---
         final_agent_invoice_number = None
         
-        if agent_invoice_number is not None:
-            # Validate the provided agent invoice number
+        if custom_invoice_number is not None:
+            # Validate the provided custom invoice number
             try:
-                agent_invoice_number = int(agent_invoice_number)
-                if agent_invoice_number <= 0:
-                    return jsonify({'error': 'Agent invoice number must be greater than 0'}), 400
-                if agent_invoice_number > 999999999:  # Max 9 digits
-                    return jsonify({'error': 'Agent invoice number cannot exceed 9 digits'}), 400
+                custom_invoice_number = int(custom_invoice_number)
+                if custom_invoice_number <= 0:
+                    return jsonify({'error': 'Invoice number must be greater than 0'}), 400
+                if custom_invoice_number > 999999999:  # Max 9 digits
+                    return jsonify({'error': 'Invoice number cannot exceed 9 digits'}), 400
             except (ValueError, TypeError):
-                return jsonify({'error': 'Agent invoice number must be a valid integer'}), 400
+                return jsonify({'error': 'Invoice number must be a valid integer'}), 400
             
             # Check for uniqueness (per agent) - only if field exists
             existing = None
             if hasattr(Invoice, 'agent_invoice_number'):
-                existing = Invoice.query.filter_by(agent_id=current_user_id, agent_invoice_number=agent_invoice_number).first()
+                existing = Invoice.query.filter_by(agent_id=current_user_id, agent_invoice_number=custom_invoice_number).first()
             if existing:
+                # Get current number for suggestion
+                current_number = getattr(agent, 'current_invoice_number', 0) or 0
+                suggested_next = current_number + 1
                 return jsonify({
-                    'message': 'Duplicate agent invoice number',
-                    'suggestedNext': getattr(agent, 'agent_invoice_next', None) or 1
+                    'message': 'Invoice number already used',
+                    'error': f'Invoice number {custom_invoice_number} has already been used',
+                    'suggested': suggested_next,
+                    'current': current_number
                 }), 409
             
-            final_agent_invoice_number = agent_invoice_number
+            final_agent_invoice_number = custom_invoice_number
         else:
-            # Use the agent's next number
-            final_agent_invoice_number = getattr(agent, 'agent_invoice_next', None) or 1
+            # Auto-generate next number based on current sequence
+            current_number = getattr(agent, 'current_invoice_number', 0) or 0
+            final_agent_invoice_number = current_number + 1
 
         # --- Database Transaction ---
         
@@ -842,7 +848,12 @@ def create_invoice():
         db.session.add(new_invoice)
         db.session.flush()
 
-        # Update agent's next invoice number
+        # Update agent's invoice numbering system
+        # Update the new flexible system
+        if hasattr(agent, 'current_invoice_number'):
+            agent.current_invoice_number = final_agent_invoice_number
+            
+        # Also update the legacy system for backward compatibility
         current_next = getattr(agent, 'agent_invoice_next', None) or 1
         if hasattr(agent, 'agent_invoice_next'):
             agent.agent_invoice_next = max(current_next, final_agent_invoice_number + 1)
@@ -1224,7 +1235,7 @@ def diagnose_s3_invoice(invoice_id):
 @agent_bp.route('/agent/next-invoice-number', methods=['GET'])
 @jwt_required()
 def get_next_invoice_number():
-    """Get the suggested next invoice number for the current agent."""
+    """Get the suggested next invoice number for the current agent (flexible system)."""
     try:
         current_user_id = int(get_jwt_identity())
         agent = User.query.get(current_user_id)
@@ -1232,18 +1243,27 @@ def get_next_invoice_number():
         if not agent or agent.role != 'agent':
             return jsonify({'error': 'Access denied'}), 403
         
+        # Use the new flexible system
+        current_number = getattr(agent, 'current_invoice_number', 0) or 0
+        suggested_next = current_number + 1
+        
+        # Also provide the old system for backward compatibility
+        old_next = getattr(agent, 'agent_invoice_next', None) or 1
+        
         return jsonify({
-            'next': getattr(agent, 'agent_invoice_next', None) or 1
+            'suggested': suggested_next,
+            'current': current_number,
+            'legacy_next': old_next  # For backward compatibility
         }), 200
         
     except Exception as e:
         current_app.logger.error(f"Error fetching next invoice number: {str(e)}")
         return jsonify({'error': 'Failed to fetch next invoice number'}), 500
 
-@agent_bp.route('/agent/numbering', methods=['PATCH'])
+@agent_bp.route('/agent/validate-invoice-number', methods=['POST'])
 @jwt_required()
-def update_agent_numbering():
-    """Update the agent's default next invoice number."""
+def validate_invoice_number():
+    """Validate if an invoice number is available for the current agent."""
     try:
         current_user_id = int(get_jwt_identity())
         agent = User.query.get(current_user_id)
@@ -1252,32 +1272,95 @@ def update_agent_numbering():
             return jsonify({'error': 'Access denied'}), 403
         
         data = request.get_json()
-        if not data or 'next' not in data:
-            return jsonify({'error': 'Next number is required'}), 400
+        invoice_number = data.get('invoice_number')
         
-        next_number = data['next']
+        if not invoice_number:
+            return jsonify({'error': 'Invoice number is required'}), 400
         
-        # Validate integer > 0
+        # Validate format
         try:
-            next_number = int(next_number)
-            if next_number <= 0:
-                return jsonify({'error': 'Next number must be greater than 0'}), 400
-            if next_number > 999999999:  # Max 9 digits
-                return jsonify({'error': 'Next number cannot exceed 9 digits'}), 400
+            invoice_number = int(invoice_number)
+            if invoice_number <= 0:
+                return jsonify({
+                    'valid': False,
+                    'error': 'Invoice number must be greater than 0'
+                }), 200
+            if invoice_number > 999999999:
+                return jsonify({
+                    'valid': False,
+                    'error': 'Invoice number cannot exceed 9 digits'
+                }), 200
         except (ValueError, TypeError):
-            return jsonify({'error': 'Next number must be a valid integer'}), 400
+            return jsonify({
+                'valid': False,
+                'error': 'Invoice number must be a valid integer'
+            }), 200
         
-        # Update agent's next number (safely handle if field doesn't exist yet)
+        # Check for uniqueness (per agent)
+        existing = None
+        if hasattr(Invoice, 'agent_invoice_number'):
+            existing = Invoice.query.filter_by(
+                agent_id=current_user_id, 
+                agent_invoice_number=invoice_number
+            ).first()
+        
+        if existing:
+            return jsonify({
+                'valid': False,
+                'error': f'Invoice number {invoice_number} has already been used',
+                'existing_invoice': existing.invoice_number
+            }), 200
+        
+        return jsonify({
+            'valid': True,
+            'message': f'Invoice number {invoice_number} is available'
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error validating invoice number: {str(e)}")
+        return jsonify({'error': 'Failed to validate invoice number'}), 500
+
+@agent_bp.route('/agent/numbering', methods=['PATCH'])
+@jwt_required()
+def update_agent_numbering():
+    """Update the agent's current invoice number (flexible system)."""
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        if not data or 'current' not in data:
+            return jsonify({'error': 'Current invoice number is required'}), 400
+        
+        current_number = data['current']
+        
+        # Validate integer >= 0 (0 means starting fresh)
+        try:
+            current_number = int(current_number)
+            if current_number < 0:
+                return jsonify({'error': 'Current number must be 0 or greater'}), 400
+            if current_number > 999999999:  # Max 9 digits
+                return jsonify({'error': 'Current number cannot exceed 9 digits'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Current number must be a valid integer'}), 400
+        
+        # Update agent's current number in the flexible system
+        if hasattr(agent, 'current_invoice_number'):
+            agent.current_invoice_number = current_number
+        
+        # Also update the legacy system for backward compatibility
         if hasattr(agent, 'agent_invoice_next'):
-            agent.agent_invoice_next = next_number
-        else:
-            # Field doesn't exist yet - migration needed
-            current_app.logger.warning("agent_invoice_next field not found - database migration needed")
+            agent.agent_invoice_next = current_number + 1
+        
         db.session.commit()
         
         return jsonify({
-            'message': 'Next invoice number updated successfully',
-            'next': next_number
+            'message': 'Invoice numbering updated successfully',
+            'current': current_number,
+            'suggested_next': current_number + 1
         }), 200
         
     except Exception as e:
