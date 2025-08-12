@@ -15,6 +15,7 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, 
     PageTemplate, Frame, BaseDocTemplate, NextPageTemplate, PageBreak, Flowable
 )
+from reportlab.platypus.flowables import HRFlowable
 from reportlab.platypus.tableofcontents import SimpleIndex
 
 
@@ -64,44 +65,42 @@ def build_invoice_pdf(file_path, agent, jobs, totals, invoice_number, invoice_da
     )
     doc.addPageTemplates([template])
     
-    # Build story (content flowables) - optimized for single page
+    # Build story (content flowables) - professional layout
     story = []
     
-    # Title
+    # Title with professional separator
     story.append(_create_title())
-    story.append(Spacer(1, 8))  # Reduced from 12
+    story.append(Spacer(1, 8))
+    # Add professional horizontal line
+    hr = HRFlowable(width="100%", thickness=2, color=PRIMARY, spaceBefore=5, spaceAfter=5)
+    story.append(hr)
+    story.append(Spacer(1, 15))  # Space after separator
     
     # Header with agent info and contact panel
     story.append(_create_header(agent))
-    story.append(Spacer(1, 10))  # Reduced from 16
+    story.append(Spacer(1, 25))  # More space after header
     
     # Invoice meta (number and date)
     story.append(_create_invoice_meta(invoice_number, invoice_date, agent_invoice_number))
-    story.append(Spacer(1, 12))  # Reduced from 20
+    story.append(Spacer(1, 25))  # More space after meta
     
     # Bill To section
     bill_to_items = _create_bill_to_section()
     story.extend(bill_to_items)
-    story.append(Spacer(1, 12))  # Reduced from 20
+    story.append(Spacer(1, 20))  # More space after Bill To
     
     # Services table - use snapshotted invoice data if available
     services_items = _create_services_section(jobs, invoice)
     story.extend(services_items)
-    story.append(Spacer(1, 10))  # Reduced from 16
+    story.append(Spacer(1, 20))  # More space after services
     
     # Totals
     story.append(_create_totals_section(totals))
-    story.append(Spacer(1, 12))  # Reduced from 20
+    story.append(Spacer(1, 25))  # More space after totals
     
-    # Payment Details with tax statement (no page break check - keep on same page)
+    # Payment Details with integrated tax statement
     payment_items = _create_payment_details(agent)
     story.extend(payment_items)
-    
-    # Add tax statement flowable after payment details
-    # Estimate payment table height (6 rows * 20 points + padding)
-    payment_table_height = 120
-    tax_statement = TaxStatementFlowable(payment_table_height)
-    story.append(tax_statement)
     
     # Build the PDF
     doc.build(story)
@@ -163,27 +162,43 @@ def _create_styles():
 
 
 def _create_title():
-    """Create the main INVOICE title."""
+    """Create the main INVOICE title with professional styling."""
     styles = _create_styles()
     title_style = ParagraphStyle(
         'Title',
         parent=styles['h1'],
-        fontSize=24,
+        fontSize=28,  # Larger title
         textColor=PRIMARY,
-        spaceAfter=0
+        fontName='Helvetica-Bold',
+        alignment=TA_CENTER,  # Center the title
+        spaceAfter=0,
+        spaceBefore=0
     )
     return Paragraph("INVOICE", title_style)
 
 
 def _create_header(agent):
-    """Create header with agent details on left and contact panel on right."""
+    """Create professional header with agent details on left and contact panel on right."""
     styles = _create_styles()
     
-    # Agent name and address (left side)
+    # Agent name (larger, bold)
     agent_name = f"{_safe_str(agent.first_name)} {_safe_str(agent.last_name)}".strip()
     if not agent_name:
         agent_name = "Agent"
     
+    # Create professional agent name style
+    name_style = ParagraphStyle(
+        'AgentName',
+        parent=styles['body'],
+        fontSize=14,
+        textColor=DARK,
+        fontName='Helvetica-Bold',
+        spaceAfter=8
+    )
+    
+    agent_name_para = Paragraph(agent_name, name_style)
+    
+    # Agent address with better formatting
     agent_address_lines = []
     if agent.address_line_1:
         agent_address_lines.append(_safe_str(agent.address_line_1))
@@ -196,44 +211,65 @@ def _create_header(agent):
     
     if not agent_address_lines:
         agent_address_lines = ["Address not provided"]
-        
+    
+    # Create address with proper line spacing
+    address_style = ParagraphStyle(
+        'Address',
+        parent=styles['body'],
+        fontSize=10,
+        leading=14,
+        spaceAfter=4
+    )
+    
     agent_address = "<br/>".join(agent_address_lines)
+    agent_address_para = Paragraph(agent_address, address_style)
     
-    agent_info = f"<b>{agent_name}</b><br/>{agent_address}"
-    agent_para = Paragraph(agent_info, styles['body'])
+    # Create left column with name and address
+    left_column_data = [[agent_name_para], [agent_address_para]]
+    left_column_table = Table(left_column_data, colWidths=[280])
+    left_column_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
     
-    # Contact panel (right side) - light background table
+    # Contact panel (right side) with better styling
     contact_data = [
         [Paragraph("<b>Email:</b>", styles['small_caps']), Paragraph(_safe_str(agent.email), styles['small'])],
         [Paragraph("<b>Phone:</b>", styles['small_caps']), Paragraph(_safe_str(agent.phone), styles['small'])],
         [Paragraph("<b>UTR:</b>", styles['small_caps']), Paragraph(_safe_str(agent.utr_number), styles['small'])]
     ]
     
-    contact_table = Table(contact_data, colWidths=[50, 110])  # Reduced widths
+    contact_table = Table(contact_data, colWidths=[60, 120])  # Better proportions
     contact_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), LIGHT_BG),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),  # Reduced padding
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),  # Reduced padding
-        ('TOPPADDING', (0, 0), (-1, -1), 4),   # Reduced padding
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4), # Reduced padding
-        ('BOX', (0, 0), (-1, -1), 1, GRID)
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),   # More padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),  # More padding
+        ('TOPPADDING', (0, 0), (-1, -1), 6),     # More padding
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),  # More padding
+        ('BOX', (0, 0), (-1, -1), 1.5, GRID),   # Thicker border
+        ('GRID', (0, 0), (-1, -1), 0.5, GRID)   # Internal grid
     ]))
     
-    # Combine in a table structure
-    header_data = [[agent_para, contact_table]]
-    header_table = Table(header_data, colWidths=[300, 180])
+    # Combine in a table structure with proper spacing
+    header_data = [[left_column_table, contact_table]]
+    header_table = Table(header_data, colWidths=[300, 200])
     header_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
     
     return header_table
 
 
 def _create_invoice_meta(invoice_number, invoice_date, agent_invoice_number=None):
-    """Create right-aligned meta box with invoice number and date."""
+    """Create right-aligned professional meta box with invoice number and date."""
     styles = _create_styles()
     
     formatted_date = fmt_date(invoice_date)
@@ -255,50 +291,75 @@ def _create_invoice_meta(invoice_number, invoice_date, agent_invoice_number=None
         Paragraph(invoice_number, styles['body'])
     ])
     
-    meta_table = Table(meta_data, colWidths=[90, 90])  # Reduced widths
+    meta_table = Table(meta_data, colWidths=[100, 110])  # Better proportions
     meta_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 1, GRID),
+        ('BACKGROUND', (0, 0), (-1, -1), LIGHT_BG),
+        ('BOX', (0, 0), (-1, -1), 1.5, DARK),  # Darker, thicker border
+        ('GRID', (0, 0), (-1, -1), 0.5, GRID), # Internal grid lines
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),  # Reduced padding
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6), # Reduced padding
-        ('TOPPADDING', (0, 0), (-1, -1), 4),   # Reduced padding
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4), # Reduced padding
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),  # More padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10), # More padding
+        ('TOPPADDING', (0, 0), (-1, -1), 8),    # More padding
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8), # More padding
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),     # Left align values
     ]))
     
-    # Right-align the meta table
+    # Right-align the meta table with better spacing
     container_data = [["", meta_table]]
-    container_table = Table(container_data, colWidths=[280, 200])
+    container_table = Table(container_data, colWidths=[290, 210])
     container_table.setStyle(TableStyle([
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
     
     return container_table
 
 
 def _create_bill_to_section():
-    """Create the fixed BILL TO section for V3 Services Ltd."""
+    """Create the professional BILL TO section for V3 Services Ltd."""
     styles = _create_styles()
     
-    # Section title
-    title = Paragraph("BILL TO:", styles['h2'])
+    # Enhanced section title
+    title_style = ParagraphStyle(
+        'SectionTitle',
+        parent=styles['h2'],
+        fontSize=13,
+        textColor=DARK,
+        fontName='Helvetica-Bold',
+        spaceAfter=10,
+        borderWidth=0,
+        borderColor=DARK,
+        borderPadding=0
+    )
+    title = Paragraph("BILL TO:", title_style)
     
-    # Fixed V3 Services information
+    # Enhanced V3 Services information with better formatting
+    company_style = ParagraphStyle(
+        'CompanyInfo',
+        parent=styles['body'],
+        fontSize=11,
+        leading=16,
+        textColor=BLACK
+    )
+    
     v3_info = [
-        [Paragraph("<b>V3 SERVICES LTD</b><br/>117 Dartford Road<br/>Dartford, England<br/>DA1 3EN", styles['body'])]
+        [Paragraph("<b>V3 SERVICES LTD</b><br/>117 Dartford Road<br/>Dartford, England<br/>DA1 3EN", company_style)]
     ]
     
-    v3_table = Table(v3_info, colWidths=[300])
+    v3_table = Table(v3_info, colWidths=[350])
     v3_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), LIGHT_BG),
-        ('BOX', (0, 0), (-1, -1), 1, GRID),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),   # Reduced padding
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),  # Reduced padding
-        ('TOPPADDING', (0, 0), (-1, -1), 6),    # Reduced padding
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6), # Reduced padding
+        ('BOX', (0, 0), (-1, -1), 1.5, DARK),   # Thicker, darker border
+        ('LEFTPADDING', (0, 0), (-1, -1), 15),  # More padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 15), # More padding
+        ('TOPPADDING', (0, 0), (-1, -1), 12),   # More padding
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12), # More padding
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
     
-    return [title, Spacer(1, 6), v3_table]  # Reduced spacing
+    return [title, Spacer(1, 10), v3_table]  # Better spacing
 
 
 def _create_services_section(jobs, invoice=None):
@@ -320,8 +381,16 @@ def _create_services_section(jobs, invoice=None):
     else:
         current_app.logger.warning("PDF DEBUG: No jobs data provided")
     
-    # Section title
-    title = Paragraph("SERVICES PROVIDED:", styles['h2'])
+    # Enhanced section title
+    title_style = ParagraphStyle(
+        'SectionTitle',
+        parent=styles['h2'],
+        fontSize=13,
+        textColor=DARK,
+        fontName='Helvetica-Bold',
+        spaceAfter=10,
+    )
+    title = Paragraph("SERVICES PROVIDED:", title_style)
     
     # Extract job details with fallbacks
     job_address = ""
@@ -351,10 +420,18 @@ def _create_services_section(jobs, invoice=None):
         return [title, Spacer(1, 8), no_jobs]
     
     # Create service description subheading if service exists
-    story_items = [title, Spacer(1, 6)]  # Reduced spacing
+    story_items = [title, Spacer(1, 10)]  # Better spacing
     if service:
-        service_desc = Paragraph(f"<b>{service}</b>", styles['body'])
-        story_items.extend([service_desc, Spacer(1, 4)])  # Reduced spacing
+        service_style = ParagraphStyle(
+            'ServiceDesc',
+            parent=styles['body'],
+            fontSize=11,
+            fontName='Helvetica-Bold',
+            textColor=PRIMARY,  # Use V3 orange color
+            spaceAfter=6
+        )
+        service_desc = Paragraph(f"{service}", service_style)
+        story_items.extend([service_desc, Spacer(1, 8)])  # Better spacing
         current_app.logger.info(f"PDF: Added service description: '{service}'")
     
     # Table headers
@@ -417,35 +494,45 @@ def _create_services_section(jobs, invoice=None):
         ]
         table_data.append(row)
     
-    # Create table with column widths: Date(70), Address(flex), Hours(60), Rate(70), Amount(85)
-    services_table = Table(table_data, colWidths=[70, None, 60, 70, 85], repeatRows=1)
+    # Create professional table with better column widths: Date(80), Address(flexible), Hours(60), Rate(75), Amount(85)
+    services_table = Table(table_data, colWidths=[80, None, 60, 75, 85], repeatRows=1)
     
-    # Table styling with zebra striping
+    # Professional table styling with enhanced borders and spacing
     table_style = [
-        # Header styling
+        # Header styling - darker background and white text
         ('BACKGROUND', (0, 0), (-1, 0), DARK),
         ('TEXTCOLOR', (0, 0), (-1, 0), WHITE),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 9),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 5),  # Reduced padding
-        ('TOPPADDING', (0, 0), (-1, 0), 5),     # Reduced padding
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),   # Center header text
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),  # More padding
+        ('TOPPADDING', (0, 0), (-1, 0), 8),     # More padding
         
-        # Data rows
+        # Data rows with better formatting
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 1), (-1, -1), 9),
-        ('TOPPADDING', (0, 1), (-1, -1), 4),    # Reduced padding
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 4), # Reduced padding
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),   # Reduced padding
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),  # Reduced padding
+        ('TOPPADDING', (0, 1), (-1, -1), 6),    # More padding
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 6), # More padding
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),   # More padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),  # More padding
         
-        # Amount column right-aligned
-        ('ALIGN', (-1, 0), (-1, -1), 'RIGHT'),
+        # Column-specific alignment
+        ('ALIGN', (0, 1), (0, -1), 'CENTER'),   # Date column centered
+        ('ALIGN', (1, 1), (1, -1), 'LEFT'),     # Address column left
+        ('ALIGN', (2, 1), (2, -1), 'CENTER'),   # Hours column centered
+        ('ALIGN', (3, 1), (3, -1), 'CENTER'),   # Rate column centered
+        ('ALIGN', (4, 1), (4, -1), 'RIGHT'),    # Amount column right
         
-        # Grid lines
-        ('GRID', (0, 0), (-1, -1), 0.5, GRID),
+        # Professional borders
+        ('BOX', (0, 0), (-1, -1), 2, DARK),     # Outer border - thick and dark
+        ('LINEBELOW', (0, 0), (-1, 0), 2, DARK), # Header bottom border
+        ('GRID', (0, 1), (-1, -1), 0.5, GRID),  # Internal grid - thin
         
-        # Zebra striping for data rows (very light)
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [WHITE, HexColor('#FAFBFC')])
+        # Professional alternating row colors
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [WHITE, HexColor('#F8F9FA')]),
+        
+        # Value alignment and formatting
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # Vertical center alignment
     ]
     
     services_table.setStyle(TableStyle(table_style))
@@ -455,52 +542,90 @@ def _create_services_section(jobs, invoice=None):
 
 
 def _create_totals_section(totals):
-    """Create right-aligned totals box."""
+    """Create professional right-aligned totals box."""
     styles = _create_styles()
     
     subtotal = totals.get('subtotal', totals.get('total', 0))
     vat = totals.get('vat', 0)
     total = totals.get('total', 0)
     
+    # Create enhanced styles for totals
+    total_label_style = ParagraphStyle(
+        'TotalLabel',
+        parent=styles['body'],
+        fontSize=11,
+        fontName='Helvetica-Bold',
+        textColor=DARK
+    )
+    
+    total_value_style = ParagraphStyle(
+        'TotalValue',
+        parent=styles['body'],
+        fontSize=11,
+        fontName='Helvetica-Bold',
+        textColor=DARK
+    )
+    
+    final_total_style = ParagraphStyle(
+        'FinalTotal',
+        parent=styles['body'],
+        fontSize=12,
+        fontName='Helvetica-Bold',
+        textColor=PRIMARY  # Use V3 orange for emphasis
+    )
+    
     totals_data = [
         [Paragraph("Subtotal:", styles['body']), Paragraph(fmt_money(subtotal), styles['body'])],
         [Paragraph("VAT (0%):", styles['body']), Paragraph(fmt_money(vat), styles['body'])],
-        [Paragraph("<b>TOTAL:</b>", styles['body']), Paragraph(f"<b>{fmt_money(total)}</b>", styles['body'])]
+        [Paragraph("TOTAL:", final_total_style), Paragraph(fmt_money(total), final_total_style)]
     ]
     
-    totals_table = Table(totals_data, colWidths=[80, 80])
+    totals_table = Table(totals_data, colWidths=[100, 100])  # Better proportions
     totals_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 1, GRID),
-        ('BACKGROUND', (0, 0), (-1, -1), LIGHT_BG),
+        ('BOX', (0, 0), (-1, -1), 2, DARK),     # Thicker border
+        ('BACKGROUND', (0, 0), (-1, -2), LIGHT_BG),  # Light background for subtotal/VAT
+        ('BACKGROUND', (0, -1), (-1, -1), HexColor('#FFF3E0')),  # Orange tint for total
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),   # Reduced padding
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),  # Reduced padding
-        ('TOPPADDING', (0, 0), (-1, -1), 4),    # Reduced padding
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4), # Reduced padding
-        # Emphasize total row
-        ('LINEABOVE', (0, -1), (-1, -1), 2, DARK),
-        ('BACKGROUND', (0, -1), (-1, -1), HexColor('#E8F4FD'))
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),  # More padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12), # More padding
+        ('TOPPADDING', (0, 0), (-1, -1), 8),    # More padding
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8), # More padding
+        # Emphasize total row with thicker line
+        ('LINEABOVE', (0, -1), (-1, -1), 2.5, DARK),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        # Internal lines
+        ('GRID', (0, 0), (-1, -2), 0.5, GRID),  # Thin internal lines
     ]))
     
-    # Right-align the totals table
+    # Right-align the totals table with better proportions
     container_data = [["", totals_table]]
-    container_table = Table(container_data, colWidths=[320, 160])
+    container_table = Table(container_data, colWidths=[300, 200])
     container_table.setStyle(TableStyle([
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
     
     return container_table
 
 
 def _create_payment_details(agent):
-    """Create payment details panel with tax statement."""
+    """Create professional payment details panel."""
     styles = _create_styles()
     
-    # Section title
-    title = Paragraph("PAYMENT DETAILS:", styles['h2'])
+    # Enhanced section title
+    title_style = ParagraphStyle(
+        'SectionTitle',
+        parent=styles['h2'],
+        fontSize=13,
+        textColor=DARK,
+        fontName='Helvetica-Bold',
+        spaceAfter=10,
+    )
+    title = Paragraph("PAYMENT DETAILS:", title_style)
     
-    # Payment details data
+    # Payment details data with better formatting
     payment_rows = [
         kv_row("Payment Method:", "BACS Transfer Only"),
         kv_row("Account Name:", f"{_safe_str(agent.first_name)} {_safe_str(agent.last_name)}".strip() or "Not provided"),
@@ -510,29 +635,48 @@ def _create_payment_details(agent):
         kv_row("UTR Number:", _safe_str(agent.utr_number))
     ]
     
-    # Tax statement will be drawn inside the payment box using canvas drawing
-    
-    payment_table = Table(payment_rows, colWidths=[120, 240])
+    payment_table = Table(payment_rows, colWidths=[140, 220])  # Better proportions
     payment_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), LIGHT_BG),
-        ('BOX', (0, 0), (-1, -1), 1, GRID),
+        ('BOX', (0, 0), (-1, -1), 1.5, DARK),   # Thicker border
+        ('GRID', (0, 0), (-1, -1), 0.5, GRID),  # Internal grid
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),   # Reduced padding
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),  # Reduced padding
-        ('TOPPADDING', (0, 0), (-1, -1), 4),    # Reduced padding
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4), # Reduced padding
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),  # More padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12), # More padding
+        ('TOPPADDING', (0, 0), (-1, -1), 8),    # More padding
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8), # More padding
     ]))
     
-    # Create a container that includes the payment table
-    # The tax statement will be drawn inside the payment box using canvas drawing
-    container_data = [["", payment_table]]
-    container_table = Table(container_data, colWidths=[320, 160])
-    container_table.setStyle(TableStyle([
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+    # Add professional tax statement as separate element
+    tax_statement_style = ParagraphStyle(
+        'TaxStatement',
+        parent=styles['body'],
+        fontSize=9,
+        leading=12,
+        textColor=MUTED,
+        leftIndent=0,
+        rightIndent=0,
+        spaceAfter=6
+    )
+    
+    tax_text = ("I confirm that I am responsible for any Tax or National Insurance "
+                "due on all invoices that I have submitted to V3 Services Ltd.")
+    
+    tax_statement = Paragraph(tax_text, tax_statement_style)
+    
+    # Create bordered tax statement
+    tax_container = Table([[tax_statement]], colWidths=[480])
+    tax_container.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), HexColor('#F8F9FA')),
+        ('BOX', (0, 0), (-1, -1), 1, GRID),
+        ('LEFTPADDING', (0, 0), (-1, -1), 15),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 15),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     
-    return [title, Spacer(1, 6), container_table]  # Reduced spacing
+    return [title, Spacer(1, 10), payment_table, Spacer(1, 15), tax_container]
 
 
 class TaxStatementFlowable(Flowable):
@@ -705,11 +849,30 @@ def fmt_hours(hours):
 
 
 def kv_row(label, value):
-    """Create a key-value row for tables."""
+    """Create a professional key-value row for tables."""
     styles = _create_styles()
     
-    label_para = Paragraph(f"<b>{label}</b>", styles['small_caps'])
-    value_para = Paragraph(_safe_str(value), styles['small'])
+    # Enhanced label style
+    label_style = ParagraphStyle(
+        'KeyLabel',
+        parent=styles['small_caps'],
+        fontSize=10,
+        fontName='Helvetica-Bold',
+        textColor=DARK,
+        spaceAfter=2
+    )
+    
+    # Enhanced value style
+    value_style = ParagraphStyle(
+        'KeyValue',
+        parent=styles['small'],
+        fontSize=10,
+        textColor=BLACK,
+        spaceAfter=2
+    )
+    
+    label_para = Paragraph(f"{label}", label_style)
+    value_para = Paragraph(_safe_str(value), value_style)
     
     return [label_para, value_para]
 
