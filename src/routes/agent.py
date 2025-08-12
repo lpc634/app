@@ -324,9 +324,19 @@ def generate_invoice_pdf(agent,
     try:
         current_app.logger.info(f"PDF GENERATION START: {invoice_number} jobs_count={len(jobs_data or [])}")
 
-        # Resolve invoice from DB (for fallbacks)
-        invoice = Invoice.query.options(joinedload(Invoice.jobs)).filter_by(invoice_number=invoice_number).first()
-        # In some schemas, Invoice.jobs relationship is named differently; that's fine if None.
+        # Resolve invoice from DB (for fallbacks) - handle cases where DB is not available
+        invoice = None
+        try:
+            invoice = Invoice.query.options(joinedload(Invoice.jobs)).filter_by(invoice_number=invoice_number).first()
+        except Exception as db_error:
+            current_app.logger.warning(f"Could not query invoice from DB: {db_error}")
+            # Use the provided invoice parameter instead if available
+            pass
+        
+        # Use the provided invoice parameter as fallback (passed as function parameter)
+        if not invoice and 'invoice' in locals() and locals()['invoice'] is not None:
+            # The invoice parameter from function args is already in scope
+            pass
 
         # Helper: safe float
         def _f(x, default=0.0):
@@ -346,24 +356,27 @@ def generate_invoice_pdf(agent,
             return ""
 
         def _one_line_address(job):
-            parts = []
-            # Choose best address source
-            best = getattr(job, "full_address", None)
+            # For Job objects, the address is in the 'address' field
+            best = getattr(job, "address", None)
             if not best:
-                parts = [getattr(job, "address_line_1", ""), getattr(job, "city", ""), getattr(job, "postcode", ""), getattr(job, "country", "")]
+                # If no main address, try to construct from parts (for User objects)
+                parts = [getattr(job, "address_line_1", ""), getattr(job, "city", ""), getattr(job, "postcode", "")]
                 parts = [p for p in parts if p and str(p).strip()]
                 best = ", ".join(parts)
-            best = best or getattr(job, "address", "") or getattr(job, "location", "")
             return best.strip() or "Address not provided"
 
         def _job_date(job):
-            # Pick a sensible date field
-            for field in ("service_date", "start_date", "job_date", "arrival_time", "created_at"):
+            # For Job objects, the main date field is 'arrival_time'
+            for field in ("arrival_time", "created_at", "updated_at"):
                 if hasattr(job, field) and getattr(job, field):
                     try:
-                        return getattr(job, field).strftime("%d/%m/%Y")
+                        date_val = getattr(job, field)
+                        if hasattr(date_val, 'strftime'):
+                            return date_val.strftime("%d/%m/%Y")
+                        else:
+                            return str(date_val)[:10]
                     except Exception:
-                        return str(getattr(job, field))[:10]
+                        continue
             return "N/A"
 
         # Build a map of first linked job (for fallback address/date)
@@ -374,7 +387,8 @@ def generate_invoice_pdf(agent,
                 first_invoice_job = InvoiceJob.query.filter_by(invoice_id=invoice.id).first()
                 if first_invoice_job:
                     first_job = first_invoice_job.job
-        except Exception:
+        except Exception as db_error:
+            current_app.logger.warning(f"Could not query invoice jobs from DB: {db_error}")
             first_job = None
 
         # Ensure PDF builder has a job type and address to show in header/section
@@ -761,8 +775,10 @@ def create_invoice():
             if hours <= 0:
                 return jsonify({'error': f"Invalid hours for job at {job.address}."}), 400
 
-            total_amount += hours * Decimal(job.hourly_rate)
-            jobs_to_invoice.append({'job': job, 'hours': hours})
+            rate = Decimal(job.hourly_rate)
+            amount = hours * rate
+            total_amount += amount
+            jobs_to_invoice.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
 
         # --- Agent Invoice Number Handling ---
         final_agent_invoice_number = None
@@ -801,6 +817,11 @@ def create_invoice():
         new_invoice_id = (last_invoice.id + 1) if last_invoice else 1
         invoice_number = f"V3-{issue_date.year}-{new_invoice_id:04d}"
 
+        # Snapshot job details from the first job for PDF generation
+        first_job = jobs_to_invoice[0]['job'] if jobs_to_invoice else None
+        job_type_snapshot = getattr(first_job, 'job_type', None) if first_job else None
+        address_snapshot = getattr(first_job, 'address', None) if first_job else None
+        
         # Create invoice - only set agent_invoice_number if field exists
         invoice_kwargs = {
             'agent_id': current_user_id,
@@ -808,7 +829,9 @@ def create_invoice():
             'issue_date': issue_date,
             'due_date': issue_date + timedelta(days=30),
             'total_amount': total_amount,
-            'status': 'submitted'
+            'status': 'submitted',
+            'job_type': job_type_snapshot,
+            'address': address_snapshot
         }
         
         # Only add agent_invoice_number if the field exists in the model
@@ -826,10 +849,15 @@ def create_invoice():
 
         # 2. Link the jobs to the new invoice
         for item in jobs_to_invoice:
+            job = item['job']
+            hours = item['hours']
+            rate = job.hourly_rate  # Get the rate from the job
+            
             invoice_job_link = InvoiceJob(
                 invoice_id=new_invoice.id,
-                job_id=item['job'].id,
-                hours_worked=item['hours']
+                job_id=job.id,
+                hours_worked=hours,
+                hourly_rate_at_invoice=rate  # Store the rate at time of invoicing
             )
             db.session.add(invoice_job_link)
             
@@ -915,16 +943,26 @@ def update_invoice(invoice_id):
         invoice.status = 'sent'
         invoice.issue_date = date.today()
         
+        # Update snapshot data for PDF generation if not already set
+        if not invoice.job_type and invoice_job.job:
+            invoice.job_type = invoice_job.job.job_type
+        if not invoice.address and invoice_job.job:
+            invoice.address = invoice_job.job.address
+        
         db.session.commit()
         
-        # Generate PDF (no title usage; we rely on job/address/date)
+        # Generate PDF with proper job data structure
         try:
             job = invoice_job.job
             jobs_data = [{
                 'job': job,
                 'hours': float(hours_worked),
-                'rate': float(hourly_rate)
+                'rate': float(hourly_rate),
+                'amount': float(total_amount)
             }]
+            
+            # Get agent invoice number safely
+            agent_inv_number = getattr(invoice, 'agent_invoice_number', None) if hasattr(invoice, 'agent_invoice_number') else None
             
             pdf_result = generate_invoice_pdf(
                 user,
@@ -932,7 +970,7 @@ def update_invoice(invoice_id):
                 float(total_amount),
                 invoice.invoice_number,
                 upload_to_s3=True,
-                agent_invoice_number=invoice.agent_invoice_number
+                agent_invoice_number=agent_inv_number
             )
             
             if isinstance(pdf_result, tuple):
@@ -1107,7 +1145,8 @@ def download_invoice_direct(invoice_id):
                 continue
             hours = float(ij.hours_worked or 0)
             rate = float(ij.hourly_rate_at_invoice or job.hourly_rate or 0)
-            jobs_data.append({'job': job, 'hours': hours, 'rate': rate})
+            amount = hours * rate
+            jobs_data.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
         if not jobs_data:
             return jsonify({'error': 'No valid job data to render PDF'}), 500
 

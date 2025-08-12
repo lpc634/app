@@ -307,10 +307,18 @@ def _create_services_section(jobs, invoice=None):
     styles = _create_styles()
     
     # DEBUG: Log the actual data structure we receive
-    current_app.logger.error(f"PDF DEBUG: jobs data structure: {jobs}")
-    current_app.logger.error(f"PDF DEBUG: invoice data: {invoice}")
+    current_app.logger.info(f"PDF DEBUG: jobs data structure: {jobs}")
+    current_app.logger.info(f"PDF DEBUG: invoice data: {invoice}")
     if jobs:
-        current_app.logger.error(f"PDF DEBUG: first job: {jobs[0]}")
+        current_app.logger.info(f"PDF DEBUG: first job: {jobs[0]}")
+        current_app.logger.info(f"PDF DEBUG: first job keys: {list(jobs[0].keys()) if isinstance(jobs[0], dict) else 'Not a dict'}")
+        if isinstance(jobs[0], dict) and 'job' in jobs[0]:
+            job_obj = jobs[0]['job']
+            current_app.logger.info(f"PDF DEBUG: job object: {job_obj}")
+            current_app.logger.info(f"PDF DEBUG: job.address: {getattr(job_obj, 'address', 'NO ADDRESS ATTR')}")
+            current_app.logger.info(f"PDF DEBUG: job.job_type: {getattr(job_obj, 'job_type', 'NO JOB_TYPE ATTR')}")
+    else:
+        current_app.logger.warning("PDF DEBUG: No jobs data provided")
     
     # Section title
     title = Paragraph("SERVICES PROVIDED:", styles['h2'])
@@ -337,9 +345,9 @@ def _create_services_section(jobs, invoice=None):
         current_app.logger.info(f"PDF: Applied fallback from job data - service: '{service}', address: '{job_address}'")
     
     # Check if we should show "No services recorded"
-    if not service and not job_address:
+    if not jobs or (not service and not job_address):
+        current_app.logger.warning(f"PDF: Showing 'No services recorded' - jobs: {bool(jobs)}, service: '{service}', address: '{job_address}'")
         no_jobs = Paragraph("No services recorded", styles['body'])
-        current_app.logger.info("PDF: Showing 'No services recorded' because both service and address are empty")
         return [title, Spacer(1, 8), no_jobs]
     
     # Create service description subheading if service exists
