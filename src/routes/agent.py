@@ -386,6 +386,9 @@ def generate_invoice_pdf(agent,
             return ""
 
         def _one_line_address(job):
+            # Handle fake job objects for misc items
+            if hasattr(job, 'address') and job.address:
+                return str(job.address).strip()
             # For Job objects, the address is in the 'address' field
             best = getattr(job, "address", None)
             if not best:
@@ -393,9 +396,18 @@ def generate_invoice_pdf(agent,
                 parts = [getattr(job, "address_line_1", ""), getattr(job, "city", ""), getattr(job, "postcode", "")]
                 parts = [p for p in parts if p and str(p).strip()]
                 best = ", ".join(parts)
-            return best.strip() or "Address not provided"
+            return best.strip() or "Miscellaneous Service"
 
         def _job_date(job):
+            # Handle fake job objects for misc items
+            if hasattr(job, 'arrival_time') and job.arrival_time:
+                try:
+                    if hasattr(job.arrival_time, 'strftime'):
+                        return job.arrival_time.strftime("%d/%m/%Y")
+                    else:
+                        return str(job.arrival_time)[:10]
+                except:
+                    pass
             # For Job objects, the main date field is 'arrival_time'
             for field in ("arrival_time", "created_at", "updated_at"):
                 if hasattr(job, field) and getattr(job, field):
@@ -407,7 +419,7 @@ def generate_invoice_pdf(agent,
                             return str(date_val)[:10]
                     except Exception:
                         continue
-            return "N/A"
+            return date_cls.today().strftime("%d/%m/%Y")
 
         # Build a map of first linked job (for fallback address/date)
         first_invoice_job = None
@@ -1110,6 +1122,194 @@ def create_misc_invoice():
         current_app.logger.error(f"Error creating misc invoice: {traceback.format_exc()}")
         return jsonify({"error": "An internal server error occurred.", "details": str(e)}), 500
 
+@agent_bp.route('/agent/invoices/review', methods=['POST'])
+@jwt_required()
+def create_invoice_from_review():
+    """
+    Create invoice from ReviewInvoicePage - handles both job-based and misc invoices
+    """
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied.'}), 403
+
+        data = request.get_json()
+        items = data.get('items', [])
+        custom_invoice_number = data.get('invoice_number')
+        invoice_type = data.get('type', 'job')  # 'job' or 'misc'
+        
+        if not items:
+            return jsonify({'error': 'No items provided for invoicing.'}), 400
+
+        # Determine invoice number to use
+        if custom_invoice_number is not None:
+            try:
+                final_invoice_number = int(custom_invoice_number)
+                if final_invoice_number <= 0:
+                    return jsonify({'error': 'Invoice number must be greater than 0'}), 400
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Invoice number must be a valid integer'}), 400
+            
+            # Check for uniqueness
+            existing = Invoice.query.filter_by(agent_id=current_user_id, agent_invoice_number=final_invoice_number).first()
+            if existing:
+                return jsonify({'error': f'Invoice number {final_invoice_number} already exists'}), 409
+        else:
+            # Use agent's current invoice number
+            final_invoice_number = getattr(agent, 'current_invoice_number', 1) or 1
+
+        # Calculate total amount
+        total_amount = Decimal(0)
+        processed_items = []
+        
+        for item in items:
+            try:
+                if invoice_type == 'misc':
+                    # Misc invoice items
+                    quantity = Decimal(str(item.get('quantity', 1)))
+                    unit_price = Decimal(str(item.get('unit_price', 0)))
+                    amount = quantity * unit_price
+                    total_amount += amount
+                    
+                    processed_items.append({
+                        'description': item.get('description', 'Miscellaneous Service'),
+                        'quantity': quantity,
+                        'unit_price': unit_price,
+                        'amount': amount,
+                        'job': None  # No job for misc items
+                    })
+                else:
+                    # Job-based invoice items
+                    job_id = item.get('jobId')
+                    if not job_id:
+                        return jsonify({'error': 'Job ID required for job-based invoices'}), 400
+                    
+                    job = Job.query.get(job_id)
+                    if not job:
+                        return jsonify({'error': f'Job {job_id} not found'}), 404
+                    
+                    hours = Decimal(str(item.get('hours', 0)))
+                    rate = Decimal(str(item.get('rate', job.hourly_rate or 0)))
+                    amount = hours * rate
+                    total_amount += amount
+                    
+                    processed_items.append({
+                        'job': job,
+                        'hours': hours,
+                        'rate': rate,
+                        'amount': amount
+                    })
+            except (ValueError, InvalidOperation):
+                return jsonify({'error': f'Invalid numeric values in item'}), 400
+
+        if total_amount <= 0:
+            return jsonify({'error': 'Invoice total must be greater than zero'}), 400
+
+        # Create invoice record
+        issue_date = date.today()
+        invoice_kwargs = {
+            'agent_id': current_user_id,
+            'invoice_number': str(final_invoice_number),  # Use simple agent number
+            'issue_date': issue_date,
+            'due_date': issue_date + timedelta(days=30),
+            'total_amount': total_amount,
+            'status': 'submitted',
+            'job_type': 'Miscellaneous Services' if invoice_type == 'misc' else processed_items[0]['job'].job_type if processed_items else 'Various',
+            'address': 'Various' if invoice_type == 'misc' else processed_items[0]['job'].address if processed_items else 'Various'
+        }
+        
+        # Add agent_invoice_number if field exists
+        if hasattr(Invoice, 'agent_invoice_number'):
+            invoice_kwargs['agent_invoice_number'] = final_invoice_number
+        
+        new_invoice = Invoice(**invoice_kwargs)
+        db.session.add(new_invoice)
+        db.session.flush()
+
+        # Create InvoiceJob records for job-based invoices
+        if invoice_type == 'job':
+            for item in processed_items:
+                if item['job']:
+                    invoice_job = InvoiceJob(
+                        invoice_id=new_invoice.id,
+                        job_id=item['job'].id,
+                        hours_worked=item['hours'],
+                        hourly_rate_at_invoice=item['rate']
+                    )
+                    db.session.add(invoice_job)
+
+        # Update agent's invoice numbering
+        if hasattr(agent, 'current_invoice_number'):
+            agent.current_invoice_number = final_invoice_number + 1
+        
+        # Prepare data for PDF generation
+        if invoice_type == 'misc':
+            # Create fake job-like objects for misc items
+            jobs_data = []
+            for item in processed_items:
+                fake_job = type('MockJob', (), {
+                    'arrival_time': issue_date,
+                    'job_type': 'Miscellaneous',
+                    'address': item['description'],
+                    'title': item['description']
+                })()
+                
+                jobs_data.append({
+                    'job': fake_job,
+                    'hours': item['quantity'],
+                    'rate': item['unit_price'],
+                    'amount': item['amount'],
+                    'description': item['description']
+                })
+        else:
+            # Regular job data
+            jobs_data = processed_items
+
+        # Generate PDF
+        pdf_result = generate_invoice_pdf(
+            agent, 
+            jobs_data, 
+            float(total_amount), 
+            str(final_invoice_number),
+            upload_to_s3=True,
+            agent_invoice_number=final_invoice_number
+        )
+        
+        # Handle PDF result
+        if isinstance(pdf_result, tuple):
+            pdf_path, s3_file_key = pdf_result
+        else:
+            pdf_path = pdf_result
+
+        # Send notification
+        notification = Notification(
+            user_id=agent.id,
+            title=f"Invoice {final_invoice_number} Generated",
+            message=f"Your {'miscellaneous' if invoice_type == 'misc' else 'job-based'} invoice {final_invoice_number} for £{total_amount:.2f} has been generated.",
+            type="invoice_generated"
+        )
+        db.session.add(notification)
+        
+        # Commit transaction
+        db.session.commit()
+        
+        current_app.logger.info(f"Invoice {final_invoice_number} created from review for agent {agent.email}")
+        
+        return jsonify({
+            'message': 'Invoice created successfully!',
+            'invoice_number': str(final_invoice_number),
+            'type': invoice_type
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        if 'pdf_path' in locals() and os.path.exists(pdf_path):
+            os.remove(pdf_path)
+        import traceback
+        current_app.logger.error(f"Error creating invoice from review: {traceback.format_exc()}")
+        return jsonify({"error": "An internal server error occurred.", "details": str(e)}), 500
+
 @agent_bp.route('/agent/invoices/<int:invoice_id>', methods=['PUT'])
 @jwt_required()
 def update_invoice(invoice_id):
@@ -1451,6 +1651,7 @@ def get_next_invoice_number():
         old_next = getattr(agent, 'agent_invoice_next', None) or 1
         
         return jsonify({
+            'next_invoice_number': suggested_next,
             'suggested': suggested_next,
             'current': current_number,
             'legacy_next': old_next  # For backward compatibility

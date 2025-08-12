@@ -31,8 +31,8 @@ const ReviewInvoicePage = () => {
           apiCall('/agent/next-invoice-number')
         ]);
         setAgentProfile(profileData);
-        setSuggestedNext(nextNumberData.next);
-        setAgentInvoiceNumber(nextNumberData.next.toString());
+        setSuggestedNext(nextNumberData.next_invoice_number || nextNumberData.suggested);
+        setAgentInvoiceNumber((nextNumberData.next_invoice_number || nextNumberData.suggested).toString());
       } catch (error) {
         toast.error('Failed to load data', { description: error.message });
       } finally {
@@ -46,13 +46,17 @@ const ReviewInvoicePage = () => {
   const handleConfirmAndSend = async () => {
     setIsSending(true);
     try {
+      // Determine invoice type based on items
+      const hasJobs = items.some(item => item.jobId && item.jobId > 0);
+      const invoiceType = hasJobs ? 'job' : 'misc';
+      
       const payload = {
         items: items,
-        total: total,
-        agent_invoice_number: agentInvoiceNumber ? parseInt(agentInvoiceNumber) : undefined,
+        invoice_number: agentInvoiceNumber ? parseInt(agentInvoiceNumber) : undefined,
+        type: invoiceType
       };
 
-      const result = await apiCall('/agent/invoices', {
+      const result = await apiCall('/agent/invoices/review', {
         method: 'POST',
         body: JSON.stringify(payload)
       });
