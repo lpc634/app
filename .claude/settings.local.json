@@ -20,7 +20,9 @@
       "Bash(git grep:*)",
       "Bash(git add:*)",
       "Bash(git rm:*)",
-      "Bash(del add_invoice_job_details.py)"
+      "Bash(del add_invoice_job_details.py)",
+      "Bash(heroku run:*)",
+      "Bash(heroku:*)"
     ],
     "deny": []
   }
