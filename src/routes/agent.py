@@ -1327,6 +1327,104 @@ def create_invoice_from_review():
         current_app.logger.error(f"Error creating invoice from review: {traceback.format_exc()}")
         return jsonify({"error": "An internal server error occurred.", "details": str(e)}), 500
 
+@agent_bp.route('/agent/invoice/simple', methods=['POST'])
+@jwt_required()
+def create_simple_invoice():
+    """Simple invoice creation with manual number entry."""
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        invoice_number = data.get('invoice_number', '').strip()
+        hours = float(data.get('hours', 0))
+        hourly_rate = float(data.get('hourly_rate', 0))
+        items = data.get('items', [])
+        
+        # Validation
+        if not invoice_number:
+            return jsonify({'error': 'Invoice number is required'}), 400
+        if hours <= 0:
+            return jsonify({'error': 'Hours must be greater than 0'}), 400
+        if hourly_rate <= 0:
+            return jsonify({'error': 'Hourly rate must be greater than 0'}), 400
+            
+        # Check for duplicate invoice number
+        existing = Invoice.query.filter_by(invoice_number=invoice_number).first()
+        if existing:
+            return jsonify({'error': f'Invoice number {invoice_number} already exists'}), 400
+        
+        # Calculate total
+        total_amount = Decimal(str(hours)) * Decimal(str(hourly_rate))
+        
+        # Create invoice
+        new_invoice = Invoice(
+            agent_id=current_user_id,
+            invoice_number=invoice_number,
+            issue_date=date.today(),
+            due_date=date.today() + timedelta(days=30),
+            total_amount=total_amount,
+            status='submitted'
+        )
+        db.session.add(new_invoice)
+        db.session.flush()
+        
+        # Link any real jobs (ignore misc items with jobId <= 0)
+        for item in items:
+            job_id = item.get('jobId', 0)
+            if job_id > 0:
+                job = Job.query.get(job_id)
+                if job:
+                    invoice_job = InvoiceJob(
+                        invoice_id=new_invoice.id,
+                        job_id=job_id,
+                        hours_worked=Decimal(str(item.get('hours', hours))),
+                        hourly_rate_at_invoice=Decimal(str(hourly_rate))
+                    )
+                    db.session.add(invoice_job)
+        
+        # Generate PDF (simple version)
+        try:
+            # Create simple job list for PDF
+            pdf_jobs = []
+            for item in items:
+                pdf_jobs.append({
+                    'job': type('obj', (object,), {
+                        'title': item.get('title', 'Service'),
+                        'address': 'N/A',
+                        'arrival_time': datetime.now(),
+                        'job_type': 'Service'
+                    })(),
+                    'hours': Decimal(str(item.get('hours', hours)))
+                })
+            
+            pdf_path = generate_invoice_pdf(agent, pdf_jobs, float(total_amount), invoice_number)
+            send_invoice_email(
+                recipient_email='tom@v3-services.com',
+                agent_name=f"{agent.first_name} {agent.last_name}",
+                pdf_path=pdf_path,
+                invoice_number=invoice_number,
+                cc_email=agent.email
+            )
+            if os.path.exists(pdf_path):
+                os.remove(pdf_path)
+        except Exception as e:
+            current_app.logger.error(f"PDF generation failed: {str(e)}")
+            # Continue anyway - invoice is created
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Invoice created successfully',
+            'invoice_number': invoice_number
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
 @agent_bp.route('/agent/invoices/<int:invoice_id>', methods=['PUT'])
 @jwt_required()
 def update_invoice(invoice_id):
