@@ -23,6 +23,23 @@ import logging
 
 agent_bp = Blueprint('agent', __name__)
 
+def get_safe_invoice_number(agent, field_name='current_invoice_number', default=0):
+    """Safely get invoice number fields, handling missing database columns"""
+    try:
+        return getattr(agent, field_name, default) or default
+    except Exception:
+        return default
+
+def set_safe_invoice_number(agent, field_name, value):
+    """Safely set invoice number fields, handling missing database columns"""
+    try:
+        if hasattr(agent, field_name):
+            setattr(agent, field_name, value)
+            return True
+    except Exception:
+        pass
+    return False
+
 def allowed_file(filename):
     """Check if the file extension is allowed."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'pdf', 'jpg', 'jpeg', 'png'}
@@ -842,7 +859,7 @@ def create_invoice():
                 existing = Invoice.query.filter_by(agent_id=current_user_id, agent_invoice_number=custom_invoice_number).first()
             if existing:
                 # Get current number for suggestion
-                current_number = getattr(agent, 'current_invoice_number', 0) or 0
+                current_number = get_safe_invoice_number(agent, 'current_invoice_number', 0)
                 suggested_next = current_number + 1
                 return jsonify({
                     'message': 'Invoice number already used',
@@ -854,7 +871,7 @@ def create_invoice():
             final_agent_invoice_number = custom_invoice_number
         else:
             # Auto-generate next number based on current sequence
-            current_number = getattr(agent, 'current_invoice_number', 0) or 0
+            current_number = get_safe_invoice_number(agent, 'current_invoice_number', 0)
             final_agent_invoice_number = current_number + 1
 
         # --- Database Transaction ---
@@ -892,12 +909,12 @@ def create_invoice():
         # Update agent's invoice numbering system
         # Update the new flexible system
         if hasattr(agent, 'current_invoice_number'):
-            agent.current_invoice_number = final_agent_invoice_number
+            set_safe_invoice_number(agent, 'current_invoice_number', final_agent_invoice_number)
             
         # Also update the legacy system for backward compatibility
-        current_next = getattr(agent, 'agent_invoice_next', None) or 1
+        current_next = get_safe_invoice_number(agent, 'agent_invoice_next', 1)
         if hasattr(agent, 'agent_invoice_next'):
-            agent.agent_invoice_next = max(current_next, final_agent_invoice_number + 1)
+            set_safe_invoice_number(agent, 'agent_invoice_next', max(current_next, final_agent_invoice_number + 1))
 
         # 2. Link the jobs to the new invoice
         for item in jobs_to_invoice:
@@ -1021,7 +1038,7 @@ def create_misc_invoice():
             if hasattr(Invoice, 'agent_invoice_number'):
                 existing = Invoice.query.filter_by(agent_id=current_user_id, agent_invoice_number=custom_invoice_number).first()
             if existing:
-                current_number = getattr(agent, 'current_invoice_number', 0) or 0
+                current_number = get_safe_invoice_number(agent, 'current_invoice_number', 0)
                 suggested_next = current_number + 1
                 return jsonify({
                     'message': 'Invoice number already used',
@@ -1033,7 +1050,7 @@ def create_misc_invoice():
             final_agent_invoice_number = custom_invoice_number
         else:
             # Auto-generate next number based on current sequence
-            current_number = getattr(agent, 'current_invoice_number', 0) or 0
+            current_number = get_safe_invoice_number(agent, 'current_invoice_number', 0)
             final_agent_invoice_number = current_number + 1
 
         # --- Database Transaction ---
@@ -1063,12 +1080,12 @@ def create_misc_invoice():
 
         # Update agent's invoice numbering system
         if hasattr(agent, 'current_invoice_number'):
-            agent.current_invoice_number = final_agent_invoice_number
+            set_safe_invoice_number(agent, 'current_invoice_number', final_agent_invoice_number)
             
         # Also update the legacy system for backward compatibility
-        current_next = getattr(agent, 'agent_invoice_next', None) or 1
+        current_next = get_safe_invoice_number(agent, 'agent_invoice_next', 1)
         if hasattr(agent, 'agent_invoice_next'):
-            agent.agent_invoice_next = max(current_next, final_agent_invoice_number + 1)
+            set_safe_invoice_number(agent, 'agent_invoice_next', max(current_next, final_agent_invoice_number + 1))
 
         # Create fake job-style data for PDF generation
         jobs_data_for_pdf = []
@@ -1157,7 +1174,7 @@ def create_invoice_from_review():
                 return jsonify({'error': f'Invoice number {final_invoice_number} already exists'}), 409
         else:
             # Use agent's current invoice number
-            final_invoice_number = getattr(agent, 'current_invoice_number', 1) or 1
+            final_invoice_number = get_safe_invoice_number(agent, 'current_invoice_number', 1)
 
         # Calculate total amount
         total_amount = Decimal(0)
@@ -1241,7 +1258,7 @@ def create_invoice_from_review():
 
         # Update agent's invoice numbering
         if hasattr(agent, 'current_invoice_number'):
-            agent.current_invoice_number = final_invoice_number + 1
+            set_safe_invoice_number(agent, 'current_invoice_number', final_invoice_number + 1)
         
         # Prepare data for PDF generation
         if invoice_type == 'misc':
@@ -1643,12 +1660,12 @@ def get_next_invoice_number():
         if not agent or agent.role != 'agent':
             return jsonify({'error': 'Access denied'}), 403
         
-        # Use the new flexible system
-        current_number = getattr(agent, 'current_invoice_number', 0) or 0
+        # Use the new flexible system - with safe fallbacks
+        current_number = get_safe_invoice_number(agent, 'current_invoice_number', 0)
         suggested_next = current_number + 1
         
         # Also provide the old system for backward compatibility
-        old_next = getattr(agent, 'agent_invoice_next', None) or 1
+        old_next = get_safe_invoice_number(agent, 'agent_invoice_next', 1)
         
         return jsonify({
             'next_invoice_number': suggested_next,
@@ -1750,11 +1767,11 @@ def update_agent_numbering():
         
         # Update agent's current number in the flexible system
         if hasattr(agent, 'current_invoice_number'):
-            agent.current_invoice_number = current_number
+            set_safe_invoice_number(agent, 'current_invoice_number', current_number)
         
         # Also update the legacy system for backward compatibility
         if hasattr(agent, 'agent_invoice_next'):
-            agent.agent_invoice_next = current_number + 1
+            set_safe_invoice_number(agent, 'agent_invoice_next', current_number + 1)
         
         db.session.commit()
         
@@ -1814,7 +1831,7 @@ def update_invoice_agent_number(invoice_id):
         if existing:
             return jsonify({
                 'message': 'Duplicate agent invoice number',
-                'suggestedNext': getattr(agent, 'agent_invoice_next', None) or 1
+                'suggestedNext': get_safe_invoice_number(agent, 'agent_invoice_next', 1)
             }), 409
         
         # Update the invoice - only if field exists
@@ -1826,10 +1843,10 @@ def update_invoice_agent_number(invoice_id):
         # Handle update_next option
         if hasattr(agent, 'agent_invoice_next'):
             if update_next == 'force':
-                agent.agent_invoice_next = new_agent_number + 1
+                set_safe_invoice_number(agent, 'agent_invoice_next', new_agent_number + 1)
             elif update_next == 'auto':
-                current_next = getattr(agent, 'agent_invoice_next', None) or 1
-                agent.agent_invoice_next = max(current_next, new_agent_number + 1)
+                current_next = get_safe_invoice_number(agent, 'agent_invoice_next', 1)
+                set_safe_invoice_number(agent, 'agent_invoice_next', max(current_next, new_agent_number + 1))
             # 'nochange' - don't update agent_invoice_next
         
         db.session.commit()
@@ -1837,7 +1854,7 @@ def update_invoice_agent_number(invoice_id):
         return jsonify({
             'message': 'Agent invoice number updated successfully',
             'invoice': invoice.to_dict(),
-            'agent_invoice_next': getattr(agent, 'agent_invoice_next', None) or 1
+            'agent_invoice_next': get_safe_invoice_number(agent, 'agent_invoice_next', 1)
         }), 200
         
     except Exception as e:
