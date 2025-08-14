@@ -2,128 +2,102 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../useAuth';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Loader2, FileText, PlusCircle, AlertCircle, Edit, Download, Calendar, PoundSterling } from 'lucide-react';
+import { 
+  Loader2, FileText, PlusCircle, AlertCircle, Download, Calendar, 
+  PoundSterling, TrendingUp, Eye, Trash2, ChevronDown, ChevronRight,
+  Search, Filter, DollarSign, CreditCard, Clock, Receipt
+} from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
 
 const AgentInvoices = () => {
   const { apiCall } = useAuth();
-  const [invoices, setInvoices] = useState([]);
+  
+  // State for data
+  const [data, setData] = useState({
+    invoices: [],
+    analytics: {},
+    grouped_by_month: {},
+    monthly_trend: []
+  });
+  
+  // State for UI
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [downloadingInvoices, setDownloadingInvoices] = useState(new Set());
+  const [deletingInvoices, setDeletingInvoices] = useState(new Set());
+  const [expandedMonths, setExpandedMonths] = useState(new Set());
+  
+  // State for filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('date-desc');
+  
+  // State for delete confirmation
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   useEffect(() => {
-    const fetchInvoices = async () => {
-      try {
-        setLoading(true);
-        const data = await apiCall('/agent/invoices');
-        console.log('Invoice API response:', data); // Debug log
-        // Handle both old format (array) and new format (object with invoices property)
-        if (Array.isArray(data)) {
-          setInvoices(data);
-        } else if (data && Array.isArray(data.invoices)) {
-          setInvoices(data.invoices);
-        } else {
-          console.error('Unexpected API response format:', data);
-          setInvoices([]);
-        }
-      } catch (error) {
-        console.error('Error fetching invoices:', error);
-        toast.error('Failed to load invoices', { description: error.message });
-        setError(error.message || 'Failed to load invoices');
-        setInvoices([]); // Set empty array on error
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchInvoices();
-  }, [apiCall]);
+    fetchInvoiceData();
+  }, []);
 
-  const getStatusClass = (status) => {
-    switch (status) {
-      case 'paid': return 'bg-green-900/50 text-green-400 border-green-500/50';
-      case 'sent': return 'bg-blue-900/50 text-blue-400 border-blue-500/50';
-      case 'draft': return 'bg-yellow-900/50 text-yellow-400 border-yellow-500/50';
-      default: return 'bg-gray-700 text-gray-400';
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'paid': return 'Paid';
-      case 'sent': return 'Sent';
-      case 'draft': return 'Draft';
-      default: return status;
-    }
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: 'GBP'
-    }).format(amount);
-  };
-
-  const handleDownload = async (invoiceId, invoiceNumber) => {
+  const fetchInvoiceData = async () => {
     try {
-      // Add to downloading set
+      setLoading(true);
+      const response = await apiCall('/agent/invoices/analytics');
+      setData(response);
+      
+      // Auto-expand current month
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      setExpandedMonths(new Set([currentMonth]));
+      
+    } catch (error) {
+      console.error('Error fetching invoice data:', error);
+      toast.error('Failed to load invoice data', { description: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteInvoice = async (invoiceId, invoiceNumber) => {
+    try {
+      setDeletingInvoices(prev => new Set([...prev, invoiceId]));
+      await apiCall(`/agent/invoices/${invoiceId}`, { method: 'DELETE' });
+      
+      toast.success(`Invoice ${invoiceNumber} deleted successfully`);
+      setDeleteConfirm(null);
+      
+      // Refresh data
+      await fetchInvoiceData();
+      
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
+      toast.error('Failed to delete invoice', { description: error.message });
+    } finally {
+      setDeletingInvoices(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(invoiceId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleDownloadInvoice = async (invoiceId) => {
+    try {
       setDownloadingInvoices(prev => new Set([...prev, invoiceId]));
       
-      // Get download URL from API
-      const response = await apiCall(`/agent/invoices/${invoiceId}/download`);
+      const response = await apiCall(`/agent/invoices/${invoiceId}/download-direct`);
       
-      if (response && response.download_url) {
-        // Check if this is a direct download URL (our fallback endpoint)
-        if (response.download_url.includes('/download-direct')) {
-          // For our fallback endpoint, make an authenticated request to get the PDF
-          const pdfResponse = await apiCall(`/agent/invoices/${invoiceId}/download-direct`, {
-            method: 'GET',
-            responseType: 'blob' // Important: expect binary data
-          });
-          
-          // Create blob URL and trigger download
-          const blob = new Blob([pdfResponse], { type: 'application/pdf' });
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = response.filename || `${invoiceNumber}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url); // Clean up blob URL
-          
-          toast.success('Download started', { 
-            description: `${invoiceNumber}.pdf` 
-          });
-        } else {
-          // For S3 URLs, use the original method
-          const link = document.createElement('a');
-          link.href = response.download_url;
-          link.download = response.filename || `${invoiceNumber}.pdf`;
-          link.target = '_blank'; // Open in new tab as fallback
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          toast.success('Download started', { 
-            description: `${invoiceNumber}.pdf` 
-          });
-        }
+      if (response.pdf_url) {
+        window.open(response.pdf_url, '_blank');
       } else {
-        throw new Error('Invalid download response');
+        toast.error('PDF not available for this invoice');
       }
+      
     } catch (error) {
-      console.error('Download failed:', error);
-      toast.error('Download failed', { 
-        description: error.message || 'Unable to download invoice PDF' 
-      });
+      console.error('Error downloading invoice:', error);
+      toast.error('Failed to download invoice', { description: error.message });
     } finally {
-      // Remove from downloading set
       setDownloadingInvoices(prev => {
         const newSet = new Set(prev);
         newSet.delete(invoiceId);
@@ -132,156 +106,418 @@ const AgentInvoices = () => {
     }
   };
 
-  // Handle loading state
+  const getStatusBadge = (invoice) => {
+    const { status, is_overdue, days_outstanding } = invoice;
+    
+    if (status === 'paid') {
+      return <Badge className="bg-green-600 text-white">PAID</Badge>;
+    }
+    
+    if (is_overdue) {
+      return <Badge className="bg-red-600 text-white">OVERDUE ({days_outstanding}d)</Badge>;
+    }
+    
+    return <Badge className="bg-yellow-600 text-white">PENDING</Badge>;
+  };
+
+  const formatCurrency = (amount) => {
+    return `£${parseFloat(amount).toFixed(2)}`;
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-GB');
+  };
+
+  const toggleMonth = (monthKey) => {
+    setExpandedMonths(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(monthKey)) {
+        newSet.delete(monthKey);
+      } else {
+        newSet.add(monthKey);
+      }
+      return newSet;
+    });
+  };
+
+  const filteredAndGroupedInvoices = () => {
+    const filtered = Object.entries(data.grouped_by_month).reduce((acc, [monthKey, monthData]) => {
+      const filteredInvoices = monthData.invoices.filter(invoice => {
+        // Search filter
+        const matchesSearch = searchTerm === '' || 
+          invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        // Status filter
+        const matchesStatus = statusFilter === 'all' ||
+          (statusFilter === 'paid' && invoice.status === 'paid') ||
+          (statusFilter === 'pending' && invoice.status !== 'paid' && !invoice.is_overdue) ||
+          (statusFilter === 'overdue' && invoice.is_overdue);
+        
+        return matchesSearch && matchesStatus;
+      });
+
+      if (filteredInvoices.length > 0) {
+        acc[monthKey] = {
+          ...monthData,
+          invoices: filteredInvoices,
+          total: filteredInvoices.reduce((sum, inv) => sum + parseFloat(inv.total_amount), 0),
+          count: filteredInvoices.length
+        };
+      }
+      
+      return acc;
+    }, {});
+    
+    return filtered;
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-v3-orange mb-2" />
-          <p className="text-v3-text-muted">Loading your invoices...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-v3-orange" />
       </div>
     );
   }
 
-  // Handle error state
-  if (error) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
-          <h3 className="text-lg font-medium text-v3-text-lightest mb-2">Error Loading Invoices</h3>
-          <p className="text-v3-text-muted mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()} className="button-refresh">
-            Try Again
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const { analytics } = data;
+  const groupedInvoices = filteredAndGroupedInvoices();
 
-  // Wrap the main render in try-catch to prevent black screens
-  try {
-    return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Invoices</h1>
-          <p className="text-muted-foreground">Manage and track your invoices here.</p>
+          <h1 className="text-3xl font-bold text-v3-text-lightest">My Invoices</h1>
+          <p className="text-v3-text-muted">Manage your invoices and track earnings</p>
         </div>
-        <Link to="/agent/invoices/new" className="button-refresh w-full sm:w-auto flex items-center justify-center gap-2">
-          <PlusCircle className="w-5 h-5" />
-          Create New Invoice
+        <Link to="/agent/invoices/new/from-jobs">
+          <Button className="button-refresh">
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Create Invoice
+          </Button>
         </Link>
       </div>
-      
-      <div className="dashboard-card p-0">
-        <div className="p-6">
-            <h2 className="text-xl font-bold text-v3-text-lightest">Invoice History</h2>
-        </div>
-        
-        {invoices.length === 0 ? (
-            <div className="text-center p-12 border-t border-v3-border">
-                <AlertCircle className="mx-auto h-12 w-12 text-v3-text-muted mb-4" />
-                <h3 className="text-lg font-medium text-v3-text-lightest">No Invoices Found</h3>
-                <p className="text-v3-text-muted mt-1">Invoices will appear here when you accept jobs.</p>
+
+      {/* Financial Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="dashboard-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center text-sm font-medium text-v3-text-muted">
+              <PoundSterling className="h-4 w-4 mr-2" />
+              Total Earned
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-400">
+              {formatCurrency(analytics.total_earned || 0)}
             </div>
-        ) : (
-            <div className="border-t border-v3-border">
-                <div className="divide-y divide-v3-border">
-                    {invoices.map((invoice, index) => (
-                        <div key={invoice.id || index} className="p-6 hover:bg-v3-bg-dark/50 transition-colors">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <h3 className="text-lg font-semibold text-v3-text-lightest">
-                                            {invoice.invoice_number || `Invoice #${invoice.id}`}
-                                        </h3>
-                                        <Badge className={getStatusClass(invoice.status)}>
-                                            {getStatusText(invoice.status)}
-                                        </Badge>
-                                    </div>
-                                    <div className="text-sm text-v3-text-muted mb-2">
-                                        Invoice Number: {invoice.agent_invoice_number ? `#${invoice.agent_invoice_number}` : 'Not set'}
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                                        <div className="flex items-center gap-2 text-v3-text-muted">
-                                            <Calendar className="h-4 w-4" />
-                                            <span>Issue: {invoice.issue_date ? formatDate(invoice.issue_date) : 'N/A'}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-v3-text-muted">
-                                            <Calendar className="h-4 w-4" />
-                                            <span>Due: {invoice.due_date ? formatDate(invoice.due_date) : 'N/A'}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-v3-text-lightest font-medium">
-                                            <PoundSterling className="h-4 w-4" />
-                                            <span>{invoice.total_amount ? formatCurrency(invoice.total_amount) : '£0.00'}</span>
-                                        </div>
-                                    </div>
-                                    
-                                    {invoice.jobs && invoice.jobs.length > 0 && (
-                                        <div className="mt-3 text-sm text-v3-text-muted">
-                                            {invoice.jobs.map((job, index) => (
-                                                <div key={job.id} className="flex items-center gap-2">
-                                                    <span>• {job.job?.title || `Job ${job.job_id}`}</span>
-                                                    {job.hours_worked > 0 && (
-                                                        <span>({job.hours_worked}h @ £{job.hourly_rate_at_invoice}/hr)</span>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                                
-                                <div className="flex items-center gap-2">
-                                    {invoice.status === 'draft' ? (
-                                        <Link to={`/agent/invoices/update/${invoice.id}`}>
-                                            <Button className="button-refresh">
-                                                <Edit className="h-4 w-4 mr-2" />
-                                                Complete & Send
-                                            </Button>
-                                        </Link>
-                                    ) : (
-                                        <Button 
-                                            variant="outline" 
-                                            className="border-v3-border text-v3-text-lightest hover:bg-v3-bg-dark"
-                                            onClick={() => handleDownload(invoice.id, invoice.invoice_number)}
-                                            disabled={downloadingInvoices.has(invoice.id)}
-                                        >
-                                            {downloadingInvoices.has(invoice.id) ? (
-                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                            ) : (
-                                                <Download className="h-4 w-4 mr-2" />
-                                            )}
-                                            {downloadingInvoices.has(invoice.id) ? 'Downloading...' : 'Download PDF'}
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+            <p className="text-xs text-v3-text-muted">All-time earnings</p>
+          </CardContent>
+        </Card>
+
+        <Card className="dashboard-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center text-sm font-medium text-v3-text-muted">
+              <Clock className="h-4 w-4 mr-2" />
+              Outstanding
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-400">
+              {formatCurrency(analytics.total_pending || 0)}
             </div>
-        )}
+            <p className="text-xs text-v3-text-muted">Unpaid invoices</p>
+          </CardContent>
+        </Card>
+
+        <Card className="dashboard-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center text-sm font-medium text-v3-text-muted">
+              <Calendar className="h-4 w-4 mr-2" />
+              This Month
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-v3-orange">
+              {formatCurrency(analytics.this_month || 0)}
+            </div>
+            <p className="text-xs text-v3-text-muted">Current month earnings</p>
+          </CardContent>
+        </Card>
+
+        <Card className="dashboard-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center text-sm font-medium text-v3-text-muted">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Monthly Avg
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-v3-text-lightest">
+              {formatCurrency(analytics.avg_monthly || 0)}
+            </div>
+            <p className="text-xs text-v3-text-muted">Last 12 months</p>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Invoice Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="dashboard-card">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-v3-text-muted">Total Invoices</p>
+                <p className="text-xl font-semibold text-v3-text-lightest">{analytics.invoice_count || 0}</p>
+              </div>
+              <Receipt className="h-8 w-8 text-v3-text-muted" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="dashboard-card">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-v3-text-muted">Paid</p>
+                <p className="text-xl font-semibold text-green-400">{analytics.paid_count || 0}</p>
+              </div>
+              <div className="h-2 w-16 bg-green-400 rounded"></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="dashboard-card">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-v3-text-muted">Pending</p>
+                <p className="text-xl font-semibold text-yellow-400">{analytics.pending_count || 0}</p>
+              </div>
+              <div className="h-2 w-16 bg-yellow-400 rounded"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters and Search */}
+      <Card className="dashboard-card">
+        <CardContent className="pt-4">
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-v3-text-muted" />
+                <Input
+                  placeholder="Search invoices..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-v3-bg-dark border-v3-border text-v3-text-lightest"
+                />
+              </div>
+            </div>
+            
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 bg-v3-bg-dark border border-v3-border rounded-md text-v3-text-lightest"
+            >
+              <option value="all">All Status</option>
+              <option value="paid">Paid</option>
+              <option value="pending">Pending</option>
+              <option value="overdue">Overdue</option>
+            </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-2 bg-v3-bg-dark border border-v3-border rounded-md text-v3-text-lightest"
+            >
+              <option value="date-desc">Newest First</option>
+              <option value="date-asc">Oldest First</option>
+              <option value="amount-desc">Highest Amount</option>
+              <option value="amount-asc">Lowest Amount</option>
+            </select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Monthly Grouped Invoices */}
+      <div className="space-y-4">
+        {Object.entries(groupedInvoices).map(([monthKey, monthData]) => (
+          <Card key={monthKey} className="dashboard-card">
+            <CardHeader>
+              <div 
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => toggleMonth(monthKey)}
+              >
+                <div className="flex items-center space-x-2">
+                  {expandedMonths.has(monthKey) ? (
+                    <ChevronDown className="h-4 w-4 text-v3-text-muted" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-v3-text-muted" />
+                  )}
+                  <h3 className="text-lg font-semibold text-v3-text-lightest">
+                    {monthData.month_name}
+                  </h3>
+                  <Badge className="bg-v3-bg-dark text-v3-text-muted">
+                    {monthData.count} invoice{monthData.count !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-semibold text-v3-orange">
+                    {formatCurrency(monthData.total)}
+                  </p>
+                  <p className="text-xs text-v3-text-muted">Monthly total</p>
+                </div>
+              </div>
+            </CardHeader>
+            
+            {expandedMonths.has(monthKey) && (
+              <CardContent>
+                <div className="space-y-3">
+                  {monthData.invoices.map((invoice) => (
+                    <div 
+                      key={invoice.id}
+                      className="flex items-center justify-between p-4 bg-v3-bg-dark/30 rounded-lg border border-v3-border/30 hover:border-v3-border transition-colors"
+                    >
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                        <div>
+                          <p className="font-medium text-v3-text-lightest">
+                            {invoice.invoice_number}
+                          </p>
+                          <p className="text-xs text-v3-text-muted">Invoice #</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-v3-text-lightest">{formatDate(invoice.issue_date)}</p>
+                          <p className="text-xs text-v3-text-muted">Issue Date</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-v3-text-lightest">{formatDate(invoice.due_date)}</p>
+                          <p className="text-xs text-v3-text-muted">Due Date</p>
+                        </div>
+                        
+                        <div>
+                          <p className="font-semibold text-v3-orange">
+                            {formatCurrency(invoice.total_amount)}
+                          </p>
+                          <p className="text-xs text-v3-text-muted">Amount</p>
+                        </div>
+                        
+                        <div>
+                          {getStatusBadge(invoice)}
+                          {invoice.days_outstanding > 0 && (
+                            <p className="text-xs text-red-400 mt-1">
+                              {invoice.days_outstanding} days overdue
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadInvoice(invoice.id)}
+                            disabled={downloadingInvoices.has(invoice.id)}
+                            className="text-v3-text-muted hover:text-v3-text-lightest"
+                          >
+                            {downloadingInvoices.has(invoice.id) ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                          </Button>
+                          
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteConfirm({ id: invoice.id, number: invoice.invoice_number })}
+                            disabled={deletingInvoices.has(invoice.id)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                          >
+                            {deletingInvoices.has(invoice.id) ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        ))}
+      </div>
+
+      {Object.keys(groupedInvoices).length === 0 && (
+        <Card className="dashboard-card">
+          <CardContent className="py-12 text-center">
+            <FileText className="h-12 w-12 text-v3-text-muted mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-v3-text-lightest mb-2">No invoices found</h3>
+            <p className="text-v3-text-muted mb-4">
+              {searchTerm || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Create your first invoice to get started'}
+            </p>
+            <Link to="/agent/invoices/new/from-jobs">
+              <Button className="button-refresh">
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Create Invoice
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md bg-v3-bg-card border-v3-border">
+            <CardHeader>
+              <CardTitle className="text-v3-text-lightest">Delete Invoice</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <AlertCircle className="h-8 w-8 text-red-400 flex-shrink-0" />
+                <div>
+                  <p className="text-v3-text-lightest">
+                    Are you sure you want to delete Invoice #{deleteConfirm.number}?
+                  </p>
+                  <p className="text-sm text-v3-text-muted mt-1">
+                    This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteConfirm(null)}
+                  className="text-v3-text-muted border-v3-border hover:bg-v3-bg-dark"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => handleDeleteInvoice(deleteConfirm.id, deleteConfirm.number)}
+                  disabled={deletingInvoices.has(deleteConfirm.id)}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {deletingInvoices.has(deleteConfirm.id) ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Delete Invoice
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
-  } catch (renderError) {
-    console.error('Error rendering AgentInvoices component:', renderError);
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
-          <h3 className="text-lg font-medium text-v3-text-lightest mb-2">Display Error</h3>
-          <p className="text-v3-text-muted mb-4">There was an error displaying your invoices.</p>
-          <Button onClick={() => window.location.reload()} className="button-refresh">
-            Refresh Page
-          </Button>
-        </div>
-      </div>
-    );
-  }
 };
 
 export default AgentInvoices;

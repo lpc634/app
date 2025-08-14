@@ -1964,3 +1964,124 @@ def update_invoice_agent_number(invoice_id):
         db.session.rollback()
         current_app.logger.error(f"Error updating agent invoice number: {str(e)}")
         return jsonify({'error': 'Failed to update agent invoice number'}), 500
+
+@agent_bp.route('/agent/invoices/<int:invoice_id>', methods=['DELETE'])
+@jwt_required()
+def delete_invoice(invoice_id):
+    """Delete an invoice and its associated records"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        invoice = Invoice.query.get(invoice_id)
+        
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+            
+        if invoice.agent_id != current_user_id:
+            return jsonify({'error': 'Access denied'}), 403
+            
+        # Delete associated InvoiceJob records first
+        InvoiceJob.query.filter_by(invoice_id=invoice_id).delete()
+        
+        # Delete the invoice
+        db.session.delete(invoice)
+        db.session.commit()
+        
+        return jsonify({'message': 'Invoice deleted successfully'}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@agent_bp.route('/agent/invoices/analytics', methods=['GET'])
+@jwt_required()
+def get_invoice_analytics():
+    """Get comprehensive invoice analytics for the agent"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        
+        invoices = Invoice.query.filter_by(agent_id=current_user_id).all()
+        
+        # Calculate analytics
+        total_earned = sum(float(inv.total_amount) for inv in invoices if inv.status == 'paid')
+        total_pending = sum(float(inv.total_amount) for inv in invoices if inv.status in ['submitted', 'pending', 'sent'])
+        
+        # Date calculations
+        today = date.today()
+        this_month_start = today.replace(day=1)
+        last_month_end = this_month_start - timedelta(days=1)
+        last_month_start = last_month_end.replace(day=1)
+        
+        # This month's earnings
+        this_month_invoices = [inv for inv in invoices if inv.issue_date and inv.issue_date >= this_month_start]
+        this_month_earned = sum(float(inv.total_amount) for inv in this_month_invoices if inv.status == 'paid')
+        
+        # Last month's earnings
+        last_month_invoices = [inv for inv in invoices if inv.issue_date and last_month_start <= inv.issue_date <= last_month_end]
+        last_month_earned = sum(float(inv.total_amount) for inv in last_month_invoices if inv.status == 'paid')
+        
+        # Calculate average monthly income (last 12 months)
+        twelve_months_ago = today - timedelta(days=365)
+        recent_invoices = [inv for inv in invoices if inv.issue_date and inv.issue_date >= twelve_months_ago and inv.status == 'paid']
+        avg_monthly = sum(float(inv.total_amount) for inv in recent_invoices) / 12 if recent_invoices else 0
+        
+        # Group by month for organization
+        grouped = {}
+        for inv in invoices:
+            if inv.issue_date:
+                key = f"{inv.issue_date.year}-{inv.issue_date.month:02d}"
+                month_name = inv.issue_date.strftime("%B %Y")
+                if key not in grouped:
+                    grouped[key] = {
+                        'month_name': month_name,
+                        'invoices': [],
+                        'total': 0,
+                        'count': 0
+                    }
+                invoice_dict = inv.to_dict()
+                # Add days outstanding for unpaid invoices
+                if inv.status != 'paid' and inv.due_date:
+                    days_outstanding = (today - inv.due_date).days
+                    invoice_dict['days_outstanding'] = max(0, days_outstanding)
+                    invoice_dict['is_overdue'] = days_outstanding > 0
+                else:
+                    invoice_dict['days_outstanding'] = 0
+                    invoice_dict['is_overdue'] = False
+                
+                grouped[key]['invoices'].append(invoice_dict)
+                grouped[key]['total'] += float(inv.total_amount)
+                grouped[key]['count'] += 1
+        
+        # Sort months (newest first)
+        sorted_months = dict(sorted(grouped.items(), reverse=True))
+        
+        # Calculate monthly trend for last 6 months
+        monthly_trend = []
+        for i in range(6):
+            month_date = today.replace(day=1) - timedelta(days=30*i)
+            key = f"{month_date.year}-{month_date.month:02d}"
+            month_total = grouped.get(key, {}).get('total', 0)
+            monthly_trend.append({
+                'month': month_date.strftime("%b %Y"),
+                'total': month_total
+            })
+        monthly_trend.reverse()  # Oldest first for chart
+        
+        return jsonify({
+            'invoices': [inv.to_dict() for inv in invoices],
+            'analytics': {
+                'total_earned': total_earned,
+                'total_pending': total_pending,
+                'this_month': this_month_earned,
+                'last_month': last_month_earned,
+                'avg_monthly': avg_monthly,
+                'invoice_count': len(invoices),
+                'paid_count': len([inv for inv in invoices if inv.status == 'paid']),
+                'pending_count': len([inv for inv in invoices if inv.status in ['submitted', 'pending', 'sent']]),
+                'overdue_count': len([inv for inv in invoices if inv.due_date and inv.status != 'paid' and inv.due_date < today])
+            },
+            'grouped_by_month': sorted_months,
+            'monthly_trend': monthly_trend
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
