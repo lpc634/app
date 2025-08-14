@@ -1438,6 +1438,7 @@ def update_invoice(invoice_id):
         data = request.get_json()
         hours_worked = data.get('hours_worked')
         hourly_rate = data.get('hourly_rate')
+        invoice_number = data.get('invoice_number')
         
         if not hours_worked or not hourly_rate:
             return jsonify({'error': 'Hours worked and hourly rate are required'}), 400
@@ -1468,6 +1469,10 @@ def update_invoice(invoice_id):
         invoice.total_amount = total_amount
         invoice.status = 'sent'
         invoice.issue_date = date.today()
+        
+        # Update invoice number if provided
+        if invoice_number:
+            invoice.invoice_number = invoice_number
         
         # Update snapshot data for PDF generation if not already set
         if not invoice.job_type and invoice_job.job:

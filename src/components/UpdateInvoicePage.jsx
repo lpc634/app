@@ -18,6 +18,7 @@ const UpdateInvoicePage = () => {
   const [job, setJob] = useState(null);
   const [hoursWorked, setHoursWorked] = useState('');
   const [hourlyRate, setHourlyRate] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [showInvoiceNoDialog, setShowInvoiceNoDialog] = useState(false);
   const [newInvoiceNo, setNewInvoiceNo] = useState('');
   const [updateNextMode, setUpdateNextMode] = useState('auto');
@@ -36,6 +37,9 @@ const UpdateInvoicePage = () => {
           setHoursWorked(data.invoice_job.hours_worked.toString());
           setHourlyRate(data.invoice_job.hourly_rate_at_invoice.toString());
         }
+        
+        // Set the invoice number
+        setInvoiceNumber(data.invoice.invoice_number || '');
       } catch (error) {
         toast.error('Failed to load invoice details', { description: error.message });
         navigate('/agent/invoices');
@@ -50,8 +54,8 @@ const UpdateInvoicePage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!hoursWorked || !hourlyRate) {
-      toast.error('Please fill in both hours worked and hourly rate');
+    if (!hoursWorked || !hourlyRate || !invoiceNumber.trim()) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -69,7 +73,8 @@ const UpdateInvoicePage = () => {
         method: 'PUT',
         body: JSON.stringify({
           hours_worked: hours,
-          hourly_rate: rate
+          hourly_rate: rate,
+          invoice_number: invoiceNumber.trim()
         })
       });
 
@@ -248,6 +253,21 @@ const UpdateInvoicePage = () => {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="invoiceNumber" className="text-v3-text-lightest">
+                  Invoice Number
+                </Label>
+                <Input
+                  id="invoiceNumber"
+                  type="text"
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  placeholder="Enter invoice number (e.g. INV-001)"
+                  className="bg-v3-bg-dark border-v3-border text-v3-text-lightest"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label className="text-v3-text-lightest">Total Amount</Label>
                 <div className="text-2xl font-bold text-v3-orange">
                   £{calculateTotal()}
@@ -256,7 +276,7 @@ const UpdateInvoicePage = () => {
 
               <Button
                 type="submit"
-                disabled={submitting || !hoursWorked || !hourlyRate}
+                disabled={submitting || !hoursWorked || !hourlyRate || !invoiceNumber.trim()}
                 className="w-full button-refresh"
               >
                 {submitting ? (
