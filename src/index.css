@@ -22,7 +22,7 @@
   }
   
   /* Set minimum font size for inputs to prevent zoom on iOS */
-  input, select, textarea {
+  input, select, textarea, button {
     font-size: max(16px, 1rem);
   }
   
@@ -30,6 +30,7 @@
   img, video {
     max-width: 100%;
     height: auto;
+    display: block;
   }
 }
 

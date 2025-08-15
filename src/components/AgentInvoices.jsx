@@ -183,20 +183,23 @@ const AgentInvoices = () => {
   const groupedInvoices = filteredAndGroupedInvoices();
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-v3-text-lightest">My Invoices</h1>
-          <p className="text-v3-text-muted">Manage your invoices and track earnings</p>
+    <div className="min-h-screen-ios w-full max-w-full prevent-horizontal-scroll">
+      <div className="space-y-6 p-4 sm:p-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-v3-text-lightest truncate">My Invoices</h1>
+            <p className="text-v3-text-muted text-sm sm:text-base">Manage your invoices and track earnings</p>
+          </div>
+          <div className="flex-shrink-0">
+            <Link to="/agent/invoices/new/from-jobs">
+              <Button className="button-refresh tap-target w-full sm:w-auto">
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Create Invoice
+              </Button>
+            </Link>
+          </div>
         </div>
-        <Link to="/agent/invoices/new/from-jobs">
-          <Button className="button-refresh">
-            <PlusCircle className="h-4 w-4 mr-2" />
-            Create Invoice
-          </Button>
-        </Link>
-      </div>
 
       {/* Financial Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -378,49 +381,56 @@ const AgentInvoices = () => {
                   {monthData.invoices.map((invoice) => (
                     <div 
                       key={invoice.id}
-                      className="flex items-center justify-between p-4 bg-v3-bg-dark/30 rounded-lg border border-v3-border/30 hover:border-v3-border transition-colors"
+                      className="w-full max-w-full p-4 bg-v3-bg-dark/30 rounded-lg border border-v3-border/30 hover:border-v3-border transition-colors overflow-hidden"
                     >
-                      <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-                        <div>
-                          <p className="font-medium text-v3-text-lightest">
-                            {invoice.invoice_number}
-                          </p>
-                          <p className="text-xs text-v3-text-muted">Invoice #</p>
-                        </div>
-                        
-                        <div>
-                          <p className="text-v3-text-lightest">{formatDate(invoice.issue_date)}</p>
-                          <p className="text-xs text-v3-text-muted">Issue Date</p>
-                        </div>
-                        
-                        <div>
-                          <p className="text-v3-text-lightest">{formatDate(invoice.due_date)}</p>
-                          <p className="text-xs text-v3-text-muted">Due Date</p>
-                        </div>
-                        
-                        <div>
-                          <p className="font-semibold text-v3-orange">
-                            {formatCurrency(invoice.total_amount)}
-                          </p>
-                          <p className="text-xs text-v3-text-muted">Amount</p>
-                        </div>
-                        
-                        <div>
-                          {getStatusBadge(invoice)}
-                          {invoice.days_outstanding > 0 && (
-                            <p className="text-xs text-red-400 mt-1">
-                              {invoice.days_outstanding} days overdue
+                      {/* Mobile-first stacked layout */}
+                      <div className="w-full max-w-full min-w-0">
+                        {/* Header row with invoice number and status */}
+                        <div className="flex items-start justify-between gap-2 mb-3 min-w-0">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-v3-text-lightest truncate">
+                              {invoice.invoice_number}
                             </p>
-                          )}
+                            <p className="text-xs text-v3-text-muted">Invoice #</p>
+                          </div>
+                          <div className="flex-shrink-0">
+                            {getStatusBadge(invoice)}
+                            {invoice.days_outstanding > 0 && (
+                              <p className="text-xs text-red-400 mt-1 text-right">
+                                {invoice.days_outstanding} days overdue
+                              </p>
+                            )}
+                          </div>
                         </div>
                         
-                        <div className="flex items-center gap-2">
+                        {/* Mobile: 2-column grid for dates and amount */}
+                        <div className="grid grid-cols-2 gap-4 mb-3 sm:grid-cols-3">
+                          <div className="min-w-0">
+                            <p className="text-v3-text-lightest text-sm truncate">{formatDate(invoice.issue_date)}</p>
+                            <p className="text-xs text-v3-text-muted">Issue Date</p>
+                          </div>
+                          
+                          <div className="min-w-0">
+                            <p className="text-v3-text-lightest text-sm truncate">{formatDate(invoice.due_date)}</p>
+                            <p className="text-xs text-v3-text-muted">Due Date</p>
+                          </div>
+                          
+                          <div className="min-w-0 col-span-2 sm:col-span-1">
+                            <p className="font-semibold text-v3-orange text-lg">
+                              {formatCurrency(invoice.total_amount)}
+                            </p>
+                            <p className="text-xs text-v3-text-muted">Amount</p>
+                          </div>
+                        </div>
+                        
+                        {/* Actions row */}
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-v3-border/20">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDownloadInvoice(invoice.id)}
                             disabled={downloadingInvoices.has(invoice.id)}
-                            className="text-v3-text-muted hover:text-v3-text-lightest"
+                            className="text-v3-text-muted hover:text-v3-text-lightest tap-target"
                           >
                             {downloadingInvoices.has(invoice.id) ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -434,7 +444,7 @@ const AgentInvoices = () => {
                             size="sm"
                             onClick={() => setDeleteConfirm({ id: invoice.id, number: invoice.invoice_number })}
                             disabled={deletingInvoices.has(invoice.id)}
-                            className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                            className="text-red-400 hover:text-red-300 hover:bg-red-900/20 tap-target"
                           >
                             {deletingInvoices.has(invoice.id) ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -516,6 +526,7 @@ const AgentInvoices = () => {
           </Card>
         </div>
       )}
+      </div>
     </div>
   );
 };

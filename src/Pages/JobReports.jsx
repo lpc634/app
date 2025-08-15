@@ -14,9 +14,11 @@ const COGNITO_FORM_CONFIGS = {
 
 const CognitoFormEmbed = ({ formKey, formId, prefillData }) => {
   const embedContainer = React.useRef(null);
+  
   useEffect(() => {
     if (!formKey || !formId || !embedContainer.current) return;
     embedContainer.current.innerHTML = '';
+    
     const script = document.createElement('script');
     script.src = "https://www.cognitoforms.com/f/seamless.js";
     script.setAttribute('data-key', formKey);
@@ -24,9 +26,36 @@ const CognitoFormEmbed = ({ formKey, formId, prefillData }) => {
     if (prefillData) {
         script.setAttribute('data-entry', JSON.stringify(prefillData));
     }
+    
+    // Add iOS-specific handling
+    script.onload = () => {
+      // Listen for form resize messages
+      const handleResize = (event) => {
+        if (event.origin === 'https://www.cognitoforms.com' && event.data?.height) {
+          const iframe = embedContainer.current?.querySelector('iframe');
+          if (iframe) {
+            iframe.style.height = event.data.height + 'px';
+          }
+        }
+      };
+      
+      window.addEventListener('message', handleResize);
+      return () => window.removeEventListener('message', handleResize);
+    };
+    
     embedContainer.current.appendChild(script);
   }, [formKey, formId, prefillData]);
-  return <div ref={embedContainer} className="cognito"></div>;
+  
+  return (
+    <div 
+      ref={embedContainer} 
+      className="cognito w-full min-h-[600px]"
+      style={{
+        width: '100%',
+        minHeight: '600px'
+      }}
+    />
+  );
 };
 
 const JobReports = () => {
@@ -65,9 +94,13 @@ const JobReports = () => {
   }, [completedJobs]);
 
   useEffect(() => {
-    document.body.style.overflow = selectedJob ? 'hidden' : 'auto';
+    if (selectedJob) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
     return () => {
-      document.body.style.overflow = 'auto';
+      document.body.classList.remove('modal-open');
     };
   }, [selectedJob]);
 
@@ -139,18 +172,21 @@ const JobReports = () => {
 
   return (
     <>
-      <main className="p-4 sm:p-6 lg:p-8">
-        <div className="space-y-8">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-v3-text-lightest">Job Reports</h1>
-              <p className="text-muted-foreground">Submit and review your post-job reports.</p>
+      <main className="min-h-screen-ios w-full max-w-full prevent-horizontal-scroll safe-pb">
+        <div className="p-4 sm:p-6 lg:p-8">
+          <div className="space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-v3-text-lightest truncate">Job Reports</h1>
+                <p className="text-muted-foreground text-sm sm:text-base">Submit and review your post-job reports.</p>
+              </div>
+              <div className="flex-shrink-0">
+                <button onClick={fetchCompletedJobs} className="button-refresh tap-target w-full sm:w-auto" disabled={loading}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh Reports
+                </button>
+              </div>
             </div>
-            <button onClick={fetchCompletedJobs} className="button-refresh" disabled={loading}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh Reports
-            </button>
-          </div>
 
           <>
             <Card className="dashboard-card">
@@ -232,6 +268,7 @@ const JobReports = () => {
               )}
             </div>
           </>
+          </div>
         </div>
       </main>
 
@@ -241,29 +278,29 @@ const JobReports = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 safe-pt safe-pb"
           >
-            {/* --- FIX 1: Switched from Flexbox to CSS Grid for the modal layout --- */}
             <motion.div
-              className="bg-v3-bg-darkest grid grid-rows-[auto_1fr_auto] max-w-4xl w-full h-full max-h-[90vh] rounded-lg shadow-2xl"
+              className="bg-v3-bg-darkest grid grid-rows-[auto_1fr_auto] max-w-4xl w-full h-full max-h-[calc(100dvh-2rem)] max-h-[calc(100vh-2rem)] max-h-[-webkit-fill-available] rounded-lg shadow-2xl overflow-hidden"
               initial={{ y: "100%" }}
               animate={{ y: 0, transition: { type: "spring", stiffness: 300, damping: 30 } }}
               exit={{ y: "100%" }}
             >
-              <div className="flex-shrink-0 p-4 border-b border-v3-border flex items-center justify-between">
-                <div className='flex-1'>
+              {/* Header - Fixed height */}
+              <div className="flex-shrink-0 p-4 border-b border-v3-border flex items-center justify-between min-h-[64px]">
+                <div className='flex-1 min-w-0 pr-4'>
                   <h2 className="text-lg font-bold text-v3-text-lightest truncate">{getFormConfig(selectedJob).name} for: {selectedJob.title}</h2>
-                  <p className="text-sm text-v3-text-muted">Fill out and submit the form below.</p>
+                  <p className="text-sm text-v3-text-muted truncate">Fill out and submit the form below.</p>
                 </div>
-                <button onClick={handleCloseModal} className="p-2 rounded-full hover:bg-v3-bg-card">
+                <button onClick={handleCloseModal} className="p-2 rounded-full hover:bg-v3-bg-card tap-target flex-shrink-0">
                   <X className="w-6 h-6 text-v3-text-muted"/>
                 </button>
               </div>
 
-              {/* --- FIX 2: Removed flex classes and added overflow-y-auto here --- */}
-              <div className="overflow-y-auto p-4">
-                 <div className="bg-white rounded-lg shadow-2xl">
-                    <div className="p-4 sm:p-6">
+              {/* Form Content - Scrollable */}
+              <div className="overflow-y-auto overflow-x-hidden">
+                 <div className="bg-white mx-4 mb-4 rounded-lg shadow-2xl min-h-[600px]">
+                    <div className="p-2 sm:p-4">
                        <CognitoFormEmbed
                          formKey={getFormConfig(selectedJob).key}
                          formId={getFormConfig(selectedJob).formId}
@@ -273,8 +310,9 @@ const JobReports = () => {
                  </div>
               </div>
 
+              {/* Footer - Fixed height with safe area */}
               <div className="flex-shrink-0 p-4 border-t border-v3-border">
-                <button onClick={handleAfterSubmit} className="w-full button-refresh bg-green-600 hover:bg-green-700 flex items-center justify-center gap-2">
+                <button onClick={handleAfterSubmit} className="w-full button-refresh bg-green-600 hover:bg-green-700 flex items-center justify-center gap-2 tap-target">
                   I Have Submitted This Report
                 </button>
               </div>
