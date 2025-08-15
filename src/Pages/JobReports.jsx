@@ -27,7 +27,7 @@ const CognitoFormEmbed = ({ formKey, formId, prefillData }) => {
         script.setAttribute('data-entry', JSON.stringify(prefillData));
     }
     
-    // Add iOS-specific handling
+    // Enhanced iOS-specific handling
     script.onload = () => {
       // Listen for form resize messages
       const handleResize = (event) => {
@@ -35,11 +35,25 @@ const CognitoFormEmbed = ({ formKey, formId, prefillData }) => {
           const iframe = embedContainer.current?.querySelector('iframe');
           if (iframe) {
             iframe.style.height = event.data.height + 'px';
+            iframe.style.minHeight = 'auto';
           }
         }
       };
       
+      // iOS iframe setup
+      const setupIframe = () => {
+        const iframe = embedContainer.current?.querySelector('iframe');
+        if (iframe) {
+          iframe.style.width = '100%';
+          iframe.style.border = 'none';
+          iframe.style.overflow = 'hidden';
+          iframe.scrolling = 'no';
+        }
+      };
+      
       window.addEventListener('message', handleResize);
+      setTimeout(setupIframe, 100);
+      
       return () => window.removeEventListener('message', handleResize);
     };
     
@@ -49,10 +63,10 @@ const CognitoFormEmbed = ({ formKey, formId, prefillData }) => {
   return (
     <div 
       ref={embedContainer} 
-      className="cognito w-full min-h-[600px]"
+      className="cognito w-full"
       style={{
         width: '100%',
-        minHeight: '600px'
+        minHeight: '400px'
       }}
     />
   );
@@ -281,7 +295,7 @@ const JobReports = () => {
             className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 safe-pt safe-pb"
           >
             <motion.div
-              className="bg-v3-bg-darkest grid grid-rows-[auto_1fr_auto] max-w-4xl w-full h-full max-h-[calc(100dvh-2rem)] max-h-[calc(100vh-2rem)] max-h-[-webkit-fill-available] rounded-lg shadow-2xl overflow-hidden"
+              className="bg-v3-bg-darkest grid grid-rows-[auto_1fr_auto] max-w-4xl w-full h-full max-h-[100dvh] rounded-lg shadow-2xl overflow-hidden"
               initial={{ y: "100%" }}
               animate={{ y: 0, transition: { type: "spring", stiffness: 300, damping: 30 } }}
               exit={{ y: "100%" }}
@@ -297,9 +311,9 @@ const JobReports = () => {
                 </button>
               </div>
 
-              {/* Form Content - Scrollable */}
-              <div className="overflow-y-auto overflow-x-hidden">
-                 <div className="bg-white mx-4 mb-4 rounded-lg shadow-2xl min-h-[600px]">
+              {/* Form Content - Scrollable with proper iOS handling */}
+              <div className="overflow-y-auto overflow-x-hidden flex-1 min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+                 <div className="bg-white mx-4 mb-4 rounded-lg shadow-2xl">
                     <div className="p-2 sm:p-4">
                        <CognitoFormEmbed
                          formKey={getFormConfig(selectedJob).key}
