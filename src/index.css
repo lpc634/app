@@ -1,3 +1,116 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* iOS-specific fixes and safe area support */
+@layer base {
+  /* Prevent text size adjustment on iOS */
+  html {
+    -webkit-text-size-adjust: 100%;
+    height: 100%;
+  }
+  
+  /* Set up full height layout and prevent horizontal scroll */
+  html, body {
+    height: 100%;
+    overflow-x: hidden;
+  }
+  
+  /* Ensure root container fills height */
+  #root {
+    height: 100%;
+  }
+  
+  /* Set minimum font size for inputs to prevent zoom on iOS */
+  input, select, textarea {
+    font-size: max(16px, 1rem);
+  }
+  
+  /* Ensure images and videos are responsive by default */
+  img, video {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+@layer utilities {
+  /* iOS-safe height utilities */
+  .min-h-screen-ios {
+    min-height: 100vh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+  }
+  
+  .h-screen-ios {
+    height: 100vh;
+    height: 100dvh;
+    height: -webkit-fill-available;
+  }
+  
+  /* Safe area utilities */
+  .safe-pt {
+    padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+  }
+  
+  .safe-pb {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+  
+  .safe-pl {
+    padding-left: calc(1rem + env(safe-area-inset-left, 0px));
+  }
+  
+  .safe-pr {
+    padding-right: calc(1rem + env(safe-area-inset-right, 0px));
+  }
+  
+  .safe-inset-t {
+    top: env(safe-area-inset-top, 0px);
+  }
+  
+  .safe-inset-b {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+  
+  /* Prevent horizontal scroll utilities */
+  .prevent-horizontal-scroll {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  
+  /* Mobile-friendly tap targets */
+  .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Fix for modals and overlays */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 50;
+  }
+  
+  .modal-content {
+    background: white;
+    border-radius: 0.5rem;
+    max-width: min(560px, calc(100vw - 2rem));
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    width: 100%;
+    overflow: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+  
+  /* Prevent background scroll when modal is open */
+  .modal-open {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+}

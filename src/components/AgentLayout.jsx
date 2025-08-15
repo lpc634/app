@@ -80,18 +80,30 @@ const AgentLayout = () => {
     navigate(path);
   };
 
+  // Add body class to prevent scroll when menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    
+    // Cleanup on unmount
+    return () => document.body.classList.remove('modal-open');
+  }, [mobileMenuOpen]);
+
   return (
-    <div className="agent-mobile-container">
-      {/* Mobile Header */}
-      <div className="agent-mobile-header lg:hidden">
+    <div className="agent-mobile-container min-h-screen-ios prevent-horizontal-scroll">
+      {/* Mobile Header with Safe Area */}
+      <div className="agent-mobile-header lg:hidden safe-pt">
         <button 
           onClick={() => setMobileMenuOpen(true)}
-          className="agent-mobile-menu-button"
+          className="agent-mobile-menu-button tap-target"
           aria-label="Open navigation menu"
         >
           <Menu size={24} />
         </button>
-        <img src={logo} alt="Company Name Logo" className="h-9 w-auto mx-auto" />
+        <img src={logo} alt="Company Name Logo" className="h-9 w-auto mx-auto max-w-full" />
         <div className="w-11"></div>
       </div>
 
@@ -101,17 +113,17 @@ const AgentLayout = () => {
           className="agent-mobile-menu-backdrop"
           onClick={() => setMobileMenuOpen(false)}
         />
-        <div className={`agent-mobile-menu-panel ${mobileMenuOpen ? 'active' : ''}`}>
+        <div className={`agent-mobile-menu-panel ${mobileMenuOpen ? 'active' : ''} safe-pt safe-pb`}>
           <div className="agent-mobile-menu-header">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 bg-gradient-to-r from-v3-orange to-v3-orange-dark rounded-lg flex items-center justify-center flex-shrink-0">
                 <span className="font-bold text-white text-lg">V3</span>
               </div>
-              <span className="font-semibold text-v3-text-lightest">Agent Portal</span>
+              <span className="font-semibold text-v3-text-lightest truncate">Agent Portal</span>
             </div>
             <button 
               onClick={() => setMobileMenuOpen(false)}
-              className="agent-mobile-menu-close"
+              className="agent-mobile-menu-close tap-target"
               aria-label="Close navigation menu"
             >
               <X size={24} />
@@ -125,33 +137,33 @@ const AgentLayout = () => {
                 <button
                   key={item.name}
                   onClick={() => handleMenuClick(item.path)}
-                  className={`agent-mobile-menu-item ${isActive ? 'active' : ''}`}
+                  className={`agent-mobile-menu-item tap-target ${isActive ? 'active' : ''}`}
                   role="menuitem"
                   tabIndex={mobileMenuOpen ? 0 : -1}
                 >
-                  <item.icon size={20} />
-                  {item.name}
+                  <item.icon size={20} className="flex-shrink-0" />
+                  <span className="truncate">{item.name}</span>
                 </button>
               );
             })}
           </div>
 
           <div className="p-4 border-t border-v3-border">
-            <div className="flex items-center gap-3 mb-4 px-2">
-              <div className="w-10 h-10 bg-v3-orange rounded-full flex items-center justify-center text-white font-bold">
+            <div className="flex items-center gap-3 mb-4 px-2 min-w-0">
+              <div className="w-10 h-10 bg-v3-orange rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
                 {user?.first_name?.[0]}{user?.last_name?.[0]}
               </div>
-              <div>
-                <p className="text-sm font-medium text-v3-text-lightest">{user?.first_name} {user?.last_name}</p>
-                <p className="text-xs text-v3-text-muted">{user?.email}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-v3-text-lightest truncate">{user?.first_name} {user?.last_name}</p>
+                <p className="text-xs text-v3-text-muted truncate">{user?.email}</p>
               </div>
             </div>
             <button
               onClick={logout}
-              className="agent-mobile-button agent-mobile-button-danger w-full"
+              className="agent-mobile-button agent-mobile-button-danger w-full tap-target"
             >
               <Power size={20} />
-              Sign Out
+              <span>Sign Out</span>
             </button>
           </div>
         </div>
@@ -160,9 +172,9 @@ const AgentLayout = () => {
       {/* Desktop Sidebar - Hidden on mobile, shown on large screens */}
       <div className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 bg-v3-bg-card border-r border-v3-border flex-col">
         <div className="h-16 flex items-center px-4 border-b border-v3-border">
-          <div className="flex items-center gap-2">
-            <img src={logo} alt="Company Name Logo" className="h-8 w-auto" />
-            <span className="font-semibold text-v3-text-lightest">Agent Portal</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <img src={logo} alt="Company Name Logo" className="h-8 w-auto max-w-full" />
+            <span className="font-semibold text-v3-text-lightest truncate">Agent Portal</span>
           </div>
         </div>
 
@@ -172,41 +184,41 @@ const AgentLayout = () => {
               key={item.name}
               to={item.path}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-3 rounded-lg transition-all min-h-[44px] ${
+                `flex items-center gap-3 px-3 py-3 rounded-lg transition-all tap-target min-w-0 ${
                   isActive
                     ? 'bg-v3-orange text-white'
                     : 'text-v3-text-muted hover:bg-v3-bg-dark hover:text-v3-text-lightest'
                 }`
               }
             >
-              <item.icon size={20} />
-              {item.name}
+              <item.icon size={20} className="flex-shrink-0" />
+              <span className="truncate">{item.name}</span>
             </NavLink>
           ))}
         </div>
 
         <div className="p-4 border-t border-v3-border">
-          <div className="flex items-center gap-3 mb-4 px-2">
-            <div className="w-10 h-10 bg-v3-orange rounded-full flex items-center justify-center text-white font-bold">
+          <div className="flex items-center gap-3 mb-4 px-2 min-w-0">
+            <div className="w-10 h-10 bg-v3-orange rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
               {user?.first_name?.[0]}{user?.last_name?.[0]}
             </div>
-            <div>
-              <p className="text-sm font-medium text-v3-text-lightest">{user?.first_name} {user?.last_name}</p>
-              <p className="text-xs text-v3-text-muted">{user?.email}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-v3-text-lightest truncate">{user?.first_name} {user?.last_name}</p>
+              <p className="text-xs text-v3-text-muted truncate">{user?.email}</p>
             </div>
           </div>
           <button
             onClick={logout}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-900/20 min-h-[44px]"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-900/20 tap-target min-w-0"
           >
-            <Power size={20} />
-            Sign Out
+            <Power size={20} className="flex-shrink-0" />
+            <span className="truncate">Sign Out</span>
           </button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <main className="agent-mobile-main lg:ml-64 lg:pt-0">
+      {/* Main Content with Safe Area */}
+      <main className="agent-mobile-main lg:ml-64 lg:pt-0 safe-pb min-h-screen-ios w-full max-w-full overflow-x-hidden">
         <Outlet />
       </main>
     </div>
