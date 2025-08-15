@@ -292,29 +292,29 @@ const JobReports = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col safe-pt safe-pb"
           >
             <motion.div
-              className="bg-v3-bg-darkest grid grid-rows-[auto_1fr_auto] max-w-4xl w-full h-full max-h-[calc(100vh-1rem)] max-h-[calc(100dvh-1rem)] max-h-[calc(-webkit-fill-available-1rem)] rounded-lg shadow-2xl overflow-hidden"
+              className="bg-v3-bg-darkest flex flex-col w-full h-full max-w-4xl mx-auto rounded-lg shadow-2xl overflow-hidden m-4"
               initial={{ y: "100%" }}
               animate={{ y: 0, transition: { type: "spring", stiffness: 300, damping: 30 } }}
               exit={{ y: "100%" }}
             >
               {/* Header - Fixed height */}
-              <div className="flex-shrink-0 p-4 border-b border-v3-border flex items-center justify-between min-h-[64px]">
+              <div className="flex-shrink-0 p-4 border-b border-v3-border flex items-center justify-between">
                 <div className='flex-1 min-w-0 pr-4'>
-                  <h2 className="text-lg font-bold text-v3-text-lightest truncate">{getFormConfig(selectedJob).name} for: {selectedJob.title}</h2>
-                  <p className="text-sm text-v3-text-muted truncate">Fill out and submit the form below.</p>
+                  <h2 className="text-lg font-bold text-v3-text-lightest truncate">{getFormConfig(selectedJob).name}</h2>
+                  <p className="text-sm text-v3-text-muted truncate">{selectedJob.title}</p>
                 </div>
-                <button onClick={handleCloseModal} className="p-2 rounded-full hover:bg-v3-bg-card tap-target flex-shrink-0">
-                  <X className="w-6 h-6 text-v3-text-muted"/>
+                <button onClick={handleCloseModal} className="p-3 rounded-full hover:bg-v3-bg-card tap-target flex-shrink-0 bg-red-600 text-white">
+                  <X className="w-6 h-6"/>
                 </button>
               </div>
 
-              {/* Form Content - Scrollable with proper iOS handling */}
-              <div className="overflow-y-auto overflow-x-hidden flex-1 min-h-0 p-4" style={{ WebkitOverflowScrolling: 'touch' }}>
-                 <div className="bg-white rounded-lg shadow-2xl">
-                    <div className="p-2 sm:p-4">
+              {/* Form Content - Scrollable */}
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+                 <div className="bg-white rounded-lg">
+                    <div className="p-4">
                        <CognitoFormEmbed
                          formKey={getFormConfig(selectedJob).key}
                          formId={getFormConfig(selectedJob).formId}
@@ -324,10 +324,10 @@ const JobReports = () => {
                  </div>
               </div>
 
-              {/* Footer - Fixed height with safe area */}
-              <div className="flex-shrink-0 p-4 border-t border-v3-border">
-                <button onClick={handleAfterSubmit} className="w-full button-refresh bg-green-600 hover:bg-green-700 flex items-center justify-center gap-2 tap-target">
-                  I Have Submitted This Report
+              {/* Footer - Fixed height */}
+              <div className="flex-shrink-0 p-4 border-t border-v3-border bg-v3-bg-darkest">
+                <button onClick={handleAfterSubmit} className="w-full py-4 px-6 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg flex items-center justify-center gap-2 tap-target text-lg">
+                  ✓ I Have Submitted This Report
                 </button>
               </div>
             </motion.div>
