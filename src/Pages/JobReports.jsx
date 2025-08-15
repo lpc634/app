@@ -312,8 +312,8 @@ const JobReports = () => {
               </div>
 
               {/* Form Content - Scrollable */}
-              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4" style={{ WebkitOverflowScrolling: 'touch' }}>
-                 <div className="bg-white rounded-lg">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 min-h-0" style={{ WebkitOverflowScrolling: 'touch', minHeight: 'calc(100vh - 200px)' }}>
+                 <div className="bg-white rounded-lg min-h-[600px]">
                     <div className="p-4">
                        <CognitoFormEmbed
                          formKey={getFormConfig(selectedJob).key}
