@@ -616,13 +616,6 @@
   outline-offset: 2px;
 }
 
-/* ===== DRAWER TRANSFORM GUARD ===== */
-/* Ensure drawer doesn't inherit transforms from parents */
-.drawer, 
-.agent-drawer,
-aside[role="dialog"] {
-  transform: none !important;
-}
 
 /* ===== ANIMATION KEYFRAMES ===== */
 @keyframes spin {
