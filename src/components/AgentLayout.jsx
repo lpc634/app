@@ -87,7 +87,7 @@ const AgentLayout = () => {
     };
   }, [mobileMenuOpen]);
 
-  const handleMenuClick = (path) => {
+  const handleMenuClick = () => {
     setMobileMenuOpen(false);
   };
 
