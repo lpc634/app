@@ -18,13 +18,18 @@ const ReviewInvoicePage = () => {
   const [hours, setHours] = useState('');
   const [hourlyRate, setHourlyRate] = useState('');
 
-  const { items } = state || {};
+  const { items, invoiceNumber: passedInvoiceNumber } = state || {};
 
   useEffect(() => {
     if (!items || items.length === 0) {
       toast.error("No invoice data found.");
       navigate('/agent/invoices');
       return;
+    }
+    
+    // Set invoice number from navigation state
+    if (passedInvoiceNumber) {
+      setInvoiceNumber(passedInvoiceNumber);
     }
     
     // Calculate default hours from items
@@ -73,23 +78,21 @@ const ReviewInvoicePage = () => {
 
     setIsSending(true);
     try {
-      // Simple payload with manual entries
-      const payload = {
-        invoice_number: invoiceNumber.trim(),
-        hours: parseFloat(hours),
-        hourly_rate: parseFloat(hourlyRate),
-        items: items.map(item => ({
-          jobId: item.jobId || 0,
-          title: item.title || 'Service',
-          hours: parseFloat(hours) / items.length, // Distribute hours evenly
-          rate: parseFloat(hourlyRate)
-        }))
-      };
-
-      // Try the simple invoice endpoint
-      const result = await apiCall('/agent/invoice/simple', {
+      // Update API call to use the standard /agent/invoices endpoint with manual invoice number
+      const result = await apiCall('/agent/invoices', {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          invoice_number: invoiceNumber.trim(),
+          jobs: items.filter(item => item.jobId > 0).map(item => ({
+            job_id: item.jobId,
+            hours: item.hours
+          })),
+          miscellaneous_items: items.filter(item => item.jobId < 0).map(item => ({
+            description: item.title,
+            quantity: item.hours,
+            unit_price: item.rate
+          }))
+        })
       });
       
       toast.success("Invoice created successfully!", {

@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, Plus, Trash2, X } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, X } from 'lucide-react';
 import { useAuth } from '../useAuth';
 
 const CreateMiscInvoice = () => {
   const navigate = useNavigate();
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [lineItems, setLineItems] = useState([
     { id: 1, description: '', quantity: '1', unit_price: '' }
   ]);
@@ -40,9 +41,12 @@ const CreateMiscInvoice = () => {
     }
   };
 
-  const { apiCall } = useAuth();
+  const handleReviewInvoice = () => {
+    if (!invoiceNumber.trim()) {
+      toast.error("Invoice Number Required", { description: "Please enter an invoice number before proceeding." });
+      return;
+    }
 
-  const handleReviewInvoice = async () => {
     const validItems = lineItems.filter(item => 
       item.description.trim() !== '' &&
       parseFloat(item.quantity) > 0 &&
@@ -54,38 +58,22 @@ const CreateMiscInvoice = () => {
       return;
     }
 
-    try {
-      setIsSubmitting(true);
-      
-      // Create misc invoice directly
-      const invoiceData = {
-        items: validItems.map(item => ({
-          description: item.description,
-          quantity: parseFloat(item.quantity),
-          unit_price: parseFloat(item.unit_price)
-        }))
-      };
+    // Navigate to review page with invoice data
+    const reviewData = {
+      invoiceNumber: invoiceNumber.trim(),
+      items: validItems.map((item, index) => ({
+        jobId: -(index + 1), // Negative IDs for misc items
+        title: item.description,
+        hours: parseFloat(item.quantity),
+        rate: parseFloat(item.unit_price)
+      })),
+      totalAmount: totalAmount
+    };
 
-      const response = await apiCall('/agent/invoice/misc', {
-        method: 'POST',
-        body: JSON.stringify(invoiceData)
-      });
-
-      toast.success("Invoice Created Successfully!", { 
-        description: `Invoice ${response.invoice_number} for £${totalAmount.toFixed(2)} has been created.` 
-      });
-      
-      // Navigate back to invoices list
-      navigate('/agent/invoices');
-      
-    } catch (error) {
-      console.error('Error creating misc invoice:', error);
-      toast.error("Failed to Create Invoice", { description: error.message });
-    } finally {
-      setIsSubmitting(false);
-    }
+    navigate('/agent/invoices/review', { state: reviewData });
   };
 
+  const isReviewDisabled = !invoiceNumber.trim() || totalAmount === 0 || isSubmitting;
 
   return (
     <div className="space-y-8">
@@ -96,6 +84,30 @@ const CreateMiscInvoice = () => {
         </Link>
         <h1 className="text-3xl font-bold tracking-tight">Miscellaneous Invoice</h1>
         <p className="text-muted-foreground">Manually add line items for expenses or other charges.</p>
+      </div>
+
+      {/* Invoice Number Field */}
+      <div className="dashboard-card p-6">
+        <h2 className="text-xl font-bold text-v3-text-lightest mb-4">Invoice Details</h2>
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="invoiceNumber" className="block text-sm font-medium text-v3-text-lightest mb-2">
+              Invoice Number *
+            </label>
+            <input
+              id="invoiceNumber"
+              type="text"
+              placeholder="Enter your invoice number (e.g., INV-2024-001)"
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+              className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+              required
+            />
+            <p className="text-sm text-v3-text-muted mt-1">
+              This will be displayed on your invoice. Make sure it's unique.
+            </p>
+          </div>
+        </div>
       </div>
       
       <div className="dashboard-card p-0">
@@ -157,10 +169,21 @@ const CreateMiscInvoice = () => {
       </div>
 
       <div className="flex justify-end">
-          <button onClick={handleReviewInvoice} className="button-refresh w-full sm:w-auto" disabled={totalAmount === 0 || isSubmitting}>
+          <button 
+            onClick={handleReviewInvoice} 
+            className="button-refresh w-full sm:w-auto" 
+            disabled={isReviewDisabled}
+          >
               {isSubmitting ? <Loader2 className="animate-spin"/> : 'Review Invoice'}
           </button>
       </div>
+
+      {isReviewDisabled && (
+        <div className="text-center text-sm text-v3-text-muted">
+          {!invoiceNumber.trim() && "Please enter an invoice number. "}
+          {totalAmount === 0 && "Please add at least one line item with valid values."}
+        </div>
+      )}
 
     </div>
   );

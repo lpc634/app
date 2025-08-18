@@ -1139,6 +1139,216 @@ def create_misc_invoice():
         current_app.logger.error(f"Error creating misc invoice: {traceback.format_exc()}")
         return jsonify({"error": "An internal server error occurred.", "details": str(e)}), 500
 
+@agent_bp.route('/agent/invoices', methods=['POST'])
+@jwt_required()
+def create_invoice_standard():
+    """
+    Create invoice with manual invoice number - handles both job-based and miscellaneous invoices
+    """
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied.'}), 403
+
+        data = request.get_json()
+        custom_invoice_number = data.get('invoice_number')
+        jobs = data.get('jobs', [])
+        miscellaneous_items = data.get('miscellaneous_items', [])
+        
+        if not jobs and not miscellaneous_items:
+            return jsonify({'error': 'No jobs or miscellaneous items provided for invoicing.'}), 400
+
+        # Use manual invoice number if provided, otherwise generate one
+        final_invoice_number = None
+        
+        if custom_invoice_number:
+            # Check if invoice number already exists
+            existing_invoice = Invoice.query.filter_by(invoice_number=custom_invoice_number).first()
+            if existing_invoice:
+                return jsonify({'error': f'Invoice number {custom_invoice_number} already exists. Please use a different number.'}), 409
+            final_invoice_number = custom_invoice_number
+        else:
+            # Generate automatic number
+            current_number = get_safe_invoice_number(agent, 'current_invoice_number', 0)
+            final_invoice_number = str(current_number + 1)
+
+        # Calculate total amount
+        total_amount = Decimal(0)
+        
+        # Process jobs
+        jobs_to_invoice = []
+        for job_data in jobs:
+            job = Job.query.get(job_data['job_id'])
+            if not job:
+                return jsonify({'error': f"Job with ID {job_data['job_id']} not found."}), 404
+            
+            hours = Decimal(str(job_data.get('hours', 0)))
+            if hours <= 0:
+                return jsonify({'error': f"Invalid hours for job at {job.address}."}), 400
+
+            rate = Decimal(str(job.hourly_rate))
+            amount = hours * rate
+            total_amount += amount
+            jobs_to_invoice.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
+
+        # Process miscellaneous items
+        misc_items_processed = []
+        for misc_item in miscellaneous_items:
+            description = misc_item.get('description', '').strip()
+            if not description:
+                return jsonify({'error': 'Each miscellaneous item must have a description.'}), 400
+            
+            try:
+                quantity = Decimal(str(misc_item.get('quantity', 1)))
+                unit_price = Decimal(str(misc_item.get('unit_price', 0)))
+                if quantity <= 0 or unit_price < 0:
+                    return jsonify({'error': f'Invalid values for item: {description}'}), 400
+            except (InvalidOperation, ValueError):
+                return jsonify({'error': f'Invalid numeric values for item: {description}'}), 400
+            
+            amount = quantity * unit_price
+            total_amount += amount
+            misc_items_processed.append({
+                'description': description,
+                'quantity': quantity,
+                'unit_price': unit_price,
+                'amount': amount
+            })
+
+        if total_amount <= 0:
+            return jsonify({'error': 'Invoice total must be greater than zero.'}), 400
+
+        # Create invoice
+        issue_date = date.today()
+        first_job = jobs_to_invoice[0]['job'] if jobs_to_invoice else None
+        
+        invoice_kwargs = {
+            'agent_id': current_user_id,
+            'invoice_number': final_invoice_number,
+            'issue_date': issue_date,
+            'due_date': issue_date + timedelta(days=30),
+            'total_amount': total_amount,
+            'status': 'submitted',
+            'job_type': first_job.job_type if first_job else 'Miscellaneous Services',
+            'address': first_job.address if first_job else 'Various'
+        }
+        
+        # Add agent_invoice_number if field exists
+        if hasattr(Invoice, 'agent_invoice_number') and custom_invoice_number:
+            try:
+                agent_invoice_num = int(custom_invoice_number)
+                invoice_kwargs['agent_invoice_number'] = agent_invoice_num
+            except (ValueError, TypeError):
+                pass
+        
+        new_invoice = Invoice(**invoice_kwargs)
+        db.session.add(new_invoice)
+        db.session.flush()
+
+        # Link jobs to invoice
+        for item in jobs_to_invoice:
+            job = item['job']
+            hours = item['hours']
+            rate = item['rate']
+            
+            invoice_job_link = InvoiceJob(
+                invoice_id=new_invoice.id,
+                job_id=job.id,
+                hours_worked=hours,
+                hourly_rate_at_invoice=rate
+            )
+            db.session.add(invoice_job_link)
+
+        # Update agent's invoice numbering if using custom number
+        if custom_invoice_number:
+            try:
+                custom_num = int(custom_invoice_number)
+                current_number = get_safe_invoice_number(agent, 'current_invoice_number', 0)
+                if custom_num > current_number:
+                    set_safe_invoice_number(agent, 'current_invoice_number', custom_num)
+            except (ValueError, TypeError):
+                pass
+
+        # Prepare data for PDF generation
+        all_items = []
+        
+        # Add jobs
+        for item in jobs_to_invoice:
+            all_items.append({
+                'job': item['job'],
+                'hours': float(item['hours']),
+                'rate': float(item['rate']),
+                'amount': float(item['amount'])
+            })
+        
+        # Add misc items as fake jobs
+        for item in misc_items_processed:
+            fake_job = type('MockJob', (), {
+                'arrival_time': issue_date,
+                'job_type': 'Miscellaneous',
+                'address': item['description'],
+                'title': item['description']
+            })()
+            
+            all_items.append({
+                'job': fake_job,
+                'hours': float(item['quantity']),
+                'rate': float(item['unit_price']),
+                'amount': float(item['amount']),
+                'description': item['description']
+            })
+
+        # Generate PDF
+        agent_inv_number = None
+        if custom_invoice_number:
+            try:
+                agent_inv_number = int(custom_invoice_number)
+            except (ValueError, TypeError):
+                pass
+        
+        pdf_result = generate_invoice_pdf(
+            agent, 
+            all_items, 
+            float(total_amount), 
+            final_invoice_number,
+            upload_to_s3=True,
+            agent_invoice_number=agent_inv_number
+        )
+        
+        # Handle PDF result
+        if isinstance(pdf_result, tuple):
+            pdf_path, s3_file_key = pdf_result
+        else:
+            pdf_path = pdf_result
+
+        # Send notification
+        notification = Notification(
+            user_id=agent.id,
+            title=f"Invoice {final_invoice_number} Generated",
+            message=f"Your invoice {final_invoice_number} for £{total_amount:.2f} has been generated.",
+            type="invoice_generated"
+        )
+        db.session.add(notification)
+        
+        # Commit transaction
+        db.session.commit()
+        
+        current_app.logger.info(f"Invoice {final_invoice_number} created for agent {agent.email}")
+        
+        return jsonify({
+            'message': 'Invoice created successfully!',
+            'invoice_number': final_invoice_number
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        if 'pdf_path' in locals() and os.path.exists(pdf_path):
+            os.remove(pdf_path)
+        import traceback
+        current_app.logger.error(f"Error creating invoice: {traceback.format_exc()}")
+        return jsonify({"error": "An internal server error occurred.", "details": str(e)}), 500
+
 @agent_bp.route('/agent/invoices/review', methods=['POST'])
 @jwt_required()
 def create_invoice_from_review():
