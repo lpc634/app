@@ -16,6 +16,61 @@ def handle_auth_error(e):
     current_app.logger.error(f"Auth error: {str(e)}")
     return jsonify({"error": "An internal error occurred. Please try again."}), 500
 
+@auth_bp.route('/auth/register', methods=['POST'])
+def register():
+    """Register a new user (agent)."""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['email', 'password', 'first_name', 'last_name']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({"error": f"{field.replace('_', ' ').title()} is required"}), 400
+        
+        # Check if email already exists
+        existing_user = User.query.filter_by(email=data['email']).first()
+        if existing_user:
+            return jsonify({"error": "Email already registered"}), 409
+        
+        # Create new user
+        new_user = User(
+            email=data['email'],
+            role='agent',  # All registrations create agents by default
+            first_name=data['first_name'],
+            last_name=data['last_name'],
+            phone=data.get('phone', ''),
+            address_line_1=data.get('address_line_1', ''),
+            address_line_2=data.get('address_line_2', ''),
+            city=data.get('city', ''),
+            postcode=data.get('postcode', ''),
+            bank_name=data.get('bank_name', ''),
+            bank_account_number=data.get('bank_account_number', ''),
+            bank_sort_code=data.get('bank_sort_code', ''),
+            utr_number=data.get('utr_number', ''),
+            tax_confirmation=data.get('tax_confirmation', False),
+            verification_status='pending'  # New agents start as pending
+        )
+        
+        # Set password
+        new_user.set_password(data['password'])
+        
+        # Add to database
+        db.session.add(new_user)
+        db.session.commit()
+        
+        current_app.logger.info(f"New agent registered: {new_user.email}")
+        
+        return jsonify({
+            "message": "Registration successful",
+            "user": new_user.to_dict()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Registration error: {str(e)}")
+        return jsonify({"error": "Registration failed. Please try again."}), 500
+
 @auth_bp.route('/auth/login', methods=['POST'])
 def login():
     start = datetime.utcnow()
