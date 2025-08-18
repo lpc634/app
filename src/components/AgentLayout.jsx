@@ -3,6 +3,7 @@ import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { Home, ClipboardList, Calendar, Bell, Power, User as UserIcon, FileText as InvoiceIcon, Menu, X, Search } from 'lucide-react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
+import { Sheet, SheetContent, SheetTrigger } from './ui/sheet';
 import '../styles/agent-mobile.css';
 import '../styles/agent-grid-fixes.css';
 import logo from '../assets/new_logo.png';
@@ -98,37 +99,21 @@ const AgentLayout = () => {
     <div className="agent-shell">
       {/* Mobile Header */}
       <div className="agent-mobile-header lg:hidden safe-pt">
-        <button 
-          onClick={() => setMobileMenuOpen(true)}
-          className="agent-mobile-menu-button tap-target"
-          aria-label="Open navigation menu"
-        >
-          <Menu size={24} />
-        </button>
-        <img src={logo} alt="Company Name Logo" className="h-9 w-auto mx-auto max-w-full" />
-        <div className="w-11"></div>
-      </div>
-
-      {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div 
-            className="absolute inset-0 bg-black/60"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          <div className="relative z-10 w-80 max-w-[85vw] h-full bg-v3-bg-card border-r border-v3-border flex flex-col safe-pt safe-pb">
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <button 
+              className="agent-mobile-menu-button tap-target"
+              aria-label="Open navigation menu"
+            >
+              <Menu size={24} />
+            </button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-80 max-w-[85vw] p-0 flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-v3-border">
               <div className="flex items-center gap-2 min-w-0">
                 <img src={logo} alt="Company Name Logo" className="h-8 w-auto max-w-full" />
                 <span className="font-semibold text-v3-text-lightest truncate">Agent Portal</span>
               </div>
-              <button 
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 rounded-lg hover:bg-v3-bg-dark tap-target"
-                aria-label="Close navigation menu"
-              >
-                <X size={24} className="text-v3-text-muted" />
-              </button>
             </div>
 
             <div className="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -170,9 +155,11 @@ const AgentLayout = () => {
                 <span className="truncate">Sign Out</span>
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </SheetContent>
+        </Sheet>
+        <img src={logo} alt="Company Name Logo" className="h-9 w-auto mx-auto max-w-full" />
+        <div className="w-11"></div>
+      </div>
 
       {/* Desktop Sidebar */}
       <aside className="agent-sidebar hidden lg:flex">
