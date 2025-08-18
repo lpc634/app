@@ -88,7 +88,10 @@ const AgentLayout = () => {
   }, [mobileMenuOpen]);
 
   const handleMenuClick = () => {
-    setMobileMenuOpen(false);
+    // Small delay to ensure navigation happens first
+    setTimeout(() => {
+      setMobileMenuOpen(false);
+    }, 100);
   };
 
   return (
@@ -128,14 +131,18 @@ const AgentLayout = () => {
               </button>
             </div>
 
-            <div className="flex-1 p-4 space-y-2 overflow-y-auto">
+            <div className="flex-1 p-4 space-y-2 overflow-y-auto" onClick={() => setMobileMenuOpen(false)}>
               {agentNavItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
                   <NavLink
                     key={item.name}
                     to={item.path}
-                    onClick={handleMenuClick}
+                    onClick={(e) => {
+                      handleMenuClick();
+                      // Force close immediately
+                      setMobileMenuOpen(false);
+                    }}
                     className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all tap-target min-w-0 ${
                       isActive
                         ? 'bg-v3-orange text-white'
