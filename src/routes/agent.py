@@ -2085,3 +2085,98 @@ def get_invoice_analytics():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# --- NEW ROUTES FOR SPECIFICATION COMPLIANCE ---
+
+@agent_bp.route('/invoices/from-jobs', methods=['POST'])
+@jwt_required()
+def create_invoice_from_jobs_api():
+    """Create invoice from jobs - API specification compliant endpoint"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied.'}), 403
+
+        data = request.get_json()
+        job_ids = data.get('jobIds', [])
+        hour_entries = data.get('hourEntries', [])
+        notes = data.get('notes', '')
+
+        if not job_ids:
+            return jsonify({'error': 'No job IDs provided'}), 400
+
+        # Convert to format expected by existing create_invoice function
+        items = []
+        for entry in hour_entries:
+            job_id = entry.get('jobId')
+            hours = entry.get('hours', 0)
+            
+            # Get job to get the rate
+            job = Job.query.get(job_id)
+            if job:
+                items.append({
+                    'jobId': job_id,
+                    'hours': hours,
+                    'rate': job.hourly_rate or 0
+                })
+
+        # Call existing create_invoice function with converted data
+        invoice_data = {
+            'items': items,
+            'notes': notes
+        }
+        
+        # Simulate the request with the converted data
+        from flask import g
+        g.json_data = invoice_data
+        
+        # Call the existing create_invoice function
+        return create_invoice()
+        
+    except Exception as e:
+        current_app.logger.error(f"Error creating invoice from jobs API: {str(e)}")
+        return jsonify({'error': 'Failed to create invoice from jobs'}), 500
+
+@agent_bp.route('/invoices/misc', methods=['POST'])
+@jwt_required()
+def create_misc_invoice_api():
+    """Create miscellaneous invoice - API specification compliant endpoint"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied.'}), 403
+
+        data = request.get_json()
+        lines = data.get('lines', [])
+        notes = data.get('notes', '')
+
+        if not lines:
+            return jsonify({'error': 'No line items provided'}), 400
+
+        # Convert to format expected by existing create_misc_invoice function
+        items = []
+        for line in lines:
+            items.append({
+                'description': line.get('description', ''),
+                'quantity': line.get('qty', 1),
+                'unit_price': line.get('unitPrice', 0)
+            })
+
+        # Call existing create_misc_invoice function with converted data
+        invoice_data = {
+            'items': items,
+            'notes': notes
+        }
+        
+        # Simulate the request with the converted data
+        from flask import g
+        g.json_data = invoice_data
+        
+        # Call the existing create_misc_invoice function
+        return create_misc_invoice()
+        
+    except Exception as e:
+        current_app.logger.error(f"Error creating misc invoice API: {str(e)}")
+        return jsonify({'error': 'Failed to create miscellaneous invoice'}), 500

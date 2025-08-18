@@ -17,7 +17,7 @@ const CreateInvoiceFromJobs = () => {
     const fetchJobs = async () => {
       try {
         setLoading(true);
-        const data = await apiCall('/agent/invoiceable-jobs');
+        const data = await apiCall('/agent/jobs?status=completed&invoiced=false');
         setJobs(data);
       } catch (error) {
         toast.error('Failed to load invoiceable jobs', { description: error.message });
@@ -101,10 +101,22 @@ const CreateInvoiceFromJobs = () => {
         </div>
         
         {jobs.length === 0 ? (
-          <div className="text-center p-12 border-t border-v3-border">
+          <div className="text-center p-12 border-t border-v3-border space-y-4">
             <AlertCircle className="mx-auto h-12 w-12 text-v3-text-muted mb-4" />
             <h3 className="text-lg font-medium text-v3-text-lightest">No Jobs to Invoice</h3>
             <p className="text-v3-text-muted mt-1">You have no completed jobs that are pending an invoice.</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center mt-6">
+              <Link to="/agent/invoices/new/misc">
+                <button className="button-refresh">
+                  Create Misc Invoice
+                </button>
+              </Link>
+              <Link to="/agent/invoices/new">
+                <button className="px-4 py-2 border border-v3-border text-v3-text-muted hover:text-v3-text-lightest hover:border-v3-orange rounded-md transition-colors">
+                  Back to Type Selection
+                </button>
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="divide-y divide-v3-border border-t border-v3-border">

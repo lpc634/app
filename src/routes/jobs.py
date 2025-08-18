@@ -941,6 +941,68 @@ def respond_to_assignment(assignment_id):
         logger.error(f"Error responding to assignment: {str(e)}")
         return jsonify({'error': 'Failed to respond to assignment'}), 500
 
+@jobs_bp.route('/agent/jobs', methods=['GET'])
+@jwt_required()
+def get_agent_jobs():
+    """Get jobs for the current agent with filtering capabilities."""
+    try:
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
+        if not user or user.role != 'agent':
+            return jsonify({'error': 'Access denied. Agent role required.'}), 403
+
+        # Get query parameters
+        status_filter = request.args.get('status')  # 'completed', 'done', etc.
+        invoiced_filter = request.args.get('invoiced')  # 'true' or 'false'
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        per_page = min(per_page, 100)
+
+        # Base query - jobs assigned to this agent
+        query = db.session.query(Job).join(JobAssignment).filter(
+            JobAssignment.agent_id == user.id,
+            JobAssignment.status == 'accepted'
+        )
+
+        # Apply status filter
+        if status_filter:
+            if status_filter == 'completed':
+                query = query.filter(or_(Job.status == 'completed', Job.status == 'done'))
+            else:
+                query = query.filter(Job.status == status_filter)
+
+        # Apply invoiced filter
+        if invoiced_filter is not None:
+            if invoiced_filter.lower() == 'false':
+                # Jobs that haven't been invoiced yet
+                invoiced_job_ids = db.session.query(InvoiceJob.job_id).join(Invoice).filter(
+                    Invoice.agent_id == user.id
+                ).subquery()
+                query = query.filter(~Job.id.in_(db.session.query(invoiced_job_ids)))
+            elif invoiced_filter.lower() == 'true':
+                # Jobs that have been invoiced
+                invoiced_job_ids = db.session.query(InvoiceJob.job_id).join(Invoice).filter(
+                    Invoice.agent_id == user.id
+                ).subquery()
+                query = query.filter(Job.id.in_(db.session.query(invoiced_job_ids)))
+
+        # Order by arrival time (most recent first)
+        query = query.order_by(Job.arrival_time.desc())
+
+        # Apply pagination
+        paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        jobs_list = []
+        for job in paginated.items:
+            job_dict = job.to_dict()
+            jobs_list.append(job_dict)
+
+        return jsonify(jobs_list), 200
+
+    except Exception as e:
+        logger.error(f"Error fetching agent jobs: {str(e)}")
+        return jsonify({'error': 'Failed to fetch jobs'}), 500
+
 @jobs_bp.route('/agent/jobs/completed', methods=['GET'])
 @jwt_required()
 def get_completed_jobs():

@@ -192,7 +192,7 @@ const AgentInvoices = () => {
             <p className="text-v3-text-muted text-sm sm:text-base">Manage your invoices and track earnings</p>
           </div>
           <div className="flex-shrink-0">
-            <Link to="/agent/invoices/new/from-jobs">
+            <Link to="/agent/invoices/new">
               <Button className="button-refresh tap-target w-full sm:w-auto">
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Create Invoice
@@ -471,7 +471,7 @@ const AgentInvoices = () => {
             <p className="text-v3-text-muted mb-4">
               {searchTerm || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Create your first invoice to get started'}
             </p>
-            <Link to="/agent/invoices/new/from-jobs">
+            <Link to="/agent/invoices/new">
               <Button className="button-refresh">
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Create Invoice
