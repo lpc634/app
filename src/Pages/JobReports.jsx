@@ -295,37 +295,40 @@ const JobReports = () => {
             className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col safe-pt safe-pb"
           >
             <motion.div
-              className="bg-v3-bg-darkest flex flex-col w-full h-full max-w-4xl mx-auto rounded-lg shadow-2xl overflow-hidden m-4"
+              className="bg-v3-bg-darkest mx-auto w-full max-w-4xl rounded-lg shadow-2xl m-4 grid h-screen-ios"
+              style={{ gridTemplateRows: 'auto 1fr auto' }}
               initial={{ y: "100%" }}
               animate={{ y: 0, transition: { type: "spring", stiffness: 300, damping: 30 } }}
               exit={{ y: "100%" }}
             >
-              {/* Header - Fixed height */}
-              <div className="flex-shrink-0 p-4 border-b border-v3-border flex items-center justify-between">
-                <div className='flex-1 min-w-0 pr-4'>
-                  <h2 className="text-lg font-bold text-v3-text-lightest truncate">{getFormConfig(selectedJob).name}</h2>
-                  <p className="text-sm text-v3-text-muted truncate">{selectedJob.title}</p>
+              {/* Header */}
+              <div className="p-4 border-b border-v3-border sticky top-0 bg-v3-bg-darkest z-10">
+                <div className="flex items-center justify-between">
+                  <div className='flex-1 min-w-0 pr-4'>
+                    <h2 className="text-lg font-bold text-v3-text-lightest truncate">{getFormConfig(selectedJob).name}</h2>
+                    <p className="text-sm text-v3-text-muted truncate">{selectedJob.title}</p>
+                  </div>
+                  <button onClick={handleCloseModal} className="p-3 rounded-full hover:bg-v3-bg-card tap-target flex-shrink-0 bg-red-600 text-white">
+                    <X className="w-6 h-6"/>
+                  </button>
                 </div>
-                <button onClick={handleCloseModal} className="p-3 rounded-full hover:bg-v3-bg-card tap-target flex-shrink-0 bg-red-600 text-white">
-                  <X className="w-6 h-6"/>
-                </button>
               </div>
 
-              {/* Form Content - Scrollable */}
-              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 min-h-0" style={{ WebkitOverflowScrolling: 'touch', minHeight: 'calc(100vh - 200px)' }}>
-                 <div className="bg-white rounded-lg min-h-[600px]">
-                    <div className="p-4">
-                       <CognitoFormEmbed
-                         formKey={getFormConfig(selectedJob).key}
-                         formId={getFormConfig(selectedJob).formId}
-                         prefillData={{ "JobID": selectedJob.id, "JobTitle": selectedJob.title, "AgentName": user?.first_name + ' ' + user?.last_name }}
-                       />
-                     </div>
-                 </div>
+              {/* Scrollable content */}
+              <div className="overflow-y-auto min-h-0 p-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+                <div className="bg-white rounded-lg min-h-[600px]">
+                  <div className="p-4">
+                    <CognitoFormEmbed
+                      formKey={getFormConfig(selectedJob).key}
+                      formId={getFormConfig(selectedJob).formId}
+                      prefillData={{ "JobID": selectedJob.id, "JobTitle": selectedJob.title, "AgentName": user?.first_name + ' ' + user?.last_name }}
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* Footer - Fixed height */}
-              <div className="flex-shrink-0 p-4 border-t border-v3-border bg-v3-bg-darkest">
+              {/* Footer */}
+              <div className="p-4 border-t border-v3-border bg-v3-bg-darkest safe-pb">
                 <button onClick={handleAfterSubmit} className="w-full py-4 px-6 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg flex items-center justify-center gap-2 tap-target text-lg">
                   ✓ I Have Submitted This Report
                 </button>

@@ -12,13 +12,12 @@
 /* ===== AGENT SHELL - CSS GRID LAYOUT ===== */
 .agent-shell {
   display: grid;
-  grid-template-columns: 1fr; /* Mobile first - single column */
-  min-height: 100vh;
+  grid-template-columns: 1fr; /* mobile-first */
   min-height: 100dvh;
   min-height: -webkit-fill-available;
   background: var(--v3-bg-darkest);
   font-family: 'Inter', sans-serif;
-  width: 100%;
+  width: 100%;            /* never 100vw here */
   overflow-x: hidden;
 }
 
