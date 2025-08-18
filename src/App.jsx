@@ -103,6 +103,7 @@ function App() {
             <Route path="/agent/invoices/new/misc" element={<CreateMiscInvoice />} />
             <Route path="/agent/invoices/update/:invoiceId" element={<UpdateInvoicePage />} />
             <Route path="/agent/invoices/review/:invoiceId" element={<ReviewInvoicePage />} />
+            <Route path="/agent/invoices/review" element={<ReviewInvoicePage />} />
             <Route path="/agent/reports" element={<JobReports />} />
             <Route path="/agent/notifications" element={<NotificationsPage />} />
             <Route path="/agent/profile" element={<AgentProfile />} />
