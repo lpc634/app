@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
-import { Loader2, User as UserIcon, Landmark, FileUp, CheckCircle, Image as ImageIcon, Download, Trash2 } from 'lucide-react';
+import { Loader2, User as UserIcon, Landmark, FileUp, CheckCircle, Image as ImageIcon, Download, Trash2, MessageCircle, ExternalLink, Send } from 'lucide-react';
+import { getTelegramStatus, createTelegramLink, disconnectTelegram, sendTestTelegram } from '../api/agents';
 
 const AgentProfile = () => {
   const { user, loading, apiCall } = useAuth();
@@ -11,6 +12,10 @@ const AgentProfile = () => {
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  
+  // Telegram state
+  const [telegramStatus, setTelegramStatus] = useState({ enabled: false, connected: false });
+  const [telegramLoading, setTelegramLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -28,8 +33,9 @@ const AgentProfile = () => {
         bank_sort_code: user.bank_sort_code || '',
         utr_number: user.utr_number || ''
       });
-      // Load agent documents
+      // Load agent documents and Telegram status
       loadDocuments();
+      loadTelegramStatus();
     }
   }, [user]);
 
@@ -39,6 +45,63 @@ const AgentProfile = () => {
       setDocuments(response.documents || []);
     } catch (error) {
       console.error('Failed to load documents:', error);
+    }
+  };
+
+  const loadTelegramStatus = async () => {
+    try {
+      const status = await getTelegramStatus();
+      setTelegramStatus(status);
+    } catch (error) {
+      console.error('Failed to load Telegram status:', error);
+      setTelegramStatus({ enabled: false, connected: false });
+    }
+  };
+
+  const handleConnectTelegram = async () => {
+    setTelegramLoading(true);
+    try {
+      const response = await createTelegramLink();
+      if (response.link) {
+        // Open Telegram deep link
+        window.open(response.link, '_blank');
+        toast.success('Telegram link opened!', {
+          description: 'Please press "Start" in Telegram to complete the connection.'
+        });
+        // Refresh status after a delay
+        setTimeout(() => {
+          loadTelegramStatus();
+        }, 5000);
+      }
+    } catch (error) {
+      toast.error('Failed to create Telegram link', { description: error.message });
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
+  const handleDisconnectTelegram = async () => {
+    setTelegramLoading(true);
+    try {
+      await disconnectTelegram();
+      await loadTelegramStatus(); // Refresh status
+      toast.success('Telegram disconnected successfully');
+    } catch (error) {
+      toast.error('Failed to disconnect Telegram', { description: error.message });
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
+  const handleTestTelegram = async () => {
+    setTelegramLoading(true);
+    try {
+      await sendTestTelegram();
+      toast.success('Test message sent!', { description: 'Check your Telegram for the test message.' });
+    } catch (error) {
+      toast.error('Failed to send test message', { description: error.message });
+    } finally {
+      setTelegramLoading(false);
     }
   };
 
@@ -316,6 +379,115 @@ const AgentProfile = () => {
             <div className="mt-4 flex items-center justify-center text-v3-orange">
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
               Uploading document...
+            </div>
+          )}
+        </div>
+
+        {/* Telegram Notifications Section */}
+        <div className="dashboard-card p-6">
+          <h2 className="text-xl font-bold text-v3-text-lightest flex items-center gap-3 mb-6">
+            <MessageCircle /> Telegram Notifications
+          </h2>
+          <p className="text-sm text-v3-text-muted mb-6">
+            Connect your Telegram account to receive instant notifications about job assignments, invoices, and important updates.
+          </p>
+
+          {!telegramStatus.enabled ? (
+            <div className="text-center py-8">
+              <MessageCircle className="h-12 w-12 text-v3-text-muted mx-auto mb-4" />
+              <p className="text-v3-text-muted">Telegram integration is currently disabled.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Connection Status */}
+              <div className="flex items-center justify-between p-4 bg-v3-bg-light rounded-lg border border-v3-border">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${telegramStatus.connected ? 'bg-green-500' : 'bg-gray-500'}`} />
+                  <div>
+                    <p className="font-medium text-v3-text-lightest">
+                      {telegramStatus.connected ? 'Connected' : 'Not Connected'}
+                    </p>
+                    <p className="text-sm text-v3-text-muted">
+                      {telegramStatus.connected 
+                        ? `Connected as @${telegramStatus.username || 'Unknown'}`
+                        : 'Connect your Telegram to receive notifications'
+                      }
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {telegramStatus.connected ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleTestTelegram}
+                        disabled={telegramLoading}
+                        className="px-4 py-2 text-sm bg-v3-orange text-white rounded-md hover:bg-v3-orange-dark disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {telegramLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        Send Test
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDisconnectTelegram}
+                        disabled={telegramLoading}
+                        className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                      >
+                        Disconnect
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleConnectTelegram}
+                      disabled={telegramLoading}
+                      className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {telegramLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+                      Connect Telegram
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Instructions for connection */}
+              {!telegramStatus.connected && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">How to connect:</h4>
+                  <ol className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                    <li>1. Click "Connect Telegram" above</li>
+                    <li>2. Telegram app will open with our bot</li>
+                    <li>3. Press "Start" to complete the connection</li>
+                    <li>4. Return here to verify connection</li>
+                  </ol>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-3">
+                    Don't have Telegram? <a href="https://telegram.org/apps" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">Download it here</a>
+                  </p>
+                </div>
+              )}
+
+              {/* Benefits of Telegram notifications */}
+              <div className="mt-6">
+                <h4 className="font-semibold text-v3-text-lightest mb-3">You'll receive notifications for:</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                    <span className="text-sm text-v3-text-muted">New job assignments</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                    <span className="text-sm text-v3-text-muted">Invoice generation</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                    <span className="text-sm text-v3-text-muted">Job updates & changes</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                    <span className="text-sm text-v3-text-muted">Important announcements</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

@@ -38,6 +38,7 @@ from src.routes.agent import agent_bp
 # REMOVED: from src.routes.utils import utils_bp
 from src.routes.admin import admin_bp
 from src.routes.vehicles import vehicles_bp
+from src.routes.telegram import telegram_bp
 
 
 # --- Flask App Initialization ---
@@ -123,6 +124,7 @@ app.register_blueprint(agent_bp, url_prefix='/api')
 app.register_blueprint(admin_bp, url_prefix='/api')
 # --- THIS LINE IS NOW UNCOMMENTED ---
 app.register_blueprint(vehicles_bp, url_prefix='/api')
+app.register_blueprint(telegram_bp)
 
 
 # --- Debug Route (add this right after the blueprint registrations) ---

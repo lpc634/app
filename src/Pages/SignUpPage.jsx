@@ -1,7 +1,8 @@
 import React, { useState } from 'react'; // This line has been corrected
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Shield, Loader2 } from 'lucide-react';
+import { Shield, Loader2, MessageCircle, Download, ExternalLink } from 'lucide-react';
+import { getTelegramStatus, createTelegramLink } from '../api/agents';
 
 const InputField = ({ name, type, placeholder, required = true, group = false, value, onChange }) => (
     <div className={group ? 'md:col-span-2' : ''}>
@@ -24,6 +25,9 @@ const SignUpPage = () => {
         tax_confirmation: false
     });
     const [loading, setLoading] = useState(false);
+    const [showTelegramSetup, setShowTelegramSetup] = useState(false);
+    const [telegramStatus, setTelegramStatus] = useState({ enabled: false, connected: false });
+    const [telegramLoading, setTelegramLoading] = useState(false);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
