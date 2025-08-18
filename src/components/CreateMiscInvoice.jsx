@@ -40,7 +40,9 @@ const CreateMiscInvoice = () => {
     }
   };
 
-  const handleReviewInvoice = () => {
+  const { apiCall } = useAuth();
+
+  const handleReviewInvoice = async () => {
     const validItems = lineItems.filter(item => 
       item.description.trim() !== '' &&
       parseFloat(item.quantity) > 0 &&
@@ -51,22 +53,37 @@ const CreateMiscInvoice = () => {
       toast.error("Invalid Line Items", { description: "Please ensure at least one line item has a description, quantity, and price." });
       return;
     }
-    
-    // In a real scenario, we might pass different data for a misc invoice.
-    // For now, we'll adapt it to the structure the review page expects.
-    const reviewData = {
-      items: validItems.map(item => ({
-        // We use negative IDs to signify these aren't real 'jobs'
-        jobId: -item.id, 
-        title: item.description,
-        date: new Date().toISOString(), // Use today's date for misc items
-        hours: parseFloat(item.quantity),
-        rate: parseFloat(item.unit_price)
-      })),
-      total: totalAmount
-    };
 
-    navigate('/agent/invoices/review', { state: reviewData });
+    try {
+      setIsSubmitting(true);
+      
+      // Create misc invoice directly
+      const invoiceData = {
+        items: validItems.map(item => ({
+          description: item.description,
+          quantity: parseFloat(item.quantity),
+          unit_price: parseFloat(item.unit_price)
+        }))
+      };
+
+      const response = await apiCall('/agent/invoice/misc', {
+        method: 'POST',
+        body: JSON.stringify(invoiceData)
+      });
+
+      toast.success("Invoice Created Successfully!", { 
+        description: `Invoice ${response.invoice_number} for £${totalAmount.toFixed(2)} has been created.` 
+      });
+      
+      // Navigate back to invoices list
+      navigate('/agent/invoices');
+      
+    } catch (error) {
+      console.error('Error creating misc invoice:', error);
+      toast.error("Failed to Create Invoice", { description: error.message });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
 
