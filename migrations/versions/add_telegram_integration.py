@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'add_telegram_integration'
-down_revision = None  # Set this to the previous migration ID if you know it
+down_revision = 'add_current_invoice_number'
 branch_labels = None
 depends_on = None
 

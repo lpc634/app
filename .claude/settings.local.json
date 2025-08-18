@@ -25,7 +25,9 @@
       "Bash(heroku:*)",
       "Bash(git commit:*)",
       "Bash(curl:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(\"C:\\Program Files\\heroku\\bin\\heroku.cmd\" run \"python -m flask db upgrade\")",
+      "Bash(cmd /c \"heroku pg:psql --command=\"\"ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id varchar(32);\"\"\")"
     ],
     "deny": []
   }
