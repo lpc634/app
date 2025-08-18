@@ -110,13 +110,12 @@ const AgentLayout = () => {
       </div>
 
       {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div 
-            className="absolute inset-0 bg-black/60"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          <div className="relative z-10 w-80 max-w-[85vw] h-full bg-v3-bg-card border-r border-v3-border flex flex-col safe-pt safe-pb">
+      <div className={`fixed inset-0 z-50 lg:hidden transition-opacity duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+        <div 
+          className="absolute inset-0 bg-black/60"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+        <div className={`relative z-10 w-80 max-w-[85vw] h-full bg-v3-bg-card border-r border-v3-border flex flex-col safe-pt safe-pb transition-transform duration-300 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
             <div className="flex items-center justify-between p-4 border-b border-v3-border">
               <div className="flex items-center gap-2 min-w-0">
                 <img src={logo} alt="Company Name Logo" className="h-8 w-auto max-w-full" />
@@ -176,7 +175,7 @@ const AgentLayout = () => {
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Desktop Sidebar */}
       <aside className="agent-sidebar hidden lg:flex">
