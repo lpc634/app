@@ -24,7 +24,8 @@
       "Bash(heroku run:*)",
       "Bash(heroku:*)",
       "Bash(git commit:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }

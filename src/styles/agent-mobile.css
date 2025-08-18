@@ -4,17 +4,62 @@
  * It uses the same CSS variables as the main theme but with mobile-first responsive design
  */
 
-/* ===== MOBILE-FIRST AGENT CONTAINER ===== */
-.agent-mobile-container {
+/* ===== CSS VARIABLES ===== */
+:root {
+  --sidebar-w: 256px;
+}
+
+/* ===== AGENT SHELL - CSS GRID LAYOUT ===== */
+.agent-shell {
+  display: grid;
+  grid-template-columns: 1fr; /* Mobile first - single column */
   min-height: 100vh;
   min-height: 100dvh;
   min-height: -webkit-fill-available;
   background: var(--v3-bg-darkest);
-  padding: 0;
   font-family: 'Inter', sans-serif;
   width: 100%;
-  max-width: 100vw;
   overflow-x: hidden;
+}
+
+/* Desktop: sidebar + main layout */
+@media (min-width: 1024px) {
+  .agent-shell {
+    grid-template-columns: var(--sidebar-w) 1fr;
+  }
+}
+
+/* ===== SIDEBAR ===== */
+.agent-sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--v3-bg-card);
+  border-right: 1px solid var(--v3-border);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== MAIN CONTENT AREA ===== */
+.agent-main {
+  width: 100%;
+  min-width: 0; /* Allows content to shrink and prevents overflow */
+  padding: 1rem;
+  background: var(--v3-bg-darkest);
+  overflow-x: hidden;
+}
+
+/* Desktop main content padding */
+@media (min-width: 1024px) {
+  .agent-main {
+    padding: 1.5rem;
+  }
+}
+
+/* Large desktop padding */
+@media (min-width: 1280px) {
+  .agent-main {
+    padding: 2rem;
+  }
 }
 
 /* ===== MOBILE NAVIGATION ===== */
@@ -148,7 +193,7 @@
   color: var(--v3-text-lightest);
 }
 
-/* ===== MOBILE MAIN CONTENT ===== */
+/* ===== MOBILE MAIN CONTENT (Legacy support) ===== */
 .agent-mobile-main {
   padding-top: 4rem;
   min-height: 100vh;
@@ -156,7 +201,6 @@
   min-height: -webkit-fill-available;
   background: var(--v3-bg-darkest);
   width: 100%;
-  max-width: 100vw;
   overflow-x: hidden;
 }
 

@@ -1,0 +1,21 @@
+/* ===== AGENT GRID LAYOUT MOBILE FIXES ===== */
+
+/* Mobile: add top padding for fixed header */
+@media (max-width: 1023px) {
+  .agent-main {
+    padding-top: 5rem !important;
+  }
+}
+
+/* Ensure no content clipping on any breakpoint */
+.agent-main > * {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+/* Fix any remaining 100vw issues */
+.agent-main .dashboard-card,
+.agent-main .agent-mobile-card,
+.agent-main .w-full {
+  box-sizing: border-box;
+}

@@ -4,6 +4,7 @@ import { Home, ClipboardList, Calendar, Bell, Briefcase, Power, User as UserIcon
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
 import '../styles/agent-mobile.css';
+import '../styles/agent-grid-fixes.css';
 import logo from '../assets/new_logo.png';
 
 const agentNavItems = [
@@ -93,7 +94,7 @@ const AgentLayout = () => {
   }, [mobileMenuOpen]);
 
   return (
-    <div className="agent-mobile-container min-h-screen-ios prevent-horizontal-scroll">
+    <div className="agent-shell">
       {/* Mobile Header with Safe Area */}
       <div className="agent-mobile-header lg:hidden safe-pt">
         <button 
@@ -169,8 +170,8 @@ const AgentLayout = () => {
         </div>
       </div>
 
-      {/* Desktop Sidebar - Hidden on mobile, shown on large screens */}
-      <div className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 bg-v3-bg-card border-r border-v3-border flex-col">
+      {/* Desktop Sidebar */}
+      <aside className="agent-sidebar hidden lg:flex">
         <div className="h-16 flex items-center px-4 border-b border-v3-border">
           <div className="flex items-center gap-2 min-w-0">
             <img src={logo} alt="Company Name Logo" className="h-8 w-auto max-w-full" />
@@ -215,10 +216,10 @@ const AgentLayout = () => {
             <span className="truncate">Sign Out</span>
           </button>
         </div>
-      </div>
+      </aside>
 
-      {/* Main Content with Safe Area */}
-      <main className="agent-mobile-main lg:ml-64 lg:pt-0 safe-pb min-h-screen-ios w-full max-w-full overflow-x-hidden">
+      {/* Main Content */}
+      <main className="agent-main">
         <Outlet />
       </main>
     </div>

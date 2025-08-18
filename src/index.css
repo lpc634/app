@@ -1,4 +1,9 @@
 @tailwind base;
+
+/* Global box-sizing and overflow guard */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
 @tailwind components;
 @tailwind utilities;
 
