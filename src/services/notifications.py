@@ -78,30 +78,41 @@ def notify_agent(agent_id: int, title: str, body: str, notification_type: str = 
 
 def notify_job_assignment(agent_id: int, job_data: dict):
     """
-    Notify agent about a new job assignment with comprehensive details
+    Notify agent about a new job assignment with clean, professional formatting
     
     Args:
         agent_id: ID of the agent
-        job_data: Complete job information dictionary containing:
-            - title, job_type, address, postcode, arrival_time
-            - agents_required, hourly_rate, instructions, urgency_level
-            - location_lat, location_lng, maps_link
-            - lead_agent_name, number_of_dwellings, police_liaison_required
-            - what3words_address
+        job_data: Complete job information dictionary
     """
-    title = "🚀 New Job Assignment"
+    title = "🚨 NEW JOB ASSIGNMENT"
     
-    # Get weather information
-    weather_summary = ""
+    # Parse arrival time for better formatting
+    from datetime import datetime
+    try:
+        if isinstance(job_data.get('arrival_time'), str):
+            arrival_dt = datetime.strptime(job_data['arrival_time'], '%Y-%m-%d %H:%M')
+        else:
+            arrival_dt = job_data.get('arrival_time')
+        
+        formatted_date = arrival_dt.strftime('%d %b %Y')
+        formatted_time = arrival_dt.strftime('%H:%M')
+    except:
+        formatted_date = job_data.get('arrival_time', 'TBD')
+        formatted_time = ''
+    
+    # Priority emoji mapping
+    urgency_emoji = {"High": "🔴", "Medium": "🟡", "Standard": "🟢", "Low": "🔵"}
+    priority_emoji = urgency_emoji.get(job_data.get('urgency_level', 'Standard'), '🟢')
+    
+    # Get weather information (simplified)
+    weather_info = ""
     try:
         if job_data.get('postcode'):
             import requests
             import os
-            from flask import current_app
             
             api_key = os.environ.get('OPENWEATHER_API_KEY')
             if api_key:
-                # Get weather data directly
                 geocoding_url = f"http://api.openweathermap.org/data/2.5/geo/1.0/zip"
                 geocoding_params = {'zip': f"{job_data['postcode']},GB", 'appid': api_key}
                 geocoding_response = requests.get(geocoding_url, params=geocoding_params, timeout=5)
@@ -125,102 +136,81 @@ def notify_job_assignment(agent_id: int, job_data: dict):
                                 '11d': '⛈️', '11n': '⛈️', '13d': '🌨️', '13n': '🌨️', '50d': '🌫️', '50n': '🌫️'
                             }
                             icon = icon_map.get(current_data['weather'][0]['icon'], '🌤️')
-                            weather_summary = f"\n\n🌤️ <b>Weather</b>: {icon} {desc}, {temp}°C"
-                            
-                            # Add clothing recommendations
-                            recommendations = []
-                            if temp < 5:
-                                recommendations.append("Wear warm clothing and layers")
-                            elif temp < 15:
-                                recommendations.append("Bring a jacket or coat")
-                            
-                            if 'rain' in desc.lower() or 'drizzle' in desc.lower():
-                                recommendations.append("Bring waterproofs/umbrella")
-                            elif 'snow' in desc.lower():
-                                recommendations.append("Wear non-slip footwear")
-                            
-                            if current_data.get('wind', {}).get('speed', 0) > 10:
-                                recommendations.append("Expect windy conditions")
-                            
-                            if recommendations:
-                                weather_summary += f"\n💡 {', '.join(recommendations)}"
-        
-    except Exception as e:
-        try:
-            from flask import current_app
-            current_app.logger.warning(f"Failed to get weather for job notification: {str(e)}")
-        except:
-            pass
+                            weather_info = f"\n<b>🌤️ Weather:</b> {icon} {desc}, {temp}°C"
+    except:
+        pass
     
-    # Build comprehensive notification body
-    body_parts = []
+    # Build professional notification
+    body_parts = [
+        f"<b>🚨 NEW JOB ASSIGNMENT</b>",
+        "",
+        f"<b>📍 Location:</b>",
+        f"{job_data['address']}"
+    ]
     
-    # Job basics
-    body_parts.append(f"📋 <b>{job_data['title']}</b>")
-    body_parts.append(f"🏢 <b>Type</b>: {job_data['job_type']}")
-    
-    # Location details
-    body_parts.append(f"\n📍 <b>Location</b>: {job_data['address']}")
+    # Add postcode if available
     if job_data.get('postcode'):
-        body_parts.append(f"📮 <b>Postcode</b>: {job_data['postcode']}")
+        body_parts.append(f"{job_data['postcode']}")
     
-    # What3Words if available
-    if job_data.get('what3words_address'):
-        body_parts.append(f"📌 <b>What3Words</b>: {job_data['what3words_address']}")
+    # Job details section
+    body_parts.extend([
+        "",
+        f"<b>📋 Job Details:</b>",
+        f"- Type: {job_data['job_type']}",
+        f"- Date: {formatted_date}",
+        f"- Time: {formatted_time}" if formatted_time else f"- Time: {formatted_date}",
+        f"- Priority: {priority_emoji} {job_data.get('urgency_level', 'Standard')}"
+    ])
     
-    # Timing
-    body_parts.append(f"\n🕒 <b>Arrival Time</b>: {job_data['arrival_time']}")
-    
-    # Job requirements
+    # Add additional details if available
     if job_data.get('agents_required', 1) > 1:
-        body_parts.append(f"👥 <b>Agents Required</b>: {job_data['agents_required']}")
+        body_parts.append(f"- Agents Required: {job_data['agents_required']}")
     
     if job_data.get('hourly_rate'):
-        body_parts.append(f"💰 <b>Rate</b>: £{job_data['hourly_rate']}/hour")
+        body_parts.append(f"- Rate: £{job_data['hourly_rate']}/hour")
     
-    # Urgency level
-    urgency_emoji = {"High": "🔴", "Medium": "🟡", "Standard": "🟢", "Low": "🔵"}
-    urgency_icon = urgency_emoji.get(job_data.get('urgency_level', 'Standard'), '🟢')
-    body_parts.append(f"{urgency_icon} <b>Priority</b>: {job_data.get('urgency_level', 'Standard')}")
-    
-    # Special requirements
-    special_requirements = []
     if job_data.get('lead_agent_name'):
-        special_requirements.append(f"👨‍💼 Lead Agent: {job_data['lead_agent_name']}")
-    
-    if job_data.get('number_of_dwellings'):
-        special_requirements.append(f"🏠 Dwellings: {job_data['number_of_dwellings']}")
+        body_parts.append(f"- Lead Agent: {job_data['lead_agent_name']}")
     
     if job_data.get('police_liaison_required'):
-        special_requirements.append("👮‍♂️ Police Liaison Required")
+        body_parts.append("- 👮‍♂️ Police Liaison Required")
     
-    if special_requirements:
-        body_parts.append(f"\n🎯 <b>Requirements</b>:\n" + "\n".join([f"• {req}" for req in special_requirements]))
-    
-    # Instructions
+    # Instructions section
     if job_data.get('instructions'):
-        body_parts.append(f"\n📝 <b>Instructions</b>:\n{job_data['instructions']}")
+        body_parts.extend([
+            "",
+            f"<b>📝 Instructions:</b>",
+            f"{job_data['instructions']}"
+        ])
     
-    # Navigation link
+    # Navigation section
     navigation_link = ""
     if job_data.get('maps_link'):
         navigation_link = job_data['maps_link']
-        body_parts.append(f"\n🗺️ <b>Navigation</b>: <a href='{navigation_link}'>Open in Maps</a>")
     elif job_data.get('location_lat') and job_data.get('location_lng'):
         navigation_link = f"https://www.google.com/maps/dir/?api=1&destination={job_data['location_lat']},{job_data['location_lng']}"
-        body_parts.append(f"\n🗺️ <b>Navigation</b>: <a href='{navigation_link}'>Open in Maps</a>")
     else:
         navigation_link = f"https://www.google.com/maps/search/?api=1&query={job_data['address'].replace(' ', '+')}"
-        body_parts.append(f"\n🗺️ <b>Navigation</b>: <a href='{navigation_link}'>Search in Maps</a>")
     
-    # Add weather information
-    body_parts.append(weather_summary)
+    body_parts.extend([
+        "",
+        f"<b>🗺 Navigation:</b>",
+        f"<a href='{navigation_link}'>Open in Maps</a>"
+    ])
     
-    # Important reminder
-    body_parts.append(f"\n\n⚠️ <b>IMPORTANT</b>: You must open the V3 Services app to ACCEPT this job assignment!")
-    body_parts.append("📱 Go to Jobs → Pending to accept or decline this assignment.")
+    # Add weather if available
+    if weather_info:
+        body_parts.append(weather_info)
     
-    body = "".join(body_parts)
+    # Action required section
+    body_parts.extend([
+        "",
+        f"<b>⚠️ ACTION REQUIRED:</b>",
+        f"Open V3 Services app → Jobs → Pending",
+        f"Accept or decline this assignment"
+    ])
+    
+    body = "\n".join(body_parts)
     
     return notify_agent(agent_id, title, body, "job_assignment")
 
@@ -264,8 +254,15 @@ def notify_payment_received(agent_id: int, invoice_number: str, amount: float):
         invoice_number: Paid invoice number
         amount: Payment amount
     """
-    title = f"💰 Payment Received"
-    body = f"Your invoice {invoice_number} for £{amount:.2f} has been marked as paid by admin. Thank you!"
+    title = "💰 PAYMENT RECEIVED"
+    
+    body = f"""<b>💰 PAYMENT RECEIVED</b>
+
+Invoice <code>#{invoice_number}</code> - £{amount:.2f}
+Status: ✅ Paid
+Processed by: Admin
+
+Thank you for your service!"""
     
     return notify_agent(agent_id, title, body, "payment_received")
 
