@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'add_agent_invoice_numbering'
-down_revision = 'make_job_title_nullable'
+revision = 'aain_20250819a3'
+down_revision = 'mjtn_20250819a2'
 branch_labels = None
 depends_on = None
 

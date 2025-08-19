@@ -2,14 +2,14 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = "merge_all_heads_20250819"
+revision = "merge_fix_heads_20250819"
 down_revision = (
     "a1b2c3d4e5f6",
-    "add_coordinates_to_sightings",
+    "acvs_20250819b1",
+    "atel_20250819a5",
     "fcm_tokens_001",
-    "add_telegram_integration",
-    "verification_tracking_001",
-    "fix_coordinates_production",
+    "fcpr_20250819a7",
+    "vtck_20250819a6",
 )
 branch_labels = None
 depends_on = None

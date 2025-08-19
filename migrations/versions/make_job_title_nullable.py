@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'make_job_title_nullable'
+revision = 'mjtn_20250819a2'
 down_revision = 'acvs_20250819a1'
 branch_labels = None
 depends_on = None

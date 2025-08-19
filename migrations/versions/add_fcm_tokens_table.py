@@ -11,7 +11,7 @@ from datetime import datetime
 
 # revision identifiers
 revision = 'fcm_tokens_001'
-down_revision = 'c135f3c2dd6c'  # Update this to match your latest migration
+down_revision = 'c135f3c2dd6c'  # Update this to match your latest migration'  # Update this to match your latest migration'  # Update this to match your latest migration'  # Update this to match your latest migration
 branch_labels = None
 depends_on = None
 

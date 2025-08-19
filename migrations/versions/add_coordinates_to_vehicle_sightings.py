@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = 'add_coordinates_to_sightings'
+revision = 'acvs_20250819b1'
 down_revision = '25573440985f'
 branch_labels = None
 depends_on = None

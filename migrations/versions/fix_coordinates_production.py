@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = 'fix_coordinates_production'
+revision = 'fcpr_20250819a7'
 down_revision = None  # This will be applied regardless of current revision
 branch_labels = None
 depends_on = None

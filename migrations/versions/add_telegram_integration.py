@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'add_telegram_integration'
-down_revision = 'add_current_invoice_number'
+revision = 'atel_20250819a5'
+down_revision = 'acin_20250819a4'
 branch_labels = None
 depends_on = None
 
