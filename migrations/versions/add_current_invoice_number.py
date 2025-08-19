@@ -18,8 +18,18 @@ depends_on = None
 
 def upgrade():
     """Add current_invoice_number field for flexible per-agent numbering system."""
-    # Add current_invoice_number to users table
-    op.add_column('users', sa.Column('current_invoice_number', sa.Integer(), nullable=True, default=0))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    
+    # Check if column already exists
+    users_columns = [col['name'] for col in inspector.get_columns('users')]
+    
+    # Add current_invoice_number to users table if it doesn't exist
+    if 'current_invoice_number' not in users_columns:
+        op.add_column('users', sa.Column('current_invoice_number', sa.Integer(), nullable=True, default=0))
+        print("Added current_invoice_number column to users table")
+    else:
+        print("current_invoice_number column already exists in users table")
     
     # Backfill current_invoice_number from agent_invoice_next (backward compatibility)
     # Set current_invoice_number to agent_invoice_next - 1 (representing the last used number)
