@@ -193,7 +193,7 @@ def notify_job_assignment(agent_id: int, job_data: dict):
     
     body_parts.extend([
         "",
-        f"<b>🗺 Navigation:</b>",
+        f"<b>🗺 Exact Camp Location:</b>",
         f"<a href='{navigation_link}'>Open in Maps</a>"
     ])
     
