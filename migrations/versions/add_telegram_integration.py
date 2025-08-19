@@ -49,9 +49,20 @@ def upgrade():
     else:
         print("telegram_opt_in column already exists")
     
-    # Create indexes for better performance
-    op.create_index('ix_users_telegram_chat_id', 'users', ['telegram_chat_id'])
-    op.create_index('ix_users_telegram_link_token', 'users', ['telegram_link_token'], unique=True)
+    # Create indexes for better performance (check if they exist first)
+    existing_indexes = [idx['name'] for idx in inspector.get_indexes('users')]
+    
+    if 'ix_users_telegram_chat_id' not in existing_indexes:
+        op.create_index('ix_users_telegram_chat_id', 'users', ['telegram_chat_id'])
+        print("Created ix_users_telegram_chat_id index")
+    else:
+        print("ix_users_telegram_chat_id index already exists")
+        
+    if 'ix_users_telegram_link_token' not in existing_indexes:
+        op.create_index('ix_users_telegram_link_token', 'users', ['telegram_link_token'], unique=True)
+        print("Created ix_users_telegram_link_token index")
+    else:
+        print("ix_users_telegram_link_token index already exists")
 
 
 def downgrade():
