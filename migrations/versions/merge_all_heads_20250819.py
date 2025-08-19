@@ -1,13 +1,5 @@
 from alembic import op
 import sqlalchemy as sa
-# 1) Ensure folder exists
-mkdir -Force migrations\versions | Out-Null
-
-# 2) Create the merge migration file
-merge_all_heads_20250819 = "merge_all_heads_20250819"
-@"
-from alembic import op
-import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "merge_all_heads_20250819"
