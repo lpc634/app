@@ -89,6 +89,12 @@ app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'V3 Services <no-reply@v3-services.com>')
 
+# --- Telegram Integration Configuration ---
+app.config['TELEGRAM_ENABLED'] = os.environ.get("TELEGRAM_ENABLED", "true").lower() == "true"
+app.config['TELEGRAM_BOT_TOKEN'] = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+app.config['TELEGRAM_WEBHOOK_SECRET'] = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+app.config['APP_BASE_URL'] = os.environ.get("APP_BASE_URL", "https://v3-app.herokuapp.com")
+
 # --- CORS Configuration for Heroku ---
 LIVE_APP_URL = os.environ.get('LIVE_APP_URL', 'https://v3-app-49c3d1eff914.herokuapp.com')
 origins = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176"]
