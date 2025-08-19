@@ -78,31 +78,61 @@ const ReviewInvoicePage = () => {
 
     setIsSending(true);
     try {
-      // Update API call to use the standard /agent/invoices endpoint with manual invoice number
+      // Use the unified /agent/invoices endpoint with correct payload format
+      const payload = {
+        invoice_number: invoiceNumber.trim()
+      };
+
+      // Process job items - filter items that have valid jobId > 0
+      const validJobItems = items.filter(item => item.jobId && item.jobId > 0);
+      if (validJobItems.length > 0) {
+        payload.jobs = validJobItems.map(item => ({
+          job_id: item.jobId,
+          hours: parseFloat(hours), // Use manual hours input
+          rate: parseFloat(hourlyRate) // Use manual rate input  
+        }));
+      }
+
+      // Process miscellaneous items - filter items that are misc (jobId <= 0 or no jobId)
+      const miscItems = items.filter(item => !item.jobId || item.jobId <= 0);
+      if (miscItems.length > 0) {
+        payload.miscellaneous_items = miscItems.map(item => ({
+          description: item.title || 'Manual Service',
+          quantity: parseFloat(hours), // Use manual hours as quantity
+          unit_price: parseFloat(hourlyRate) // Use manual rate as unit price
+        }));
+      }
+
+      // If no items, create a simple miscellaneous invoice
+      if (!payload.jobs && !payload.miscellaneous_items) {
+        payload.miscellaneous_items = [{
+          description: 'Manual Invoice Service',
+          quantity: parseFloat(hours),
+          unit_price: parseFloat(hourlyRate)
+        }];
+      }
+      
       const result = await apiCall('/agent/invoices', {
         method: 'POST',
-        body: JSON.stringify({
-          invoice_number: invoiceNumber.trim(),
-          jobs: items.filter(item => item.jobId > 0).map(item => ({
-            job_id: item.jobId,
-            hours: item.hours
-          })),
-          miscellaneous_items: items.filter(item => item.jobId < 0).map(item => ({
-            description: item.title,
-            quantity: item.hours,
-            unit_price: item.rate
-          }))
-        })
+        body: JSON.stringify(payload)
       });
       
       toast.success("Invoice created successfully!", {
-        description: `Invoice #${invoiceNumber} has been created.`
+        description: `Invoice ${result.invoice_number} has been created.`
       });
 
       navigate('/agent/invoices');
 
     } catch (error) {
-      toast.error('Failed to create invoice', { description: error.message });
+      // Handle specific error cases
+      if (error.status === 409 && error.suggested) {
+        toast.error('Invoice number already used', { 
+          description: `Invoice number ${invoiceNumber} has already been used. Try ${error.suggested} instead.`
+        });
+        setInvoiceNumber(error.suggested.toString());
+      } else {
+        toast.error('Failed to create invoice', { description: error.message });
+      }
     } finally {
       setIsSending(false);
     }

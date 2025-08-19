@@ -71,15 +71,15 @@ const CreateInvoiceFromJobs = () => {
   }, [selected]);
 
   const handleReviewInvoice = async () => {
-    const itemsToInvoice = Object.entries(selected)
+    const jobsToInvoice = Object.entries(selected)
       .filter(([_, job]) => parseFloat(job.hours) > 0 && parseFloat(job.rate) > 0)
       .map(([jobId, jobData]) => ({
-        jobId: parseInt(jobId),
+        job_id: parseInt(jobId),  // Use job_id instead of jobId to match backend
         hours: parseFloat(jobData.hours),
         rate: parseFloat(jobData.rate)
       }));
 
-    if (itemsToInvoice.length === 0) {
+    if (jobsToInvoice.length === 0) {
       toast.error("No jobs selected", { description: "Please select at least one job and enter the hours and rate." });
       return;
     }
@@ -92,15 +92,15 @@ const CreateInvoiceFromJobs = () => {
     try {
       setCreating(true);
       
-      // Call the invoice creation endpoint
-      const response = await apiCall('/agent/invoice', {
+      // Use the unified invoice creation endpoint with correct payload format
+      const response = await apiCall('/agent/invoices', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          items: itemsToInvoice,
-          agent_invoice_number: invoiceNumber.trim()
+          invoice_number: invoiceNumber.trim(),
+          jobs: jobsToInvoice
         })
       });
 
@@ -113,9 +113,18 @@ const CreateInvoiceFromJobs = () => {
       
     } catch (error) {
       console.error('Invoice creation error:', error);
-      toast.error('Failed to create invoice', { 
-        description: error.message || 'An error occurred while creating the invoice.'
-      });
+      
+      // Handle specific error cases
+      if (error.status === 409 && error.suggested) {
+        toast.error('Invoice number already used', { 
+          description: `Invoice number ${invoiceNumber} has already been used. Try ${error.suggested} instead.`
+        });
+        setInvoiceNumber(error.suggested.toString());
+      } else {
+        toast.error('Failed to create invoice', { 
+          description: error.message || 'An error occurred while creating the invoice.'
+        });
+      }
     } finally {
       setCreating(false);
     }

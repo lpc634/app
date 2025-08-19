@@ -86,9 +86,14 @@ const AgentInvoices = () => {
     try {
       setDownloadingInvoices(prev => new Set([...prev, invoiceId]));
       
-      // EMERGENCY FIX: Use direct download URL instead of API response
-      const downloadUrl = `/agent/invoices/${invoiceId}/download-direct`;
-      window.open(downloadUrl, '_blank');
+      // Get the download URL from the backend API
+      const response = await apiCall(`/agent/invoices/${invoiceId}/download`);
+      
+      if (response.pdf_url) {
+        window.open(response.pdf_url, '_blank');
+      } else {
+        toast.error('PDF not available for this invoice');
+      }
       
     } catch (error) {
       console.error('Error downloading invoice:', error);
