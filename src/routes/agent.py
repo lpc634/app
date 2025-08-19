@@ -786,19 +786,31 @@ def get_invoiceable_jobs():
     try:
         current_user_id = int(get_jwt_identity())
         
+        # Debug logging
+        from flask import current_app
+        current_app.logger.info(f"DEBUG: Getting invoiceable jobs for agent {current_user_id}")
+        
         invoiced_job_ids_query = db.session.query(InvoiceJob.job_id).join(Invoice).filter(Invoice.agent_id == current_user_id)
         invoiced_job_ids = [item[0] for item in invoiced_job_ids_query.all()]
+        current_app.logger.info(f"DEBUG: Invoiced job IDs: {invoiced_job_ids}")
 
         accepted_jobs_query = db.session.query(Job).join(JobAssignment).filter(
             JobAssignment.agent_id == current_user_id,
             JobAssignment.status == 'accepted'
         )
+        
+        all_accepted_jobs = accepted_jobs_query.all()
+        current_app.logger.info(f"DEBUG: Found {len(all_accepted_jobs)} accepted jobs")
+        for job in all_accepted_jobs:
+            current_app.logger.info(f"DEBUG: Job {job.id} - {job.address} - arrival: {job.arrival_time}")
 
         invoiceable_jobs = accepted_jobs_query.filter(~Job.id.in_(invoiced_job_ids)).order_by(Job.arrival_time.desc()).all()
+        current_app.logger.info(f"DEBUG: Final invoiceable jobs count: {len(invoiceable_jobs)}")
         
         return jsonify([job.to_dict() for job in invoiceable_jobs]), 200
 
     except Exception as e:
+        current_app.logger.error(f"DEBUG: Error in get_invoiceable_jobs: {str(e)}")
         return jsonify({"error": "An internal error occurred", "details": str(e)}), 500
 
 @agent_bp.route('/agent/invoice', methods=['POST'])
