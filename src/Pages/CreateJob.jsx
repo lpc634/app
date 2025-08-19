@@ -242,52 +242,71 @@ const CreateJob = () => {
         if (!showMap) return null;
 
         return (
-            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-                <div className="bg-v3-bg-card rounded-lg w-full max-w-4xl h-[80vh] flex flex-col">
-                    <div className="flex items-center justify-between p-4 border-b border-v3-border">
+            <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: 'var(--v3-bg-darkest)' }}>
+                <div className="rounded-lg w-full max-w-4xl h-[80vh] flex flex-col shadow-2xl" style={{ 
+                    backgroundColor: 'var(--v3-bg-card)', 
+                    border: '1px solid var(--v3-border)' 
+                }}>
+                    <div className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid var(--v3-border)' }}>
                         <div className="flex items-center gap-2">
-                            <Navigation className="w-5 h-5 text-v3-orange" />
-                            <h3 className="text-lg font-semibold text-v3-text-lightest">Select Entrance Location</h3>
+                            <Navigation className="w-5 h-5" style={{ color: 'var(--v3-orange)' }} />
+                            <h3 className="text-lg font-semibold" style={{ color: 'var(--v3-text-lightest)' }}>Select Entrance Location</h3>
                         </div>
                         <button 
                             onClick={() => setShowMap(false)}
-                            className="p-1 hover:bg-v3-bg-dark rounded"
+                            className="p-2 rounded transition-colors"
+                            style={{ color: 'var(--v3-text-muted)' }}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--v3-bg-dark)'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                         >
-                            <X className="w-5 h-5 text-v3-text-muted" />
+                            <X className="w-5 h-5" />
                         </button>
                     </div>
                     
-                    <div className="p-4 border-b border-v3-border bg-v3-bg-dark">
-                        <p className="text-sm text-v3-text-muted mb-2">
-                            <strong className="text-v3-orange">Address:</strong> {formData.address}
+                    <div className="p-4" style={{ 
+                        borderBottom: '1px solid var(--v3-border)', 
+                        backgroundColor: 'var(--v3-bg-dark)' 
+                    }}>
+                        <p className="text-sm mb-2" style={{ color: 'var(--v3-text-muted)' }}>
+                            <strong style={{ color: 'var(--v3-orange)' }}>Address:</strong> {formData.address}
                         </p>
-                        <p className="text-xs text-v3-text-muted">
+                        <p className="text-xs" style={{ color: 'var(--v3-text-muted)' }}>
                             Click on the map to mark the exact entrance location. The pin can be dragged to fine-tune the position.
                         </p>
                         {formData.maps_link && (
-    <div className="mt-3 p-4 dashboard-card border border-green-500/30 rounded-lg">
+    <div className="mt-3 p-4 rounded-lg" style={{ 
+        backgroundColor: 'var(--v3-bg-card)', 
+        border: '1px solid var(--v3-orange)',
+        boxShadow: '0 0 15px rgba(255, 87, 34, 0.2)'
+    }}>
         <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--v3-orange)' }}>
                 <Navigation className="w-4 h-4 text-white" />
             </div>
             <div>
-                <h4 className="text-green-400 font-semibold">✓ Entrance Location Set</h4>
-                <p className="text-sm text-v3-text-muted">
+                <h4 className="font-semibold" style={{ color: 'var(--v3-orange)' }}>✓ Entrance Location Set</h4>
+                <p className="text-sm" style={{ color: 'var(--v3-text-muted)' }}>
                     Agents will receive a Google Maps link to navigate directly to this location.
                 </p>
             </div>
         </div>
         
-        <div className="flex items-center gap-2 p-3 bg-v3-bg-dark rounded-lg border border-v3-border">
-            <MapPin className="w-4 h-4 text-v3-orange" />
-            <span className="text-sm text-v3-text-lightest">
+        <div className="flex items-center gap-2 p-3 rounded-lg" style={{ 
+            backgroundColor: 'var(--v3-bg-dark)', 
+            border: '1px solid var(--v3-border)' 
+        }}>
+            <MapPin className="w-4 h-4" style={{ color: 'var(--v3-orange)' }} />
+            <span className="text-sm" style={{ color: 'var(--v3-text-lightest)' }}>
                 Coordinates: {parseFloat(formData.location_lat).toFixed(6)}, {parseFloat(formData.location_lng).toFixed(6)}
             </span>
             <a 
                 href={formData.maps_link} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="ml-auto text-green-400 hover:text-green-300 transition-colors"
+                className="ml-auto transition-colors"
+                style={{ color: 'var(--v3-orange)' }}
+                onMouseEnter={(e) => e.target.style.color = 'var(--v3-orange-dark)'}
+                onMouseLeave={(e) => e.target.style.color = 'var(--v3-orange)'}
                 title="Test navigation link"
             >
                 <ExternalLink className="w-4 h-4" />
@@ -304,8 +323,12 @@ const CreateJob = () => {
                             style={{ minHeight: '400px' }}
                         />
                         
-                        <div className="absolute bottom-4 right-4 bg-v3-bg-card border border-v3-border rounded-lg p-3 max-w-xs">
-                            <p className="text-xs text-v3-text-muted">
+                        <div className="absolute bottom-4 right-4 rounded-lg p-3 max-w-xs" style={{ 
+                            backgroundColor: 'var(--v3-bg-card)', 
+                            border: '1px solid var(--v3-border)',
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+                        }}>
+                            <p className="text-xs" style={{ color: 'var(--v3-text-muted)' }}>
                                 Switch between satellite and street views using the control above. 
                                 Click to mark the exact entrance location.
                             </p>
