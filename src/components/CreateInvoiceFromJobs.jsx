@@ -9,9 +9,11 @@ const CreateInvoiceFromJobs = () => {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   
-  // State to track selected jobs and their hours, e.g., { jobId: { hours: 8, rate: 25.50 }, ... }
+  // State to track selected jobs and their hours, rate, and invoice data
   const [selected, setSelected] = useState({});
+  const [invoiceNumber, setInvoiceNumber] = useState('');
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -50,6 +52,16 @@ const CreateInvoiceFromJobs = () => {
     }
   };
 
+  const handleRateChange = (jobId, rate) => {
+    // Allow only numbers and a single decimal point
+    if (/^\d*\.?\d*$/.test(rate)) {
+      setSelected(prev => ({
+        ...prev,
+        [jobId]: { ...prev[jobId], rate: rate }
+      }));
+    }
+  };
+
   const totalAmount = useMemo(() => {
     return Object.values(selected).reduce((acc, job) => {
       const hours = parseFloat(job.hours) || 0;
@@ -58,9 +70,9 @@ const CreateInvoiceFromJobs = () => {
     }, 0);
   }, [selected]);
 
-  const handleReviewInvoice = () => {
+  const handleReviewInvoice = async () => {
     const itemsToInvoice = Object.entries(selected)
-      .filter(([_, job]) => parseFloat(job.hours) > 0)
+      .filter(([_, job]) => parseFloat(job.hours) > 0 && parseFloat(job.rate) > 0)
       .map(([jobId, jobData]) => ({
         jobId: parseInt(jobId),
         hours: parseFloat(jobData.hours),
@@ -68,16 +80,45 @@ const CreateInvoiceFromJobs = () => {
       }));
 
     if (itemsToInvoice.length === 0) {
-      toast.error("No jobs selected", { description: "Please select at least one job and enter the hours worked." });
+      toast.error("No jobs selected", { description: "Please select at least one job and enter the hours and rate." });
       return;
     }
-    
-    // For now, we'll log the data. In the next step, this will navigate to a review page.
-    console.log("Invoice data to be reviewed:", {
-      items: itemsToInvoice,
-      total: totalAmount
-    });
-    toast.success("Ready for Review!", { description: `Invoice with ${itemsToInvoice.length} items and a total of £${totalAmount.toFixed(2)}`});
+
+    if (!invoiceNumber.trim()) {
+      toast.error("Invoice number required", { description: "Please enter your invoice number." });
+      return;
+    }
+
+    try {
+      setCreating(true);
+      
+      // Call the invoice creation endpoint
+      const response = await apiCall('/agent/invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: itemsToInvoice,
+          agent_invoice_number: invoiceNumber.trim()
+        })
+      });
+
+      toast.success("Invoice created successfully!", { 
+        description: `Invoice ${response.invoice_number} has been generated.` 
+      });
+
+      // Navigate back to invoices page
+      navigate('/agent/invoices');
+      
+    } catch (error) {
+      console.error('Invoice creation error:', error);
+      toast.error('Failed to create invoice', { 
+        description: error.message || 'An error occurred while creating the invoice.'
+      });
+    } finally {
+      setCreating(false);
+    }
   };
 
   if (loading) {
@@ -129,20 +170,28 @@ const CreateInvoiceFromJobs = () => {
                     <p className="text-sm text-v3-text-muted">Completed: {new Date(job.arrival_time).toLocaleDateString('en-GB')}</p>
                   </div>
                 </div>
-                <div className="flex-grow flex items-center justify-end gap-4 w-full md:w-auto">
-                    <div className="text-right">
-                        <p className="text-sm font-medium text-v3-text-lightest">£{(job.hourly_rate || 0).toFixed(2)}</p>
-                        <p className="text-xs text-v3-text-muted">/ hour</p>
+                <div className="flex-grow flex items-center justify-end gap-2 w-full md:w-auto">
+                    <div className="w-20">
+                       <input
+                          type="text"
+                          placeholder="£/hr"
+                          value={selected[job.id]?.rate || ''}
+                          onChange={(e) => handleRateChange(job.id, e.target.value)}
+                          disabled={!selected[job.id]}
+                          className="w-full text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-2 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange disabled:bg-v3-bg-card disabled:opacity-50 text-sm"
+                        />
+                        <p className="text-xs text-v3-text-muted text-center mt-1">Rate</p>
                     </div>
-                    <div className="w-24">
+                    <div className="w-20">
                        <input
                           type="text"
                           placeholder="Hours"
                           value={selected[job.id]?.hours || ''}
                           onChange={(e) => handleHoursChange(job.id, e.target.value)}
                           disabled={!selected[job.id]}
-                          className="w-full text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange disabled:bg-v3-bg-card disabled:opacity-50"
+                          className="w-full text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-2 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange disabled:bg-v3-bg-card disabled:opacity-50 text-sm"
                         />
+                        <p className="text-xs text-v3-text-muted text-center mt-1">Hours</p>
                     </div>
                 </div>
               </div>
@@ -151,14 +200,42 @@ const CreateInvoiceFromJobs = () => {
         )}
       </div>
 
-      <div className="dashboard-card p-4 flex items-center justify-between">
-          <p className="text-lg font-semibold text-v3-text-lightest">Invoice Total:</p>
-          <p className="text-2xl font-bold text-v3-orange">£{totalAmount.toFixed(2)}</p>
+      <div className="dashboard-card p-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <p className="text-lg font-semibold text-v3-text-lightest">Invoice Total:</p>
+            <p className="text-2xl font-bold text-v3-orange">£{totalAmount.toFixed(2)}</p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <label className="text-sm font-medium text-v3-text-lightest whitespace-nowrap">
+              Your Invoice Number:
+            </label>
+            <input
+              type="text"
+              placeholder="Enter invoice number"
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+              className="flex-1 bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-end">
-          <button onClick={handleReviewInvoice} className="button-refresh w-full sm:w-auto" disabled={totalAmount === 0}>
-              Review Invoice
+          <button 
+            onClick={handleReviewInvoice} 
+            className="button-refresh w-full sm:w-auto" 
+            disabled={totalAmount === 0 || creating}
+          >
+            {creating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Creating Invoice...
+              </>
+            ) : (
+              'Create Invoice'
+            )}
           </button>
       </div>
 
