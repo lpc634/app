@@ -15,10 +15,34 @@ branch_labels = None
 depends_on = None
 
 def upgrade():
-    # Add latitude and longitude columns to vehicle_sightings table
-    with op.batch_alter_table('vehicle_sightings', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('latitude', sa.Float(), nullable=True))
-        batch_op.add_column(sa.Column('longitude', sa.Float(), nullable=True))
+    """Add latitude and longitude columns to vehicle_sightings table if they don't exist."""
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    
+    # Check if columns already exist
+    try:
+        vehicle_sightings_columns = [col['name'] for col in inspector.get_columns('vehicle_sightings')]
+        
+        # Add columns only if they don't exist
+        if 'latitude' not in vehicle_sightings_columns or 'longitude' not in vehicle_sightings_columns:
+            with op.batch_alter_table('vehicle_sightings', schema=None) as batch_op:
+                if 'latitude' not in vehicle_sightings_columns:
+                    batch_op.add_column(sa.Column('latitude', sa.Float(), nullable=True))
+                    print("Added latitude column to vehicle_sightings table")
+                else:
+                    print("latitude column already exists in vehicle_sightings table")
+                
+                if 'longitude' not in vehicle_sightings_columns:
+                    batch_op.add_column(sa.Column('longitude', sa.Float(), nullable=True))
+                    print("Added longitude column to vehicle_sightings table")
+                else:
+                    print("longitude column already exists in vehicle_sightings table")
+        else:
+            print("Both latitude and longitude columns already exist in vehicle_sightings table")
+    except Exception as e:
+        print(f"Error checking vehicle_sightings table: {e}")
+        # If table doesn't exist, we'll let the error propagate
+        raise
 
 def downgrade():
     # Remove latitude and longitude columns from vehicle_sightings table
