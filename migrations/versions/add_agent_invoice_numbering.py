@@ -18,11 +18,26 @@ depends_on = None
 
 def upgrade():
     """Add agent invoice numbering system with unique constraints and backfill."""
-    # Add agent_invoice_next to users table
-    op.add_column('users', sa.Column('agent_invoice_next', sa.Integer(), nullable=False, server_default='1'))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
     
-    # Add agent_invoice_number to invoices table  
-    op.add_column('invoices', sa.Column('agent_invoice_number', sa.Integer(), nullable=True))
+    # Check if columns already exist
+    users_columns = [col['name'] for col in inspector.get_columns('users')]
+    invoices_columns = [col['name'] for col in inspector.get_columns('invoices')]
+    
+    # Add agent_invoice_next to users table if it doesn't exist
+    if 'agent_invoice_next' not in users_columns:
+        op.add_column('users', sa.Column('agent_invoice_next', sa.Integer(), nullable=False, server_default='1'))
+        print("Added agent_invoice_next column to users table")
+    else:
+        print("agent_invoice_next column already exists in users table")
+    
+    # Add agent_invoice_number to invoices table if it doesn't exist
+    if 'agent_invoice_number' not in invoices_columns:
+        op.add_column('invoices', sa.Column('agent_invoice_number', sa.Integer(), nullable=True))
+        print("Added agent_invoice_number column to invoices table")
+    else:
+        print("agent_invoice_number column already exists in invoices table")
     
     # Create filtered unique index for agent invoice numbers
     # This ensures uniqueness per agent only when agent_invoice_number is not NULL
