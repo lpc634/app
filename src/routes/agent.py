@@ -782,20 +782,19 @@ def update_agent_profile():
 @agent_bp.route('/agent/invoiceable-jobs', methods=['GET'])
 @jwt_required()
 def get_invoiceable_jobs():
-    """Fetches completed jobs for the current agent that have not yet been invoiced."""
+    """Fetches accepted jobs for the current agent that have not yet been invoiced."""
     try:
         current_user_id = int(get_jwt_identity())
         
         invoiced_job_ids_query = db.session.query(InvoiceJob.job_id).join(Invoice).filter(Invoice.agent_id == current_user_id)
         invoiced_job_ids = [item[0] for item in invoiced_job_ids_query.all()]
 
-        completed_jobs_query = db.session.query(Job).join(JobAssignment).filter(
+        accepted_jobs_query = db.session.query(Job).join(JobAssignment).filter(
             JobAssignment.agent_id == current_user_id,
-            JobAssignment.status == 'accepted',
-            Job.arrival_time < datetime.utcnow()
+            JobAssignment.status == 'accepted'
         )
 
-        invoiceable_jobs = completed_jobs_query.filter(~Job.id.in_(invoiced_job_ids)).order_by(Job.arrival_time.desc()).all()
+        invoiceable_jobs = accepted_jobs_query.filter(~Job.id.in_(invoiced_job_ids)).order_by(Job.arrival_time.desc()).all()
         
         return jsonify([job.to_dict() for job in invoiceable_jobs]), 200
 
