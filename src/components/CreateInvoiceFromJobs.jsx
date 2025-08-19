@@ -17,7 +17,7 @@ const CreateInvoiceFromJobs = () => {
     const fetchJobs = async () => {
       try {
         setLoading(true);
-        const data = await apiCall('/agent/jobs?status=completed&invoiced=false');
+        const data = await apiCall('/agent/invoiceable-jobs');
         setJobs(data);
       } catch (error) {
         toast.error('Failed to load invoiceable jobs', { description: error.message });

@@ -1005,17 +1005,16 @@ def get_agent_jobs():
         
         query = base_query
 
-        # EMERGENCY OVERRIDE: If this is for invoice creation, return ALL accepted jobs
-        if status_filter == 'completed' and invoiced_filter and invoiced_filter.lower() == 'false':
-            logger.info(f"DEBUG JOBS: EMERGENCY INVOICE MODE - Returning ALL accepted jobs")
-            # Skip ALL filters - just return accepted jobs
-        else:
-            # Apply normal status filter for other cases
+        # Apply status filtering - bypass only for invoice creation with completed filter
+        if not (status_filter == 'completed' and invoiced_filter and invoiced_filter.lower() == 'false'):
+            # Apply normal status filter for all cases except completed + uninvoiced
             if status_filter:
                 if status_filter == 'completed':
                     query = query.filter(or_(Job.status == 'completed', Job.status == 'done'))
                 else:
                     query = query.filter(Job.status == status_filter)
+        else:
+            logger.info(f"DEBUG JOBS: INVOICE MODE - Bypassing status filter for completed uninvoiced jobs")
 
         # Apply invoiced filter
         if invoiced_filter is not None:
