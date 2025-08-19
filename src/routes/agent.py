@@ -872,6 +872,28 @@ def fix_assignments():
         
         db.session.commit()
         
+        # EMERGENCY: Also try to create a new assignment if none exist
+        if fixed_count == 0:
+            # Find the most recent job and create an assignment
+            recent_job = Job.query.order_by(Job.id.desc()).first()
+            if recent_job:
+                # Check if assignment already exists
+                existing = JobAssignment.query.filter_by(
+                    job_id=recent_job.id, 
+                    agent_id=current_user_id
+                ).first()
+                
+                if not existing:
+                    # Create new assignment
+                    new_assignment = JobAssignment(
+                        job_id=recent_job.id,
+                        agent_id=current_user_id,
+                        status='accepted'
+                    )
+                    db.session.add(new_assignment)
+                    db.session.commit()
+                    fixed_count = 1
+        
         return jsonify({
             "success": True,
             "fixed_count": fixed_count,
