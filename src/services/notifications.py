@@ -49,8 +49,8 @@ def notify_agent(agent_id: int, title: str, body: str, notification_type: str = 
         if current_app.config.get('TELEGRAM_ENABLED', False):
             if agent.telegram_chat_id and agent.telegram_opt_in:
                 try:
-                    # Format message for Telegram
-                    telegram_message = f"<b>{title}</b>\n\n{body}"
+                    # Format message for Telegram - body already contains formatted content
+                    telegram_message = body
                     
                     result = send_message(agent.telegram_chat_id, telegram_message)
                     
@@ -94,11 +94,11 @@ def notify_job_assignment(agent_id: int, job_data: dict):
         else:
             arrival_dt = job_data.get('arrival_time')
         
-        formatted_date = arrival_dt.strftime('%d %b %Y')
         formatted_time = arrival_dt.strftime('%H:%M')
+        formatted_date = arrival_dt.strftime('%d/%m/%y')
     except:
-        formatted_date = job_data.get('arrival_time', 'TBD')
         formatted_time = ''
+        formatted_date = job_data.get('arrival_time', 'TBD')
     
     # Priority emoji mapping
     urgency_emoji = {"High": "🔴", "Medium": "🟡", "Standard": "🟢", "Low": "🔵"}
@@ -157,8 +157,7 @@ def notify_job_assignment(agent_id: int, job_data: dict):
         "",
         f"<b>📋 Job Details:</b>",
         f"- Type: {job_data['job_type']}",
-        f"- Date: {formatted_date}",
-        f"- Time: {formatted_time}" if formatted_time else f"- Time: {formatted_date}",
+        f"- Time: {formatted_time} on {formatted_date}" if formatted_time else f"- Time: {formatted_date}",
         f"- Priority: {priority_emoji} {job_data.get('urgency_level', 'Standard')}"
     ])
     
