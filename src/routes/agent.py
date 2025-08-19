@@ -788,29 +788,47 @@ def get_invoiceable_jobs():
         
         # Debug logging
         from flask import current_app
-        current_app.logger.info(f"DEBUG: Getting invoiceable jobs for agent {current_user_id}")
+        current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Getting jobs for agent {current_user_id}")
         
+        # Get all invoiced job IDs for this agent
         invoiced_job_ids_query = db.session.query(InvoiceJob.job_id).join(Invoice).filter(Invoice.agent_id == current_user_id)
         invoiced_job_ids = [item[0] for item in invoiced_job_ids_query.all()]
-        current_app.logger.info(f"DEBUG: Invoiced job IDs: {invoiced_job_ids}")
+        current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Already invoiced job IDs: {invoiced_job_ids}")
 
+        # Get all accepted job assignments for this agent
+        all_assignments = JobAssignment.query.filter_by(agent_id=current_user_id).all()
+        current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Total assignments for agent: {len(all_assignments)}")
+        
+        for assignment in all_assignments:
+            current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Assignment {assignment.id} - Job {assignment.job_id} - Status: {assignment.status}")
+
+        # Get accepted jobs query
         accepted_jobs_query = db.session.query(Job).join(JobAssignment).filter(
             JobAssignment.agent_id == current_user_id,
             JobAssignment.status == 'accepted'
         )
         
         all_accepted_jobs = accepted_jobs_query.all()
-        current_app.logger.info(f"DEBUG: Found {len(all_accepted_jobs)} accepted jobs")
+        current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Found {len(all_accepted_jobs)} accepted jobs")
         for job in all_accepted_jobs:
-            current_app.logger.info(f"DEBUG: Job {job.id} - {job.address} - arrival: {job.arrival_time}")
+            current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Job {job.id} - {job.address} - arrival: {job.arrival_time} - status: {job.status}")
 
-        invoiceable_jobs = accepted_jobs_query.filter(~Job.id.in_(invoiced_job_ids)).order_by(Job.arrival_time.desc()).all()
-        current_app.logger.info(f"DEBUG: Final invoiceable jobs count: {len(invoiceable_jobs)}")
+        # Filter out already invoiced jobs - REMOVE DATE RESTRICTIONS FOR TESTING
+        if invoiced_job_ids:
+            invoiceable_jobs = accepted_jobs_query.filter(~Job.id.in_(invoiced_job_ids)).order_by(Job.arrival_time.desc()).all()
+        else:
+            invoiceable_jobs = all_accepted_jobs
+
+        current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Final invoiceable jobs count: {len(invoiceable_jobs)}")
+        for job in invoiceable_jobs:
+            current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Returning job {job.id} - {job.address}")
         
         return jsonify([job.to_dict() for job in invoiceable_jobs]), 200
 
     except Exception as e:
-        current_app.logger.error(f"DEBUG: Error in get_invoiceable_jobs: {str(e)}")
+        import traceback
+        current_app.logger.error(f"INVOICEABLE JOBS DEBUG: Error: {str(e)}")
+        current_app.logger.error(f"INVOICEABLE JOBS DEBUG: Traceback: {traceback.format_exc()}")
         return jsonify({"error": "An internal error occurred", "details": str(e)}), 500
 
 @agent_bp.route('/agent/test-invoice-data', methods=['GET'])
@@ -902,6 +920,69 @@ def fix_assignments():
         
     except Exception as e:
         db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@agent_bp.route('/agent/emergency-create-test-job', methods=['POST'])
+@jwt_required()
+def emergency_create_test_job():
+    """EMERGENCY - Create a test job and accept it for the current agent"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        
+        if not agent:
+            return jsonify({"error": "Agent not found"}), 404
+        
+        # Create a test job
+        from datetime import datetime, date, timedelta
+        test_job = Job(
+            title="EMERGENCY TEST JOB - DELETE AFTER TESTING",
+            job_type="Test Service",
+            address="123 Test Street, Test City",
+            postcode="TE5 7ST",
+            arrival_time=datetime.utcnow() + timedelta(hours=1),  # 1 hour from now
+            agents_required=1,
+            hourly_rate=25.00,
+            instructions="This is a test job created for invoice testing. DELETE AFTER USE.",
+            urgency_level="Standard",
+            status="open",
+            created_by=1  # Assume admin user 1 exists
+        )
+        
+        db.session.add(test_job)
+        db.session.flush()  # Get the job ID
+        
+        # Create accepted assignment for the current agent
+        test_assignment = JobAssignment(
+            job_id=test_job.id,
+            agent_id=current_user_id,
+            status='accepted',
+            response_time=datetime.utcnow()
+        )
+        
+        db.session.add(test_assignment)
+        db.session.commit()
+        
+        current_app.logger.info(f"EMERGENCY: Created test job {test_job.id} for agent {current_user_id}")
+        
+        return jsonify({
+            "success": True,
+            "test_job": {
+                "job_id": test_job.id,
+                "title": test_job.title,
+                "address": test_job.address,
+                "hourly_rate": test_job.hourly_rate,
+                "assignment_id": test_assignment.id,
+                "assignment_status": test_assignment.status
+            },
+            "message": "Test job created and accepted. You should now be able to create an invoice for this job."
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        current_app.logger.error(f"Emergency test job creation failed: {str(e)}")
+        current_app.logger.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 @agent_bp.route('/agent/invoice', methods=['POST'])
