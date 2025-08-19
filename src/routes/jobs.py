@@ -796,14 +796,30 @@ def create_job():
             # Send Telegram notifications to all assigned agents
             try:
                 from src.services.notifications import notify_job_assignment
+                # Prepare comprehensive job data for notification
+                job_notification_data = {
+                    'title': new_job.title,
+                    'job_type': new_job.job_type,
+                    'address': new_job.address,
+                    'postcode': new_job.postcode,
+                    'arrival_time': new_job.arrival_time.strftime('%Y-%m-%d %H:%M'),
+                    'agents_required': new_job.agents_required,
+                    'hourly_rate': float(new_job.hourly_rate) if new_job.hourly_rate else None,
+                    'instructions': new_job.instructions,
+                    'urgency_level': new_job.urgency_level,
+                    'lead_agent_name': new_job.lead_agent_name,
+                    'number_of_dwellings': new_job.number_of_dwellings,
+                    'police_liaison_required': new_job.police_liaison_required,
+                    'what3words_address': new_job.what3words_address,
+                    'location_lat': new_job.location_lat,
+                    'location_lng': new_job.location_lng,
+                    'maps_link': new_job.maps_link
+                }
+                
                 for agent_id in assigned_agent_ids:
-                    notify_job_assignment(
-                        agent_id=agent_id,
-                        job_title=new_job.title,
-                        job_address=new_job.address,
-                        arrival_time=new_job.arrival_time.strftime('%Y-%m-%d %H:%M')
-                    )
-                logger.info(f"Telegram notifications sent to {len(assigned_agent_ids)} agents for new job")
+                    notify_job_assignment(agent_id=agent_id, job_data=job_notification_data)
+                    
+                logger.info(f"Comprehensive Telegram notifications sent to {len(assigned_agent_ids)} agents for new job")
             except Exception as e:
                 logger.warning(f"Failed to send Telegram notifications: {str(e)}")
         else:
