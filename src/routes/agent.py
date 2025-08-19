@@ -813,6 +813,45 @@ def get_invoiceable_jobs():
         current_app.logger.error(f"DEBUG: Error in get_invoiceable_jobs: {str(e)}")
         return jsonify({"error": "An internal error occurred", "details": str(e)}), 500
 
+@agent_bp.route('/agent/test-invoice-data', methods=['GET'])
+@jwt_required()
+def test_invoice_data():
+    """EMERGENCY TEST - Check what data exists"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        
+        # Get all jobs for this agent
+        all_assignments = JobAssignment.query.filter_by(agent_id=current_user_id).all()
+        
+        result = {
+            "agent_id": current_user_id,
+            "total_assignments": len(all_assignments),
+            "assignments_by_status": {},
+            "recent_jobs": []
+        }
+        
+        for assignment in all_assignments:
+            status = assignment.status
+            if status not in result["assignments_by_status"]:
+                result["assignments_by_status"][status] = 0
+            result["assignments_by_status"][status] += 1
+            
+            if assignment.status == 'accepted':
+                job = Job.query.get(assignment.job_id)
+                if job:
+                    result["recent_jobs"].append({
+                        "job_id": job.id,
+                        "address": job.address,
+                        "arrival_time": str(job.arrival_time),
+                        "job_status": job.status,
+                        "assignment_status": assignment.status
+                    })
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @agent_bp.route('/agent/invoice', methods=['POST'])
 @jwt_required()
 def create_invoice():
