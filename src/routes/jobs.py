@@ -1000,10 +1000,10 @@ def get_agent_jobs():
         # Apply status filter
         if status_filter:
             if status_filter == 'completed':
-                # For invoice creation, we want accepted jobs regardless of completion status
-                # but if invoiced=false is also specified, it means we want jobs ready for invoicing
+                # INVOICE CREATION FIX: When invoiced=false, return ALL accepted jobs
                 if invoiced_filter and invoiced_filter.lower() == 'false':
-                    # Don't apply completion status filter - just use accepted jobs
+                    # SKIP status filter completely for invoice creation
+                    logger.info(f"DEBUG JOBS: INVOICE MODE - Skipping completion status filter")
                     pass
                 else:
                     # For other cases, filter by actual completion status
