@@ -782,53 +782,33 @@ def update_agent_profile():
 @agent_bp.route('/agent/invoiceable-jobs', methods=['GET'])
 @jwt_required()
 def get_invoiceable_jobs():
-    """Fetches accepted jobs for the current agent that have not yet been invoiced."""
+    """EMERGENCY FIX - Return ALL accepted jobs, bypassing ALL filters to get invoicing working"""
     try:
         current_user_id = int(get_jwt_identity())
         
-        # Debug logging
-        from flask import current_app
-        current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Getting jobs for agent {current_user_id}")
+        current_app.logger.info(f"EMERGENCY INVOICEABLE: Agent {current_user_id} requesting ALL accepted jobs")
         
-        # Get all invoiced job IDs for this agent
-        invoiced_job_ids_query = db.session.query(InvoiceJob.job_id).join(Invoice).filter(Invoice.agent_id == current_user_id)
-        invoiced_job_ids = [item[0] for item in invoiced_job_ids_query.all()]
-        current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Already invoiced job IDs: {invoiced_job_ids}")
-
-        # Get all accepted job assignments for this agent
-        all_assignments = JobAssignment.query.filter_by(agent_id=current_user_id).all()
-        current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Total assignments for agent: {len(all_assignments)}")
-        
-        for assignment in all_assignments:
-            current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Assignment {assignment.id} - Job {assignment.job_id} - Status: {assignment.status}")
-
-        # Get accepted jobs query
-        accepted_jobs_query = db.session.query(Job).join(JobAssignment).filter(
+        # BYPASS ALL FILTERS - GET ALL ACCEPTED JOBS FOR THIS AGENT
+        emergency_jobs = db.session.query(Job).join(JobAssignment).filter(
             JobAssignment.agent_id == current_user_id,
             JobAssignment.status == 'accepted'
-        )
+        ).order_by(Job.arrival_time.desc()).all()
         
-        all_accepted_jobs = accepted_jobs_query.all()
-        current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Found {len(all_accepted_jobs)} accepted jobs")
-        for job in all_accepted_jobs:
-            current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Job {job.id} - {job.address} - arrival: {job.arrival_time} - status: {job.status}")
-
-        # Filter out already invoiced jobs - REMOVE DATE RESTRICTIONS FOR TESTING
-        if invoiced_job_ids:
-            invoiceable_jobs = accepted_jobs_query.filter(~Job.id.in_(invoiced_job_ids)).order_by(Job.arrival_time.desc()).all()
-        else:
-            invoiceable_jobs = all_accepted_jobs
-
-        current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Final invoiceable jobs count: {len(invoiceable_jobs)}")
-        for job in invoiceable_jobs:
-            current_app.logger.info(f"INVOICEABLE JOBS DEBUG: Returning job {job.id} - {job.address}")
+        current_app.logger.info(f"EMERGENCY INVOICEABLE: Found {len(emergency_jobs)} accepted jobs (bypassing all filters)")
         
-        return jsonify([job.to_dict() for job in invoiceable_jobs]), 200
+        result = []
+        for job in emergency_jobs:
+            job_dict = job.to_dict()
+            current_app.logger.info(f"EMERGENCY INVOICEABLE: Job {job.id} - {job.address} - arrival: {job.arrival_time}")
+            result.append(job_dict)
+        
+        current_app.logger.info(f"EMERGENCY INVOICEABLE: Returning {len(result)} jobs to frontend")
+        return jsonify(result), 200
 
     except Exception as e:
         import traceback
-        current_app.logger.error(f"INVOICEABLE JOBS DEBUG: Error: {str(e)}")
-        current_app.logger.error(f"INVOICEABLE JOBS DEBUG: Traceback: {traceback.format_exc()}")
+        current_app.logger.error(f"EMERGENCY INVOICEABLE ERROR: {str(e)}")
+        current_app.logger.error(f"EMERGENCY INVOICEABLE TRACEBACK: {traceback.format_exc()}")
         return jsonify({"error": "An internal error occurred", "details": str(e)}), 500
 
 @agent_bp.route('/agent/test-invoice-data', methods=['GET'])
@@ -982,6 +962,36 @@ def emergency_create_test_job():
         db.session.rollback()
         import traceback
         current_app.logger.error(f"Emergency test job creation failed: {str(e)}")
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+@agent_bp.route('/agent/force-invoiceable-jobs', methods=['GET'])
+@jwt_required()
+def force_get_invoiceable_jobs():
+    """FORCE GET - Return ALL accepted jobs for this agent, bypassing ALL filters"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        current_app.logger.info(f"FORCE INVOICEABLE: Agent {current_user_id} requesting ALL accepted jobs")
+        
+        # Get ALL accepted jobs for this agent - NO FILTERS AT ALL
+        force_jobs = db.session.query(Job).join(JobAssignment).filter(
+            JobAssignment.agent_id == current_user_id,
+            JobAssignment.status == 'accepted'
+        ).all()
+        
+        current_app.logger.info(f"FORCE INVOICEABLE: Found {len(force_jobs)} accepted jobs")
+        
+        result = []
+        for job in force_jobs:
+            job_dict = job.to_dict()
+            current_app.logger.info(f"FORCE INVOICEABLE: Job {job.id} - {job.address} - arrival: {job.arrival_time}")
+            result.append(job_dict)
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        import traceback
+        current_app.logger.error(f"FORCE INVOICEABLE ERROR: {str(e)}")
         current_app.logger.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
