@@ -18,15 +18,32 @@ depends_on = None
 
 def upgrade():
     """Add verification tracking columns to users table"""
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    
+    # Check if columns already exist
+    users_columns = [col['name'] for col in inspector.get_columns('users')]
     
     # Add verification_notes column (Text, nullable)
-    op.add_column('users', sa.Column('verification_notes', sa.Text(), nullable=True))
+    if 'verification_notes' not in users_columns:
+        op.add_column('users', sa.Column('verification_notes', sa.Text(), nullable=True))
+        print("Added verification_notes column")
+    else:
+        print("verification_notes column already exists")
     
     # Add verified_by column (Integer, foreign key to users.id, nullable)
-    op.add_column('users', sa.Column('verified_by', sa.Integer(), nullable=True))
+    if 'verified_by' not in users_columns:
+        op.add_column('users', sa.Column('verified_by', sa.Integer(), nullable=True))
+        print("Added verified_by column")
+    else:
+        print("verified_by column already exists")
     
     # Add verified_at column (DateTime, nullable)
-    op.add_column('users', sa.Column('verified_at', sa.DateTime(), nullable=True))
+    if 'verified_at' not in users_columns:
+        op.add_column('users', sa.Column('verified_at', sa.DateTime(), nullable=True))
+        print("Added verified_at column")
+    else:
+        print("verified_at column already exists")
     
     # Create foreign key constraint for verified_by
     op.create_foreign_key(

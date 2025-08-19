@@ -18,11 +18,36 @@ depends_on = None
 
 def upgrade():
     """Add Telegram integration fields to users table"""
-    # Add Telegram fields to users table
-    op.add_column('users', sa.Column('telegram_chat_id', sa.String(32), nullable=True))
-    op.add_column('users', sa.Column('telegram_username', sa.String(64), nullable=True))
-    op.add_column('users', sa.Column('telegram_link_token', sa.String(64), nullable=True))
-    op.add_column('users', sa.Column('telegram_opt_in', sa.Boolean(), nullable=False, default=False))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    
+    # Check if columns already exist
+    users_columns = [col['name'] for col in inspector.get_columns('users')]
+    
+    # Add Telegram fields to users table if they don't exist
+    if 'telegram_chat_id' not in users_columns:
+        op.add_column('users', sa.Column('telegram_chat_id', sa.String(32), nullable=True))
+        print("Added telegram_chat_id column")
+    else:
+        print("telegram_chat_id column already exists")
+        
+    if 'telegram_username' not in users_columns:
+        op.add_column('users', sa.Column('telegram_username', sa.String(64), nullable=True))
+        print("Added telegram_username column")
+    else:
+        print("telegram_username column already exists")
+        
+    if 'telegram_link_token' not in users_columns:
+        op.add_column('users', sa.Column('telegram_link_token', sa.String(64), nullable=True))
+        print("Added telegram_link_token column")
+    else:
+        print("telegram_link_token column already exists")
+        
+    if 'telegram_opt_in' not in users_columns:
+        op.add_column('users', sa.Column('telegram_opt_in', sa.Boolean(), nullable=False, default=False))
+        print("Added telegram_opt_in column")
+    else:
+        print("telegram_opt_in column already exists")
     
     # Create indexes for better performance
     op.create_index('ix_users_telegram_chat_id', 'users', ['telegram_chat_id'])
