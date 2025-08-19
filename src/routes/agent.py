@@ -1027,7 +1027,11 @@ def create_invoice():
             if hours <= 0:
                 return jsonify({'error': f"Invalid hours for job at {job.address}."}), 400
 
-            rate = Decimal(job.hourly_rate)
+            # USE THE RATE FROM FRONTEND, NOT JOB DEFAULT
+            rate = Decimal(item.get('rate', job.hourly_rate or 0))
+            if rate <= 0:
+                return jsonify({'error': f"Invalid rate for job at {job.address}."}), 400
+                
             amount = hours * rate
             total_amount += amount
             jobs_to_invoice.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
@@ -1113,7 +1117,7 @@ def create_invoice():
         for item in jobs_to_invoice:
             job = item['job']
             hours = item['hours']
-            rate = job.hourly_rate  # Get the rate from the job
+            rate = item['rate']  # USE THE RATE FROM FRONTEND, NOT JOB DEFAULT
             
             invoice_job_link = InvoiceJob(
                 invoice_id=new_invoice.id,
@@ -2008,9 +2012,7 @@ def get_agent_invoices():
 @jwt_required()
 def download_agent_invoice(invoice_id):
     """
-    Return a URL the frontend can use to download the PDF.
-    If S3 works -> signed S3 URL.
-    Otherwise -> our own /download-direct route which streams the PDF.
+    EMERGENCY DOWNLOAD FIX - Always use direct download to force PDF generation
     """
     try:
         current_user_id = int(get_jwt_identity())
@@ -2024,19 +2026,9 @@ def download_agent_invoice(invoice_id):
         if invoice.status == 'draft':
             return jsonify({'error': 'Cannot download draft invoices. Please complete the invoice first.'}), 400
 
-        if s3_client.is_configured():
-            signed = s3_client.generate_invoice_download_url(agent.id, invoice.invoice_number, expiration=3600)
-            if signed.get('success'):
-                return jsonify({
-                    'download_url': signed['download_url'],
-                    'expires_in': signed['expires_in'],
-                    'invoice_number': signed['invoice_number'],
-                    'filename': signed['filename'],
-                    'file_size': signed.get('file_size', 'Unknown')
-                }), 200
-
+        # EMERGENCY FIX: Always use direct download to force PDF generation
         return jsonify({
-            'download_url': url_for('agent.download_invoice_direct', invoice_id=invoice_id),
+            'pdf_url': url_for('agent.download_invoice_direct', invoice_id=invoice_id, _external=True),
             'invoice_number': invoice.invoice_number
         }), 200
 
