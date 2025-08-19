@@ -92,6 +92,7 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'V3 Se
 # --- Telegram Integration Configuration ---
 app.config['TELEGRAM_ENABLED'] = os.environ.get("TELEGRAM_ENABLED", "true").lower() == "true"
 app.config['TELEGRAM_BOT_TOKEN'] = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+app.config['TELEGRAM_BOT_USERNAME'] = os.environ.get("TELEGRAM_BOT_USERNAME", "V3JobsBot")
 app.config['TELEGRAM_WEBHOOK_SECRET'] = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
 app.config['APP_BASE_URL'] = os.environ.get("APP_BASE_URL", "https://v3-app.herokuapp.com")
 
