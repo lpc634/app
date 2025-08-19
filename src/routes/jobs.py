@@ -992,10 +992,18 @@ def get_agent_jobs():
         logger.info(f"DEBUG JOBS: Agent {current_user_id} requesting jobs - status: {status_filter}, invoiced: {invoiced_filter}")
 
         # Base query - jobs assigned to this agent
-        query = db.session.query(Job).join(JobAssignment).filter(
+        base_query = db.session.query(Job).join(JobAssignment).filter(
             JobAssignment.agent_id == user.id,
             JobAssignment.status == 'accepted'
         )
+        
+        # Debug: log all accepted jobs for this agent
+        all_accepted = base_query.all()
+        logger.info(f"DEBUG JOBS: Agent {user.id} has {len(all_accepted)} accepted jobs")
+        for job in all_accepted:
+            logger.info(f"DEBUG JOBS: Job {job.id} - {job.address} - status: {job.status}")
+        
+        query = base_query
 
         # Apply status filter
         if status_filter:
