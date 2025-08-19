@@ -987,6 +987,9 @@ def get_agent_jobs():
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 50, type=int)
         per_page = min(per_page, 100)
+        
+        # Debug logging
+        logger.info(f"DEBUG JOBS: Agent {current_user_id} requesting jobs - status: {status_filter}, invoiced: {invoiced_filter}")
 
         # Base query - jobs assigned to this agent
         query = db.session.query(Job).join(JobAssignment).filter(
@@ -997,7 +1000,14 @@ def get_agent_jobs():
         # Apply status filter
         if status_filter:
             if status_filter == 'completed':
-                query = query.filter(or_(Job.status == 'completed', Job.status == 'done'))
+                # For invoice creation, we want accepted jobs regardless of completion status
+                # but if invoiced=false is also specified, it means we want jobs ready for invoicing
+                if invoiced_filter and invoiced_filter.lower() == 'false':
+                    # Don't apply completion status filter - just use accepted jobs
+                    pass
+                else:
+                    # For other cases, filter by actual completion status
+                    query = query.filter(or_(Job.status == 'completed', Job.status == 'done'))
             else:
                 query = query.filter(Job.status == status_filter)
 
@@ -1022,11 +1032,17 @@ def get_agent_jobs():
         # Apply pagination
         paginated = query.paginate(page=page, per_page=per_page, error_out=False)
         
+        # Debug logging
+        logger.info(f"DEBUG JOBS: Found {len(paginated.items)} jobs after filtering")
+        for job in paginated.items:
+            logger.info(f"DEBUG JOBS: Job {job.id} - {job.address} - status: {job.status} - arrival: {job.arrival_time}")
+        
         jobs_list = []
         for job in paginated.items:
             job_dict = job.to_dict()
             jobs_list.append(job_dict)
 
+        logger.info(f"DEBUG JOBS: Returning {len(jobs_list)} jobs")
         return jsonify(jobs_list), 200
 
     except Exception as e:
