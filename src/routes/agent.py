@@ -852,6 +852,36 @@ def test_invoice_data():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@agent_bp.route('/agent/fix-assignments', methods=['POST'])
+@jwt_required()
+def fix_assignments():
+    """EMERGENCY FIX - Accept all pending assignments for this agent"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        
+        # Find all pending assignments for this agent
+        pending_assignments = JobAssignment.query.filter_by(
+            agent_id=current_user_id, 
+            status='pending'
+        ).all()
+        
+        fixed_count = 0
+        for assignment in pending_assignments:
+            assignment.status = 'accepted'
+            fixed_count += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "fixed_count": fixed_count,
+            "message": f"Fixed {fixed_count} assignments"
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
 @agent_bp.route('/agent/invoice', methods=['POST'])
 @jwt_required()
 def create_invoice():
