@@ -122,6 +122,21 @@ def notify_job_update(agent_id: int, job_title: str, update_message: str):
     return notify_agent(agent_id, title, body, "job_update")
 
 
+def notify_payment_received(agent_id: int, invoice_number: str, amount: float):
+    """
+    Notify agent that their invoice has been marked as paid
+    
+    Args:
+        agent_id: ID of the agent
+        invoice_number: Paid invoice number
+        amount: Payment amount
+    """
+    title = f"💰 Payment Received"
+    body = f"Your invoice {invoice_number} for £{amount:.2f} has been marked as paid by admin. Thank you!"
+    
+    return notify_agent(agent_id, title, body, "payment_received")
+
+
 def send_test_notification(agent_id: int):
     """
     Send a test notification to verify the system is working

@@ -792,6 +792,20 @@ def create_job():
                 trigger_push_notification_for_users(assigned_agent_ids, notification_title, notification_message)
             except Exception as e:
                 logger.warning(f"Failed to send push notifications: {str(e)}")
+            
+            # Send Telegram notifications to all assigned agents
+            try:
+                from src.services.notifications import notify_job_assignment
+                for agent_id in assigned_agent_ids:
+                    notify_job_assignment(
+                        agent_id=agent_id,
+                        job_title=new_job.title,
+                        job_address=new_job.address,
+                        arrival_time=new_job.arrival_time.strftime('%Y-%m-%d %H:%M')
+                    )
+                logger.info(f"Telegram notifications sent to {len(assigned_agent_ids)} agents for new job")
+            except Exception as e:
+                logger.warning(f"Failed to send Telegram notifications: {str(e)}")
         else:
             logger.warning("No assigned agent IDs found, skipping notification creation")
 

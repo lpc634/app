@@ -729,6 +729,18 @@ def mark_invoice_paid(invoice_id):
         
         db.session.commit()
         
+        # Send Telegram notification to agent
+        try:
+            from src.services.notifications import notify_payment_received
+            notify_payment_received(
+                agent_id=invoice.agent_id,
+                invoice_number=invoice.invoice_number,
+                amount=float(invoice.total_amount)
+            )
+            current_app.logger.info(f"Telegram payment notification sent to agent {invoice.agent_id}")
+        except Exception as e:
+            current_app.logger.warning(f"Failed to send Telegram payment notification: {str(e)}")
+        
         # Log the payment
         current_app.logger.info(
             f"Admin {current_user.email} marked invoice {invoice.invoice_number} as paid "
@@ -793,6 +805,19 @@ def update_invoice_payment_status(invoice_id):
             invoice.paid_by_admin_id = None
         
         db.session.commit()
+        
+        # Send Telegram notification for payment (only when marking as paid)
+        if payment_status == 'paid' and old_status != 'paid':
+            try:
+                from src.services.notifications import notify_payment_received
+                notify_payment_received(
+                    agent_id=invoice.agent_id,
+                    invoice_number=invoice.invoice_number,
+                    amount=float(invoice.total_amount)
+                )
+                current_app.logger.info(f"Telegram payment notification sent to agent {invoice.agent_id}")
+            except Exception as e:
+                current_app.logger.warning(f"Failed to send Telegram payment notification: {str(e)}")
         
         # Log the status change
         current_app.logger.info(
