@@ -22,6 +22,7 @@ const AgentInvoices = () => {
     grouped_by_month: {},
     monthly_trend: []
   });
+  const [acceptedJobs, setAcceptedJobs] = useState([]);
   
   // State for UI
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,7 @@ const AgentInvoices = () => {
 
   useEffect(() => {
     fetchInvoiceData();
+    fetchAcceptedJobs();
   }, []);
 
   const fetchInvoiceData = async () => {
@@ -56,6 +58,16 @@ const AgentInvoices = () => {
       toast.error('Failed to load invoice data', { description: error.message });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAcceptedJobs = async () => {
+    try {
+      const response = await apiCall('/agent/jobs?status=accepted&invoiced=false');
+      // The endpoint returns an array directly, not a nested object
+      setAcceptedJobs(Array.isArray(response) ? response : []);
+    } catch (error) {
+      console.error('Error fetching accepted jobs:', error);
     }
   };
 
@@ -201,6 +213,61 @@ const AgentInvoices = () => {
             </Link>
           </div>
         </div>
+
+        {/* Upcoming Invoices Section */}
+        {acceptedJobs.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Upcoming Invoices
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Jobs ready to be invoiced
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {acceptedJobs.map(job => (
+                  <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                    <div className="flex-1">
+                      <p className="font-medium">{job.address}</p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(job.arrival_time).toLocaleDateString()} - {job.job_type}
+                      </p>
+                    </div>
+                    <Link to={`/agent/invoices/new/from-jobs?jobId=${job.id}`}>
+                      <Button size="sm" variant="outline">
+                        <Receipt className="h-4 w-4 mr-2" />
+                        Create Invoice
+                      </Button>
+                    </Link>
+                  </div>
+                ))}
+              </div>
+              {/* Only show in development */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-4 pt-3 border-t">
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={async () => {
+                      try {
+                        await apiCall('/agent/create-test-job', { method: 'POST' });
+                        await fetchAcceptedJobs();
+                        toast.success('Test job created and accepted');
+                      } catch (error) {
+                        toast.error('Failed to create test job');
+                      }
+                    }}
+                  >
+                    Create Test Job
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
       {/* Financial Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
