@@ -41,6 +41,7 @@ from src.routes.agent import agent_bp
 # REMOVED: from src.routes.utils import utils_bp
 from src.routes.admin import admin_bp
 from src.routes.vehicles import vehicles_bp
+from src.routes.telegram import telegram_bp
 
 
 # --- Flask App Initialization ---
@@ -91,6 +92,11 @@ app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'V3 Services <no-reply@v3-services.com>')
 
+# --- Telegram Configuration ---
+app.config['TELEGRAM_ENABLED'] = os.environ.get('TELEGRAM_ENABLED', 'False').lower() == 'true'
+app.config['TELEGRAM_BOT_TOKEN'] = os.environ.get('TELEGRAM_BOT_TOKEN')
+app.config['TELEGRAM_WEBHOOK_SECRET'] = os.environ.get('TELEGRAM_WEBHOOK_SECRET')
+
 # --- CORS Configuration for Heroku ---
 LIVE_APP_URL = os.environ.get('LIVE_APP_URL', 'https://v3-app-49c3d1eff914.herokuapp.com')
 origins = ["http://localhost:5173", "http://localhost:5174"]
@@ -126,6 +132,7 @@ app.register_blueprint(agent_bp, url_prefix='/api')
 app.register_blueprint(admin_bp, url_prefix='/api')
 # --- THIS LINE IS NOW UNCOMMENTED ---
 app.register_blueprint(vehicles_bp, url_prefix='/api')
+app.register_blueprint(telegram_bp)
 
 # --- Version Probe ---
 @app.route('/__version')

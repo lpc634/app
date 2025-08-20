@@ -893,6 +893,13 @@ def create_invoice():
         )
         db.session.add(notification)
         
+        # Send Telegram notification if enabled
+        try:
+            from src.services.notifications import notify_invoice_generated
+            notify_invoice_generated(agent.id, invoice_number, float(total_amount))
+        except Exception as e:
+            current_app.logger.warning(f"Failed to send Telegram invoice notification: {str(e)}")
+        
         current_app.logger.info(f"Invoice {invoice_number} created for agent {agent.email} - stored in S3")
 
         # --- Commit Transaction ---
@@ -999,6 +1006,17 @@ def update_invoice(invoice_id):
                 type="invoice_updated"
             )
             db.session.add(notification)
+            
+            # Send Telegram notification if enabled
+            try:
+                from src.services.notifications import notify_job_update
+                notify_job_update(
+                    user.id,
+                    f"Invoice {invoice.invoice_number}",
+                    f"✅ Your invoice {invoice.invoice_number} has been updated and is ready for download."
+                )
+            except Exception as e:
+                current_app.logger.warning(f"Failed to send Telegram invoice update notification: {str(e)}")
             
             try:
                 os.remove(pdf_path)
@@ -1443,3 +1461,162 @@ def update_invoice_agent_number(invoice_id):
         db.session.rollback()
         current_app.logger.error(f"Error updating agent invoice number: {str(e)}")
         return jsonify({'error': 'Failed to update agent invoice number'}), 500
+
+# --- TELEGRAM INTEGRATION ENDPOINTS ---
+
+@agent_bp.route('/agent/telegram/link', methods=['POST'])
+@jwt_required()
+def create_telegram_link_token():
+    """
+    Generate a new Telegram link token for the current agent
+    
+    Returns:
+        JSON with deep link URL and token
+    """
+    try:
+        agent_id = get_jwt_identity()
+        agent = User.query.get(agent_id)
+        
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied. Agent role required.'}), 403
+        
+        if not current_app.config['TELEGRAM_ENABLED']:
+            return jsonify({'status': 'disabled', 'message': 'Telegram integration is disabled'}), 200
+        
+        # Generate a secure random token
+        import secrets
+        token = secrets.token_urlsafe(24)
+        
+        # Store the token in the agent record
+        agent.telegram_link_token = token
+        db.session.commit()
+        
+        # Get bot username from environment or use a default
+        bot_username = os.getenv("TELEGRAM_BOT_USERNAME", "V3ServicesBot")
+        
+        # Create deep link URL
+        deep_link = f"https://t.me/{bot_username}?start={token}"
+        
+        current_app.logger.info(f"Telegram link token created for agent {agent.id}")
+        
+        return jsonify({
+            'token': token,
+            'deepLink': deep_link,
+            'botUsername': bot_username
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating Telegram link token: {str(e)}")
+        return jsonify({'error': 'Failed to create link token'}), 500
+
+@agent_bp.route('/agent/telegram/status', methods=['GET'])
+@jwt_required()
+def get_telegram_status():
+    """
+    Get Telegram connection status for the current agent
+    
+    Returns:
+        JSON with connection status and details
+    """
+    try:
+        agent_id = get_jwt_identity()
+        agent = User.query.get(agent_id)
+        
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied. Agent role required.'}), 403
+        
+        if not current_app.config['TELEGRAM_ENABLED']:
+            return jsonify({
+                'enabled': False,
+                'connected': False,
+                'message': 'Telegram integration is disabled'
+            }), 200
+        
+        return jsonify({
+            'enabled': True,
+            'connected': bool(agent.telegram_chat_id),
+            'username': agent.telegram_username,
+            'optIn': agent.telegram_opt_in,
+            'hasLinkToken': bool(agent.telegram_link_token)
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting Telegram status: {str(e)}")
+        return jsonify({'error': 'Failed to get status'}), 500
+
+@agent_bp.route('/agent/telegram/disconnect', methods=['POST'])
+@jwt_required()
+def disconnect_telegram():
+    """
+    Disconnect Telegram account for the current agent
+    
+    Returns:
+        JSON with success status
+    """
+    try:
+        agent_id = get_jwt_identity()
+        agent = User.query.get(agent_id)
+        
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied. Agent role required.'}), 403
+        
+        if not current_app.config['TELEGRAM_ENABLED']:
+            return jsonify({'status': 'disabled', 'message': 'Telegram integration is disabled'}), 200
+        
+        # Clear Telegram connection data
+        agent.telegram_chat_id = None
+        agent.telegram_username = None
+        agent.telegram_opt_in = False
+        agent.telegram_link_token = None  # Also clear any pending link token
+        
+        db.session.commit()
+        
+        current_app.logger.info(f"Telegram disconnected for agent {agent.id}")
+        
+        return jsonify({'status': 'success', 'message': 'Telegram account disconnected'}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error disconnecting Telegram: {str(e)}")
+        return jsonify({'error': 'Failed to disconnect Telegram'}), 500
+
+@agent_bp.route('/agent/telegram/test', methods=['POST'])
+@jwt_required()
+def send_test_telegram():
+    """
+    Send a test message to the agent's linked Telegram
+    
+    Returns:
+        JSON with send status
+    """
+    try:
+        agent_id = get_jwt_identity()
+        agent = User.query.get(agent_id)
+        
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied. Agent role required.'}), 403
+        
+        if not current_app.config['TELEGRAM_ENABLED']:
+            return jsonify({'status': 'disabled', 'message': 'Telegram integration is disabled'}), 200
+        
+        if not agent.telegram_chat_id or not agent.telegram_opt_in:
+            return jsonify({'error': 'Telegram not connected or notifications disabled'}), 400
+        
+        # Send test message
+        from src.integrations.telegram_client import send_message
+        
+        test_message = f"🧪 <b>Test Message</b>\n\nHello {agent.first_name}! This is a test notification from V3 Services.\n\n✅ Your Telegram notifications are working correctly."
+        
+        result = send_message(agent.telegram_chat_id, test_message)
+        
+        if result.get('status') == 'error':
+            return jsonify({'error': f"Failed to send test message: {result.get('message')}"}), 500
+        
+        current_app.logger.info(f"Test Telegram message sent to agent {agent.id}")
+        
+        return jsonify({'status': 'success', 'message': 'Test message sent successfully'}), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error sending test Telegram message: {str(e)}")
+        return jsonify({'error': 'Failed to send test message'}), 500
