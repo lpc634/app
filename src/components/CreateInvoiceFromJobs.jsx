@@ -153,8 +153,8 @@ const CreateInvoiceFromJobs = () => {
         description: `Invoice ${response.invoice_number} has been generated.` 
       });
 
-      // Navigate back to invoices page
-      navigate('/agent/invoices');
+      // Navigate to download the invoice PDF
+      navigate(`/agent/invoices/${response.invoice_id}/download`);
       
     } catch (error) {
       console.error('Invoice creation error:', error);

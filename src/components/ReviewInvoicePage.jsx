@@ -121,7 +121,7 @@ const ReviewInvoicePage = () => {
         description: `Invoice ${result.invoice_number} has been created.`
       });
 
-      navigate('/agent/invoices');
+      navigate(`/agent/invoices/${result.invoice_id}/download`);
 
     } catch (error) {
       // Handle specific error cases
