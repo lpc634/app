@@ -1466,7 +1466,7 @@ def update_invoice_agent_number(invoice_id):
 
 @agent_bp.route('/agent/telegram/link', methods=['POST'])
 @jwt_required()
-def create_telegram_link_code():
+def create_telegram_link_token():
     """
     Generate a new Telegram link token for the current agent
     
@@ -1488,7 +1488,7 @@ def create_telegram_link_code():
         token = secrets.token_urlsafe(24)
         
         # Store the token in the agent record
-        agent.telegram_link_code = token
+        agent.telegram_link_token = token
         db.session.commit()
         
         # Get bot username from environment or use a default
@@ -1538,7 +1538,7 @@ def get_telegram_status():
             'connected': bool(agent.telegram_chat_id),
             'username': agent.telegram_username,
             'optIn': agent.telegram_opt_in,
-            'hasLinkToken': bool(agent.telegram_link_code)
+            'hasLinkToken': bool(agent.telegram_link_token)
         }), 200
         
     except Exception as e:
@@ -1568,7 +1568,7 @@ def disconnect_telegram():
         agent.telegram_chat_id = None
         agent.telegram_username = None
         agent.telegram_opt_in = False
-        agent.telegram_link_code = None  # Also clear any pending link token
+        agent.telegram_link_token = None  # Also clear any pending link token
         
         db.session.commit()
         
