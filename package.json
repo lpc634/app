@@ -9,7 +9,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "postinstall": "npm run build"
+    "postinstall": "npm run build",
+    "heroku-postbuild": "npm ci && npm run build"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.2",
