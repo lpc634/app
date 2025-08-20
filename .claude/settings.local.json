@@ -20,7 +20,9 @@
       "Bash(git grep:*)",
       "Bash(git add:*)",
       "Bash(git rm:*)",
-      "Bash(del add_invoice_job_details.py)"
+      "Bash(del add_invoice_job_details.py)",
+      "Bash(git ls-tree:*)",
+      "Bash(FLASK_APP=main.py python -m flask db revision -m \"Add Telegram integration fields to users table\")"
     ],
     "deny": []
   }
