@@ -127,9 +127,12 @@ const ReviewInvoicePage = () => {
       // Handle specific error cases
       if (error.status === 409 && error.suggested) {
         toast.error('Invoice number already used', { 
-          description: `Invoice number ${invoiceNumber} has already been used. Try ${error.suggested} instead.`
+          description: `Invoice number ${invoiceNumber} has already been used. Suggested: ${error.suggested}`,
+          action: {
+            label: 'Use suggested',
+            onClick: () => setInvoiceNumber(error.suggested.toString())
+          }
         });
-        setInvoiceNumber(error.suggested.toString());
       } else {
         toast.error('Failed to create invoice', { description: error.message });
       }

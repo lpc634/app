@@ -162,9 +162,12 @@ const CreateInvoiceFromJobs = () => {
       // Handle specific error cases
       if (error.status === 409 && error.suggested) {
         toast.error('Invoice number already used', { 
-          description: `Invoice number ${invoiceNumber} has already been used. Try ${error.suggested} instead.`
+          description: `Invoice number ${invoiceNumber} has already been used. Suggested: ${error.suggested}`,
+          action: {
+            label: 'Use suggested',
+            onClick: () => setInvoiceNumber(error.suggested.toString())
+          }
         });
-        setInvoiceNumber(error.suggested.toString());
       } else {
         toast.error('Failed to create invoice', { 
           description: error.message || 'An error occurred while creating the invoice.'
@@ -253,7 +256,9 @@ const CreateInvoiceFromJobs = () => {
                 <div className="flex-grow flex items-center justify-end gap-2 w-full md:w-auto">
                   <div className="w-24">
                     <input
-                      type="text"
+                      type="number"
+                      step="0.01"
+                      min="0"
                       placeholder="£/hr"
                       value={selected[job.id]?.rate || ''}
                       onChange={(e) => handleRateChange(job.id, e.target.value)}
@@ -264,7 +269,9 @@ const CreateInvoiceFromJobs = () => {
                   </div>
                   <div className="w-24">
                     <input
-                      type="text"
+                      type="number"
+                      step="0.25"
+                      min="0"
                       placeholder="Hours"
                       value={selected[job.id]?.hours || ''}
                       onChange={(e) => handleHoursChange(job.id, e.target.value)}

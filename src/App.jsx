@@ -29,6 +29,7 @@ import ProfilePage from './Pages/ProfilePage';
 import WeeklyCalendarView from './Pages/WeeklyCalendarView';
 import VehicleSearchPage from './Pages/VehicleSearchPage.jsx';
 import UpdateInvoicePage from './components/UpdateInvoicePage';
+import VersionBadge from './components/VersionBadge';
 
 // --- NEW: Root Redirect Component ---
 // This component will handle the logic for the root path
@@ -112,6 +113,7 @@ function App() {
           <Route path="*" element={<div className="p-4">Page Not Found</div>} />
         </Routes>
         <SonnerToaster />
+        <VersionBadge />
       </AuthProvider>
     </BrowserRouter>
   );
