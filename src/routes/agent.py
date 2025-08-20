@@ -782,33 +782,31 @@ def update_agent_profile():
 @agent_bp.route('/agent/invoiceable-jobs', methods=['GET'])
 @jwt_required()
 def get_invoiceable_jobs():
-    """EMERGENCY FIX - Return ALL accepted jobs, bypassing ALL filters to get invoicing working"""
+    """
+    Fetches accepted jobs for the current agent that have not yet been invoiced.
+    RESTORED from aab0d25 but MODIFIED to allow future jobs per requirements.
+    """
     try:
         current_user_id = int(get_jwt_identity())
         
-        current_app.logger.info(f"EMERGENCY INVOICEABLE: Agent {current_user_id} requesting ALL accepted jobs")
-        
-        # BYPASS ALL FILTERS - GET ALL ACCEPTED JOBS FOR THIS AGENT
-        emergency_jobs = db.session.query(Job).join(JobAssignment).filter(
+        # Get all job IDs that have already been invoiced by this agent
+        invoiced_job_ids_query = db.session.query(InvoiceJob.job_id).join(Invoice).filter(Invoice.agent_id == current_user_id)
+        invoiced_job_ids = [item[0] for item in invoiced_job_ids_query.all()]
+
+        # Get accepted jobs for this agent (MODIFIED: removed date filter to allow future jobs)
+        # Original aab0d25 had: Job.arrival_time < datetime.utcnow()
+        # Modified per requirements: agents can invoice future jobs
+        accepted_jobs_query = db.session.query(Job).join(JobAssignment).filter(
             JobAssignment.agent_id == current_user_id,
             JobAssignment.status == 'accepted'
-        ).order_by(Job.arrival_time.desc()).all()
+        )
+
+        # Filter out jobs that have already been invoiced (keep this logic from aab0d25)
+        invoiceable_jobs = accepted_jobs_query.filter(~Job.id.in_(invoiced_job_ids)).order_by(Job.arrival_time.desc()).all()
         
-        current_app.logger.info(f"EMERGENCY INVOICEABLE: Found {len(emergency_jobs)} accepted jobs (bypassing all filters)")
-        
-        result = []
-        for job in emergency_jobs:
-            job_dict = job.to_dict()
-            current_app.logger.info(f"EMERGENCY INVOICEABLE: Job {job.id} - {job.address} - arrival: {job.arrival_time}")
-            result.append(job_dict)
-        
-        current_app.logger.info(f"EMERGENCY INVOICEABLE: Returning {len(result)} jobs to frontend")
-        return jsonify(result), 200
+        return jsonify([job.to_dict() for job in invoiceable_jobs]), 200
 
     except Exception as e:
-        import traceback
-        current_app.logger.error(f"EMERGENCY INVOICEABLE ERROR: {str(e)}")
-        current_app.logger.error(f"EMERGENCY INVOICEABLE TRACEBACK: {traceback.format_exc()}")
         return jsonify({"error": "An internal error occurred", "details": str(e)}), 500
 
 @agent_bp.route('/agent/test-invoice-data', methods=['GET'])
@@ -1340,18 +1338,26 @@ def create_misc_invoice():
 @jwt_required()
 def create_invoice_unified():
     """
-    UNIFIED INVOICE CREATION ENDPOINT - Handles all invoice creation scenarios
+    CANONICAL INVOICE CREATION ENDPOINT - Implements exact specification requirements
     
-    Expected payload:
+    Expected payload (EXACT FORMAT):
     {
-        "invoice_number": "123",  // Agent's invoice number (optional - will auto-generate if not provided)
+        "invoice_number": "1234",      // string or int; must parse to positive int
         "jobs": [
             {"job_id": 101, "hours": 8.0, "rate": 20.0}  // job_id, hours, and rate required
         ],
-        "miscellaneous_items": [  // Optional
+        "miscellaneous_items": [       // optional
             {"description": "Mileage", "quantity": 10, "unit_price": 0.45}
         ]
     }
+    
+    Validation:
+    - invoice_number > 0, integer-like, unique per agent when stored in Invoice.agent_invoice_number
+    - Each job must exist and belong to the agent (via JobAssignment)
+    - hours > 0, rate > 0 (decimals allowed)
+    
+    Returns 201 with: {invoice_id, invoice_number, download_url}
+    Returns 409 with: {error, current, suggested} on duplicate invoice number
     """
     try:
         current_user_id = int(get_jwt_identity())
@@ -1501,7 +1507,7 @@ def create_invoice_unified():
                 invoice_id=new_invoice.id,
                 job_id=item['job'].id,
                 hours_worked=item['hours'],
-                hourly_rate_at_invoice=item['rate']  # Store rate from frontend
+                hourly_rate_at_invoice=item['rate']  # CRITICAL: Store rate from frontend, not job default
             )
             db.session.add(invoice_job_link)
 
@@ -2053,8 +2059,10 @@ def get_agent_invoices():
 @jwt_required()
 def download_agent_invoice(invoice_id):
     """
-    Download invoice PDF directly - returns the actual PDF file, not JSON.
-    This is the primary download endpoint that frontend uses.
+    Return a URL the frontend can use to download the PDF.
+    If S3 works -> signed S3 URL.
+    Otherwise -> our own /download-direct route which streams the PDF.
+    RESTORED EXACT aab0d25 BEHAVIOR: Returns JSON with download_url, not direct PDF.
     """
     try:
         current_user_id = int(get_jwt_identity())
@@ -2068,118 +2076,27 @@ def download_agent_invoice(invoice_id):
         if invoice.status == 'draft':
             return jsonify({'error': 'Cannot download draft invoices. Please complete the invoice first.'}), 400
 
-        current_app.logger.info(f"DOWNLOAD: Starting download for invoice {invoice_id} - {invoice.invoice_number}")
-
-        # Try S3 first if configured
+        # Try S3 first if configured (exact aab0d25 behavior)
         if s3_client.is_configured():
-            signed = s3_client.generate_invoice_download_url(agent.id, invoice.invoice_number, expiration=300)
+            signed = s3_client.generate_invoice_download_url(agent.id, invoice.invoice_number, expiration=3600)
             if signed.get('success'):
-                current_app.logger.info(f"DOWNLOAD: S3 signed URL generated for invoice {invoice.invoice_number}")
-                return redirect(signed['download_url'])
-            else:
-                current_app.logger.warning(f"DOWNLOAD: S3 signed URL failed for invoice {invoice.invoice_number}")
+                return jsonify({
+                    'download_url': signed['download_url'],
+                    'expires_in': signed['expires_in'],
+                    'invoice_number': signed['invoice_number'],
+                    'filename': signed['filename'],
+                    'file_size': signed.get('file_size', 'Unknown')
+                }), 200
 
-        # Generate PDF on demand with complete job data
-        current_app.logger.info(f"DOWNLOAD: Generating fresh PDF for invoice {invoice.invoice_number}")
-        
-        # Get invoice jobs with full job details
-        invoice_jobs = InvoiceJob.query.filter_by(invoice_id=invoice.id).all()
-        
-        jobs_data = []
-        if invoice_jobs:
-            # Use actual job data from database
-            for ij in invoice_jobs:
-                job = ij.job
-                if job:
-                    hours = float(ij.hours_worked or 0)
-                    rate = float(ij.hourly_rate_at_invoice or job.hourly_rate or 0)
-                    amount = hours * rate
-                    
-                    # Ensure we have address and date from the job
-                    job_data = {
-                        'job': job,
-                        'hours': hours,
-                        'rate': rate,
-                        'amount': amount,
-                        'address': job.address or 'Address not available',
-                        'date': job.arrival_time,
-                        'service': job.job_type or 'Service'
-                    }
-                    jobs_data.append(job_data)
-                    current_app.logger.info(f"DOWNLOAD: Added job {job.id} - {job.address} - {job.arrival_time}")
-        
-        # If no job data found, create synthetic data from invoice snapshot
-        if not jobs_data:
-            current_app.logger.warning(f"DOWNLOAD: No job data found, creating synthetic data from invoice")
-            
-            # Create synthetic job data from invoice snapshot
-            synthetic_job = type('SyntheticJob', (), {
-                'address': getattr(invoice, 'address', 'Service Location'),
-                'job_type': getattr(invoice, 'job_type', 'Service'),
-                'arrival_time': invoice.issue_date,
-                'id': f'synthetic_{invoice.id}'
-            })()
-            
-            jobs_data = [{
-                'job': synthetic_job,
-                'hours': 1.0,  # Default to 1 hour if no data
-                'rate': float(invoice.total_amount or 0),  # Use total as rate
-                'amount': float(invoice.total_amount or 0),
-                'address': getattr(invoice, 'address', 'Service Location'),
-                'date': invoice.issue_date,
-                'service': getattr(invoice, 'job_type', 'Service')
-            }]
-
-        if not jobs_data:
-            return jsonify({'error': 'No invoice data available for PDF generation', 'details': {'invoice_id': invoice_id}}), 500
-
-        # Generate PDF with complete data
-        total_amount_float = float(invoice.total_amount or 0)
-        pdf_result = generate_invoice_pdf(
-            agent,
-            jobs_data,
-            total_amount_float,
-            invoice.invoice_number,
-            upload_to_s3=False,  # Direct download, don't upload to S3
-            agent_invoice_number=getattr(invoice, 'agent_invoice_number', None)
-        )
-        
-        # Handle PDF generation failure
-        if pdf_result is None:
-            current_app.logger.error(f"DOWNLOAD: PDF generation returned None for invoice {invoice.invoice_number}")
-            return jsonify({'error': 'PDF generation failed', 'details': {'invoice_number': invoice.invoice_number}}), 500
-            
-        pdf_path = pdf_result[0] if isinstance(pdf_result, tuple) else pdf_result
-        if not pdf_path or not os.path.exists(pdf_path):
-            current_app.logger.error(f"DOWNLOAD: PDF file not found at {pdf_path} for invoice {invoice.invoice_number}")
-            return jsonify({'error': 'PDF generation failed - file not created', 'details': {'path': pdf_path}}), 500
-
-        current_app.logger.info(f"DOWNLOAD: PDF successfully generated at {pdf_path} for invoice {invoice.invoice_number}")
-
-        # Return the actual PDF file with proper filename
-        resp = send_file(
-            pdf_path,
-            mimetype='application/pdf',
-            as_attachment=True,
-            download_name=f"{invoice.invoice_number}.pdf"
-        )
-        
-        @resp.call_on_close
-        def _cleanup():
-            try:
-                if os.path.exists(pdf_path):
-                    os.remove(pdf_path)
-                    current_app.logger.info(f"DOWNLOAD: Cleaned up PDF file {pdf_path}")
-            except Exception as cleanup_error:
-                current_app.logger.warning(f"DOWNLOAD: Cleanup failed for {pdf_path}: {cleanup_error}")
-        
-        return resp
+        # Fall back to direct download route (exact aab0d25 behavior)
+        return jsonify({
+            'download_url': url_for('agent.download_invoice_direct', invoice_id=invoice_id),
+            'invoice_number': invoice.invoice_number
+        }), 200
 
     except Exception as e:
-        import traceback
-        current_app.logger.error(f"DOWNLOAD ERROR for invoice {invoice_id}: {e}")
-        current_app.logger.error(f"DOWNLOAD TRACEBACK: {traceback.format_exc()}")
-        return jsonify({'error': f'Download failed: {str(e)}', 'details': {'invoice_id': invoice_id}}), 500
+        current_app.logger.error(f"DOWNLOAD JSON ERROR for invoice {invoice_id}: {e}")
+        return jsonify({'error': 'Failed to generate download URL'}), 500
 
 @agent_bp.route('/agent/invoices/<int:invoice_id>/download-direct', methods=['GET'])
 @jwt_required()

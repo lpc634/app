@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../useAuth';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, AlertCircle, CheckSquare, Square } from 'lucide-react';
 
 const CreateInvoiceFromJobs = () => {
   const { apiCall } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -29,6 +30,22 @@ const CreateInvoiceFromJobs = () => {
     };
     fetchJobs();
   }, [apiCall]);
+
+  // Handle pre-selected job from URL query params
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const preselectedJobId = queryParams.get('jobId');
+    
+    if (preselectedJobId && jobs.length > 0) {
+      const job = jobs.find(j => j.id === parseInt(preselectedJobId));
+      if (job && !selected[job.id]) {
+        setSelected(prev => ({
+          ...prev,
+          [job.id]: { hours: '', rate: job.hourly_rate || 0 }
+        }));
+      }
+    }
+  }, [location.search, jobs, selected]);
 
   const handleToggleJob = (job) => {
     setSelected(prev => {
