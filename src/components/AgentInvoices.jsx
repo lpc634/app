@@ -63,7 +63,7 @@ const AgentInvoices = () => {
 
   const fetchAcceptedJobs = async () => {
     try {
-      const response = await apiCall('/agent/jobs?status=accepted&invoiced=false');
+      const response = await apiCall('/agent/jobs?invoiced=false');
       // The endpoint returns an array directly, not a nested object
       setAcceptedJobs(Array.isArray(response) ? response : []);
     } catch (error) {

@@ -7,8 +7,6 @@ import {
   Briefcase, CheckCircle, PoundSterling, Search, Calendar, 
   MapPin, Clock, Check, FileText, User
 } from 'lucide-react';
-import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 const CreateInvoiceFromJobs = () => {
   const { apiCall } = useAuth();
@@ -30,10 +28,19 @@ const CreateInvoiceFromJobs = () => {
     const fetchJobs = async () => {
       try {
         setLoading(true);
-        const data = await apiCall('/agent/invoiceable-jobs');
-        setJobs(data);
+        // Try the correct endpoint for uninvoiced jobs
+        const data = await apiCall('/agent/jobs?invoiced=false');
+        setJobs(Array.isArray(data) ? data : []);
       } catch (error) {
-        toast.error('Failed to load invoiceable jobs', { description: error.message });
+        console.error('Error fetching jobs:', error);
+        // Fallback to alternative endpoint
+        try {
+          const fallbackData = await apiCall('/agent/invoiceable-jobs');
+          setJobs(Array.isArray(fallbackData) ? fallbackData : []);
+        } catch (fallbackError) {
+          toast.error('Failed to load invoiceable jobs', { description: error.message });
+          setJobs([]);
+        }
       } finally {
         setLoading(false);
       }
@@ -254,103 +261,80 @@ const CreateInvoiceFromJobs = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto text-v3-orange mb-4" />
-          <p className="text-gray-600 font-medium">Loading your jobs...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-v3-orange" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header Section */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <Link to="/agent/invoices/new" className="inline-flex items-center space-x-2 text-gray-600 hover:text-v3-orange transition-colors mb-3">
-                <ArrowLeft size={20} />
-                <span className="font-medium">Back to Invoice Options</span>
-              </Link>
-              <h1 className="text-3xl font-bold text-gray-900">Create Invoice from Jobs</h1>
-              <p className="text-gray-600 mt-1">Select completed jobs and specify hours to generate your invoice</p>
-            </div>
-            
-            {/* Progress Indicator */}
-            <div className="hidden md:flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-v3-orange text-white rounded-full flex items-center justify-center text-sm font-semibold">1</div>
-                <span className="text-sm font-medium text-gray-700">Select Jobs</span>
+    <div className="min-h-screen-ios w-full max-w-full prevent-horizontal-scroll">
+      <div className="space-y-6 p-4 sm:p-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <Link to="/agent/invoices/new" className="inline-flex items-center space-x-2 text-v3-text-muted hover:text-v3-orange transition-colors mb-3">
+              <ArrowLeft size={20} />
+              <span>Back to Invoice Options</span>
+            </Link>
+            <h1 className="text-2xl sm:text-3xl font-bold text-v3-text-lightest truncate">Create Invoice from Jobs</h1>
+            <p className="text-v3-text-muted text-sm sm:text-base">Select completed jobs and specify hours to generate your invoice</p>
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="dashboard-card">
+            <div className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-v3-text-muted">Available Jobs</p>
+                  <p className="text-2xl font-bold text-v3-text-lightest">{filteredJobs.length}</p>
+                </div>
+                <Briefcase className="h-8 w-8 text-v3-text-muted" />
               </div>
-              <div className="w-8 h-px bg-gray-300"></div>
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gray-300 text-gray-500 rounded-full flex items-center justify-center text-sm font-semibold">2</div>
-                <span className="text-sm font-medium text-gray-500">Create Invoice</span>
+            </div>
+          </div>
+          <div className="dashboard-card">
+            <div className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-v3-text-muted">Selected Jobs</p>
+                  <p className="text-2xl font-bold text-green-400">{getSelectedJobsCount()}</p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-green-400" />
+              </div>
+            </div>
+          </div>
+          <div className="dashboard-card">
+            <div className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-v3-text-muted">Estimated Total</p>
+                  <p className="text-2xl font-bold text-v3-orange">£{totalAmount.toFixed(2)}</p>
+                </div>
+                <PoundSterling className="h-8 w-8 text-v3-orange" />
               </div>
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* Main Content Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
-        {/* Stats Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-gradient-to-r from-blue-500 to-blue-600 border-0 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-100 text-sm font-medium">Available Jobs</p>
-                  <p className="text-3xl font-bold">{filteredJobs.length}</p>
-                </div>
-                <Briefcase className="h-10 w-10 text-blue-200" />
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card className="bg-gradient-to-r from-green-500 to-green-600 border-0 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm font-medium">Selected Jobs</p>
-                  <p className="text-3xl font-bold">{getSelectedJobsCount()}</p>
-                </div>
-                <CheckCircle className="h-10 w-10 text-green-200" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-orange-500 to-orange-600 border-0 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-orange-100 text-sm font-medium">Estimated Total</p>
-                  <p className="text-3xl font-bold">£{totalAmount.toFixed(2)}</p>
-                </div>
-                <PoundSterling className="h-10 w-10 text-orange-200" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Search and Filter Bar */}
-        <Card className="mb-8">
-          <CardContent className="p-6">
+        {/* Search and Filter */}
+        <div className="dashboard-card">
+          <div className="p-4">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-v3-text-muted h-4 w-4" />
                 <input
                   type="text"
                   placeholder="Search by address or job type..."
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-v3-orange focus:border-v3-orange transition-colors"
+                  className="w-full pl-10 pr-4 py-3 bg-v3-bg-dark border border-v3-border rounded-lg focus:ring-2 focus:ring-v3-orange focus:border-v3-orange text-v3-text-lightest"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               <select 
-                className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-v3-orange focus:border-v3-orange bg-white text-gray-700"
+                className="px-4 py-3 bg-v3-bg-dark border border-v3-border rounded-lg focus:ring-2 focus:ring-v3-orange focus:border-v3-orange text-v3-text-lightest"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
               >
@@ -360,113 +344,89 @@ const CreateInvoiceFromJobs = () => {
                 <option value="older">Older Jobs</option>
               </select>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Jobs Grid */}
+        {/* Jobs List */}
         {filteredJobs.length === 0 ? (
-          <Card className="text-center py-16">
-            <CardContent>
-              <Briefcase className="mx-auto h-16 w-16 text-gray-400 mb-6" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                {jobs.length === 0 ? 'No Uninvoiced Jobs' : 'No Matching Jobs'}
-              </h3>
-              <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                {jobs.length === 0 
-                  ? 'All your completed jobs have been invoiced. Great work!' 
-                  : 'Try adjusting your search terms or filters to find more jobs.'
-                }
-              </p>
-              <div className="flex justify-center gap-4">
-                <Link to="/agent/invoices/new/misc">
-                  <Button className="bg-v3-orange hover:bg-orange-600 text-white">
-                    Create Miscellaneous Invoice
-                  </Button>
-                </Link>
-                <Link to="/agent/invoices/new">
-                  <Button variant="outline">
-                    Back to Options
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="dashboard-card text-center py-12">
+            <Briefcase className="h-16 w-16 text-v3-text-muted mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-v3-text-lightest mb-2">
+              {jobs.length === 0 ? 'No Uninvoiced Jobs' : 'No Matching Jobs'}
+            </h3>
+            <p className="text-v3-text-muted mb-6">
+              {jobs.length === 0 
+                ? 'All your completed jobs have been invoiced. Great work!' 
+                : 'Try adjusting your search terms or filters to find more jobs.'
+              }
+            </p>
+            <div className="flex justify-center gap-4">
+              <Link to="/agent/invoices/new/misc">
+                <button className="button-refresh">
+                  Create Miscellaneous Invoice
+                </button>
+              </Link>
+              <Link to="/agent/invoices/new">
+                <button className="px-4 py-2 border border-v3-border text-v3-text-lightest rounded-lg hover:bg-v3-bg-dark">
+                  Back to Options
+                </button>
+              </Link>
+            </div>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
             {filteredJobs.map(job => (
-              <Card
-                key={job.id}
-                className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
-                  isJobSelected(job.id) 
-                    ? 'ring-2 ring-v3-orange bg-orange-50 shadow-lg transform scale-[1.02]' 
-                    : 'hover:shadow-md border-gray-200 bg-white'
-                }`}
-                onClick={() => handleJobToggle(job)}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
+              <div key={job.id} className={`dashboard-card cursor-pointer transition-all hover:border-v3-orange ${
+                isJobSelected(job.id) ? 'border-v3-orange bg-v3-bg-card/50' : ''
+              }`} onClick={() => handleJobToggle(job)}>
+                <div className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
-                        <MapPin className="h-5 w-5 text-gray-400" />
-                        <h3 className="font-semibold text-gray-900 text-lg">{job.address}</h3>
+                        <MapPin className="h-5 w-5 text-v3-text-muted flex-shrink-0" />
+                        <h3 className="font-semibold text-v3-text-lightest truncate">{job.address}</h3>
                       </div>
-                      
-                      <div className="space-y-2 ml-8">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <div className="space-y-1 ml-8 text-sm text-v3-text-muted">
+                        <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4" />
                           <span>{formatDate(job.arrival_time)}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2">
                           <Briefcase className="h-4 w-4" />
                           <span>{job.job_type || 'Service Call'}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <User className="h-4 w-4" />
-                          <span>Completed Job</span>
-                        </div>
                       </div>
                     </div>
-                    
-                    <div className="flex flex-col items-end gap-3">
-                      <div className={`
-                        w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors
-                        ${isJobSelected(job.id) 
-                          ? 'border-v3-orange bg-v3-orange' 
-                          : 'border-gray-300 bg-white hover:border-gray-400'
-                        }
-                      `}>
-                        {isJobSelected(job.id) && (
-                          <Check className="h-5 w-5 text-white" />
-                        )}
-                      </div>
+                    <div className="flex-shrink-0">
+                      {isJobSelected(job.id) ? (
+                        <CheckSquare className="h-6 w-6 text-v3-orange" />
+                      ) : (
+                        <Square className="h-6 w-6 text-v3-text-muted" />
+                      )}
                     </div>
                   </div>
 
                   {isJobSelected(job.id) && (
-                    <div className="mt-6 pt-4 border-t border-gray-200 space-y-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="mt-4 pt-4 border-t border-v3-border space-y-4" onClick={(e) => e.stopPropagation()}>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Hourly Rate</label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">£</span>
-                            <input
-                              type="number"
-                              placeholder="0.00"
-                              className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-v3-orange focus:border-v3-orange"
-                              value={getJobRate(job.id)}
-                              onChange={(e) => updateJobRate(job.id, e.target.value)}
-                              step="0.01"
-                              min="0"
-                            />
-                          </div>
+                          <label className="block text-sm font-medium text-v3-text-muted mb-2">Hourly Rate (£)</label>
+                          <input
+                            type="number"
+                            placeholder="0.00"
+                            className="w-full px-4 py-2 bg-v3-bg-dark border border-v3-border rounded-lg focus:ring-2 focus:ring-v3-orange focus:border-v3-orange text-v3-text-lightest"
+                            value={getJobRate(job.id)}
+                            onChange={(e) => updateJobRate(job.id, e.target.value)}
+                            step="0.01"
+                            min="0"
+                          />
                         </div>
-                        
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Hours Worked</label>
+                          <label className="block text-sm font-medium text-v3-text-muted mb-2">Hours Worked</label>
                           <input
                             type="number"
                             placeholder="0.0"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-v3-orange focus:border-v3-orange"
+                            className="w-full px-4 py-2 bg-v3-bg-dark border border-v3-border rounded-lg focus:ring-2 focus:ring-v3-orange focus:border-v3-orange text-v3-text-lightest"
                             value={getJobHours(job.id)}
                             onChange={(e) => updateJobHours(job.id, e.target.value)}
                             step="0.5"
@@ -474,81 +434,64 @@ const CreateInvoiceFromJobs = () => {
                           />
                         </div>
                       </div>
-                      
                       {getJobHours(job.id) && getJobRate(job.id) && (
-                        <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                          <span className="text-sm text-gray-600">Subtotal</span>
-                          <span className="text-lg font-semibold text-v3-orange">
+                        <div className="flex justify-between items-center pt-2 border-t border-v3-border/50">
+                          <span className="text-sm text-v3-text-muted">Subtotal</span>
+                          <span className="font-semibold text-v3-orange">
                             £{((parseFloat(getJobHours(job.id)) || 0) * (parseFloat(getJobRate(job.id)) || 0)).toFixed(2)}
                           </span>
                         </div>
                       )}
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
         )}
-      </div>
 
-      {/* Sticky Footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-2xl z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
-            {/* Summary Stats */}
-            <div className="flex items-center gap-8">
-              <div className="text-center">
-                <p className="text-sm text-gray-500 font-medium">Selected</p>
-                <p className="text-2xl font-bold text-gray-900">{getSelectedJobsCount()}</p>
+        {/* Invoice Creation */}
+        {getSelectedJobsCount() > 0 && (
+          <div className="dashboard-card">
+            <div className="p-6">
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-v3-text-muted mb-2">Invoice Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., INV-001"
+                    className="w-full px-4 py-3 bg-v3-bg-dark border border-v3-border rounded-lg focus:ring-2 focus:ring-v3-orange focus:border-v3-orange text-v3-text-lightest font-mono"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="text-sm text-v3-text-muted">Total Amount</p>
+                    <p className="text-2xl font-bold text-v3-orange">£{totalAmount.toFixed(2)}</p>
+                  </div>
+                  <button
+                    onClick={handleReviewInvoice}
+                    disabled={getSelectedJobsCount() === 0 || !invoiceNumber || totalAmount === 0 || creating}
+                    className="button-refresh min-w-[140px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {creating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-4 w-4" />
+                        Create Invoice
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-              <div className="h-8 w-px bg-gray-300"></div>
-              <div className="text-center">
-                <p className="text-sm text-gray-500 font-medium">Total Hours</p>
-                <p className="text-2xl font-bold text-gray-900">{getTotalHours()}</p>
-              </div>
-              <div className="h-8 w-px bg-gray-300"></div>
-              <div className="text-center">
-                <p className="text-sm text-gray-500 font-medium">Invoice Total</p>
-                <p className="text-3xl font-bold text-v3-orange">£{totalAmount.toFixed(2)}</p>
-              </div>
-            </div>
-
-            {/* Invoice Creation */}
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-500 font-medium">
-                  Invoice Number
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., INV-001"
-                  className="px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-v3-orange focus:border-v3-orange font-mono text-lg w-48"
-                  value={invoiceNumber}
-                  onChange={(e) => setInvoiceNumber(e.target.value)}
-                />
-              </div>
-              
-              <Button
-                onClick={handleReviewInvoice}
-                disabled={getSelectedJobsCount() === 0 || !invoiceNumber || totalAmount === 0 || creating}
-                className="bg-v3-orange hover:bg-orange-600 text-white px-8 py-3 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 min-w-[200px] justify-center"
-              >
-                {creating ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Creating Invoice...
-                  </>
-                ) : (
-                  <>
-                    <FileText className="h-5 w-5" />
-                    Create Invoice
-                  </>
-                )}
-              </Button>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
