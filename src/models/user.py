@@ -35,7 +35,7 @@ class User(db.Model):
     telegram_chat_id = db.Column(db.String(32), nullable=True)
     telegram_username = db.Column(db.String(64), nullable=True)
     telegram_opt_in = db.Column(db.Boolean, default=False)
-    telegram_link_code = db.Column(db.String(16), nullable=True)
+    telegram_link_code = db.Column('telegram_link_token', db.String(16), nullable=True)
     
     assignments = db.relationship('JobAssignment', back_populates='agent', lazy=True)
     availability = db.relationship('AgentAvailability', back_populates='agent', lazy=True, cascade="all, delete-orphan")
