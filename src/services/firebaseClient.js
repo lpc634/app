@@ -19,15 +19,22 @@ const firebaseConfig = {
 // VAPID key for web push (should be set as environment variable)
 const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
+// Check if Firebase configuration is complete
+const isFirebaseConfigured = firebaseConfig.projectId && firebaseConfig.apiKey && vapidKey;
+
 // Initialize Firebase
 let app;
 let messaging;
 
-try {
-  app = initializeApp(firebaseConfig);
-  messaging = getMessaging(app);
-} catch (error) {
-  console.error('Firebase initialization error:', error);
+if (isFirebaseConfigured) {
+  try {
+    app = initializeApp(firebaseConfig);
+    messaging = getMessaging(app);
+  } catch (error) {
+    console.error('Firebase initialization error:', error);
+  }
+} else {
+  console.warn('Firebase not configured - some environment variables are missing. FCM notifications will be disabled.');
 }
 
 class FCMClientService {
@@ -41,7 +48,7 @@ class FCMClientService {
    * Check if FCM is supported in the current browser
    */
   isFirebaseSupported() {
-    return this.isSupported && this.messaging && vapidKey;
+    return this.isSupported && this.messaging && vapidKey && isFirebaseConfigured;
   }
 
   /**

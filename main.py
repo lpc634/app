@@ -143,6 +143,11 @@ def version():
     """Return the current git commit for version tracking"""
     return jsonify({'git': GIT_SHA})
 
+@app.route('/api/__version')
+def api_version():
+    """Return the current git commit for version tracking (API scope)"""
+    return jsonify({'git': GIT_SHA})
+
 @app.after_request
 def after_request(response):
     """Add X-App-Commit header to all responses"""
@@ -216,6 +221,16 @@ def serve_uploaded_image(filename):
         return jsonify({'error': 'Failed to load image'}), 500
 
 # --- Static File Serving for Frontend ---
+@app.route('/service-worker.js')
+def service_worker():
+    """Serve service worker with correct MIME type"""
+    return send_from_directory('Public', 'service-worker.js', mimetype='application/javascript')
+
+@app.route('/firebase-messaging-sw.js')
+def firebase_messaging_sw():
+    """Serve Firebase messaging service worker with correct MIME type"""
+    return send_from_directory('Public', 'firebase-messaging-sw.js', mimetype='application/javascript')
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
