@@ -64,8 +64,12 @@ const CreateMiscInvoice = () => {
       items: validItems.map((item, index) => ({
         jobId: -(index + 1), // Negative IDs for misc items
         title: item.description,
+        address: item.description,
+        job_type: 'Miscellaneous',
+        arrival_time: new Date().toISOString(),
         hours: parseFloat(item.quantity),
-        rate: parseFloat(item.unit_price)
+        rate: parseFloat(item.unit_price),
+        isMiscItem: true
       })),
       totalAmount: totalAmount
     };

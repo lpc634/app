@@ -18,7 +18,7 @@ const ReviewInvoicePage = () => {
   const [hours, setHours] = useState('');
   const [hourlyRate, setHourlyRate] = useState('');
 
-  const { items, invoiceNumber: passedInvoiceNumber } = state || {};
+  const { items, invoiceNumber: presetInvoiceNumber } = state || {};
 
   useEffect(() => {
     if (!items || items.length === 0) {
@@ -27,9 +27,9 @@ const ReviewInvoicePage = () => {
       return;
     }
     
-    // Set invoice number from navigation state
-    if (passedInvoiceNumber) {
-      setInvoiceNumber(passedInvoiceNumber);
+    // Set preset invoice number if provided (from CreateMiscInvoice)
+    if (presetInvoiceNumber) {
+      setInvoiceNumber(presetInvoiceNumber);
     }
     
     // Calculate default hours from items
@@ -78,53 +78,41 @@ const ReviewInvoicePage = () => {
 
     setIsSending(true);
     try {
-      // Use the unified /agent/invoices endpoint with correct payload format
+      // Separate jobs and miscellaneous items
+      const jobItems = items.filter(item => !item.isMiscItem && item.job_id > 0);
+      const miscItems = items.filter(item => item.isMiscItem || item.job_id <= 0);
+
+      // Create payload for the unified invoice creation endpoint
       const payload = {
-        invoice_number: invoiceNumber.trim()
+        invoice_number: invoiceNumber.trim(),
+        jobs: jobItems.map(item => ({
+          job_id: item.job_id,
+          hours: parseFloat(hours) / items.length, // Distribute hours evenly across jobs
+          rate: parseFloat(hourlyRate)
+        })),
+        miscellaneous_items: miscItems.map(item => ({
+          description: item.title || item.address,
+          quantity: item.hours,
+          unit_price: item.rate
+        }))
       };
 
-      // Process job items - filter items that have valid jobId > 0
-      const validJobItems = items.filter(item => item.jobId && item.jobId > 0);
-      if (validJobItems.length > 0) {
-        payload.jobs = validJobItems.map(item => ({
-          job_id: item.jobId,
-          hours: parseFloat(hours), // Use manual hours input
-          rate: parseFloat(hourlyRate) // Use manual rate input  
-        }));
-      }
-
-      // Process miscellaneous items - filter items that are misc (jobId <= 0 or no jobId)
-      const miscItems = items.filter(item => !item.jobId || item.jobId <= 0);
-      if (miscItems.length > 0) {
-        payload.miscellaneous_items = miscItems.map(item => ({
-          description: item.title || 'Manual Service',
-          quantity: parseFloat(hours), // Use manual hours as quantity
-          unit_price: parseFloat(hourlyRate) // Use manual rate as unit price
-        }));
-      }
-
-      // If no items, create a simple miscellaneous invoice
-      if (!payload.jobs && !payload.miscellaneous_items) {
-        payload.miscellaneous_items = [{
-          description: 'Manual Invoice Service',
-          quantity: parseFloat(hours),
-          unit_price: parseFloat(hourlyRate)
-        }];
-      }
-      
+      // Call the unified invoice creation endpoint
       const result = await apiCall('/agent/invoices', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(payload)
       });
       
       toast.success("Invoice created successfully!", {
-        description: `Invoice ${result.invoice_number} has been created.`
+        description: `Invoice #${result.invoice_number} has been created and is ready for download.`
       });
 
       navigate('/agent/invoices');
 
     } catch (error) {
-      // Handle specific error cases
       if (error.status === 409 && error.suggested) {
         toast.error('Invoice number already used', { 
           description: `Invoice number ${invoiceNumber} has already been used. Try ${error.suggested} instead.`
@@ -208,10 +196,10 @@ const ReviewInvoicePage = () => {
 
         {items && items.length > 0 && (
           <div className="border-t border-v3-border pt-4">
-            <h3 className="text-sm font-medium text-v3-text-light mb-2">Items included:</h3>
+            <h3 className="text-sm font-medium text-v3-text-light mb-2">Jobs included:</h3>
             <ul className="text-sm text-v3-text-muted space-y-1">
               {items.map((item, idx) => (
-                <li key={idx}>• {item.title}</li>
+                <li key={idx}>• {item.address || item.title}</li>
               ))}
             </ul>
           </div>
