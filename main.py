@@ -8,6 +8,9 @@ import sys
 import requests
 from datetime import timedelta
 
+# --- Get Git SHA for version tracking ---
+GIT_SHA = os.environ.get('GIT_SHA', 'dev')
+
 # --- Add 'src' to the Python path ---
 sys.path.insert(0, 'src')
 
@@ -132,6 +135,19 @@ app.register_blueprint(admin_bp, url_prefix='/api')
 # --- THIS LINE IS NOW UNCOMMENTED ---
 app.register_blueprint(vehicles_bp, url_prefix='/api')
 app.register_blueprint(telegram_bp)
+
+
+# --- Version tracking routes and headers ---
+@app.route('/__version')
+def version():
+    """Return the current git commit for version tracking"""
+    return jsonify({'git': GIT_SHA})
+
+@app.after_request
+def after_request(response):
+    """Add X-App-Commit header to all responses"""
+    response.headers['X-App-Commit'] = GIT_SHA
+    return response
 
 
 # --- Debug Route (add this right after the blueprint registrations) ---
