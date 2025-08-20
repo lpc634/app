@@ -32,10 +32,10 @@ class User(db.Model):
     current_invoice_number = db.Column(db.Integer, nullable=True, default=0)  # New flexible numbering system
     
     # Telegram integration fields
-    telegram_chat_id = db.Column(db.String(32), nullable=True, index=True)
+    telegram_chat_id = db.Column(db.String(32), nullable=True)
     telegram_username = db.Column(db.String(64), nullable=True)
-    telegram_link_token = db.Column(db.String(64), nullable=True, unique=True)
-    telegram_opt_in = db.Column(db.Boolean, default=False, nullable=False)
+    telegram_opt_in = db.Column(db.Boolean, default=False)
+    telegram_link_code = db.Column(db.String(16), nullable=True)
     
     assignments = db.relationship('JobAssignment', back_populates='agent', lazy=True)
     availability = db.relationship('AgentAvailability', back_populates='agent', lazy=True, cascade="all, delete-orphan")

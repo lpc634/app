@@ -843,6 +843,35 @@ def create_job():
             db.session.rollback()
             raise
 
+        # Send Telegram notifications to all assigned agents
+        try:
+            from src.services.notifications import notify_job_assignment
+            # Prepare comprehensive job data for notification
+            job_notification_data = {
+                'title': new_job.title,
+                'job_type': new_job.job_type,
+                'address': new_job.address,
+                'postcode': new_job.postcode,
+                'arrival_time': new_job.arrival_time.strftime('%Y-%m-%d %H:%M'),
+                'agents_required': new_job.agents_required,
+                'hourly_rate': float(new_job.hourly_rate) if new_job.hourly_rate else None,
+                'instructions': new_job.instructions,
+                'urgency_level': new_job.urgency_level,
+                'lead_agent_name': new_job.lead_agent_name,
+                'police_liaison_required': new_job.police_liaison_required,
+                'maps_link': new_job.maps_link,
+                'location_lat': new_job.location_lat,
+                'location_lng': new_job.location_lng
+            }
+            
+            for agent_id in assigned_agent_ids:
+                try:
+                    notify_job_assignment(agent_id, job_notification_data)
+                except Exception as e:
+                    logger.warning(f"Failed to send Telegram notification to agent {agent_id}: {str(e)}")
+        except Exception as e:
+            logger.warning(f"Failed to send Telegram notifications: {str(e)}")
+
         # Log successful job creation
         logger.info(f"Job at '{new_job.address}' created by admin {current_user.id} and assigned to {len(assigned_agent_ids)} agents")
 
@@ -958,6 +987,17 @@ def respond_to_assignment(assignment_id):
                 logger.error(f"Failed to create draft invoice for agent {current_user.id} and job {job.id}: {str(e)}")
                 # Don't fail the job acceptance if invoice creation fails
                 pass
+            
+            # Send job acceptance notification via Telegram
+            try:
+                from src.services.notifications import notify_job_update
+                notify_job_update(
+                    current_user.id,
+                    job.title or f"{job.job_type} at {job.address}",
+                    f"✅ You have successfully accepted the job assignment.\n\nJob Details:\n- Type: {job.job_type}\n- Location: {job.address}\n- Time: {job.arrival_time.strftime('%H:%M on %d/%m/%y')}\n\nThank you for accepting this assignment!"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send job acceptance notification to agent {current_user.id}: {str(e)}")
         
         db.session.commit()
         

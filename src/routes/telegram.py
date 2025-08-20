@@ -43,13 +43,13 @@ def webhook(secret):
         
         if token:
             # Find agent by link token
-            agent = User.query.filter_by(telegram_link_token=token).first()
+            agent = User.query.filter_by(telegram_link_code=token).first()
             
             if agent:
                 # Link the agent's Telegram account
                 agent.telegram_chat_id = chat_id
                 agent.telegram_username = username
-                agent.telegram_link_token = None  # Clear the token
+                agent.telegram_link_code = None  # Clear the token
                 agent.telegram_opt_in = True
                 
                 try:
