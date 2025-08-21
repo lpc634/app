@@ -281,3 +281,219 @@ def lock_job_revenue_snapshot(job_id):
         logger.error(f"Error locking revenue snapshot for job {job_id}: {e}")
         db.session.rollback()
         return False
+
+
+def summarize_business_finances(from_date=None, to_date=None, job_id=None):
+    """
+    Generate business-level financial summary for admin dashboard.
+    
+    Args:
+        from_date (date): Start date for filtering
+        to_date (date): End date for filtering  
+        job_id (int): Optional job filter
+        
+    Returns:
+        dict: Complete financial summary with revenue, costs, profit, VAT
+    """
+    try:
+        from datetime import date, timedelta
+        
+        # Default to current month if no dates provided
+        if not from_date or not to_date:
+            today = date.today()
+            from_date = date(today.year, today.month, 1)
+            # Get last day of current month
+            if today.month == 12:
+                to_date = date(today.year + 1, 1, 1) - timedelta(days=1)
+            else:
+                to_date = date(today.year, today.month + 1, 1) - timedelta(days=1)
+        
+        # Initialize summary structure
+        summary = {
+            'filters': {
+                'from': from_date.isoformat(),
+                'to': to_date.isoformat(),
+                'job_id': job_id
+            },
+            'revenue': {'net': 0.0, 'vat': 0.0, 'gross': 0.0},
+            'costs': {
+                'agent_invoices_total': 0.0,
+                'expenses': {'net': 0.0, 'vat': 0.0, 'gross': 0.0},
+                'gross': 0.0
+            },
+            'profit': {'net': 0.0, 'gross': 0.0},
+            'vat': {'output': 0.0, 'input': 0.0, 'net_due': 0.0}
+        }
+        
+        # Calculate revenue from jobs within date range
+        revenue_total = calculate_revenue_for_period(from_date, to_date, job_id)
+        summary['revenue'] = revenue_total
+        
+        # Calculate agent invoice costs within date range
+        agent_invoice_total = calculate_agent_invoices_for_period(from_date, to_date, job_id)
+        summary['costs']['agent_invoices_total'] = agent_invoice_total
+        
+        # Calculate expense costs within date range
+        expense_totals = calculate_expenses_for_period(from_date, to_date, job_id)
+        summary['costs']['expenses'] = expense_totals
+        
+        # Calculate total costs
+        summary['costs']['gross'] = agent_invoice_total + expense_totals['gross']
+        
+        # Calculate profit
+        summary['profit']['net'] = revenue_total['net'] - (agent_invoice_total + expense_totals['net'])
+        summary['profit']['gross'] = revenue_total['gross'] - summary['costs']['gross']
+        
+        # Calculate VAT
+        summary['vat']['output'] = revenue_total['vat']
+        summary['vat']['input'] = expense_totals['vat']
+        summary['vat']['net_due'] = revenue_total['vat'] - expense_totals['vat']
+        
+        # Round all values to 2 decimal places
+        summary = round_financial_summary(summary)
+        
+        return summary
+        
+    except Exception as e:
+        logger.error(f"Error summarizing business finances: {e}")
+        return None
+
+
+def calculate_revenue_for_period(from_date, to_date, job_id=None):
+    """Calculate total revenue for a date period."""
+    try:
+        revenue = {'net': 0.0, 'vat': 0.0, 'gross': 0.0}
+        
+        # Get all jobs with billing config
+        query = db.session.query(Job, JobBilling).join(JobBilling)
+        
+        if job_id:
+            query = query.filter(Job.id == job_id)
+        
+        jobs_with_billing = query.all()
+        
+        for job, billing in jobs_with_billing:
+            # Determine revenue date for filtering
+            revenue_date = get_revenue_date_for_job(job, billing)
+            
+            if revenue_date and from_date <= revenue_date <= to_date:
+                # Use snapshot if available, otherwise calculate live
+                if (billing.revenue_net_snapshot and 
+                    billing.revenue_vat_snapshot and 
+                    billing.revenue_gross_snapshot):
+                    revenue['net'] += float(billing.revenue_net_snapshot)
+                    revenue['vat'] += float(billing.revenue_vat_snapshot)
+                    revenue['gross'] += float(billing.revenue_gross_snapshot)
+                else:
+                    # Calculate live revenue
+                    job_revenue = calculate_job_revenue(billing)
+                    revenue['net'] += job_revenue['revenue_net']
+                    revenue['vat'] += job_revenue['revenue_vat']
+                    revenue['gross'] += job_revenue['revenue_gross']
+        
+        return revenue
+        
+    except Exception as e:
+        logger.error(f"Error calculating revenue for period: {e}")
+        return {'net': 0.0, 'vat': 0.0, 'gross': 0.0}
+
+
+def calculate_agent_invoices_for_period(from_date, to_date, job_id=None):
+    """Calculate total agent invoice costs for a date period."""
+    try:
+        query = db.session.query(Invoice).filter(
+            Invoice.status.in_(['submitted', 'sent', 'paid']),
+            Invoice.issue_date >= from_date,
+            Invoice.issue_date <= to_date
+        )
+        
+        if job_id:
+            # Filter by job through InvoiceJob relationship
+            query = query.join(InvoiceJob).filter(InvoiceJob.job_id == job_id)
+        
+        invoices = query.all()
+        total = sum(float(invoice.total_amount) for invoice in invoices if invoice.total_amount)
+        
+        return total
+        
+    except Exception as e:
+        logger.error(f"Error calculating agent invoices for period: {e}")
+        return 0.0
+
+
+def calculate_expenses_for_period(from_date, to_date, job_id=None):
+    """Calculate total expenses for a date period."""
+    try:
+        query = db.session.query(Expense).filter(
+            Expense.date >= from_date,
+            Expense.date <= to_date
+        )
+        
+        if job_id:
+            query = query.filter(Expense.job_id == job_id)
+        
+        expenses = query.all()
+        
+        totals = {
+            'net': sum(float(exp.amount_net) for exp in expenses if exp.amount_net),
+            'vat': sum(float(exp.vat_amount) for exp in expenses if exp.vat_amount),
+            'gross': sum(float(exp.amount_gross) for exp in expenses if exp.amount_gross)
+        }
+        
+        return totals
+        
+    except Exception as e:
+        logger.error(f"Error calculating expenses for period: {e}")
+        return {'net': 0.0, 'vat': 0.0, 'gross': 0.0}
+
+
+def get_revenue_date_for_job(job, billing):
+    """Get the appropriate date for revenue recognition."""
+    try:
+        # If locked snapshot exists, use job completion/updated date
+        if (billing.revenue_net_snapshot and 
+            billing.revenue_vat_snapshot and 
+            billing.revenue_gross_snapshot):
+            return job.updated_at.date() if job.updated_at else job.created_at.date()
+        
+        # For live calculation, use latest invoice date or job created date
+        latest_invoice = db.session.query(Invoice).join(InvoiceJob).filter(
+            InvoiceJob.job_id == job.id,
+            Invoice.status.in_(['submitted', 'sent', 'paid'])
+        ).order_by(Invoice.issue_date.desc()).first()
+        
+        if latest_invoice and latest_invoice.issue_date:
+            return latest_invoice.issue_date
+        
+        return job.created_at.date() if job.created_at else None
+        
+    except Exception as e:
+        logger.error(f"Error getting revenue date for job {job.id}: {e}")
+        return None
+
+
+def round_financial_summary(summary):
+    """Round all financial values in summary to 2 decimal places."""
+    try:
+        summary['revenue']['net'] = round(summary['revenue']['net'], 2)
+        summary['revenue']['vat'] = round(summary['revenue']['vat'], 2)
+        summary['revenue']['gross'] = round(summary['revenue']['gross'], 2)
+        
+        summary['costs']['agent_invoices_total'] = round(summary['costs']['agent_invoices_total'], 2)
+        summary['costs']['expenses']['net'] = round(summary['costs']['expenses']['net'], 2)
+        summary['costs']['expenses']['vat'] = round(summary['costs']['expenses']['vat'], 2)
+        summary['costs']['expenses']['gross'] = round(summary['costs']['expenses']['gross'], 2)
+        summary['costs']['gross'] = round(summary['costs']['gross'], 2)
+        
+        summary['profit']['net'] = round(summary['profit']['net'], 2)
+        summary['profit']['gross'] = round(summary['profit']['gross'], 2)
+        
+        summary['vat']['output'] = round(summary['vat']['output'], 2)
+        summary['vat']['input'] = round(summary['vat']['input'], 2)
+        summary['vat']['net_due'] = round(summary['vat']['net_due'], 2)
+        
+        return summary
+        
+    except Exception as e:
+        logger.error(f"Error rounding financial summary: {e}")
+        return summary
