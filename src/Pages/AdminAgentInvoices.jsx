@@ -106,10 +106,12 @@ const AdminAgentInvoices = () => {
       });
 
       if (res?.download_url) {
-        window.open(res.download_url, '_blank');
+        window.open(res.download_url, '_blank', 'noopener,noreferrer');
         toast.success('Batch download started', {
           description: `ZIP file with ${jobInvoices.length} invoice(s)`
         });
+      } else {
+        toast.error(res?.error || 'Batch download failed');
       }
     } catch (error) {
       console.error('Batch download failed:', error);
@@ -143,8 +145,10 @@ const AdminAgentInvoices = () => {
     try {
       const res = await apiCall(`/admin/invoices/${invoice.id}/download`);
       if (res?.download_url) {
-        window.open(res.download_url, '_blank');
+        window.open(res.download_url, '_blank', 'noopener,noreferrer');
         toast.success('Download started', { description: `Invoice ${invoice.agent_invoice_number || invoice.invoice_number}` });
+      } else {
+        toast.error(res?.error || 'Failed to get download link');
       }
     } catch (error) {
       console.error('Invoice download failed:', error);

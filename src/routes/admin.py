@@ -220,16 +220,21 @@ def get_invoice_pdf_admin(invoice_id):
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404
         
-        # S3 PDF storage is now available
-
-        if not invoice.pdf_file_url:
+        # Use standard S3 path instead of pdf_file_url
+        if invoice.status == 'draft':
+            return jsonify({'error': 'Cannot access draft invoice PDFs'}), 400
+        
+        # Generate secure download URL using S3 path
+        s3_result = s3_client.generate_invoice_download_url(
+            agent_id=invoice.agent_id,
+            invoice_number=invoice.invoice_number,
+            expiration=3600
+        )
+        
+        if not s3_result.get('success'):
             return jsonify({'error': 'PDF not available for this invoice'}), 404
         
-        # Generate temporary signed URL for admin access
-        signed_url = s3_client.generate_presigned_url(
-            invoice.pdf_file_url, 
-            expiration=3600  # 1 hour for admin access
-        )
+        signed_url = s3_result['download_url']
         
         if not signed_url:
             return jsonify({'error': 'Failed to generate access URL'}), 500
@@ -893,29 +898,29 @@ def download_invoice_admin(invoice_id):
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404
         
-        if not invoice.pdf_file_url:
-            return jsonify({'error': 'Invoice PDF not available'}), 404
+        if invoice.status == 'draft':
+            return jsonify({'error': 'Cannot download draft invoices'}), 400
         
-        # Generate secure download URL
-        download_result = s3_client.get_secure_document_url(
-            invoice.pdf_file_url,
-            expiration=3600  # 1 hour
+        # Use standard S3 path instead of invoice.pdf_file_url
+        s3_result = s3_client.generate_invoice_download_url(
+            agent_id=invoice.agent_id,
+            invoice_number=invoice.invoice_number,
+            expiration=3600
         )
         
-        if not download_result['success']:
-            return jsonify({'error': download_result['error']}), 500
+        if not s3_result.get('success'):
+            return jsonify({'error': 'Invoice PDF not available in storage'}), 404
         
         # Log admin download for audit
         current_app.logger.info(
             f"Admin {current_user.email} downloaded invoice {invoice.invoice_number} "
-            f"for agent {invoice.agent.email}"
+            f"for agent_id {invoice.agent_id}"
         )
         
         return jsonify({
-            'download_url': download_result['url'],
-            'expires_in': download_result['expires_in'],
+            'download_url': s3_result['download_url'],
+            'expires_in': s3_result['expires_in'],
             'invoice_number': invoice.invoice_number,
-            'agent_name': f"{invoice.agent.first_name} {invoice.agent.last_name}",
             'filename': f"{invoice.invoice_number}.pdf"
         }), 200
         
@@ -984,56 +989,36 @@ def create_invoice_batch_download():
         if not invoice_ids:
             return jsonify({'error': 'No invoices selected'}), 400
         
-        # Get invoices and their S3 keys
+        # Get invoices
         invoices = Invoice.query.filter(Invoice.id.in_(invoice_ids)).all()
         if not invoices:
             return jsonify({'error': 'No valid invoices found'}), 404
         
-        # Collect S3 file keys for invoices that have PDFs
+        # Build S3 keys from agent_id + invoice_number
         file_keys = []
-        invoice_details = []
-        for invoice in invoices:
-            if invoice.pdf_file_url:
-                file_keys.append(invoice.pdf_file_url)
-                invoice_details.append({
-                    'invoice_number': invoice.invoice_number,
-                    'agent_name': f"{invoice.agent.first_name} {invoice.agent.last_name}",
-                    'total_amount': float(invoice.total_amount),
-                    'generated_at': invoice.generated_at.isoformat() if invoice.generated_at else None
-                })
+        for inv in invoices:
+            if inv.status == 'draft':
+                continue  # skip drafts
+            file_keys.append(f"invoices/{inv.agent_id}/{inv.invoice_number}.pdf")
         
         if not file_keys:
             return jsonify({'error': 'No invoice PDFs available for batch download'}), 404
         
-        # Create ZIP file in S3
+        # Create ZIP in S3
         zip_filename = f"{batch_name}.zip"
         batch_result = s3_client.create_invoice_batch_zip(file_keys, zip_filename)
+        if not batch_result.get('success'):
+            return jsonify({'error': batch_result.get('error', 'Failed to create ZIP')}), 500
         
-        if not batch_result['success']:
-            return jsonify({'error': batch_result['error']}), 500
-        
-        # Generate download URL for the ZIP file
-        zip_download_url = s3_client.generate_presigned_url(
-            batch_result['file_key'],
-            expiration=7200  # 2 hours for batch downloads
-        )
-        
-        if not zip_download_url:
+        # Signed URL for the ZIP
+        zip_url = s3_client.generate_presigned_url(batch_result['file_key'], expiration=7200)
+        if not zip_url:
             return jsonify({'error': 'Failed to generate batch download URL'}), 500
         
-        # Log batch download creation
-        current_app.logger.info(
-            f"Admin {current_user.email} created batch download {batch_name} "
-            f"containing {len(file_keys)} invoices"
-        )
-        
         return jsonify({
-            'batch_name': batch_name,
-            'download_url': zip_download_url,
-            'expires_in': 7200,
-            'invoice_count': len(file_keys),
-            'total_amount': sum(invoice['total_amount'] for invoice in invoice_details),
-            'invoices': invoice_details
+            'download_url': zip_url,
+            'filename': batch_result.get('filename', zip_filename),
+            'invoice_count': batch_result.get('invoice_count', len(file_keys))
         }), 200
         
     except Exception as e:
@@ -1832,8 +1817,8 @@ def get_invoices_for_job(job_id):
             else:
                 invoice_dict['agent_name'] = 'Unknown Agent'
             
-            # Check if PDF is available
-            invoice_dict['pdf_available'] = bool(getattr(inv, 'pdf_file_url', None))
+            # Check if PDF is available based on S3 config and non-draft status
+            invoice_dict['pdf_available'] = s3_client.is_configured() and inv.status != 'draft'
             
             result.append(invoice_dict)
 
