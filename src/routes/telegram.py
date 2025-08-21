@@ -211,11 +211,18 @@ def start_telegram_link():
         db.session.commit()
         current_app.logger.info(f"Generated Telegram link code for user {current_user.id}")
         
-        bot_username = current_app.config.get("TELEGRAM_BOT_USERNAME", "V3JobsBot")
+        # Get bot username from API
+        bot_username = "V3JobsBot"  # default fallback
+        try:
+            bot_info = get_bot_info()
+            if bot_info.get("ok") and "result" in bot_info:
+                bot_username = bot_info["result"].get("username", "V3JobsBot")
+        except Exception as e:
+            current_app.logger.warning(f"Could not get bot username for link: {str(e)}")
         
         return jsonify({
             "code": code,
-            "instructions": f"Send this message to @{bot_username}: /start {code}"
+            "bot_username": bot_username
         })
     
     except Exception as e:
@@ -251,6 +258,39 @@ def disconnect_telegram():
         db.session.rollback()
         current_app.logger.error(f"Error disconnecting Telegram for user {current_user.id}: {str(e)}")
         return jsonify({"error": "Failed to disconnect Telegram account"}), 500
+
+
+@telegram_api_bp.route("/health", methods=["GET"])
+def get_telegram_health():
+    """
+    Get Telegram integration health status (no secrets exposed)
+    
+    Returns:
+        JSON with health information for debugging
+    """
+    enabled = current_app.config.get("TELEGRAM_ENABLED", False)
+    webhook_secret = current_app.config.get("TELEGRAM_WEBHOOK_SECRET", "")
+    public_base_url = current_app.config.get("PUBLIC_BASE_URL", "")
+    
+    webhook_url = None
+    bot_username = None
+    
+    if enabled and webhook_secret and public_base_url:
+        webhook_url = f"{public_base_url}/webhooks/telegram/{webhook_secret}"
+    
+    if enabled:
+        try:
+            bot_info = get_bot_info()
+            if bot_info.get("ok") and "result" in bot_info:
+                bot_username = bot_info["result"].get("username")
+        except Exception as e:
+            current_app.logger.warning(f"Could not get bot username for health check: {str(e)}")
+    
+    return jsonify({
+        "enabled": enabled,
+        "webhook_url": webhook_url,
+        "bot_username": bot_username
+    })
 
 
 # Agent-scoped Telegram endpoints (duplicated under /api/agent/telegram for backwards compatibility)

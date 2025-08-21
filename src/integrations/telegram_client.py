@@ -1,9 +1,13 @@
 import requests
 import logging
 import os
+import time
 from flask import current_app
 
 API_BASE = "https://api.telegram.org"
+
+# Cache for bot info (username) - expires after 10 minutes
+_bot_info_cache = {"data": None, "expires": 0}
 
 def send_message(chat_id: str, text: str, parse_mode: str = "HTML") -> dict:
     """
@@ -43,7 +47,7 @@ def send_message(chat_id: str, text: str, parse_mode: str = "HTML") -> dict:
 
 def get_bot_info() -> dict:
     """
-    Get bot information from Telegram API
+    Get bot information from Telegram API with 10-minute caching
     
     Returns:
         dict: Bot info or error info
@@ -55,12 +59,23 @@ def get_bot_info() -> dict:
     if not token:
         return {"status": "error", "message": "Bot token not configured"}
     
+    # Check cache first
+    now = time.time()
+    if _bot_info_cache["data"] and now < _bot_info_cache["expires"]:
+        return _bot_info_cache["data"]
+    
     url = f"{API_BASE}/bot{token}/getMe"
     
     try:
         r = requests.get(url, timeout=10)
         r.raise_for_status()
-        return r.json()
+        result = r.json()
+        
+        # Cache result for 10 minutes (600 seconds)
+        _bot_info_cache["data"] = result
+        _bot_info_cache["expires"] = now + 600
+        
+        return result
     except requests.RequestException as e:
         current_app.logger.error(f"Telegram get bot info error: {str(e)}")
         return {"status": "error", "message": str(e)}
