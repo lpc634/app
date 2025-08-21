@@ -199,7 +199,7 @@ main {
     radial-gradient(circle at 75% 75%, rgba(255, 87, 34, 0.08) 0%, transparent 50%),
     linear-gradient(180deg, rgba(17, 17, 17, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%);
   position: relative;
-  min-height: 100vh;
+  min-height: 0; /* allow flex parent to control height */
 }
 
 main::before {
