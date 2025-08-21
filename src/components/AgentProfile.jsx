@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
 import { Loader2, User as UserIcon, Landmark, FileUp, CheckCircle, Image as ImageIcon, Download, Trash2, MessageCircle, ExternalLink, Send } from 'lucide-react';
-import { getTelegramStatus, createTelegramLink, disconnectTelegram, sendTestTelegram } from '../api/agents';
+import { getTelegramStatus, createTelegramLink, disconnectTelegram } from '../api/agents';
 
 const AgentProfile = () => {
   const { user, loading, apiCall } = useAuth();
@@ -14,8 +14,9 @@ const AgentProfile = () => {
   const [saving, setSaving] = useState(false);
   
   // Telegram state
-  const [telegramStatus, setTelegramStatus] = useState({ enabled: false, connected: false });
+  const [telegramStatus, setTelegramStatus] = useState({ enabled: false, linked: false, bot_username: null });
   const [telegramLoading, setTelegramLoading] = useState(false);
+  const [linkCode, setLinkCode] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -54,27 +55,22 @@ const AgentProfile = () => {
       setTelegramStatus(status);
     } catch (error) {
       console.error('Failed to load Telegram status:', error);
-      setTelegramStatus({ enabled: false, connected: false });
+      setTelegramStatus({ enabled: false, linked: false, bot_username: null });
     }
   };
 
-  const handleConnectTelegram = async () => {
+  const handleGenerateLinkCode = async () => {
     setTelegramLoading(true);
     try {
       const response = await createTelegramLink();
-      if (response.link) {
-        // Open Telegram deep link
-        window.open(response.link, '_blank');
-        toast.success('Telegram link opened!', {
-          description: 'Please press "Start" in Telegram to complete the connection.'
+      if (response.code) {
+        setLinkCode(response);
+        toast.success('Link code generated!', {
+          description: 'Follow the instructions below to complete the connection.'
         });
-        // Refresh status after a delay
-        setTimeout(() => {
-          loadTelegramStatus();
-        }, 5000);
       }
     } catch (error) {
-      toast.error('Failed to create Telegram link', { description: error.message });
+      toast.error('Failed to generate link code', { description: error.message });
     } finally {
       setTelegramLoading(false);
     }
@@ -84,22 +80,11 @@ const AgentProfile = () => {
     setTelegramLoading(true);
     try {
       await disconnectTelegram();
+      setLinkCode(null); // Clear any existing link code
       await loadTelegramStatus(); // Refresh status
       toast.success('Telegram disconnected successfully');
     } catch (error) {
       toast.error('Failed to disconnect Telegram', { description: error.message });
-    } finally {
-      setTelegramLoading(false);
-    }
-  };
-
-  const handleTestTelegram = async () => {
-    setTelegramLoading(true);
-    try {
-      await sendTestTelegram();
-      toast.success('Test message sent!', { description: 'Check your Telegram for the test message.' });
-    } catch (error) {
-      toast.error('Failed to send test message', { description: error.message });
     } finally {
       setTelegramLoading(false);
     }
@@ -402,63 +387,82 @@ const AgentProfile = () => {
               {/* Connection Status */}
               <div className="flex items-center justify-between p-4 bg-v3-bg-light rounded-lg border border-v3-border">
                 <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${telegramStatus.connected ? 'bg-green-500' : 'bg-gray-500'}`} />
+                  <div className={`w-3 h-3 rounded-full ${telegramStatus.linked ? 'bg-green-500' : 'bg-gray-500'}`} />
                   <div>
                     <p className="font-medium text-v3-text-lightest">
-                      {telegramStatus.connected ? 'Connected' : 'Not Connected'}
+                      {telegramStatus.linked ? 'Connected' : 'Not Connected'}
                     </p>
                     <p className="text-sm text-v3-text-muted">
-                      {telegramStatus.connected 
-                        ? `Connected as @${telegramStatus.username || 'Unknown'}`
+                      {telegramStatus.linked 
+                        ? `Connected to @${telegramStatus.bot_username || 'V3JobsBot'}`
                         : 'Connect your Telegram to receive notifications'
                       }
                     </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  {telegramStatus.connected ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleTestTelegram}
-                        disabled={telegramLoading}
-                        className="px-4 py-2 text-sm bg-v3-orange text-white rounded-md hover:bg-v3-orange-dark disabled:opacity-50 flex items-center gap-2"
-                      >
-                        {telegramLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                        Send Test
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleDisconnectTelegram}
-                        disabled={telegramLoading}
-                        className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
-                      >
-                        Disconnect
-                      </button>
-                    </>
+                  {telegramStatus.linked ? (
+                    <button
+                      type="button"
+                      onClick={handleDisconnectTelegram}
+                      disabled={telegramLoading}
+                      className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                    >
+                      Disconnect
+                    </button>
                   ) : (
                     <button
                       type="button"
-                      onClick={handleConnectTelegram}
+                      onClick={handleGenerateLinkCode}
                       disabled={telegramLoading}
                       className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
                     >
-                      {telegramLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
-                      Connect Telegram
+                      {telegramLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
+                      Generate Link Code
                     </button>
                   )}
                 </div>
               </div>
 
+              {/* Link Code Display */}
+              {linkCode && !telegramStatus.linked && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-3">Your Link Code:</h4>
+                  <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md p-3 mb-3">
+                    <code className="text-lg font-mono text-center block text-blue-600 dark:text-blue-400 font-bold">
+                      {linkCode.code}
+                    </code>
+                  </div>
+                  <div className="text-sm text-blue-700 dark:text-blue-300">
+                    <p className="font-medium mb-2">To complete the connection:</p>
+                    <ol className="space-y-1 ml-4">
+                      <li>1. Open Telegram and search for <strong>@{telegramStatus.bot_username || 'V3JobsBot'}</strong></li>
+                      <li>2. Send this message: <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">/link {linkCode.code}</code></li>
+                      <li>3. You'll receive a confirmation message</li>
+                      <li>4. Return here and refresh to see your connected status</li>
+                    </ol>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
+                    <button
+                      type="button"
+                      onClick={loadTelegramStatus}
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      Check Connection Status
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Instructions for connection */}
-              {!telegramStatus.connected && (
+              {!telegramStatus.linked && !linkCode && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                   <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">How to connect:</h4>
                   <ol className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                    <li>1. Click "Connect Telegram" above</li>
-                    <li>2. Telegram app will open with our bot</li>
-                    <li>3. Press "Start" to complete the connection</li>
-                    <li>4. Return here to verify connection</li>
+                    <li>1. Click "Generate Link Code" above</li>
+                    <li>2. Open Telegram and find @{telegramStatus.bot_username || 'V3JobsBot'}</li>
+                    <li>3. Send the /link command with your code</li>
+                    <li>4. You'll receive a confirmation message</li>
                   </ol>
                   <p className="text-xs text-blue-600 dark:text-blue-400 mt-3">
                     Don't have Telegram? <a href="https://telegram.org/apps" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">Download it here</a>

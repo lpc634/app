@@ -41,7 +41,7 @@ from src.routes.agent import agent_bp
 # REMOVED: from src.routes.utils import utils_bp
 from src.routes.admin import admin_bp
 from src.routes.vehicles import vehicles_bp
-from src.routes.telegram import telegram_bp
+from src.routes.telegram import telegram_bp, telegram_api_bp, agent_telegram_bp
 
 
 # --- Flask App Initialization ---
@@ -93,11 +93,24 @@ app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'V3 Services <no-reply@v3-services.com>')
 
 # --- Telegram Integration Configuration ---
-app.config['TELEGRAM_ENABLED'] = os.environ.get("TELEGRAM_ENABLED", "true").lower() == "true"
+from distutils.util import strtobool
+
+def env_bool(name, default=False):
+    val = os.getenv(name)
+    return bool(strtobool(val)) if val is not None else default
+
+# Compute TELEGRAM_ENABLED server-side with proper validation
+TELEGRAM_ENABLED = (
+    env_bool("TELEGRAM_ENABLED", False) and 
+    bool(os.getenv("TELEGRAM_BOT_TOKEN")) and 
+    bool(os.getenv("TELEGRAM_WEBHOOK_SECRET"))
+)
+
+app.config['TELEGRAM_ENABLED'] = TELEGRAM_ENABLED
 app.config['TELEGRAM_BOT_TOKEN'] = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 app.config['TELEGRAM_BOT_USERNAME'] = os.environ.get("TELEGRAM_BOT_USERNAME", "V3JobsBot")
 app.config['TELEGRAM_WEBHOOK_SECRET'] = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
-app.config['APP_BASE_URL'] = os.environ.get("APP_BASE_URL", "https://v3-app.herokuapp.com")
+app.config['PUBLIC_BASE_URL'] = os.environ.get("PUBLIC_BASE_URL", "https://v3-app.herokuapp.com")
 
 # --- CORS Configuration for Heroku ---
 LIVE_APP_URL = os.environ.get('LIVE_APP_URL', 'https://v3-app-49c3d1eff914.herokuapp.com')
@@ -135,6 +148,8 @@ app.register_blueprint(admin_bp, url_prefix='/api')
 # --- THIS LINE IS NOW UNCOMMENTED ---
 app.register_blueprint(vehicles_bp, url_prefix='/api')
 app.register_blueprint(telegram_bp)
+app.register_blueprint(telegram_api_bp)
+app.register_blueprint(agent_telegram_bp)
 
 
 # --- Version tracking routes and headers ---

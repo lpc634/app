@@ -1,9 +1,14 @@
 from flask import Blueprint, request, current_app, jsonify
+from flask_jwt_extended import jwt_required, get_current_user
 from src.models.user import User, db
-from src.integrations.telegram_client import send_message
+from src.integrations.telegram_client import send_message, get_bot_info
 import logging
+import string
+import random
 
 telegram_bp = Blueprint("telegram", __name__, url_prefix="/webhooks/telegram")
+telegram_api_bp = Blueprint("telegram_api", __name__, url_prefix="/api/telegram")
+agent_telegram_bp = Blueprint("agent_telegram", __name__, url_prefix="/api/agent/telegram")
 
 @telegram_bp.route("/<secret>", methods=["POST"])
 def webhook(secret):
@@ -75,6 +80,40 @@ def webhook(secret):
             else:
                 send_message(chat_id, "👋 Welcome! To link your Telegram account, please use the link button in the V3 Services app.")
     
+    # Handle /link command
+    elif text.startswith("/link"):
+        parts = text.split()
+        token = parts[1] if len(parts) > 1 else None
+        
+        if token:
+            # Find agent by link token
+            agent = User.query.filter_by(telegram_link_code=token).first()
+            
+            if agent:
+                # Link the agent's Telegram account
+                agent.telegram_chat_id = chat_id
+                agent.telegram_username = username
+                agent.telegram_link_code = None  # Clear the token
+                agent.telegram_opt_in = True
+                
+                try:
+                    db.session.commit()
+                    current_app.logger.info(f"Telegram linked via /link for agent {agent.id}: {username}")
+                    
+                    # Send confirmation message
+                    welcome_msg = "✅ Linked! You will now receive job notifications here."
+                    send_message(chat_id, welcome_msg)
+                    
+                except Exception as e:
+                    db.session.rollback()
+                    current_app.logger.error(f"Database error linking Telegram via /link for agent {agent.id}: {str(e)}")
+                    send_message(chat_id, "❌ Sorry, there was an error linking your account. Please try again.")
+            else:
+                current_app.logger.warning(f"Invalid or expired link token via /link: {token}")
+                send_message(chat_id, "⚠️ Link code is invalid or expired. Please get a new code from the app.")
+        else:
+            send_message(chat_id, "⚠️ Please provide a link code: /link YOUR_CODE")
+    
     # Handle other messages
     elif text:
         # Check if user is linked
@@ -114,3 +153,121 @@ def webhook_info():
     except Exception as e:
         current_app.logger.error(f"Error getting webhook info: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+# API endpoints for Telegram integration
+@telegram_api_bp.route("/status", methods=["GET"])
+@jwt_required()
+def get_telegram_status():
+    """
+    Get Telegram integration status for current user
+    
+    Returns:
+        JSON with enabled, linked, and bot_username status
+    """
+    current_user = get_current_user()
+    
+    enabled = current_app.config.get("TELEGRAM_ENABLED", False)
+    linked = bool(current_user.telegram_chat_id) if current_user else False
+    
+    bot_username = None
+    if enabled:
+        try:
+            bot_info = get_bot_info()
+            if bot_info.get("ok") and "result" in bot_info:
+                bot_username = bot_info["result"].get("username")
+        except Exception as e:
+            current_app.logger.warning(f"Could not get bot username: {str(e)}")
+    
+    return jsonify({
+        "enabled": enabled,
+        "linked": linked,
+        "bot_username": bot_username
+    })
+
+
+@telegram_api_bp.route("/link/start", methods=["POST"])
+@jwt_required()
+def start_telegram_link():
+    """
+    Generate a one-time code for Telegram linking
+    
+    Returns:
+        JSON with code and instructions
+    """
+    current_user = get_current_user()
+    
+    if not current_app.config.get("TELEGRAM_ENABLED", False):
+        return jsonify({"error": "Telegram integration is disabled"}), 400
+    
+    # Generate random 6-8 character code
+    code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    
+    # Store code and reset opt-in
+    current_user.telegram_link_code = code
+    current_user.telegram_opt_in = False
+    
+    try:
+        db.session.commit()
+        current_app.logger.info(f"Generated Telegram link code for user {current_user.id}")
+        
+        bot_username = current_app.config.get("TELEGRAM_BOT_USERNAME", "V3JobsBot")
+        
+        return jsonify({
+            "code": code,
+            "instructions": f"Send this message to @{bot_username}: /start {code}"
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error generating Telegram link code for user {current_user.id}: {str(e)}")
+        return jsonify({"error": "Failed to generate link code"}), 500
+
+
+@telegram_api_bp.route("/disconnect", methods=["POST"])
+@jwt_required()
+def disconnect_telegram():
+    """
+    Disconnect Telegram account from current user
+    
+    Returns:
+        JSON success message
+    """
+    current_user = get_current_user()
+    
+    # Clear Telegram data
+    current_user.telegram_chat_id = None
+    current_user.telegram_username = None
+    current_user.telegram_opt_in = False
+    current_user.telegram_link_code = None
+    
+    try:
+        db.session.commit()
+        current_app.logger.info(f"Disconnected Telegram for user {current_user.id}")
+        
+        return jsonify({"message": "Telegram account disconnected successfully"})
+    
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error disconnecting Telegram for user {current_user.id}: {str(e)}")
+        return jsonify({"error": "Failed to disconnect Telegram account"}), 500
+
+
+# Agent-scoped Telegram endpoints (duplicated under /api/agent/telegram for backwards compatibility)
+@agent_telegram_bp.route("/status", methods=["GET"])
+@jwt_required()
+def get_agent_telegram_status():
+    """Get Telegram integration status for current user (agent-scoped endpoint)"""
+    return get_telegram_status()
+
+@agent_telegram_bp.route("/link/start", methods=["POST"])
+@jwt_required()
+def start_agent_telegram_link():
+    """Generate a one-time code for Telegram linking (agent-scoped endpoint)"""
+    return start_telegram_link()
+
+@agent_telegram_bp.route("/disconnect", methods=["POST"])
+@jwt_required()
+def disconnect_agent_telegram():
+    """Disconnect Telegram account from current user (agent-scoped endpoint)"""
+    return disconnect_telegram()

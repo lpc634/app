@@ -65,7 +65,7 @@ export const getTelegramStatus = async () => {
 
 export const createTelegramLink = async () => {
   try {
-    const response = await makeApiCall('/agent/telegram/link', {
+    const response = await makeApiCall('/agent/telegram/link/start', {
       method: 'POST'
     });
     return response;
@@ -83,18 +83,6 @@ export const disconnectTelegram = async () => {
     return response;
   } catch (error) {
     console.error('Error disconnecting Telegram:', error);
-    throw error;
-  }
-};
-
-export const sendTestTelegram = async () => {
-  try {
-    const response = await makeApiCall('/agent/telegram/test', {
-      method: 'POST'
-    });
-    return response;
-  } catch (error) {
-    console.error('Error sending test Telegram message:', error);
     throw error;
   }
 };
