@@ -69,6 +69,36 @@ const AgentInvoices = () => {
     }).format(amount);
   };
 
+  // Helper function to compute invoice totals
+  const computeTotals = (list) => {
+    if (!Array.isArray(list) || list.length === 0) {
+      return { totalInvoiced: 0, totalPaid: 0, amountOwed: 0, earnedAllTime: 0 };
+    }
+
+    const isInvoiced = (s) => s && s.toLowerCase() !== 'draft';
+    const isPaid = (s) => s && s.toLowerCase() === 'paid';
+
+    let totalInvoiced = 0;
+    let totalPaid = 0;
+
+    for (const inv of list) {
+      const amount = Number(inv?.total_amount || 0);
+      if (isInvoiced(inv?.status)) totalInvoiced += amount;
+      if (isPaid(inv?.status)) totalPaid += amount;
+    }
+
+    const amountOwed = Math.max(totalInvoiced - totalPaid, 0);
+    const earnedAllTime = totalPaid; // since first invoice == all paid to date
+
+    return { totalInvoiced, totalPaid, amountOwed, earnedAllTime };
+  };
+
+  // Memoized totals calculation
+  const { totalInvoiced, totalPaid, amountOwed, earnedAllTime } = React.useMemo(
+    () => computeTotals(invoices),
+    [invoices]
+  );
+
   const handleDownload = async (invoiceId, invoiceNumber) => {
     try {
       // Add to downloading set
@@ -175,10 +205,40 @@ const AgentInvoices = () => {
         </Link>
       </div>
       
-      <div className="dashboard-card p-0">
-        <div className="p-6">
-            <h2 className="text-xl font-bold text-v3-text-lightest">Invoice History</h2>
+      <div className="space-y-6">
+        {/* Invoice Summary Card */}
+        <div className="dashboard-card p-0">
+          <div className="p-6 border-b border-v3-border">
+            <h2 className="text-xl font-bold text-v3-text-lightest">Your Invoice Summary</h2>
+            <p className="text-v3-text-muted text-sm mt-1">Live totals based on your invoices.</p>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="rounded-xl bg-v3-bg-dark/40 border border-v3-border p-4">
+                <div className="text-sm text-v3-text-muted">Total Invoiced</div>
+                <div className="text-2xl font-semibold text-v3-text-lightest mt-1">{formatCurrency(totalInvoiced)}</div>
+              </div>
+              <div className="rounded-xl bg-v3-bg-dark/40 border border-v3-border p-4">
+                <div className="text-sm text-v3-text-muted">Total Paid</div>
+                <div className="text-2xl font-semibold text-v3-text-lightest mt-1">{formatCurrency(totalPaid)}</div>
+              </div>
+              <div className="rounded-xl bg-v3-bg-dark/40 border border-v3-border p-4">
+                <div className="text-sm text-v3-text-muted">Amount Owed</div>
+                <div className="text-2xl font-semibold text-v3-text-lightest mt-1">{formatCurrency(amountOwed)}</div>
+              </div>
+              <div className="rounded-xl bg-v3-bg-dark/40 border border-v3-border p-4">
+                <div className="text-sm text-v3-text-muted">Earned since first invoice</div>
+                <div className="text-2xl font-semibold text-v3-text-lightest mt-1">{formatCurrency(earnedAllTime)}</div>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Invoice History Card */}
+        <div className="dashboard-card p-0">
+          <div className="p-6">
+              <h2 className="text-xl font-bold text-v3-text-lightest">Invoice History</h2>
+          </div>
         
         {invoices.length === 0 ? (
             <div className="text-center p-12 border-t border-v3-border">
@@ -264,6 +324,7 @@ const AgentInvoices = () => {
                 </div>
             </div>
         )}
+        </div>
       </div>
     </div>
   );
