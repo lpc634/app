@@ -48,6 +48,10 @@ const expenseStatuses = [
   { value: 'reimbursed', label: 'Reimbursed' }
 ];
 
+// Helper functions for Select value handling
+const toSelect = (v) => (v === undefined || v === null || v === '') ? '' : String(v);
+const fromSelect = (v) => (v === '' || v === 'all') ? undefined : v;
+
 export default function AdminExpenses() {
   const { apiCall } = useAuth();
   
@@ -95,7 +99,10 @@ export default function AdminExpenses() {
       const params = new URLSearchParams();
       if (filters.from) params.append('from', filters.from);
       if (filters.to) params.append('to', filters.to);
-      if (filters.category) params.append('category', filters.category);
+      
+      // Map filter values using fromSelect helper
+      const categoryFilter = fromSelect(filters.category);
+      if (categoryFilter) params.append('category', categoryFilter);
       if (filters.job_id) params.append('job_id', filters.job_id);
       
       const queryString = params.toString();
@@ -263,6 +270,20 @@ export default function AdminExpenses() {
     return variants[category] || 'bg-gray-700 text-gray-400';
   };
 
+  // Guard against undefined states that could crash selects
+  const safeFilters = {
+    ...filters,
+    category: toSelect(filters.category)
+  };
+
+  const safeExpenseForm = {
+    ...expenseForm,
+    category: toSelect(expenseForm.category),
+    vat_rate: toSelect(expenseForm.vat_rate),
+    paid_with: toSelect(expenseForm.paid_with),
+    status: toSelect(expenseForm.status)
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -302,7 +323,7 @@ export default function AdminExpenses() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="category">Category</Label>
-                    <Select value={expenseForm.category} onValueChange={(value) => setExpenseForm({...expenseForm, category: value})}>
+                    <Select value={safeExpenseForm.category} onValueChange={(value) => setExpenseForm({...expenseForm, category: value})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
@@ -341,9 +362,9 @@ export default function AdminExpenses() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="vat_rate">VAT Rate</Label>
-                    <Select value={expenseForm.vat_rate} onValueChange={(value) => setExpenseForm({...expenseForm, vat_rate: value})}>
+                    <Select value={safeExpenseForm.vat_rate} onValueChange={(value) => setExpenseForm({...expenseForm, vat_rate: value})}>
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Select VAT rate" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="0.00">0% (No VAT)</SelectItem>
@@ -367,7 +388,7 @@ export default function AdminExpenses() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="paid_with">Payment Method</Label>
-                    <Select value={expenseForm.paid_with} onValueChange={(value) => setExpenseForm({...expenseForm, paid_with: value})}>
+                    <Select value={safeExpenseForm.paid_with} onValueChange={(value) => setExpenseForm({...expenseForm, paid_with: value})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select method" />
                       </SelectTrigger>
@@ -392,9 +413,9 @@ export default function AdminExpenses() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="status">Status</Label>
-                    <Select value={expenseForm.status} onValueChange={(value) => setExpenseForm({...expenseForm, status: value})}>
+                    <Select value={safeExpenseForm.status} onValueChange={(value) => setExpenseForm({...expenseForm, status: value})}>
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
                         {expenseStatuses.map(status => (
@@ -489,12 +510,12 @@ export default function AdminExpenses() {
             </div>
             <div className="space-y-2">
               <Label>Category</Label>
-              <Select value={filters.category} onValueChange={(value) => setFilters({...filters, category: value})}>
+              <Select value={safeFilters.category} onValueChange={(value) => setFilters({...filters, category: value})}>
                 <SelectTrigger>
                   <SelectValue placeholder="All categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All categories</SelectItem>
+                  <SelectItem value="all">All categories</SelectItem>
                   {expenseCategories.map(cat => (
                     <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
                   ))}
@@ -627,7 +648,7 @@ export default function AdminExpenses() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-category">Category</Label>
-                  <Select value={expenseForm.category} onValueChange={(value) => setExpenseForm({...expenseForm, category: value})}>
+                  <Select value={safeExpenseForm.category} onValueChange={(value) => setExpenseForm({...expenseForm, category: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
@@ -666,9 +687,9 @@ export default function AdminExpenses() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-vat_rate">VAT Rate</Label>
-                  <Select value={expenseForm.vat_rate} onValueChange={(value) => setExpenseForm({...expenseForm, vat_rate: value})}>
+                  <Select value={safeExpenseForm.vat_rate} onValueChange={(value) => setExpenseForm({...expenseForm, vat_rate: value})}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select VAT rate" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="0.00">0% (No VAT)</SelectItem>
@@ -692,7 +713,7 @@ export default function AdminExpenses() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-paid_with">Payment Method</Label>
-                  <Select value={expenseForm.paid_with} onValueChange={(value) => setExpenseForm({...expenseForm, paid_with: value})}>
+                  <Select value={safeExpenseForm.paid_with} onValueChange={(value) => setExpenseForm({...expenseForm, paid_with: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select method" />
                     </SelectTrigger>
@@ -717,9 +738,9 @@ export default function AdminExpenses() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-status">Status</Label>
-                  <Select value={expenseForm.status} onValueChange={(value) => setExpenseForm({...expenseForm, status: value})}>
+                  <Select value={safeExpenseForm.status} onValueChange={(value) => setExpenseForm({...expenseForm, status: value})}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
                       {expenseStatuses.map(status => (
