@@ -15,6 +15,7 @@ const navigation = [
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Vehicle Search', href: '/admin/vehicle-search', icon: Search },
   { name: 'Document Review', href: '/admin/documents', icon: FileText, adminOnly: true },
+  { name: 'Agent Invoices', href: '/admin/agent-invoices', icon: FileText, adminOnly: true },
 ];
 
 function NavigationItems({ onItemClick = () => {} }) {

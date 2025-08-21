@@ -1786,3 +1786,51 @@ def get_agent_management_details(agent_id):
     except Exception as e:
         current_app.logger.error(f"Error fetching agent management details: {e}")
         return jsonify({'error': 'Failed to fetch agent details'}), 500
+
+
+@admin_bp.route('/admin/jobs/<int:job_id>/invoices', methods=['GET'])
+@jwt_required()
+def get_invoices_for_job(job_id):
+    """Get all invoices linked to a specific job"""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        if not current_user or current_user.role not in ['admin', 'manager']:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Check if job exists
+        job = Job.query.get(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        # Get all invoices linked to this job
+        invoices = (Invoice.query
+            .join(InvoiceJob, InvoiceJob.invoice_id == Invoice.id)
+            .filter(InvoiceJob.job_id == job_id)
+            .order_by(Invoice.issue_date.desc())
+            .all())
+
+        result = []
+        for inv in invoices:
+            invoice_dict = inv.to_dict()
+            
+            # Add agent name
+            if inv.agent:
+                invoice_dict['agent_name'] = f"{inv.agent.first_name} {inv.agent.last_name}"
+            else:
+                invoice_dict['agent_name'] = 'Unknown Agent'
+            
+            # Check if PDF is available
+            invoice_dict['pdf_available'] = bool(getattr(inv, 'pdf_file_url', None))
+            
+            result.append(invoice_dict)
+
+        return jsonify({
+            'job_id': job_id,
+            'invoices': result,
+            'count': len(result)
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching invoices for job {job_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to fetch job invoices'}), 500
