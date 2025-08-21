@@ -20,5 +20,7 @@ wheel>=0.43.0
 Flask-Migrate
 boto3
 python-dotenv
+pytest
+pytest-flask
 
 

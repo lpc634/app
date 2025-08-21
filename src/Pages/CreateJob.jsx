@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from "../useAuth";
 import { toast } from 'sonner';
-import { Briefcase, MapPin, Calendar, Users, MessageSquare, Send, Loader2, Navigation, X, ExternalLink } from 'lucide-react';
+import { Briefcase, MapPin, Calendar, Users, MessageSquare, Send, Loader2, Navigation, X, ExternalLink, DollarSign } from 'lucide-react';
 
 const CreateJob = () => {
-    const { apiCall } = useAuth();
+    const { apiCall, user } = useAuth();
     const [formData, setFormData] = useState({
         job_type: 'Traveller Eviction',
         address: '',
@@ -15,6 +15,15 @@ const CreateJob = () => {
         location_lng: '',
         maps_link: '',
         urgency_level: 'medium',
+    });
+
+    const [billingData, setBillingData] = useState({
+        hourly_rate_net: '',
+        first_hour_rate_net: '',
+        notice_fee_net: '',
+        vat_rate: '0.20',
+        agent_count: '',
+        billable_hours_override: ''
     });
     const [loading, setLoading] = useState(false);
     const [showMap, setShowMap] = useState(false);
@@ -354,19 +363,36 @@ const CreateJob = () => {
                 return;
             }
 
+            // Prepare job data
+            const jobData = {
+                ...formData,
+                agents_required: parseInt(formData.agents_required, 10),
+                hourly_rate: 0, // Set to 0 since agents handle their own rates
+            };
+
+            // Add billing data if user is admin and billing fields are filled
+            if ((user?.role === 'admin' || user?.role === 'manager') && billingData.hourly_rate_net) {
+                const billing = {};
+                if (billingData.hourly_rate_net) billing.hourly_rate_net = parseFloat(billingData.hourly_rate_net);
+                if (billingData.first_hour_rate_net) billing.first_hour_rate_net = parseFloat(billingData.first_hour_rate_net);
+                if (billingData.notice_fee_net) billing.notice_fee_net = parseFloat(billingData.notice_fee_net);
+                if (billingData.vat_rate) billing.vat_rate = parseFloat(billingData.vat_rate);
+                if (billingData.agent_count) billing.agent_count = parseInt(billingData.agent_count);
+                if (billingData.billable_hours_override) billing.billable_hours_override = parseFloat(billingData.billable_hours_override);
+                
+                jobData.billing = billing;
+            }
+
             const response = await apiCall('/jobs', {
                 method: 'POST',
-                body: JSON.stringify({
-                    ...formData,
-                    agents_required: parseInt(formData.agents_required, 10),
-                    hourly_rate: 0, // Set to 0 since agents handle their own rates
-                }),
+                body: JSON.stringify(jobData),
             });
             
             toast.success('Job Created Successfully', {
                 description: response.message,
             });
             
+            // Reset form data
             setFormData({
                 job_type: 'Traveller Eviction', 
                 address: '',
@@ -378,6 +404,17 @@ const CreateJob = () => {
                 maps_link: '',
                 urgency_level: 'medium',
             });
+            
+            // Reset billing data
+            setBillingData({
+                hourly_rate_net: '',
+                first_hour_rate_net: '',
+                notice_fee_net: '',
+                vat_rate: '0.20',
+                agent_count: '',
+                billable_hours_override: ''
+            });
+            
             setSelectedLocation(null);
 
         } catch (err) {
@@ -535,6 +572,111 @@ const CreateJob = () => {
                             className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all resize-none"
                         />
                     </div>
+
+                    {/* Billing Configuration (Admin Only) */}
+                    {(user?.role === 'admin' || user?.role === 'manager') && (
+                        <div className="dashboard-card p-6">
+                            <label className="flex items-center gap-2 text-sm font-semibold text-v3-text-lightest mb-4">
+                                <DollarSign className="w-4 h-4 text-v3-orange" />
+                                Billing Configuration
+                            </label>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-v3-text-light mb-2">
+                                            Hourly Rate (Net) *
+                                        </label>
+                                        <input 
+                                            type="number"
+                                            step="0.01"
+                                            value={billingData.hourly_rate_net}
+                                            onChange={(e) => setBillingData({...billingData, hourly_rate_net: e.target.value})}
+                                            placeholder="45.00"
+                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-v3-text-light mb-2">
+                                            First Hour Rate (Net)
+                                        </label>
+                                        <input 
+                                            type="number"
+                                            step="0.01"
+                                            value={billingData.first_hour_rate_net}
+                                            onChange={(e) => setBillingData({...billingData, first_hour_rate_net: e.target.value})}
+                                            placeholder="120.00"
+                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-v3-text-light mb-2">
+                                            Notice Service Fee (Net)
+                                        </label>
+                                        <input 
+                                            type="number"
+                                            step="0.01"
+                                            value={billingData.notice_fee_net}
+                                            onChange={(e) => setBillingData({...billingData, notice_fee_net: e.target.value})}
+                                            placeholder="75.00"
+                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-v3-text-light mb-2">
+                                            VAT Rate
+                                        </label>
+                                        <select 
+                                            value={billingData.vat_rate}
+                                            onChange={(e) => setBillingData({...billingData, vat_rate: e.target.value})}
+                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
+                                        >
+                                            <option value="0.00">0% (No VAT)</option>
+                                            <option value="0.05">5%</option>
+                                            <option value="0.20">20% (Standard)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-v3-text-light mb-2">
+                                            Agent Count
+                                        </label>
+                                        <input 
+                                            type="number"
+                                            value={billingData.agent_count}
+                                            onChange={(e) => setBillingData({...billingData, agent_count: e.target.value})}
+                                            placeholder="3"
+                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-v3-text-light mb-2">
+                                            Billable Hours Override
+                                        </label>
+                                        <input 
+                                            type="number"
+                                            step="0.25"
+                                            value={billingData.billable_hours_override}
+                                            onChange={(e) => setBillingData({...billingData, billable_hours_override: e.target.value})}
+                                            placeholder="30.5"
+                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="text-xs text-v3-text-muted">
+                                    <p>• Hourly Rate: Standard rate charged per hour</p>
+                                    <p>• First Hour Rate: Premium rate for first hour per agent (optional)</p>
+                                    <p>• Notice Fee: One-time fee per job (optional)</p>
+                                    <p>• Billable Hours Override: Manual override for calculated hours (optional)</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Submit Button */}
                     <div className="pt-2">
