@@ -11,6 +11,7 @@ from flask import Blueprint, jsonify, request, current_app, redirect, send_file,
 
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import User, Job, JobAssignment, AgentAvailability, Notification, Invoice, InvoiceJob, db
+from src.utils.finance import update_job_hours
 from src.utils.s3_client import s3_client
 from datetime import datetime, date, time, timedelta
 from decimal import Decimal, InvalidOperation
@@ -905,6 +906,13 @@ def create_invoice():
         # --- Commit Transaction ---
         db.session.commit()
         
+        # Trigger hours aggregation for all linked jobs
+        for item in jobs_to_invoice:
+            try:
+                update_job_hours(item['job'].id)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to update hours for job {item['job'].id}: {e}")
+        
         return jsonify({
             'message': 'Invoice created and sent successfully!',
             'invoice_number': invoice_number
@@ -1026,6 +1034,12 @@ def update_invoice(invoice_id):
         except Exception as e:
             current_app.logger.error(f"Failed to generate PDF or notify for invoice {invoice.invoice_number}: {str(e)}")
             pass
+        
+        # Trigger hours aggregation for the linked job
+        try:
+            update_job_hours(invoice_job.job_id)
+        except Exception as e:
+            current_app.logger.warning(f"Failed to update hours for job {invoice_job.job_id}: {e}")
         
         return jsonify({
             'message': 'Invoice updated and sent successfully',

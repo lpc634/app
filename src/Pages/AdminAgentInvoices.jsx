@@ -33,6 +33,9 @@ const AdminAgentInvoices = () => {
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [activeTab, setActiveTab] = useState('open');
   const [searchTerm, setSearchTerm] = useState('');
+  const [jobFinance, setJobFinance] = useState(null);
+  const [loadingFinance, setLoadingFinance] = useState(false);
+  const [lockingFinance, setLockingFinance] = useState(false);
 
   // Load jobs on mount
   useEffect(() => {
@@ -65,19 +68,43 @@ const AdminAgentInvoices = () => {
     }
   };
 
-  // Select job and fetch its invoices
+  // Select job and fetch its invoices and finance data
   const selectJob = async (job) => {
     try {
       setSelectedJob(job);
       setLoadingInvoices(true);
-      const res = await apiCall(`/admin/jobs/${job.id}/invoices`);
-      setJobInvoices(res.invoices || []);
+      setLoadingFinance(true);
+      setJobFinance(null);
+      
+      // Fetch invoices and finance data in parallel
+      const [invoicesRes, financeRes] = await Promise.allSettled([
+        apiCall(`/admin/jobs/${job.id}/invoices`),
+        apiCall(`/admin/jobs/${job.id}/finance`)
+      ]);
+      
+      if (invoicesRes.status === 'fulfilled') {
+        setJobInvoices(invoicesRes.value.invoices || []);
+      } else {
+        console.error('Failed to fetch job invoices:', invoicesRes.reason);
+        toast.error('Failed to load invoices');
+        setJobInvoices([]);
+      }
+      
+      if (financeRes.status === 'fulfilled') {
+        setJobFinance(financeRes.value);
+      } else {
+        console.error('Failed to fetch job finance:', financeRes.reason);
+        // Don't show error for finance - it's optional if no billing config exists
+        setJobFinance(null);
+      }
     } catch (error) {
-      console.error('Failed to fetch job invoices:', error);
-      toast.error('Failed to load invoices', { description: error.message });
+      console.error('Failed to fetch job data:', error);
+      toast.error('Failed to load job data');
       setJobInvoices([]);
+      setJobFinance(null);
     } finally {
       setLoadingInvoices(false);
+      setLoadingFinance(false);
     }
   };
 
@@ -153,6 +180,26 @@ const AdminAgentInvoices = () => {
     } catch (error) {
       console.error('Invoice download failed:', error);
       toast.error('Download failed', { description: error.message });
+    }
+  };
+
+  // Lock finance snapshot
+  const handleLockFinance = async () => {
+    if (!selectedJob || !jobFinance) return;
+    
+    try {
+      setLockingFinance(true);
+      await apiCall(`/admin/jobs/${selectedJob.id}/finance/lock`, { method: 'POST' });
+      toast.success('Revenue snapshot locked successfully');
+      
+      // Refresh finance data
+      const financeRes = await apiCall(`/admin/jobs/${selectedJob.id}/finance`);
+      setJobFinance(financeRes);
+    } catch (error) {
+      console.error('Failed to lock finance:', error);
+      toast.error('Failed to lock revenue snapshot');
+    } finally {
+      setLockingFinance(false);
     }
   };
 
@@ -416,6 +463,135 @@ const AdminAgentInvoices = () => {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Finance Card */}
+              {jobFinance ? (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">Job Finance</CardTitle>
+                      {selectedJob?.status === 'completed' && !jobFinance.billing?.revenue_gross_snapshot && (
+                        <Button
+                          onClick={handleLockFinance}
+                          disabled={lockingFinance}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {lockingFinance ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4 mr-2" />
+                          )}
+                          Lock Totals
+                        </Button>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {loadingFinance ? (
+                      <div className="flex items-center justify-center p-4">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Revenue Section */}
+                        <div>
+                          <h4 className="font-medium mb-2">Revenue</h4>
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Net</p>
+                              <p className="font-bold text-green-600">
+                                {formatCurrency(jobFinance.billing?.revenue_net || 0)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">VAT</p>
+                              <p className="font-medium">
+                                {formatCurrency(jobFinance.billing?.revenue_vat || 0)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Gross</p>
+                              <p className="font-bold text-blue-600">
+                                {formatCurrency(jobFinance.billing?.revenue_gross || 0)}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* Billing details */}
+                          <div className="mt-3 p-3 bg-muted/30 rounded text-xs">
+                            <div className="grid grid-cols-2 gap-2">
+                              <span>Hours: {jobFinance.billing?.billable_hours_calculated || 0} 
+                                {jobFinance.billing?.billable_hours_override && (
+                                  <span className="text-yellow-500"> (overridden)</span>
+                                )}
+                              </span>
+                              <span>First-hour units: {jobFinance.billing?.first_hour_units || 0}</span>
+                              <span>Hourly rate: {formatCurrency(jobFinance.billing?.hourly_rate_net || 0)}</span>
+                              <span>VAT rate: {((jobFinance.billing?.vat_rate || 0) * 100).toFixed(0)}%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Costs Section */}
+                        <div>
+                          <h4 className="font-medium mb-2">Costs</h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Agent invoices ({jobFinance.agent_invoices?.count || 0})</span>
+                              <span className="font-medium text-red-600">
+                                -{formatCurrency(jobFinance.agent_invoices?.total || 0)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Expenses ({jobFinance.job_expenses?.count || 0})</span>
+                              <span className="font-medium text-red-600">
+                                -{formatCurrency(jobFinance.job_expenses?.gross || 0)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Profit Section */}
+                        <div className="border-t pt-3">
+                          <h4 className="font-medium mb-2">Profit</h4>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Net Profit</p>
+                              <p className={`font-bold ${(jobFinance.profit?.profit_net || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {formatCurrency(jobFinance.profit?.profit_net || 0)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Gross Profit</p>
+                              <p className={`font-bold ${(jobFinance.profit?.profit_gross || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {formatCurrency(jobFinance.profit?.profit_gross || 0)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {jobFinance.billing?.revenue_gross_snapshot && (
+                          <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded text-xs">
+                            <p className="text-green-700 dark:text-green-400 font-medium">
+                              ✓ Revenue snapshot locked
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : !loadingFinance && selectedJob && (
+                <Card>
+                  <CardContent className="flex items-center justify-center p-8 text-muted-foreground">
+                    <div className="text-center">
+                      <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+                      <p>No billing configuration for this job</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
         </div>

@@ -402,3 +402,114 @@ class FCMToken(db.Model):
             db.session.delete(token)
         
         return len(inactive_tokens)
+
+
+class JobBilling(db.Model):
+    """Job billing configuration and aggregated financial data"""
+    __tablename__ = 'job_billing'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('jobs.id'), nullable=False, unique=True)
+    
+    # Admin-set billing terms
+    agent_count = db.Column(db.Integer, nullable=True)
+    hourly_rate_net = db.Column(db.Numeric(12, 2), nullable=False)
+    first_hour_rate_net = db.Column(db.Numeric(12, 2), nullable=True)
+    notice_fee_net = db.Column(db.Numeric(12, 2), nullable=True)
+    vat_rate = db.Column(db.Numeric(5, 4), nullable=False, default=0.20)
+    
+    # Manual override
+    billable_hours_override = db.Column(db.Numeric(6, 2), nullable=True)
+    
+    # Live rollups (updated by aggregator)
+    billable_hours_calculated = db.Column(db.Numeric(6, 2), nullable=False, default=0)
+    first_hour_units = db.Column(db.Numeric(6, 2), nullable=False, default=0)
+    
+    # Snapshots (set on lock/complete)
+    revenue_net_snapshot = db.Column(db.Numeric(12, 2), nullable=True)
+    revenue_vat_snapshot = db.Column(db.Numeric(12, 2), nullable=True)
+    revenue_gross_snapshot = db.Column(db.Numeric(12, 2), nullable=True)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    job = db.relationship('Job', backref=db.backref('billing', uselist=False, cascade='all, delete-orphan'))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'job_id': self.job_id,
+            'agent_count': self.agent_count,
+            'hourly_rate_net': float(self.hourly_rate_net) if self.hourly_rate_net else 0.0,
+            'first_hour_rate_net': float(self.first_hour_rate_net) if self.first_hour_rate_net else None,
+            'notice_fee_net': float(self.notice_fee_net) if self.notice_fee_net else None,
+            'vat_rate': float(self.vat_rate) if self.vat_rate else 0.20,
+            'billable_hours_override': float(self.billable_hours_override) if self.billable_hours_override else None,
+            'billable_hours_calculated': float(self.billable_hours_calculated) if self.billable_hours_calculated else 0.0,
+            'first_hour_units': float(self.first_hour_units) if self.first_hour_units else 0.0,
+            'revenue_net_snapshot': float(self.revenue_net_snapshot) if self.revenue_net_snapshot else None,
+            'revenue_vat_snapshot': float(self.revenue_vat_snapshot) if self.revenue_vat_snapshot else None,
+            'revenue_gross_snapshot': float(self.revenue_gross_snapshot) if self.revenue_gross_snapshot else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class Expense(db.Model):
+    """Job-related expenses with VAT handling"""
+    __tablename__ = 'expenses'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Basic expense info
+    date = db.Column(db.Date, nullable=False)
+    category = db.Column(db.Enum('fuel', 'food', 'parking', 'tolls', 'equipment', 'lodging', 'notice_fees', 'other', name='expense_category'), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    
+    # Financial data
+    amount_net = db.Column(db.Numeric(12, 2), nullable=False)
+    vat_rate = db.Column(db.Numeric(5, 4), nullable=False, default=0.20)
+    vat_amount = db.Column(db.Numeric(12, 2), nullable=False)  # computed server-side
+    amount_gross = db.Column(db.Numeric(12, 2), nullable=False)  # computed server-side
+    
+    # Metadata
+    job_id = db.Column(db.Integer, db.ForeignKey('jobs.id'), nullable=True)
+    paid_with = db.Column(db.Enum('company_card', 'cash', 'personal_card', 'bank_transfer', 'other', name='payment_method'), nullable=False)
+    supplier = db.Column(db.String(100), nullable=True)
+    receipt_url = db.Column(db.String(255), nullable=True)
+    
+    # Tracking
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    status = db.Column(db.Enum('logged', 'approved', 'reimbursed', name='expense_status'), nullable=False, default='logged')
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    job = db.relationship('Job', backref='expenses')
+    creator = db.relationship('User', foreign_keys=[created_by])
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'date': self.date.isoformat() if self.date else None,
+            'category': self.category,
+            'description': self.description,
+            'amount_net': float(self.amount_net) if self.amount_net else 0.0,
+            'vat_rate': float(self.vat_rate) if self.vat_rate else 0.20,
+            'vat_amount': float(self.vat_amount) if self.vat_amount else 0.0,
+            'amount_gross': float(self.amount_gross) if self.amount_gross else 0.0,
+            'job_id': self.job_id,
+            'paid_with': self.paid_with,
+            'supplier': self.supplier,
+            'receipt_url': self.receipt_url,
+            'created_by': self.created_by,
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'job': self.job.to_dict() if self.job else None,
+            'creator_name': f"{self.creator.first_name} {self.creator.last_name}" if self.creator else None
+        }

@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "./useAuth.jsx";
 
 // --- 1. IMPORT THE SEARCH ICON ---
-import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search, FileText } from 'lucide-react';
+import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search, FileText, DollarSign } from 'lucide-react';
 import logo from './assets/new_logo.png';
 
 const navigation = [
@@ -16,6 +16,7 @@ const navigation = [
   { name: 'Vehicle Search', href: '/admin/vehicle-search', icon: Search },
   { name: 'Document Review', href: '/admin/documents', icon: FileText, adminOnly: true },
   { name: 'Agent Invoices', href: '/admin/agent-invoices', icon: FileText, adminOnly: true },
+  { name: 'Expenses', href: '/admin/expenses', icon: DollarSign, adminOnly: true },
 ];
 
 function NavigationItems({ onItemClick = () => {} }) {

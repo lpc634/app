@@ -24,6 +24,7 @@ import AvailabilityPage from './Pages/AvailabilityPage';
 import JobManagement from './Pages/JobManagement';
 import AdminDocumentReview from './components/AdminDocumentReview';
 import AdminAgentInvoices from './Pages/AdminAgentInvoices';
+import AdminExpenses from './Pages/AdminExpenses';
 
 import NotificationsPage from './Pages/NotificationsPage';
 import ProfilePage from './Pages/ProfilePage';
@@ -91,6 +92,7 @@ function App() {
           <Route path="/admin/vehicle-search" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><VehicleSearchPage /></Layout></ProtectedRoute>} />
           <Route path="/admin/documents" element={<ProtectedRoute allowedRoles={['admin']}><Layout><AdminDocumentReview /></Layout></ProtectedRoute>} />
           <Route path="/admin/agent-invoices" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><AdminAgentInvoices /></Layout></ProtectedRoute>} />
+          <Route path="/admin/expenses" element={<ProtectedRoute allowedRoles={['admin']}><Layout><AdminExpenses /></Layout></ProtectedRoute>} />
           <Route path="/debug" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><DebugPage /></Layout></ProtectedRoute>} />
           
           {/* Agent Routes */}

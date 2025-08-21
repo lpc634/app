@@ -1,8 +1,13 @@
 # src/routes/admin.py
 from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from src.models.user import User, Job, JobAssignment, AgentAvailability, Invoice, InvoiceJob, Notification, db
+from src.models.user import User, Job, JobAssignment, AgentAvailability, Invoice, InvoiceJob, Notification, JobBilling, Expense, db
 from src.utils.s3_client import s3_client
+from src.utils.finance import (
+    update_job_hours, calculate_job_revenue, calculate_expense_vat,
+    get_job_expense_totals, get_job_agent_invoice_totals, calculate_job_profit,
+    lock_job_revenue_snapshot
+)
 from datetime import datetime, date
 import json
 import logging
@@ -1831,3 +1836,301 @@ def get_invoices_for_job(job_id):
     except Exception as e:
         current_app.logger.error(f"Error fetching invoices for job {job_id}: {e}", exc_info=True)
         return jsonify({'error': 'Failed to fetch job invoices'}), 500
+
+
+# ====================
+# FINANCE ENDPOINTS
+# ====================
+
+@admin_bp.route('/admin/jobs/<int:job_id>/finance', methods=['GET'])
+@jwt_required()
+def get_job_finance(job_id):
+    """Get complete financial breakdown for a job"""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get job
+        job = Job.query.get(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        # Get billing config
+        billing = JobBilling.query.filter_by(job_id=job_id).first()
+        if not billing:
+            return jsonify({'error': 'No billing configuration found for this job'}), 404
+        
+        # Calculate revenue
+        revenue = calculate_job_revenue(billing)
+        
+        # Get expense totals
+        expenses = get_job_expense_totals(job_id)
+        
+        # Get agent invoice totals
+        agent_invoices = get_job_agent_invoice_totals(job_id)
+        
+        # Calculate profit
+        profit = calculate_job_profit(job_id)
+        
+        # Build response
+        billing_dict = billing.to_dict()
+        billing_dict.update(revenue)
+        
+        return jsonify({
+            'job_id': job_id,
+            'billing': billing_dict,
+            'agent_invoices': agent_invoices,
+            'job_expenses': expenses,
+            'profit': profit
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching job finance for {job_id}: {e}")
+        return jsonify({'error': 'Failed to fetch job finance data'}), 500
+
+
+@admin_bp.route('/admin/jobs/<int:job_id>/finance/lock', methods=['POST'])
+@jwt_required()
+def lock_job_finance(job_id):
+    """Lock revenue snapshot for completed job"""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Check job exists
+        job = Job.query.get(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        # Lock snapshot
+        success = lock_job_revenue_snapshot(job_id)
+        
+        if success:
+            return jsonify({'message': 'Revenue snapshot locked successfully'}), 200
+        else:
+            return jsonify({'error': 'Failed to lock revenue snapshot'}), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Error locking finance for job {job_id}: {e}")
+        return jsonify({'error': 'Failed to lock revenue snapshot'}), 500
+
+
+@admin_bp.route('/admin/expenses', methods=['GET'])
+@jwt_required()
+def list_expenses():
+    """List expenses with filtering"""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Parse query parameters
+        from_date = request.args.get('from')
+        to_date = request.args.get('to')
+        job_id = request.args.get('job_id', type=int)
+        category = request.args.get('category')
+        
+        # Build query
+        query = Expense.query
+        
+        if from_date:
+            try:
+                from_date_obj = datetime.strptime(from_date, '%Y-%m-%d').date()
+                query = query.filter(Expense.date >= from_date_obj)
+            except ValueError:
+                return jsonify({'error': 'Invalid from date format. Use YYYY-MM-DD'}), 400
+        
+        if to_date:
+            try:
+                to_date_obj = datetime.strptime(to_date, '%Y-%m-%d').date()
+                query = query.filter(Expense.date <= to_date_obj)
+            except ValueError:
+                return jsonify({'error': 'Invalid to date format. Use YYYY-MM-DD'}), 400
+        
+        if job_id:
+            query = query.filter(Expense.job_id == job_id)
+        
+        if category:
+            query = query.filter(Expense.category == category)
+        
+        # Execute query
+        expenses = query.order_by(Expense.date.desc()).all()
+        
+        # Calculate totals
+        total_net = sum(exp.amount_net for exp in expenses)
+        total_vat = sum(exp.vat_amount for exp in expenses)
+        total_gross = sum(exp.amount_gross for exp in expenses)
+        
+        return jsonify({
+            'expenses': [exp.to_dict() for exp in expenses],
+            'totals': {
+                'net': float(total_net) if total_net else 0.0,
+                'vat': float(total_vat) if total_vat else 0.0,
+                'gross': float(total_gross) if total_gross else 0.0
+            }
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error listing expenses: {e}")
+        return jsonify({'error': 'Failed to list expenses'}), 500
+
+
+@admin_bp.route('/admin/expenses', methods=['POST'])
+@jwt_required()
+def create_expense():
+    """Create new expense"""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Required fields
+        required_fields = ['date', 'category', 'description', 'amount_net', 'paid_with']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        # Parse date
+        try:
+            expense_date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        
+        # Calculate VAT
+        amount_net = data['amount_net']
+        vat_rate = data.get('vat_rate', 0.20)
+        vat_amount, amount_gross = calculate_expense_vat(amount_net, vat_rate)
+        
+        # Create expense
+        expense = Expense(
+            date=expense_date,
+            category=data['category'],
+            description=data['description'],
+            amount_net=amount_net,
+            vat_rate=vat_rate,
+            vat_amount=vat_amount,
+            amount_gross=amount_gross,
+            job_id=data.get('job_id'),
+            paid_with=data['paid_with'],
+            supplier=data.get('supplier'),
+            receipt_url=data.get('receipt_url'),
+            created_by=current_user_id,
+            status=data.get('status', 'logged')
+        )
+        
+        db.session.add(expense)
+        db.session.commit()
+        
+        return jsonify(expense.to_dict()), 201
+        
+    except Exception as e:
+        current_app.logger.error(f"Error creating expense: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to create expense'}), 500
+
+
+@admin_bp.route('/admin/expenses/<int:expense_id>', methods=['PATCH'])
+@jwt_required()
+def update_expense(expense_id):
+    """Update existing expense"""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        expense = Expense.query.get(expense_id)
+        if not expense:
+            return jsonify({'error': 'Expense not found'}), 404
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Update fields
+        if 'date' in data:
+            try:
+                expense.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        
+        if 'category' in data:
+            expense.category = data['category']
+        
+        if 'description' in data:
+            expense.description = data['description']
+        
+        if 'amount_net' in data or 'vat_rate' in data:
+            amount_net = data.get('amount_net', expense.amount_net)
+            vat_rate = data.get('vat_rate', expense.vat_rate)
+            vat_amount, amount_gross = calculate_expense_vat(amount_net, vat_rate)
+            
+            expense.amount_net = amount_net
+            expense.vat_rate = vat_rate
+            expense.vat_amount = vat_amount
+            expense.amount_gross = amount_gross
+        
+        if 'job_id' in data:
+            expense.job_id = data['job_id']
+        
+        if 'paid_with' in data:
+            expense.paid_with = data['paid_with']
+        
+        if 'supplier' in data:
+            expense.supplier = data['supplier']
+        
+        if 'receipt_url' in data:
+            expense.receipt_url = data['receipt_url']
+        
+        if 'status' in data:
+            expense.status = data['status']
+        
+        db.session.commit()
+        
+        return jsonify(expense.to_dict()), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating expense {expense_id}: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to update expense'}), 500
+
+
+@admin_bp.route('/admin/expenses/<int:expense_id>', methods=['DELETE'])
+@jwt_required()
+def delete_expense(expense_id):
+    """Delete expense"""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+        
+        expense = Expense.query.get(expense_id)
+        if not expense:
+            return jsonify({'error': 'Expense not found'}), 404
+        
+        db.session.delete(expense)
+        db.session.commit()
+        
+        return jsonify({'message': 'Expense deleted successfully'}), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error deleting expense {expense_id}: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to delete expense'}), 500

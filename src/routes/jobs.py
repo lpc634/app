@@ -11,7 +11,8 @@ import logging
 
 # --- Corrected Imports ---
 from sqlalchemy import and_, or_, case
-from src.models.user import User, Job, JobAssignment, AgentAvailability, AgentWeeklyAvailability, Notification, Invoice, InvoiceJob, db
+from src.models.user import User, Job, JobAssignment, AgentAvailability, AgentWeeklyAvailability, Notification, Invoice, InvoiceJob, JobBilling, db
+from src.utils.finance import update_job_hours
 from src.routes.notifications import trigger_push_notification_for_users
 
 jobs_bp = Blueprint('jobs', __name__)
@@ -488,6 +489,35 @@ def update_job(job_id):
         if 'address' in data and data['address']:
             job.title = data['address']
         
+        # Update billing configuration if provided (admin only)
+        if 'billing' in data and data['billing']:
+            billing_data = data['billing']
+            try:
+                # Get or create billing config
+                billing = JobBilling.query.filter_by(job_id=job_id).first()
+                if not billing:
+                    billing = JobBilling(job_id=job_id)
+                    db.session.add(billing)
+                
+                # Update billing fields
+                if 'agent_count' in billing_data:
+                    billing.agent_count = billing_data['agent_count']
+                if 'hourly_rate_net' in billing_data:
+                    billing.hourly_rate_net = billing_data['hourly_rate_net']
+                if 'first_hour_rate_net' in billing_data:
+                    billing.first_hour_rate_net = billing_data['first_hour_rate_net']
+                if 'notice_fee_net' in billing_data:
+                    billing.notice_fee_net = billing_data['notice_fee_net']
+                if 'vat_rate' in billing_data:
+                    billing.vat_rate = billing_data['vat_rate']
+                if 'billable_hours_override' in billing_data:
+                    billing.billable_hours_override = billing_data['billable_hours_override']
+                
+                logger.info(f"Admin updated billing config for job {job_id}")
+            except Exception as e:
+                logger.error(f"Error updating job billing: {e}")
+                # Don't fail the job update, just log the error
+        
         job.updated_at = datetime.utcnow()
         db.session.commit()
         
@@ -825,6 +855,26 @@ def create_job():
         else:
             logger.warning("No assigned agent IDs found, skipping notification creation")
 
+        # Create billing configuration if provided (admin only)
+        if 'billing' in data and data['billing']:
+            billing_data = data['billing']
+            try:
+                job_billing = JobBilling(
+                    job_id=new_job.id,
+                    agent_count=billing_data.get('agent_count'),
+                    hourly_rate_net=billing_data['hourly_rate_net'],
+                    first_hour_rate_net=billing_data.get('first_hour_rate_net'),
+                    notice_fee_net=billing_data.get('notice_fee_net'),
+                    vat_rate=billing_data.get('vat_rate', 0.20),
+                    billable_hours_override=billing_data.get('billable_hours_override')
+                )
+                db.session.add(job_billing)
+                print(f"[DEBUG] Created billing config for job {new_job.id}")
+                logger.info(f"Admin created billing config for job {new_job.id}")
+            except Exception as e:
+                logger.error(f"Error creating job billing: {e}")
+                # Don't fail the job creation, just log the error
+        
         try:
             print("[DEBUG] Attempting to commit job creation and notifications to database")
             logger.error("[DEBUG] Attempting to commit job creation and notifications to database")
