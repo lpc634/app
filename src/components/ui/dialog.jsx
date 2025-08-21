@@ -49,13 +49,7 @@ function DialogContent({
   showCloseButton = true,
   ...props
 }) {
-  // Add body class to prevent scroll when modal is open
-  React.useEffect(() => {
-    document.body.classList.add('modal-open');
-    return () => {
-      document.body.classList.remove('modal-open');
-    };
-  }, []);
+  // Do not lock body scroll globally; overlay handles focus trap
 
   return (
     <DialogPortal data-slot="dialog-portal">
