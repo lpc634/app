@@ -43,8 +43,8 @@ const AdminAgentInvoices = () => {
     try {
       setLoadingJobs(true);
       const [openRes, completedRes] = await Promise.all([
-        apiCall('/admin/jobs?status=open'),
-        apiCall('/admin/jobs?status=completed')
+        apiCall('/api/jobs?status=open'),
+        apiCall('/api/jobs?status=completed')
       ]);
       setOpenJobs(openRes.jobs || []);
       setCompletedJobs(completedRes.jobs || []);

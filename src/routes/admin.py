@@ -596,20 +596,32 @@ def get_available_agents():
 @admin_bp.route('/jobs', methods=['GET'])
 @jwt_required()
 def get_jobs():
-    """Get jobs with optional status filter"""
+    """Get jobs with optional status filter - matches Dashboard logic"""
     try:
         current_user_id = get_jwt_identity()
         current_user = User.query.get(int(current_user_id))
         
-        if not current_user or current_user.role != 'admin':
+        if not current_user or current_user.role not in ['admin', 'manager']:
             return jsonify({'error': 'Access denied'}), 403
         
         # Get status filter from query params
-        status_filter = request.args.get('status')
+        status_filter = (request.args.get('status') or 'all').lower()
         
         query = Job.query
-        if status_filter:
-            query = query.filter(Job.status == status_filter)
+        
+        # Apply status filtering to match Dashboard logic
+        if status_filter == 'open':
+            # Dashboard logic: job.status !== 'completed'
+            query = query.filter(Job.status != 'completed')
+        elif status_filter == 'completed':
+            # Dashboard logic: job.status === 'completed'
+            query = query.filter(Job.status == 'completed')
+        elif status_filter == 'all':
+            # No filter - show all jobs
+            pass
+        else:
+            # Unknown status - return empty list (not 404)
+            return jsonify({'jobs': []}), 200
         
         jobs = query.order_by(Job.created_at.desc()).all()
         
