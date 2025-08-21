@@ -104,7 +104,7 @@ export default function Layout({ children }) {
   );
 
   return (
-    <div className="min-h-screen-ios bg-background prevent-horizontal-scroll">
+    <div className="min-h-screen-ios bg-background prevent-horizontal-scroll flex">
       {/* Mobile Header with Menu Button and Safe Area */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 min-h-[64px] bg-card border-b flex items-center justify-between px-4 safe-pt">
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -141,10 +141,10 @@ export default function Layout({ children }) {
       </div>
 
       {/* Main Content Area with Safe Area */}
-      <div className="lg:pl-72 w-full max-w-full overflow-x-hidden">
-        <main className="py-4 lg:py-10 safe-pb">
+      <div className="lg:pl-72 w-full max-w-full overflow-x-hidden flex flex-col">
+        <main className="flex-1 overflow-y-auto py-4 lg:py-10 safe-pb">
           {/* Add top padding on mobile to account for fixed header */}
-          <div className="px-4 sm:px-6 lg:px-8 pt-20 lg:pt-0 w-full max-w-full">
+          <div className="px-4 sm:px-6 lg:px-8 pt-20 lg:pt-0 w-full max-w-full pb-24">
             {children}
           </div>
         </main>

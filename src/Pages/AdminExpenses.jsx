@@ -330,7 +330,7 @@ export default function AdminExpenses() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="px-6 pb-24 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Expenses</h1>
@@ -492,6 +492,7 @@ export default function AdminExpenses() {
       </div>
 
       {/* Finance Overview */}
+      <section className="mb-6">
       <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">Finance Overview</CardTitle>
@@ -544,9 +545,10 @@ export default function AdminExpenses() {
           )}
         </CardContent>
       </Card>
+      </section>
 
       {/* KPI Cards (Expenses Totals) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -582,9 +584,10 @@ export default function AdminExpenses() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </section>
 
       {/* Filters */}
+      <section className="mb-6">
       <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
         <CardHeader>
           <CardTitle className="text-lg">Filters</CardTitle>
@@ -645,15 +648,14 @@ export default function AdminExpenses() {
           </div>
         </CardContent>
       </Card>
+      </section>
 
       {/* Expenses Table */}
-      <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
-        <CardHeader>
-          <CardTitle className="text-lg">
-            Expenses ({expenses.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <section className="mb-10">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-md overflow-x-auto">
+          <div className="px-6 py-4 border-b border-zinc-800">
+            <h2 className="text-lg font-semibold">Expenses ({expenses.length})</h2>
+          </div>
           {loading ? (
             <div className="flex items-center justify-center p-8">
               <Loader2 className="h-6 w-6 animate-spin" />
@@ -667,7 +669,7 @@ export default function AdminExpenses() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b">
+                  <tr className="border-b border-zinc-800">
                     <th className="text-left p-2 text-sm font-medium">Date</th>
                     <th className="text-left p-2 text-sm font-medium">Category</th>
                     <th className="text-left p-2 text-sm font-medium">Description</th>
@@ -680,7 +682,7 @@ export default function AdminExpenses() {
                 </thead>
                 <tbody>
                   {expenses.map((expense) => (
-                    <tr key={expense.id} className="border-b hover:bg-muted/50">
+                    <tr key={expense.id} className="border-b border-zinc-800 hover:bg-muted/50">
                       <td className="p-2 text-sm">{expense.date}</td>
                       <td className="p-2">
                         <Badge className={getCategoryBadge(expense.category)} variant="outline">
@@ -720,8 +722,8 @@ export default function AdminExpenses() {
               </table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
