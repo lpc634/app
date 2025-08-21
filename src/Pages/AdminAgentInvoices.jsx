@@ -42,15 +42,24 @@ const AdminAgentInvoices = () => {
   const fetchJobs = async () => {
     try {
       setLoadingJobs(true);
-      const [openRes, completedRes] = await Promise.all([
-        apiCall('/api/jobs?status=open'),
-        apiCall('/api/jobs?status=completed')
-      ]);
-      setOpenJobs(openRes.jobs || []);
-      setCompletedJobs(completedRes.jobs || []);
+      // Single API call - apiCall already adds /api prefix
+      const res = await apiCall('/jobs');
+      
+      // Handle both response formats: { jobs: [...] } or [...]
+      const incoming = Array.isArray(res?.jobs) ? res.jobs : (Array.isArray(res) ? res : []);
+      
+      // Client-side filtering using Dashboard logic
+      const isCompleted = (status) => (status || '').toLowerCase() === 'completed';
+      const openJobs = incoming.filter(job => !isCompleted(job.status));
+      const completedJobs = incoming.filter(job => isCompleted(job.status));
+      
+      setOpenJobs(openJobs);
+      setCompletedJobs(completedJobs);
     } catch (error) {
       console.error('Failed to fetch jobs:', error);
       toast.error('Failed to load jobs', { description: error.message });
+      setOpenJobs([]);
+      setCompletedJobs([]);
     } finally {
       setLoadingJobs(false);
     }
