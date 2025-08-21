@@ -1606,8 +1606,8 @@ def send_test_telegram():
         if not agent or agent.role != 'agent':
             return jsonify({'error': 'Access denied. Agent role required.'}), 403
         
-        if not current_app.config['TELEGRAM_ENABLED']:
-            return jsonify({'status': 'disabled', 'message': 'Telegram integration is disabled'}), 200
+        if not current_app.config.get('TELEGRAM_ENABLED', False):
+            return jsonify({'error': 'Telegram integration is disabled'}), 400
         
         if not agent.telegram_chat_id or not agent.telegram_opt_in:
             return jsonify({'error': 'Telegram not connected or notifications disabled'}), 400
@@ -1619,12 +1619,12 @@ def send_test_telegram():
         
         result = send_message(agent.telegram_chat_id, test_message)
         
-        if result.get('status') == 'error':
-            return jsonify({'error': f"Failed to send test message: {result.get('message')}"}), 500
+        if result.get('status') == 'error' or not result.get('ok'):
+            return jsonify({'error': f"Failed to send test message: {result.get('message', 'Unknown error')}"}), 500
         
         current_app.logger.info(f"Test Telegram message sent to agent {agent.id}")
         
-        return jsonify({'status': 'success', 'message': 'Test message sent successfully'}), 200
+        return jsonify({'message': 'Test message sent successfully'})
         
     except Exception as e:
         current_app.logger.error(f"Error sending test Telegram message: {str(e)}")

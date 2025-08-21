@@ -87,6 +87,18 @@ export const disconnectTelegram = async () => {
   }
 };
 
+export const sendTestTelegram = async () => {
+  try {
+    const response = await makeApiCall('/agent/telegram/test', {
+      method: 'POST'
+    });
+    return response;
+  } catch (error) {
+    console.error('Error sending test Telegram message:', error);
+    throw error;
+  }
+};
+
 // Agent profile functions
 export const getAgentProfile = async () => {
   try {

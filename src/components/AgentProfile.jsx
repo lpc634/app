@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
 import { Loader2, User as UserIcon, Landmark, FileUp, CheckCircle, Image as ImageIcon, Download, Trash2, MessageCircle, ExternalLink, Send } from 'lucide-react';
-import { getTelegramStatus, createTelegramLink, disconnectTelegram } from '../api/agents';
+import { getTelegramStatus, createTelegramLink, disconnectTelegram, sendTestTelegram } from '../api/agents';
 
 const AgentProfile = () => {
   const { user, loading, apiCall } = useAuth();
@@ -85,6 +85,20 @@ const AgentProfile = () => {
       toast.success('Telegram disconnected successfully');
     } catch (error) {
       toast.error('Failed to disconnect Telegram', { description: error.message });
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
+  const handleTestTelegram = async () => {
+    setTelegramLoading(true);
+    try {
+      await sendTestTelegram();
+      toast.success('Test message sent!', {
+        description: 'Check your Telegram for the test message.'
+      });
+    } catch (error) {
+      toast.error('Failed to send test message', { description: error.message });
     } finally {
       setTelegramLoading(false);
     }
@@ -402,14 +416,25 @@ const AgentProfile = () => {
                 </div>
                 <div className="flex gap-2">
                   {telegramStatus.linked ? (
-                    <button
-                      type="button"
-                      onClick={handleDisconnectTelegram}
-                      disabled={telegramLoading}
-                      className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
-                    >
-                      Disconnect
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleTestTelegram}
+                        disabled={telegramLoading}
+                        className="px-4 py-2 text-sm bg-v3-orange text-white rounded-md hover:bg-v3-orange-dark disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {telegramLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        Send Test
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDisconnectTelegram}
+                        disabled={telegramLoading}
+                        className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                      >
+                        Disconnect
+                      </button>
+                    </>
                   ) : (
                     <button
                       type="button"
