@@ -6,7 +6,7 @@ from src.utils.s3_client import s3_client
 from src.utils.finance import (
     update_job_hours, calculate_job_revenue, calculate_expense_vat,
     get_job_expense_totals, get_job_agent_invoice_totals, calculate_job_profit,
-    lock_job_revenue_snapshot
+    lock_job_revenue_snapshot, get_financial_summary
 )
 from datetime import datetime, date
 import json
@@ -2134,3 +2134,88 @@ def delete_expense(expense_id):
         current_app.logger.error(f"Error deleting expense {expense_id}: {e}")
         db.session.rollback()
         return jsonify({'error': 'Failed to delete expense'}), 500
+
+
+@admin_bp.route('/admin/finance/summary', methods=['GET'])
+@jwt_required()
+def finance_summary():
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+
+        from_q = request.args.get('from')
+        to_q = request.args.get('to')
+
+        def parse_date(s):
+            if not s:
+                return None
+            return datetime.strptime(s, '%Y-%m-%d').date()
+
+        from_date = parse_date(from_q)
+        to_date = parse_date(to_q)
+
+        if (from_q and from_date is None) or (to_q and to_date is None):
+            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+
+        # Build normalized financial summary
+        summary = get_financial_summary(from_date=from_date, to_date=to_date)
+
+        # Ensure floats and required keys
+        response = {
+            'revenue': {
+                'net': float(summary.get('revenue', {}).get('net', 0.0) or 0.0),
+                'vat': float(summary.get('revenue', {}).get('vat', 0.0) or 0.0),
+                'gross': float(summary.get('revenue', {}).get('gross', 0.0) or 0.0),
+            },
+            'agent_invoices': {
+                'net': float(summary.get('agent_invoices', {}).get('net', 0.0) or 0.0),
+                'gross': float(summary.get('agent_invoices', {}).get('gross', 0.0) or 0.0),
+            },
+            'expenses': {
+                'net': float(summary.get('expenses', {}).get('net', 0.0) or 0.0),
+                'vat': float(summary.get('expenses', {}).get('vat', 0.0) or 0.0),
+                'gross': float(summary.get('expenses', {}).get('gross', 0.0) or 0.0),
+            },
+            'money_in': {
+                'net': float(summary.get('money_in', {}).get('net', response['revenue']['net'] if 'response' in locals() else 0.0)),
+                'gross': float(summary.get('money_in', {}).get('gross', response['revenue']['gross'] if 'response' in locals() else 0.0)),
+            },
+            'money_out': {
+                'net': float(summary.get('money_out', {}).get('net', summary.get('agent_invoices', {}).get('net', 0.0) + summary.get('expenses', {}).get('net', 0.0))),
+                'gross': float(summary.get('money_out', {}).get('gross', summary.get('agent_invoices', {}).get('gross', 0.0) + summary.get('expenses', {}).get('gross', 0.0))),
+            },
+            'profit': {
+                'net': float(summary.get('profit', {}).get('net', 0.0) or 0.0),
+                'gross': float(summary.get('profit', {}).get('gross', 0.0) or 0.0),
+            },
+            'vat': {
+                'output': float(summary.get('vat', {}).get('output', 0.0) or 0.0),
+                'input': float(summary.get('vat', {}).get('input', 0.0) or 0.0),
+                'net_due': float(summary.get('vat', {}).get('net_due', 0.0) or 0.0),
+            },
+        }
+
+        # If money_in not provided, derive from revenue
+        response['money_in']['net'] = response['money_in']['net'] or response['revenue']['net']
+        response['money_in']['gross'] = response['money_in']['gross'] or response['revenue']['gross']
+
+        # If money_out not provided, derive from components
+        response['money_out']['net'] = response['money_out']['net'] or (response['agent_invoices']['net'] + response['expenses']['net'])
+        response['money_out']['gross'] = response['money_out']['gross'] or (response['agent_invoices']['gross'] + response['expenses']['gross'])
+
+        # If profit not provided, derive
+        response['profit']['net'] = response['profit']['net'] or (response['money_in']['net'] - response['money_out']['net'])
+        response['profit']['gross'] = response['profit']['gross'] or (response['money_in']['gross'] - response['money_out']['gross'])
+
+        # Ensure VAT net_due
+        response['vat']['net_due'] = response['vat']['net_due'] or (response['vat']['output'] - response['vat']['input'])
+
+        return jsonify(response), 200
+
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+    except Exception as e:
+        current_app.logger.error(f"Error building finance summary: {e}")
+        return jsonify({'error': 'Failed to build finance summary'}), 500

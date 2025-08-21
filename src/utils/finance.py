@@ -497,3 +497,79 @@ def round_financial_summary(summary):
     except Exception as e:
         logger.error(f"Error rounding financial summary: {e}")
         return summary
+
+
+def get_financial_summary(from_date=None, to_date=None):
+    """
+    Normalize summarize_business_finances output to the API response schema.
+    Returns floats and required keys.
+    """
+    try:
+        summary = summarize_business_finances(from_date=from_date, to_date=to_date)
+        if not summary:
+            return {
+                'revenue': {'net': 0.0, 'vat': 0.0, 'gross': 0.0},
+                'agent_invoices': {'net': 0.0, 'gross': 0.0},
+                'expenses': {'net': 0.0, 'vat': 0.0, 'gross': 0.0},
+                'money_in': {'net': 0.0, 'gross': 0.0},
+                'money_out': {'net': 0.0, 'gross': 0.0},
+                'profit': {'net': 0.0, 'gross': 0.0},
+                'vat': {'output': 0.0, 'input': 0.0, 'net_due': 0.0},
+            }
+
+        revenue = {
+            'net': float(summary.get('revenue', {}).get('net', 0.0) or 0.0),
+            'vat': float(summary.get('revenue', {}).get('vat', 0.0) or 0.0),
+            'gross': float(summary.get('revenue', {}).get('gross', 0.0) or 0.0),
+        }
+
+        expenses_src = summary.get('costs', {}).get('expenses', {}) or {}
+        expenses = {
+            'net': float(expenses_src.get('net', 0.0) or 0.0),
+            'vat': float(expenses_src.get('vat', 0.0) or 0.0),
+            'gross': float(expenses_src.get('gross', 0.0) or 0.0),
+        }
+
+        agent_total = float(summary.get('costs', {}).get('agent_invoices_total', 0.0) or 0.0)
+        agent_invoices = {'net': agent_total, 'gross': agent_total}
+
+        money_in = {'net': revenue['net'], 'gross': revenue['gross']}
+        money_out = {
+            'net': agent_total + expenses['net'],
+            'gross': agent_total + expenses['gross'],
+        }
+
+        profit_src = summary.get('profit', {}) or {}
+        profit = {
+            'net': float(profit_src.get('net', money_in['net'] - money_out['net']) or 0.0),
+            'gross': float(profit_src.get('gross', money_in['gross'] - money_out['gross']) or 0.0),
+        }
+
+        vat_src = summary.get('vat', {}) or {}
+        vat = {
+            'output': float(vat_src.get('output', revenue['vat']) or 0.0),
+            'input': float(vat_src.get('input', expenses['vat']) or 0.0),
+            'net_due': float(vat_src.get('net_due', (revenue['vat'] - expenses['vat'])) or 0.0),
+        }
+
+        return {
+            'revenue': revenue,
+            'agent_invoices': agent_invoices,
+            'expenses': expenses,
+            'money_in': money_in,
+            'money_out': money_out,
+            'profit': profit,
+            'vat': vat,
+        }
+
+    except Exception as e:
+        logger.error(f"Error normalizing financial summary: {e}")
+        return {
+            'revenue': {'net': 0.0, 'vat': 0.0, 'gross': 0.0},
+            'agent_invoices': {'net': 0.0, 'gross': 0.0},
+            'expenses': {'net': 0.0, 'vat': 0.0, 'gross': 0.0},
+            'money_in': {'net': 0.0, 'gross': 0.0},
+            'money_out': {'net': 0.0, 'gross': 0.0},
+            'profit': {'net': 0.0, 'gross': 0.0},
+            'vat': {'output': 0.0, 'input': 0.0, 'net_due': 0.0},
+        }

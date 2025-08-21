@@ -58,6 +58,16 @@ export default function AdminExpenses() {
   // State management
   const [expenses, setExpenses] = useState([]);
   const [totals, setTotals] = useState({ net: 0, vat: 0, gross: 0 });
+  const [summary, setSummary] = useState({
+    revenue:{net:0,vat:0,gross:0},
+    agent_invoices:{net:0,gross:0},
+    expenses:{net:0,vat:0,gross:0},
+    money_in:{net:0,gross:0},
+    money_out:{net:0,gross:0},
+    profit:{net:0,gross:0},
+    vat:{output:0,input:0,net_due:0},
+  });
+  const [loadingSummary, setLoadingSummary] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -89,6 +99,7 @@ export default function AdminExpenses() {
 
   useEffect(() => {
     fetchExpenses();
+    fetchSummary();
   }, [filters]);
 
   const fetchExpenses = async () => {
@@ -130,6 +141,40 @@ export default function AdminExpenses() {
       setTotals({ net: 0, vat: 0, gross: 0 });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSummary = async () => {
+    setLoadingSummary(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.from) params.append('from', filters.from);
+      if (filters.to) params.append('to', filters.to);
+      const url = params.toString() ? `/admin/finance/summary?${params.toString()}` : '/admin/finance/summary';
+      const data = await apiCall(url);
+      setSummary(data || {
+        revenue:{net:0,vat:0,gross:0},
+        agent_invoices:{net:0,gross:0},
+        expenses:{net:0,vat:0,gross:0},
+        money_in:{net:0,gross:0},
+        money_out:{net:0,gross:0},
+        profit:{net:0,gross:0},
+        vat:{output:0,input:0,net_due:0},
+      });
+    } catch (e) {
+      console.error('Failed to load finance summary:', e);
+      toast.error('Failed to load finance overview');
+      setSummary({
+        revenue:{net:0,vat:0,gross:0},
+        agent_invoices:{net:0,gross:0},
+        expenses:{net:0,vat:0,gross:0},
+        money_in:{net:0,gross:0},
+        money_out:{net:0,gross:0},
+        profit:{net:0,gross:0},
+        vat:{output:0,input:0,net_due:0},
+      });
+    } finally {
+      setLoadingSummary(false);
     }
   };
 
@@ -446,47 +491,101 @@ export default function AdminExpenses() {
         </Dialog>
       </div>
 
-      {/* KPI Cards */}
+      {/* Finance Overview */}
+      <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Finance Overview</CardTitle>
+          <CardDescription>Business-wide income, costs, profit and VAT for the selected period</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingSummary ? (
+            <div className="flex items-center justify-center p-4">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
+                <CardHeader className="pb-2"><CardTitle className="text-sm text-zinc-400">Money In (Gross)</CardTitle></CardHeader>
+                <CardContent className="text-3xl font-semibold">{formatCurrency(summary?.money_in?.gross || 0)}</CardContent>
+              </Card>
+              <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
+                <CardHeader className="pb-2"><CardTitle className="text-sm text-zinc-400">Money In (Net)</CardTitle></CardHeader>
+                <CardContent className="text-3xl font-semibold">{formatCurrency(summary?.money_in?.net || 0)}</CardContent>
+              </Card>
+              <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
+                <CardHeader className="pb-2"><CardTitle className="text-sm text-zinc-400">Money Out (Gross)</CardTitle></CardHeader>
+                <CardContent className="text-3xl font-semibold">{formatCurrency(summary?.money_out?.gross || 0)}</CardContent>
+              </Card>
+              <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
+                <CardHeader className="pb-2"><CardTitle className="text-sm text-zinc-400">Money Out (Net)</CardTitle></CardHeader>
+                <CardContent className="text-3xl font-semibold">{formatCurrency(summary?.money_out?.net || 0)}</CardContent>
+              </Card>
+              <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
+                <CardHeader className="pb-2"><CardTitle className="text-sm text-zinc-400">Profit (Gross)</CardTitle></CardHeader>
+                <CardContent className="text-3xl font-semibold">{formatCurrency(summary?.profit?.gross || 0)}</CardContent>
+              </Card>
+              <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
+                <CardHeader className="pb-2"><CardTitle className="text-sm text-zinc-400">Profit (Net)</CardTitle></CardHeader>
+                <CardContent className="text-3xl font-semibold">{formatCurrency(summary?.profit?.net || 0)}</CardContent>
+              </Card>
+              <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
+                <CardHeader className="pb-2"><CardTitle className="text-sm text-zinc-400">VAT Output</CardTitle></CardHeader>
+                <CardContent className="text-3xl font-semibold">{formatCurrency(summary?.vat?.output || 0)}</CardContent>
+              </Card>
+              <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
+                <CardHeader className="pb-2"><CardTitle className="text-sm text-zinc-400">VAT Input</CardTitle></CardHeader>
+                <CardContent className="text-3xl font-semibold">{formatCurrency(summary?.vat?.input || 0)}</CardContent>
+              </Card>
+              <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
+                <CardHeader className="pb-2"><CardTitle className="text-sm text-zinc-400">VAT Net Due</CardTitle></CardHeader>
+                <CardContent className="text-3xl font-semibold">{formatCurrency(summary?.vat?.net_due || 0)}</CardContent>
+              </Card>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* KPI Cards (Expenses Totals) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+        <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Net</p>
-                <p className="text-2xl font-bold text-blue-600">{formatCurrency(totals.net)}</p>
+                <p className="text-sm font-medium text-gray-300">Total Net</p>
+                <p className="text-2xl font-bold text-blue-400">{formatCurrency(totals.net)}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-blue-600" />
+              <DollarSign className="h-8 w-8 text-blue-400" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total VAT</p>
-                <p className="text-2xl font-bold text-orange-600">{formatCurrency(totals.vat)}</p>
+                <p className="text-sm font-medium text-gray-300">Total VAT</p>
+                <p className="text-2xl font-bold text-orange-400">{formatCurrency(totals.vat)}</p>
               </div>
-              <Receipt className="h-8 w-8 text-orange-600" />
+              <Receipt className="h-8 w-8 text-orange-400" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Gross</p>
-                <p className="text-2xl font-bold text-green-600">{formatCurrency(totals.gross)}</p>
+                <p className="text-sm font-medium text-gray-300">Total Gross</p>
+                <p className="text-2xl font-bold text-green-400">{formatCurrency(totals.gross)}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
+              <DollarSign className="h-8 w-8 text-green-400" />
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
         <CardHeader>
           <CardTitle className="text-lg">Filters</CardTitle>
         </CardHeader>
@@ -548,7 +647,7 @@ export default function AdminExpenses() {
       </Card>
 
       {/* Expenses Table */}
-      <Card>
+      <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
         <CardHeader>
           <CardTitle className="text-lg">
             Expenses ({expenses.length})
