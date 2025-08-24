@@ -167,7 +167,7 @@ def _create_title():
     title_style = ParagraphStyle(
         'Title',
         parent=styles['h1'],
-        fontSize=22,  # Smaller for compact layout
+        fontSize=26,  # Slightly larger for stronger hierarchy
         textColor=PRIMARY,
         fontName='Helvetica-Bold',
         alignment=TA_CENTER,  # Center the title
@@ -277,7 +277,7 @@ def _create_invoice_meta(invoice_number, invoice_date, agent_invoice_number=None
     
     # Add internal reference
     meta_data.append([
-        Paragraph("<b>Reference:</b>", meta_style), 
+        Paragraph("<b>V3 Ref:</b>", meta_style), 
         Paragraph(invoice_number, meta_style)
     ])
     
@@ -435,8 +435,8 @@ def _create_services_section(jobs, invoice=None):
         Paragraph("Date", header_style),
         Paragraph("Job Type", header_style),
         Paragraph("Hours", header_style), 
-        Paragraph("Rate", header_style),
-        Paragraph("Amount", header_style)
+        Paragraph("Rate (£)", header_style),
+        Paragraph("Amount (£)", header_style)
     ]
     
     # Table data - use invoice data if available
@@ -517,7 +517,7 @@ def _create_services_section(jobs, invoice=None):
         ('ALIGN', (0, 1), (0, -1), 'CENTER'),   # Date column centered
         ('ALIGN', (1, 1), (1, -1), 'LEFT'),     # Job Type column left
         ('ALIGN', (2, 1), (2, -1), 'CENTER'),   # Hours column centered
-        ('ALIGN', (3, 1), (3, -1), 'CENTER'),   # Rate column centered
+        ('ALIGN', (3, 1), (3, -1), 'RIGHT'),    # Rate column right
         ('ALIGN', (4, 1), (4, -1), 'RIGHT'),    # Amount column right
         
         # Professional but compact borders
