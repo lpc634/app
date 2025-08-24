@@ -939,6 +939,7 @@ def update_invoice(invoice_id):
         hours_worked = data.get('hours_worked')
         hourly_rate = data.get('hourly_rate')
         first_hour_rate = data.get('first_hour_rate')
+        agent_invoice_number_payload = data.get('agent_invoice_number') or data.get('invoice_number')
         
         if not hours_worked or not hourly_rate:
             return jsonify({'error': 'Hours worked and hourly rate are required'}), 400
@@ -973,6 +974,16 @@ def update_invoice(invoice_id):
                 total_amount = fh + remaining * Decimal(str(hourly_rate))
         except InvalidOperation:
             pass
+        
+        # Persist agent's own invoice number if provided and valid
+        try:
+            if agent_invoice_number_payload is not None and hasattr(invoice, 'agent_invoice_number'):
+                ain = int(agent_invoice_number_payload)
+                if ain > 0:
+                    invoice.agent_invoice_number = ain
+        except (ValueError, TypeError):
+            current_app.logger.warning('Invalid agent invoice number provided; skipping update')
+
         invoice.total_amount = total_amount
         invoice.status = 'sent'
         invoice.issue_date = date.today()
