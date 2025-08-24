@@ -938,6 +938,7 @@ def update_invoice(invoice_id):
         data = request.get_json()
         hours_worked = data.get('hours_worked')
         hourly_rate = data.get('hourly_rate')
+        first_hour_rate = data.get('first_hour_rate')
         
         if not hours_worked or not hourly_rate:
             return jsonify({'error': 'Hours worked and hourly rate are required'}), 400
@@ -963,8 +964,15 @@ def update_invoice(invoice_id):
         invoice_job.hours_worked = Decimal(str(hours_worked))
         invoice_job.hourly_rate_at_invoice = Decimal(str(hourly_rate))
         
-        # Calculate total amount
+        # Calculate total amount (special first-hour logic only for Lpc634@gmail.com)
         total_amount = Decimal(str(hours_worked)) * Decimal(str(hourly_rate))
+        try:
+            if (user.email or '').lower() == 'lpc634@gmail.com' and first_hour_rate is not None and Decimal(str(hours_worked)) > 0:
+                fh = Decimal(str(first_hour_rate))
+                remaining = max(Decimal('0'), Decimal(str(hours_worked)) - Decimal('1'))
+                total_amount = fh + remaining * Decimal(str(hourly_rate))
+        except InvalidOperation:
+            pass
         invoice.total_amount = total_amount
         invoice.status = 'sent'
         invoice.issue_date = date.today()
@@ -980,12 +988,27 @@ def update_invoice(invoice_id):
         # Generate PDF with proper job data structure
         try:
             job = invoice_job.job
-            jobs_data = [{
-                'job': job,
-                'hours': float(hours_worked),
-                'rate': float(hourly_rate),
-                'amount': float(total_amount)
-            }]
+            # If special agent used first-hour rate, include two line items for PDF clarity
+            jobs_data = []
+            try:
+                is_special = (user.email or '').lower() == 'lpc634@gmail.com'
+                fh = data.get('first_hour_rate')
+                if is_special and fh is not None and float(hours_worked) > 0:
+                    first_amount = float(fh)
+                    remaining_hours = max(0.0, float(hours_worked) - 1.0)
+                    remaining_amount = remaining_hours * float(hourly_rate)
+                    jobs_data.append({'job': job, 'hours': 1.0, 'rate': float(fh), 'amount': first_amount})
+                    if remaining_hours > 0:
+                        jobs_data.append({'job': job, 'hours': remaining_hours, 'rate': float(hourly_rate), 'amount': remaining_amount})
+                else:
+                    jobs_data.append({'job': job, 'hours': float(hours_worked), 'rate': float(hourly_rate), 'amount': float(total_amount)})
+            except Exception:
+                jobs_data = [{
+                    'job': job,
+                    'hours': float(hours_worked),
+                    'rate': float(hourly_rate),
+                    'amount': float(total_amount)
+                }]
             
             # Get agent invoice number safely
             agent_inv_number = getattr(invoice, 'agent_invoice_number', None) if hasattr(invoice, 'agent_invoice_number') else None

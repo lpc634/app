@@ -443,9 +443,9 @@ def _create_services_section(jobs, invoice=None):
     table_data = [headers]
     
     if jobs:
-        # Use first job for table data (assuming single job per invoice for now)
+        # For one job per invoice we may still have multiple line items (first hour vs remaining)
         first_job = jobs[0]
-        
+
         # Extract actual job date - normalized jobs have 'date' at top level
         job_date = fmt_date(first_job.get('date') or first_job.get('arrival_time'))
         
@@ -472,31 +472,28 @@ def _create_services_section(jobs, invoice=None):
             job_address = "Address not provided"
             current_app.logger.warning(f"PDF: No job address available, using fallback: {job_address}")
         
-        # Extract job details
-        job_hours = fmt_hours(first_job.get('hours', 0))
-        job_rate = fmt_money(first_job.get('rate', 0))
-        job_amount = fmt_money(first_job.get('amount', 0))
-        
-        # Log the final values being used in the PDF
-        current_app.logger.info(f"PDF: Final row data - Date: '{job_date}', Address: '{job_address}', Hours: '{job_hours}', Rate: '{job_rate}', Amount: '{job_amount}'")
-        
-        # Create compact table row
+        # Create rows for each line item (supports split first hour)
         row_style = ParagraphStyle(
             'CompactRow',
             parent=styles['small'],
-            fontSize=8,  # Smaller
+            fontSize=8,
             leading=10,
             textColor=BLACK
         )
-        
-        row = [
-            Paragraph(job_date, row_style),
-            Paragraph(job_address, row_style),
-            Paragraph(job_hours, row_style),
-            Paragraph(job_rate, row_style),
-            Paragraph(job_amount, row_style)
-        ]
-        table_data.append(row)
+
+        for line in jobs:
+            # Use the same date/address for each line
+            line_hours = fmt_hours(line.get('hours', 0))
+            line_rate = fmt_money(line.get('rate', 0))
+            line_amount = fmt_money(line.get('amount', 0))
+            current_app.logger.info(f"PDF: Row - Date: '{job_date}', Address: '{job_address}', Hours: '{line_hours}', Rate: '{line_rate}', Amount: '{line_amount}'")
+            table_data.append([
+                Paragraph(job_date, row_style),
+                Paragraph(job_address, row_style),
+                Paragraph(line_hours, row_style),
+                Paragraph(line_rate, row_style),
+                Paragraph(line_amount, row_style)
+            ])
     
     # Create compact table with optimized column widths: Date(70), Address(flexible), Hours(50), Rate(65), Amount(75)
     services_table = Table(table_data, colWidths=[70, None, 50, 65, 75], repeatRows=1)
