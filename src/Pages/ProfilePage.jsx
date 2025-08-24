@@ -28,11 +28,14 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const { user, apiCall, logout } = useAuth()
   const { toast } = useToast()
+  const [tg, setTg] = useState({ enabled: false, linked: false, bot_username: null })
+  const [tgLink, setTgLink] = useState({ code: null, urlWeb: null, urlApp: null, generating: false })
 
   useEffect(() => {
     if (user) {
       fetchProfile()
       fetchStats()
+      fetchTelegramStatus()
     }
   }, [user])  // Depend on user to refetch if changed
 
@@ -55,6 +58,47 @@ export default function ProfilePage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchTelegramStatus = async () => {
+    try {
+      const data = await apiCall('/telegram/status')
+      setTg({
+        enabled: !!data.enabled,
+        linked: !!data.linked,
+        bot_username: data.bot_username || 'V3JobsBot'
+      })
+    } catch (e) {
+      console.error('Telegram status error:', e)
+    }
+  }
+
+  const startTelegramLink = async () => {
+    try {
+      setTgLink(prev => ({ ...prev, generating: true }))
+      const data = await apiCall('/telegram/link/start', { method: 'POST' })
+      const bot = data.bot_username || tg.bot_username || 'V3JobsBot'
+      const code = data.code
+      const urlWeb = `https://t.me/${bot}?start=${encodeURIComponent(code)}`
+      const urlApp = `tg://resolve?domain=${bot}&start=${encodeURIComponent(code)}`
+      setTgLink({ code, urlWeb, urlApp, generating: false })
+      toast({ title: 'Telegram link ready', description: 'Tap Open Telegram to finish linking.' })
+    } catch (e) {
+      console.error('Telegram link error:', e)
+      toast({ title: 'Failed to start Telegram link', description: e.message || 'Try again', variant: 'destructive' })
+      setTgLink({ code: null, urlWeb: null, urlApp: null, generating: false })
+    }
+  }
+
+  const disconnectTelegram = async () => {
+    try {
+      await apiCall('/telegram/disconnect', { method: 'POST' })
+      setTgLink({ code: null, urlWeb: null, urlApp: null, generating: false })
+      await fetchTelegramStatus()
+      toast({ title: 'Telegram disconnected' })
+    } catch (e) {
+      toast({ title: 'Failed to disconnect', description: e.message || 'Try again', variant: 'destructive' })
     }
   }
 
@@ -350,6 +394,59 @@ export default function ProfilePage() {
               Contact Support
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Telegram Linking (at bottom) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">Telegram Notifications</CardTitle>
+          <CardDescription>Link your Telegram in two taps. No searching or codes.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!tg.enabled ? (
+            <p className="text-sm text-muted-foreground">Telegram integration is currently unavailable.</p>
+          ) : tg.linked ? (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="font-medium">Status: <span className="text-green-500">Linked</span></p>
+                <p className="text-sm text-muted-foreground">You will receive Telegram notifications.</p>
+              </div>
+              <Button variant="outline" onClick={disconnectTelegram}>Disconnect</Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">Not linked yet.</p>
+              {!tgLink.code ? (
+                <Button onClick={startTelegramLink} disabled={tgLink.generating}>
+                  {tgLink.generating ? 'Preparing…' : 'Link Telegram'}
+                </Button>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <a href={tgLink.urlApp} className="inline-flex">
+                      <Button>Open Telegram App</Button>
+                    </a>
+                    <a href={tgLink.urlWeb} target="_blank" rel="noopener noreferrer" className="inline-flex">
+                      <Button variant="outline">Open in Telegram Web</Button>
+                    </a>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        navigator.clipboard.writeText(tgLink.urlWeb)
+                        toast({ title: 'Link copied' })
+                      }}
+                    >Copy Link</Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={fetchTelegramStatus}>I’ve pressed Start – Refresh Status</Button>
+                    <Button variant="ghost" onClick={() => setTgLink({ code: null, urlWeb: null, urlApp: null, generating: false })}>Start again</Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Bot: @{tg.bot_username || 'V3JobsBot'}</p>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
