@@ -1030,6 +1030,58 @@ def create_invoice_batch_download():
         current_app.logger.error(f"Error creating invoice batch download: {e}")
         return jsonify({'error': 'Failed to create batch download'}), 500
 
+
+@admin_bp.route('/admin/invoices/<int:invoice_id>', methods=['DELETE'])
+@jwt_required()
+def admin_delete_invoice(invoice_id):
+    """Admin deletes an invoice and its links (draft or test cleanup)."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+
+        invoice = Invoice.query.get(invoice_id)
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+
+        # Delete invoice job links first
+        InvoiceJob.query.filter_by(invoice_id=invoice.id).delete()
+        db.session.delete(invoice)
+        db.session.commit()
+        return jsonify({'message': 'Invoice deleted'}), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting invoice {invoice_id}: {e}")
+        return jsonify({'error': 'Failed to delete invoice'}), 500
+
+
+@admin_bp.route('/admin/jobs/<int:job_id>', methods=['DELETE'])
+@jwt_required()
+def admin_delete_job(job_id):
+    """Admin deletes a job and its related assignments/links."""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+
+        job = Job.query.get(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        # Delete assignments, notifications, and invoice links
+        JobAssignment.query.filter_by(job_id=job_id).delete()
+        Notification.query.filter_by(job_id=job_id).delete()
+        InvoiceJob.query.filter_by(job_id=job_id).delete()
+        db.session.delete(job)
+        db.session.commit()
+        return jsonify({'message': 'Job deleted'}), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting job {job_id}: {e}")
+        return jsonify({'error': 'Failed to delete job'}), 500
+
 @admin_bp.route('/admin/invoices/export-csv', methods=['POST'])
 @jwt_required()
 def export_invoices_csv():

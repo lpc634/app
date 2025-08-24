@@ -140,6 +140,17 @@ export default function JobManagement() {
     }
   }
 
+  const handleDeleteJob = async (jobId) => {
+    try {
+      if (!confirm('Delete this job? This cannot be undone.')) return;
+      await apiCall(`/admin/jobs/${jobId}`, { method: 'DELETE' })
+      toast.success('Job deleted')
+      fetchJobs()
+    } catch (error) {
+      toast.error('Failed to delete job', { description: error.message })
+    }
+  }
+
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          job.job_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -477,23 +488,28 @@ export default function JobManagement() {
                     </div>
                   )}
 
-                  {job.status === 'open' && (
-                    <div className="flex gap-2 pt-2 border-t">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleUpdateJobStatus(job.id, 'cancelled')}
-                      >
-                        Cancel Job
-                      </Button>
-                      <Button 
-                        size="sm"
-                        onClick={() => handleUpdateJobStatus(job.id, 'filled')}
-                      >
-                        Mark as Filled
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-2 pt-2 border-t">
+                    {job.status === 'open' && (
+                      <>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleUpdateJobStatus(job.id, 'cancelled')}
+                        >
+                          Cancel Job
+                        </Button>
+                        <Button 
+                          size="sm"
+                          onClick={() => handleUpdateJobStatus(job.id, 'filled')}
+                        >
+                          Mark as Filled
+                        </Button>
+                      </>
+                    )}
+                    <Button size="sm" variant="destructive" onClick={() => handleDeleteJob(job.id)}>
+                      Delete Job
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -406,9 +406,9 @@ def _create_services_section(jobs, invoice=None):
         no_jobs = Paragraph("No services recorded", styles['body'])
         return [title, Spacer(1, 8), no_jobs]
     
-    # Create compact service description subheading if service exists
+    # Create compact subheading with JOB ADDRESS; job type will be in table
     story_items = [title, Spacer(1, 4)]  # Reduced spacing
-    if service:
+    if job_address:
         service_style = ParagraphStyle(
             'CompactServiceDesc',
             parent=styles['body'],
@@ -417,9 +417,9 @@ def _create_services_section(jobs, invoice=None):
             textColor=PRIMARY,  # Use V3 orange color
             spaceAfter=2  # Less space
         )
-        service_desc = Paragraph(f"{service}", service_style)
+        service_desc = Paragraph(f"{job_address}", service_style)
         story_items.extend([service_desc, Spacer(1, 4)])  # Reduced spacing
-        current_app.logger.info(f"PDF: Added service description: '{service}'")
+        current_app.logger.info(f"PDF: Added address subheading: '{job_address}'")
     
     # Compact table headers
     header_style = ParagraphStyle(
@@ -433,7 +433,7 @@ def _create_services_section(jobs, invoice=None):
     
     headers = [
         Paragraph("Date", header_style),
-        Paragraph("Address", header_style),
+        Paragraph("Job Type", header_style),
         Paragraph("Hours", header_style), 
         Paragraph("Rate", header_style),
         Paragraph("Amount", header_style)
@@ -461,16 +461,12 @@ def _create_services_section(jobs, invoice=None):
         else:
             current_app.logger.info(f"PDF: Using job date: {job_date}")
         
-        # For address, use normalized job data first, then fallback to snapshotted data
-        normalized_address = first_job.get('address', '')
-        if normalized_address:
-            job_address = normalized_address
-            current_app.logger.info(f"PDF: Using normalized job address: '{job_address}'")
-        
-        # Ensure we always have an address - if still missing, use fallback
-        if not job_address:
-            job_address = "Address not provided"
-            current_app.logger.warning(f"PDF: No job address available, using fallback: {job_address}")
+        # Determine job type for table column
+        job_type = service or ''
+        if not job_type and isinstance(first_job, dict) and first_job.get('service'):
+            job_type = first_job.get('service') or ''
+        if not job_type:
+            job_type = "Service"
         
         # Create rows for each line item (supports split first hour)
         row_style = ParagraphStyle(
@@ -482,20 +478,20 @@ def _create_services_section(jobs, invoice=None):
         )
 
         for line in jobs:
-            # Use the same date/address for each line
+            # Use the same date for each line
             line_hours = fmt_hours(line.get('hours', 0))
             line_rate = fmt_money(line.get('rate', 0))
             line_amount = fmt_money(line.get('amount', 0))
-            current_app.logger.info(f"PDF: Row - Date: '{job_date}', Address: '{job_address}', Hours: '{line_hours}', Rate: '{line_rate}', Amount: '{line_amount}'")
+            current_app.logger.info(f"PDF: Row - Date: '{job_date}', JobType: '{job_type}', Hours: '{line_hours}', Rate: '{line_rate}', Amount: '{line_amount}'")
             table_data.append([
                 Paragraph(job_date, row_style),
-                Paragraph(job_address, row_style),
+                Paragraph(job_type, row_style),
                 Paragraph(line_hours, row_style),
                 Paragraph(line_rate, row_style),
                 Paragraph(line_amount, row_style)
             ])
     
-    # Create compact table with optimized column widths: Date(70), Address(flexible), Hours(50), Rate(65), Amount(75)
+    # Create compact table with optimized column widths: Date(70), Job Type(flexible), Hours(50), Rate(65), Amount(75)
     services_table = Table(table_data, colWidths=[70, None, 50, 65, 75], repeatRows=1)
     
     # Compact table styling with professional appearance
@@ -519,7 +515,7 @@ def _create_services_section(jobs, invoice=None):
         
         # Column-specific alignment
         ('ALIGN', (0, 1), (0, -1), 'CENTER'),   # Date column centered
-        ('ALIGN', (1, 1), (1, -1), 'LEFT'),     # Address column left
+        ('ALIGN', (1, 1), (1, -1), 'LEFT'),     # Job Type column left
         ('ALIGN', (2, 1), (2, -1), 'CENTER'),   # Hours column centered
         ('ALIGN', (3, 1), (3, -1), 'CENTER'),   # Rate column centered
         ('ALIGN', (4, 1), (4, -1), 'RIGHT'),    # Amount column right

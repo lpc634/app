@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../useAuth';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Loader2, FileText, PlusCircle, AlertCircle, Edit, Download, Calendar, PoundSterling } from 'lucide-react';
+import { Loader2, FileText, PlusCircle, AlertCircle, Edit, Download, Calendar, PoundSterling, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
@@ -162,6 +162,19 @@ const AgentInvoices = () => {
     }
   };
 
+  const handleAdminDelete = async (invoiceId) => {
+    try {
+      if (!confirm('Delete this invoice? This cannot be undone.')) return;
+      await apiCall(`/admin/invoices/${invoiceId}`, { method: 'DELETE' });
+      toast.success('Invoice deleted');
+      // Refresh list
+      const data = await apiCall('/agent/invoices');
+      setInvoices(Array.isArray(data) ? data : (data.invoices || []));
+    } catch (e) {
+      toast.error('Failed to delete invoice', { description: e.message });
+    }
+  };
+
   // Handle loading state
   if (loading) {
     return (
@@ -317,6 +330,15 @@ const AgentInvoices = () => {
                                             {downloadingInvoices.has(invoice.id) ? 'Downloading...' : 'Download PDF'}
                                         </Button>
                                     )}
+                                    {/* Admin-only delete button shown when API returns 403 for non-admin */}
+                                    <Button 
+                                      variant="destructive"
+                                      className="hidden sm:inline-flex"
+                                      onClick={() => handleAdminDelete(invoice.id)}
+                                      title="Admin: Delete invoice"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
                                 </div>
                             </div>
                         </div>
