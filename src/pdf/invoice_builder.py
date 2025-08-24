@@ -368,174 +368,113 @@ def _create_services_section(jobs, invoice=None):
     else:
         current_app.logger.warning("PDF DEBUG: No jobs data provided")
     
-    # Compact section title
+    # Section title
     title_style = ParagraphStyle(
-        'CompactSectionTitle',
+        'SectionTitle',
         parent=styles['h2'],
-        fontSize=10,  # Smaller
+        fontSize=11,
         textColor=DARK,
         fontName='Helvetica-Bold',
-        spaceAfter=4,  # Less space
+        spaceAfter=6,
     )
-    title = Paragraph("SERVICES PROVIDED:", title_style)
+    title = Paragraph("SERVICES PROVIDED", title_style)
     
-    # Extract job details with fallbacks
+    # Pull job address and type for description
     job_address = ""
-    service = ""
-    
+    job_type = ""
     if invoice:
-        # Use snapshotted data first
         job_address = getattr(invoice, 'address', None) or ""
-        service = getattr(invoice, 'job_type', None) or ""
-        current_app.logger.info(f"PDF: Using snapshotted invoice data - service: '{service}', address: '{job_address}'")
-    
-    # Fallback to job data if snapshotted data is missing
-    if (not service or not job_address) and jobs:
+        job_type = getattr(invoice, 'job_type', None) or ""
+    if (not job_address or not job_type) and jobs:
         first_job = jobs[0]
         job_obj = first_job.get('job') if isinstance(first_job, dict) else None
         if job_obj:
-            if not job_address:
-                job_address = getattr(job_obj, 'address', '') or ""
-            if not service:
-                service = getattr(job_obj, 'job_type', '') or ""
-        current_app.logger.info(f"PDF: Applied fallback from job data - service: '{service}', address: '{job_address}'")
+            job_address = job_address or getattr(job_obj, 'address', '') or ""
+            job_type = job_type or getattr(job_obj, 'job_type', '') or ""
     
-    # Check if we should show "No services recorded"
-    if not jobs or (not service and not job_address):
-        current_app.logger.warning(f"PDF: Showing 'No services recorded' - jobs: {bool(jobs)}, service: '{service}', address: '{job_address}'")
-        no_jobs = Paragraph("No services recorded", styles['body'])
-        return [title, Spacer(1, 8), no_jobs]
-    
-    # Create compact subheading with JOB ADDRESS; job type will be in table
-    story_items = [title, Spacer(1, 4)]  # Reduced spacing
-    if job_address:
-        service_style = ParagraphStyle(
-            'CompactServiceDesc',
-            parent=styles['body'],
-            fontSize=9,   # Smaller
-            fontName='Helvetica-Bold',
-            textColor=PRIMARY,  # Use V3 orange color
-            spaceAfter=2  # Less space
-        )
-        service_desc = Paragraph(f"{job_address}", service_style)
-        story_items.extend([service_desc, Spacer(1, 4)])  # Reduced spacing
-        current_app.logger.info(f"PDF: Added address subheading: '{job_address}'")
-    
-    # Compact table headers
+    # Build table headers (professional labels)
     header_style = ParagraphStyle(
-        'CompactHeader',
+        'TableHeader',
         parent=styles['small'],
-        fontSize=8,  # Smaller
+        fontSize=8,
         fontName='Helvetica-Bold',
         textColor=WHITE,
         leading=10
     )
-    
     headers = [
         Paragraph("Date", header_style),
-        Paragraph("Job Type", header_style),
-        Paragraph("Hours", header_style), 
+        Paragraph("Description", header_style),  # Job Type + Address
+        Paragraph("Hours", header_style),
         Paragraph("Rate (£)", header_style),
         Paragraph("Amount (£)", header_style)
     ]
-    
-    # Table data - use invoice data if available
     table_data = [headers]
     
     if jobs:
-        # For one job per invoice we may still have multiple line items (first hour vs remaining)
         first_job = jobs[0]
-
-        # Extract actual job date - normalized jobs have 'date' at top level
         job_date = fmt_date(first_job.get('date') or first_job.get('arrival_time'))
-        
-        # If no date in normalized data, fall back to invoice date
         if not job_date and invoice and hasattr(invoice, 'issue_date'):
             job_date = fmt_date(invoice.issue_date)
-            current_app.logger.warning(f"PDF: No job date found, using invoice date as fallback: {job_date}")
-        
-        # Ensure we always have a date - if still missing, use today
         if not job_date:
             job_date = "Date not provided"
-            current_app.logger.warning(f"PDF: No job date available, using fallback: {job_date}")
-        else:
-            current_app.logger.info(f"PDF: Using job date: {job_date}")
         
-        # Determine job type for table column
-        job_type = service or ''
-        if not job_type and isinstance(first_job, dict) and first_job.get('service'):
-            job_type = first_job.get('service') or ''
-        if not job_type:
-            job_type = "Service"
+        # Compose description once (applied to each line), keep both fields
+        composed_desc = (job_type or 'Service')
+        if job_address:
+            composed_desc = f"{composed_desc} — {job_address}"
         
-        # Create rows for each line item (supports split first hour)
         row_style = ParagraphStyle(
-            'CompactRow',
+            'TableRow',
             parent=styles['small'],
             fontSize=8,
             leading=10,
             textColor=BLACK
         )
-
+        
         for line in jobs:
-            # Use the same date for each line
-            line_hours = fmt_hours(line.get('hours', 0))
-            line_rate = fmt_money(line.get('rate', 0))
-            line_amount = fmt_money(line.get('amount', 0))
-            current_app.logger.info(f"PDF: Row - Date: '{job_date}', JobType: '{job_type}', Hours: '{line_hours}', Rate: '{line_rate}', Amount: '{line_amount}'")
+            hours = fmt_hours(line.get('hours', 0))
+            rate = fmt_money(line.get('rate', 0))
+            amount = fmt_money(line.get('amount', 0))
             table_data.append([
                 Paragraph(job_date, row_style),
-                Paragraph(job_type, row_style),
-                Paragraph(line_hours, row_style),
-                Paragraph(line_rate, row_style),
-                Paragraph(line_amount, row_style)
+                Paragraph(composed_desc, row_style),
+                Paragraph(hours, row_style),
+                Paragraph(rate, row_style),
+                Paragraph(amount, row_style)
             ])
     
-    # Create compact table with optimized column widths: Date(70), Job Type(flexible), Hours(50), Rate(65), Amount(75)
+    # Balanced column widths: Date(70), Desc(*), Hours(50), Rate(65), Amount(75)
     services_table = Table(table_data, colWidths=[70, None, 50, 65, 75], repeatRows=1)
-    
-    # Compact table styling with professional appearance
-    table_style = [
-        # Compact header styling
+    services_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), DARK),
         ('TEXTCOLOR', (0, 0), (-1, 0), WHITE),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8),       # Smaller header font
-        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),   # Center header text
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),  # Less padding
-        ('TOPPADDING', (0, 0), (-1, 0), 4),     # Less padding
-        
-        # Compact data rows
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
+        ('TOPPADDING', (0, 0), (-1, 0), 5),
+        # Data rows
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 8),      # Smaller font
-        ('TOPPADDING', (0, 1), (-1, -1), 3),    # Less padding
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 3), # Less padding
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),   # Less padding
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),  # Less padding
-        
-        # Column-specific alignment
-        ('ALIGN', (0, 1), (0, -1), 'CENTER'),   # Date column centered
-        ('ALIGN', (1, 1), (1, -1), 'LEFT'),     # Job Type column left
-        ('ALIGN', (2, 1), (2, -1), 'CENTER'),   # Hours column centered
-        ('ALIGN', (3, 1), (3, -1), 'RIGHT'),    # Rate column right
-        ('ALIGN', (4, 1), (4, -1), 'RIGHT'),    # Amount column right
-        
-        # Professional but compact borders
-        ('BOX', (0, 0), (-1, -1), 1.5, DARK),   # Thinner outer border
-        ('LINEBELOW', (0, 0), (-1, 0), 1.5, DARK), # Header bottom border
-        ('GRID', (0, 1), (-1, -1), 0.5, GRID),  # Internal grid - thin
-        
-        # Alternating row colors
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [WHITE, HexColor('#F8F9FA')]),
-        
-        # Compact vertical alignment
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # Vertical center alignment
-    ]
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('TOPPADDING', (0, 1), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        # Column alignment
+        ('ALIGN', (0, 1), (0, -1), 'CENTER'),
+        ('ALIGN', (1, 1), (1, -1), 'LEFT'),
+        ('ALIGN', (2, 1), (2, -1), 'CENTER'),
+        ('ALIGN', (3, 1), (3, -1), 'RIGHT'),
+        ('ALIGN', (4, 1), (4, -1), 'RIGHT'),
+        # Borders and zebra
+        ('BOX', (0, 0), (-1, -1), 1.2, DARK),
+        ('LINEBELOW', (0, 0), (-1, 0), 1.2, DARK),
+        ('GRID', (0, 1), (-1, -1), 0.4, GRID),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [WHITE, HexColor('#F7F8FA')]),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
     
-    services_table.setStyle(TableStyle(table_style))
-    story_items.append(services_table)
-    
-    return story_items
+    return [title, Spacer(1, 6), services_table]
 
 
 def _create_totals_section(totals):
