@@ -357,11 +357,7 @@ const CreateJob = () => {
                 setLoading(false);
                 return;
             }
-            if (new Date(formData.arrival_time) < new Date()) {
-                toast.error("Arrival time cannot be in the past.");
-                setLoading(false);
-                return;
-            }
+            // Past-dated jobs are allowed (for backfilling fast jobs)
 
             // Prepare job data
             const jobData = {
