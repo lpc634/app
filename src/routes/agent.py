@@ -885,7 +885,7 @@ def create_invoice():
         else:
             pdf_path = pdf_result
 
-        # Send in-app notification to agent instead of email
+        # Send in-app notification to agent
         notification = Notification(
             user_id=agent.id,
             title=f"Invoice {invoice_number} Generated",
@@ -893,13 +893,7 @@ def create_invoice():
             type="invoice_generated"
         )
         db.session.add(notification)
-        
-        # Send Telegram notification if enabled
-        try:
-            from src.services.notifications import notify_invoice_generated
-            notify_invoice_generated(agent.id, invoice_number, float(total_amount))
-        except Exception as e:
-            current_app.logger.warning(f"Failed to send Telegram invoice notification: {str(e)}")
+        # Skip Telegram notification (agent already knows they created it)
         
         current_app.logger.info(f"Invoice {invoice_number} created for agent {agent.email} - stored in S3")
 
@@ -1168,19 +1162,27 @@ def download_agent_invoice(invoice_id):
             return jsonify({'error': 'Cannot download draft invoices. Please complete the invoice first.'}), 400
 
         if s3_client.is_configured():
+            # Prefer agent's own invoice number for filename when available
+            filename = None
+            try:
+                if hasattr(invoice, 'agent_invoice_number') and invoice.agent_invoice_number:
+                    filename = f"{invoice.agent_invoice_number}.pdf"
+            except Exception:
+                filename = None
             signed = s3_client.generate_invoice_download_url(agent.id, invoice.invoice_number, expiration=3600)
             if signed.get('success'):
                 return jsonify({
                     'download_url': signed['download_url'],
                     'expires_in': signed['expires_in'],
                     'invoice_number': signed['invoice_number'],
-                    'filename': signed['filename'],
+                    'filename': filename or signed['filename'],
                     'file_size': signed.get('file_size', 'Unknown')
                 }), 200
 
         return jsonify({
             'download_url': url_for('agent.download_invoice_direct', invoice_id=invoice_id),
-            'invoice_number': invoice.invoice_number
+            'invoice_number': invoice.invoice_number,
+            'filename': (str(getattr(invoice, 'agent_invoice_number', '')) + '.pdf') if getattr(invoice, 'agent_invoice_number', None) else None
         }), 200
 
     except Exception as e:
@@ -1245,11 +1247,13 @@ def download_invoice_direct(invoice_id):
         if not pdf_path or not os.path.exists(pdf_path):
             return jsonify({'error': 'PDF generation failed'}), 500
 
+        # Prefer agent's own invoice number for the filename when present
+        preferred_name = f"{getattr(invoice, 'agent_invoice_number', None)}.pdf" if getattr(invoice, 'agent_invoice_number', None) else f"{invoice.invoice_number}.pdf"
         resp = send_file(
             pdf_path,
             mimetype='application/pdf',
             as_attachment=True,
-            download_name=f"{invoice.invoice_number}.pdf"
+            download_name=preferred_name
         )
         @resp.call_on_close
         def _cleanup():
