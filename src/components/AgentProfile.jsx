@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
 import { Loader2, User as UserIcon, Landmark, FileUp, CheckCircle, Image as ImageIcon, Download, Trash2, MessageCircle, ExternalLink, Send } from 'lucide-react';
-import { getTelegramStatus, createTelegramLink, disconnectTelegram, sendTestTelegram } from '../api/agents';
 
 const AgentProfile = () => {
   const { user, loading, apiCall } = useAuth();
@@ -59,18 +58,31 @@ const AgentProfile = () => {
     }
   };
 
-  const handleGenerateLinkCode = async () => {
+  const handleLinkTelegram = async () => {
     setTelegramLoading(true);
     try {
-      const response = await createTelegramLink();
-      if (response.code) {
-        setLinkCode(response);
-        toast.success('Link code generated!', {
-          description: 'Follow the instructions below to complete the connection.'
-        });
+      // Ask backend to create link code
+      const response = await apiCall('/telegram/link/start', { method: 'POST' });
+      const code = response?.code;
+      const bot = response?.bot_username || telegramStatus.bot_username || 'V3JobsBot';
+      if (!code) throw new Error('Link code not available');
+
+      // Construct deep links that open Telegram directly with the code
+      const urlApp = `tg://resolve?domain=${bot}&start=${encodeURIComponent(code)}`;
+      const urlWeb = `https://t.me/${bot}?start=${encodeURIComponent(code)}`;
+
+      // Try to open the Telegram app deep link
+      const opened = window.open(urlApp, '_blank');
+      if (!opened) {
+        // Fallback to Telegram Web
+        window.open(urlWeb, '_blank');
       }
+
+      // Give the user a quick hint and allow status refresh
+      toast.success('Open Telegram to finish linking');
+      setLinkCode({ code, bot_username: bot, urlApp, urlWeb });
     } catch (error) {
-      toast.error('Failed to generate link code', { description: error.message });
+      toast.error('Failed to start Telegram link', { description: error.message });
     } finally {
       setTelegramLoading(false);
     }
@@ -438,60 +450,38 @@ const AgentProfile = () => {
                   ) : (
                     <button
                       type="button"
-                      onClick={handleGenerateLinkCode}
+                      onClick={handleLinkTelegram}
                       disabled={telegramLoading}
                       className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
                     >
                       {telegramLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
-                      Generate Link Code
+                      Link Telegram
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* Link Code Display */}
+              {/* One-tap deep-link status helper */}
               {linkCode && !telegramStatus.linked && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-3">Your Link Code:</h4>
-                  <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md p-3 mb-3">
-                    <code className="text-lg font-mono text-center block text-blue-600 dark:text-blue-400 font-bold">
-                      {linkCode.code}
-                    </code>
-                  </div>
-                  <div className="text-sm text-blue-700 dark:text-blue-300">
-                    <p className="font-medium mb-2">To complete the connection:</p>
-                    <ol className="space-y-1 ml-4">
-                      <li>1. Open Telegram and search for <strong>@{telegramStatus.bot_username || 'V3JobsBot'}</strong></li>
-                      <li>2. Send this message: <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">/link {linkCode.code}</code></li>
-                      <li>3. You'll receive a confirmation message</li>
-                      <li>4. Return here and refresh to see your connected status</li>
-                    </ol>
-                  </div>
-                  <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
-                    <button
-                      type="button"
-                      onClick={loadTelegramStatus}
-                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      Check Connection Status
-                    </button>
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Finish linking in Telegram</h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    We opened Telegram for you. If it didn't open, use one of these buttons:
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <a href={linkCode.urlApp} className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm" target="_blank" rel="noreferrer">Open Telegram App</a>
+                    <a href={linkCode.urlWeb} className="px-3 py-2 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded text-sm" target="_blank" rel="noreferrer">Open Telegram Web</a>
+                    <button type="button" onClick={loadTelegramStatus} className="px-3 py-2 text-sm underline">I’ve pressed Start – Refresh Status</button>
                   </div>
                 </div>
               )}
 
-              {/* Instructions for connection */}
+              {/* Fallback instructions only if deep link isn't used */}
               {!telegramStatus.linked && !linkCode && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">How to connect:</h4>
-                  <ol className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                    <li>1. Click "Generate Link Code" above</li>
-                    <li>2. Open Telegram and find @{telegramStatus.bot_username || 'V3JobsBot'}</li>
-                    <li>3. Send the /link command with your code</li>
-                    <li>4. You'll receive a confirmation message</li>
-                  </ol>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-3">
-                    Don't have Telegram? <a href="https://telegram.org/apps" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">Download it here</a>
-                  </p>
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Link your Telegram</h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">Tap “Link Telegram” and we’ll open Telegram for you with everything pre‑filled.</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-3">Don’t have Telegram? <a href="https://telegram.org/apps" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">Download it here</a></p>
                 </div>
               )}
 
