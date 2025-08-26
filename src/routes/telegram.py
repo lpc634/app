@@ -271,13 +271,19 @@ def get_telegram_health():
     enabled = current_app.config.get("TELEGRAM_ENABLED", False)
     webhook_secret = current_app.config.get("TELEGRAM_WEBHOOK_SECRET", "")
     public_base_url = current_app.config.get("PUBLIC_BASE_URL", "")
-    
+    bot_token = current_app.config.get("TELEGRAM_BOT_TOKEN", "")
+
+    # Non-sensitive diagnostics (booleans only)
+    token_set = bool(bot_token)
+    secret_set = bool(webhook_secret)
+    public_base_set = bool(public_base_url)
+
     webhook_url = None
     bot_username = None
-    
-    if enabled and webhook_secret and public_base_url:
+
+    if enabled and secret_set and public_base_set:
         webhook_url = f"{public_base_url}/webhooks/telegram/{webhook_secret}"
-    
+
     if enabled:
         try:
             bot_info = get_bot_info()
@@ -285,9 +291,12 @@ def get_telegram_health():
                 bot_username = bot_info["result"].get("username")
         except Exception as e:
             current_app.logger.warning(f"Could not get bot username for health check: {str(e)}")
-    
+
     return jsonify({
         "enabled": enabled,
+        "token_set": token_set,
+        "secret_set": secret_set,
+        "public_base_set": public_base_set,
         "webhook_url": webhook_url,
         "bot_username": bot_username
     })
