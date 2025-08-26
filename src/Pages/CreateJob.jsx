@@ -587,8 +587,7 @@ const CreateJob = () => {
                                             step="0.01"
                                             value={billingData.hourly_rate_net}
                                             onChange={(e) => setBillingData({...billingData, hourly_rate_net: e.target.value})}
-                                            placeholder="45.00"
-                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
+                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
                                         />
                                     </div>
                                     <div>
@@ -600,8 +599,7 @@ const CreateJob = () => {
                                             step="0.01"
                                             value={billingData.first_hour_rate_net}
                                             onChange={(e) => setBillingData({...billingData, first_hour_rate_net: e.target.value})}
-                                            placeholder="120.00"
-                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
+                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
                                         />
                                     </div>
                                 </div>
@@ -616,8 +614,7 @@ const CreateJob = () => {
                                             step="0.01"
                                             value={billingData.notice_fee_net}
                                             onChange={(e) => setBillingData({...billingData, notice_fee_net: e.target.value})}
-                                            placeholder="75.00"
-                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
+                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
                                         />
                                     </div>
                                     <div>
@@ -645,8 +642,7 @@ const CreateJob = () => {
                                             type="number"
                                             value={billingData.agent_count}
                                             onChange={(e) => setBillingData({...billingData, agent_count: e.target.value})}
-                                            placeholder="3"
-                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
+                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
                                         />
                                     </div>
                                     <div>
@@ -658,8 +654,7 @@ const CreateJob = () => {
                                             step="0.25"
                                             value={billingData.billable_hours_override}
                                             onChange={(e) => setBillingData({...billingData, billable_hours_override: e.target.value})}
-                                            placeholder="30.5"
-                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
+                                            className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
                                         />
                                     </div>
                                 </div>
