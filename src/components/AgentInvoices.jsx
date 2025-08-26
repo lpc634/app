@@ -165,7 +165,13 @@ const AgentInvoices = () => {
   const handleAdminDelete = async (invoiceId) => {
     try {
       if (!confirm('Delete this invoice? This cannot be undone.')) return;
-      await apiCall(`/admin/invoices/${invoiceId}`, { method: 'DELETE' });
+      // Try agent-owned endpoint first; if 404/403 fallback to admin endpoint
+      try {
+        await apiCall(`/agent/invoices/${invoiceId}`, { method: 'DELETE' });
+      } catch (e) {
+        // fallback for admin cleanup
+        await apiCall(`/admin/invoices/${invoiceId}`, { method: 'DELETE' });
+      }
       toast.success('Invoice deleted');
       // Refresh list
       const data = await apiCall('/agent/invoices');

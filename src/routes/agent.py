@@ -1141,6 +1141,30 @@ def get_agent_invoices():
         current_app.logger.error(f"Error fetching agent invoices: {e}")
         return jsonify({'error': 'Failed to fetch invoices'}), 500
 
+@agent_bp.route('/agent/invoices/<int:invoice_id>', methods=['DELETE'])
+@jwt_required()
+def delete_agent_invoice(invoice_id):
+    """Delete an invoice owned by the current agent (including links)."""
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied'}), 403
+
+        invoice = Invoice.query.filter_by(id=invoice_id, agent_id=agent.id).first()
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+
+        # Remove links and invoice
+        InvoiceJob.query.filter_by(invoice_id=invoice.id).delete()
+        db.session.delete(invoice)
+        db.session.commit()
+        return jsonify({'message': 'Invoice deleted'}), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting agent invoice {invoice_id}: {e}")
+        return jsonify({'error': 'Failed to delete invoice'}), 500
+
 @agent_bp.route('/agent/invoices/<int:invoice_id>/download', methods=['GET'])
 @jwt_required()
 def download_agent_invoice(invoice_id):
