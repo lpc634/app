@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
 import { Loader2, User as UserIcon, Landmark, FileUp, CheckCircle, Image as ImageIcon, Download, Trash2, MessageCircle, ExternalLink, Send } from 'lucide-react';
+import { getTelegramStatus, disconnectTelegram, sendTestTelegram } from '../api/agents';
 
 const AgentProfile = () => {
   const { user, loading, apiCall } = useAuth();
