@@ -35,8 +35,8 @@ const UpdateInvoicePage = () => {
           setHourlyRate(data.invoice_job.hourly_rate_at_invoice.toString());
         }
         
-        // Set the invoice number
-        setInvoiceNumber(data.invoice.invoice_number || '');
+        // Agents must enter their own invoice number; do not prefill
+        setInvoiceNumber('');
       } catch (error) {
         toast.error('Failed to load invoice details', { description: error.message });
         navigate('/agent/invoices');

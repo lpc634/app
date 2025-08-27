@@ -218,10 +218,6 @@ const AgentInvoices = () => {
           <h1 className="text-3xl font-bold tracking-tight">My Invoices</h1>
           <p className="text-muted-foreground">Manage and track your invoices here.</p>
         </div>
-        <Link to="/agent/invoices/new" className="button-refresh w-full sm:w-auto flex items-center justify-center gap-2">
-          <PlusCircle className="w-5 h-5" />
-          Create New Invoice
-        </Link>
       </div>
       
       <div className="space-y-6">
@@ -264,6 +260,12 @@ const AgentInvoices = () => {
                 <AlertCircle className="mx-auto h-12 w-12 text-v3-text-muted mb-4" />
                 <h3 className="text-lg font-medium text-v3-text-lightest">No Invoices Found</h3>
                 <p className="text-v3-text-muted mt-1">Invoices will appear here when you accept jobs.</p>
+                <div className="mt-6">
+                  <Link to="/agent/invoices/new" className="button-refresh w-full sm:w-auto inline-flex items-center justify-center gap-2">
+                    <PlusCircle className="w-5 h-5" />
+                    Create Miscellaneous Invoice
+                  </Link>
+                </div>
             </div>
         ) : (
             <div className="border-t border-v3-border">
@@ -352,6 +354,13 @@ const AgentInvoices = () => {
                 </div>
             </div>
         )}
+        </div>
+        {/* Bottom action for mobile clarity */}
+        <div className="pt-4">
+          <Link to="/agent/invoices/new" className="button-refresh w-full sm:w-auto inline-flex items-center justify-center gap-2">
+            <PlusCircle className="w-5 h-5" />
+            Create Miscellaneous Invoice
+          </Link>
         </div>
       </div>
     </div>
