@@ -119,12 +119,20 @@ const AgentInvoices = () => {
           // Create blob URL and trigger download
           const blob = new Blob([pdfResponse], { type: 'application/pdf' });
           const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = response.filename || `${invoiceNumber}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = response.filename || `${invoiceNumber}.pdf`;
+          // iOS Safari: must be in DOM and triggered by user gesture; fallback to window.open
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+            // Fallback to open in new tab if download attr ignored
+            const newWin = window.open(url, '_blank');
+            if (!newWin) {
+              window.location.href = url;
+            }
+          }
           window.URL.revokeObjectURL(url); // Clean up blob URL
           
           toast.success('Download started', { 
@@ -132,13 +140,19 @@ const AgentInvoices = () => {
           });
         } else {
           // For S3 URLs, use the original method
-          const link = document.createElement('a');
-          link.href = response.download_url;
-          link.download = response.filename || `${invoiceNumber}.pdf`;
-          link.target = '_blank'; // Open in new tab as fallback
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          const a = document.createElement('a');
+          a.href = response.download_url;
+          a.download = response.filename || `${invoiceNumber}.pdf`;
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+            const newWin = window.open(response.download_url, '_blank');
+            if (!newWin) {
+              window.location.href = response.download_url;
+            }
+          }
           
           toast.success('Download started', { 
             description: `${invoiceNumber}.pdf` 

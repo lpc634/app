@@ -42,7 +42,7 @@ def build_invoice_pdf(
 ):
     """
     Build a professional single-page invoice PDF.
-
+    
     Args:
         file_path: output path
         agent: obj with first_name,last_name,address_line_1,address_line_2,city,postcode,
@@ -176,7 +176,16 @@ def _top_meta_row(agent, invoice_date, invoice_number, agent_invoice_number):
     if agent_invoice_number is not None:
         meta_rows.append([Paragraph("Invoice Number", s["kv_label"]), Paragraph(str(agent_invoice_number), s["kv_value"])])
     meta_rows.append([Paragraph("Invoice Date", s["kv_label"]), Paragraph(_fmt_date(invoice_date), s["kv_value"])])
-    meta_rows.append([Paragraph("V3 Ref", s["kv_label"]), Paragraph(str(invoice_number), s["kv_value"])])
+    # V3 Ref: AgentName-YYMM-AgentInvoiceNumber (or fallback to system ref)
+    try:
+        name_slug = f"{_safe(agent.first_name)}-{_safe(agent.last_name)}".replace(" ", "-").strip("-")
+        dt = _coerce_date(invoice_date)
+        yymm = dt.strftime("%y%m") if dt else datetime.utcnow().strftime("%y%m")
+        agent_ref = f"{str(agent_invoice_number)}" if agent_invoice_number not in [None, ""] else None
+        v3_ref_display = f"{name_slug}-{yymm}-{agent_ref}" if agent_ref else str(invoice_number)
+    except Exception:
+        v3_ref_display = str(invoice_number)
+    meta_rows.append([Paragraph("V3 Ref", s["kv_label"]), Paragraph(v3_ref_display, s["kv_value"])])
 
     meta = Table(meta_rows, colWidths=[32*mm, 36*mm])
     meta.setStyle(TableStyle([
@@ -216,7 +225,7 @@ def _services_table(jobs, job_type_default):
     The section title already shows the job address.
     """
     s = _styles()
-
+    
     headers = [
         Paragraph("Date", s["th"]),
         Paragraph("Description", s["th"]),
@@ -225,7 +234,7 @@ def _services_table(jobs, job_type_default):
         Paragraph("Amount (£)", s["th"]),
     ]
     rows = [headers]
-
+    
     if jobs:
         for line in jobs:
             # Date: prefer explicit date/arrival_time
