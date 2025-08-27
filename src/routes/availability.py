@@ -54,16 +54,17 @@ def update_daily_availability_from_schedule(agent_id, weekly_schedule_dict):
             ).first()
             
             if existing_record:
-                # Update only if it was sourced from a schedule, preserving manual overrides
-                if existing_record.source in [None, 'schedule', '']:
+                # Preserve manual daily overrides: detect by notes content
+                existing_notes = (existing_record.notes or '').lower()
+                is_manual_override = 'daily override' in existing_notes
+                if not is_manual_override:
                     existing_record.is_available = is_scheduled_available
             else:
                 # Create a new record if one doesn't exist
                 new_availability = AgentAvailability(
                     agent_id=agent_id,
                     date=current_date,
-                    is_available=is_scheduled_available,
-                    source='schedule'
+                    is_available=is_scheduled_available
                 )
                 db.session.add(new_availability)
         
