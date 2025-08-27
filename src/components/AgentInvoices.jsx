@@ -261,7 +261,7 @@ const AgentInvoices = () => {
                 <h3 className="text-lg font-medium text-v3-text-lightest">No Invoices Found</h3>
                 <p className="text-v3-text-muted mt-1">Invoices will appear here when you accept jobs.</p>
                 <div className="mt-6">
-                  <Link to="/agent/invoices/new" className="button-refresh w-full sm:w-auto inline-flex items-center justify-center gap-2">
+                  <Link to="/agent/invoices/new/misc" className="button-refresh w-full sm:w-auto inline-flex items-center justify-center gap-2">
                     <PlusCircle className="w-5 h-5" />
                     Create Miscellaneous Invoice
                   </Link>
@@ -357,7 +357,7 @@ const AgentInvoices = () => {
         </div>
         {/* Bottom action for mobile clarity */}
         <div className="pt-4">
-          <Link to="/agent/invoices/new" className="button-refresh w-full sm:w-auto inline-flex items-center justify-center gap-2">
+          <Link to="/agent/invoices/new/misc" className="button-refresh w-full sm:w-auto inline-flex items-center justify-center gap-2">
             <PlusCircle className="w-5 h-5" />
             Create Miscellaneous Invoice
           </Link>
