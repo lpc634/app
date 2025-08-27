@@ -25,3 +25,11 @@ if ('serviceWorker' in navigator) {
 createRoot(document.getElementById('root')).render(
   <App />
 );
+
+// Global unhandled error guard to avoid Safari white screens
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+});
+window.addEventListener('error', (event) => {
+  console.error('Global error:', event.error || event.message);
+});

@@ -202,6 +202,11 @@ main {
   min-height: 0; /* allow flex parent to control height */
 }
 
+/* iOS Safari sticky support inside overflow containers */
+.sticky, [data-sticky="true"] {
+  position: -webkit-sticky;
+}
+
 main::before {
   content: '';
   position: absolute;

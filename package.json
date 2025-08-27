@@ -5,6 +5,15 @@
   "engines": {
     "node": "22.x"
   },
+  "browserslist": [
+    "defaults",
+    "not IE 11",
+    "maintained node versions",
+    "ios_saf >= 13",
+    "safari >= 13",
+    "chrome >= 80",
+    "firefox >= 78"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
