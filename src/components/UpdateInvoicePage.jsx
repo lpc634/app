@@ -59,7 +59,7 @@ const UpdateInvoicePage = () => {
     const hours = parseFloat(hoursWorked);
     const rate = parseFloat(hourlyRate);
     const isSpecialAgent = (user?.email || '').toLowerCase() === 'lpc634@gmail.com';
-    const firstRate = isSpecialAgent && firstHourRate !== '' ? parseFloat(firstHourRate) : null;
+    const firstRate = null; // Agents never set first-hour rate
 
     if (hours <= 0 || rate <= 0) {
       toast.error('Hours worked and hourly rate must be greater than 0');
@@ -73,7 +73,7 @@ const UpdateInvoicePage = () => {
         body: JSON.stringify({
           hours_worked: hours,
           hourly_rate: rate,
-          ...(isSpecialAgent ? { first_hour_rate: firstRate } : {}),
+          // Agents do not send first-hour rate; admin-only concept
           invoice_number: invoiceNumber.trim()
         })
       });
@@ -90,12 +90,7 @@ const UpdateInvoicePage = () => {
   const calculateTotal = () => {
     const hours = parseFloat(hoursWorked) || 0;
     const rate = parseFloat(hourlyRate) || 0;
-    const isSpecialAgent = (user?.email || '').toLowerCase() === 'lpc634@gmail.com';
-    const fh = isSpecialAgent && firstHourRate !== '' ? parseFloat(firstHourRate) : null;
-    if (isSpecialAgent && fh && hours > 0) {
-      const remaining = Math.max(0, hours - 1);
-      return (fh + remaining * rate).toFixed(2);
-    }
+    // Agents: simple total, no first-hour logic
     return (hours * rate).toFixed(2);
   };
 
@@ -221,23 +216,7 @@ const UpdateInvoicePage = () => {
                 />
               </div>
 
-              {(user?.email || '').toLowerCase() === 'lpc634@gmail.com' && (
-                <div className="space-y-2">
-                  <Label htmlFor="firstHourRate" className="text-v3-text-lightest">
-                    First Hour Rate (£) — optional
-                  </Label>
-                  <Input
-                    id="firstHourRate"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={firstHourRate}
-                    onChange={(e) => setFirstHourRate(e.target.value)}
-                    placeholder="Leave blank to use the hourly rate"
-                    className="bg-v3-bg-dark border-v3-border text-v3-text-lightest"
-                  />
-                </div>
-              )}
+              {/* Removed first-hour rate from agent invoice form; admin-only concept */}
 
               <div className="space-y-2">
                 <Label htmlFor="invoiceNumber" className="text-v3-text-lightest">
