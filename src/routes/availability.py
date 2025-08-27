@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import db, User, AgentAvailability, AgentWeeklyAvailability, Notification
 from datetime import datetime, date, timedelta
