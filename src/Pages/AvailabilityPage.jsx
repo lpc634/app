@@ -14,6 +14,7 @@ const AvailabilityPage = () => {
   const [weeklySchedule, setWeeklySchedule] = useState({});
   const [dailyOverrides, setDailyOverrides] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [togglingToday, setTogglingToday] = useState(false);
   const { user, apiCall } = useAuth();
 
   const fetchData = useCallback(async () => {
@@ -55,20 +56,44 @@ const AvailabilityPage = () => {
   };
 
   const handleDailyOverrideToggle = async (date, currentStatus) => {
+    const nextStatus = !currentStatus;
+    setTogglingToday(true);
+    const previousOverrides = dailyOverrides;
+    // Optimistic update so the button works on first tap
+    setDailyOverrides(prev => {
+      const idx = prev.findIndex(d => d.date === date);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], is_available: nextStatus };
+        return copy;
+      }
+      return [...prev, { date, is_available: nextStatus }];
+    });
     try {
       await apiCall(`/availability/daily/${user.id}`, {
         method: 'POST',
-        body: JSON.stringify({ date, is_available: !currentStatus }),
+        body: JSON.stringify({ date, is_available: nextStatus }),
       });
       toast.success(`Availability for ${date} updated.`);
       fetchData();
     } catch (error) {
+      // Revert on failure
+      setDailyOverrides(previousOverrides);
       toast.error("Failed to update availability.", { description: error.message });
+    } finally {
+      setTogglingToday(false);
     }
   };
 
+  const getLocalDateString = (d = new Date()) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const da = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${da}`;
+  };
+
   const getTodaysStatus = () => {
-      const todayString = new Date().toISOString().split('T')[0];
+      const todayString = getLocalDateString();
       const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
       const dailyOverride = dailyOverrides.find(d => d.date === todayString);
       if (dailyOverride) {
@@ -125,10 +150,11 @@ const AvailabilityPage = () => {
                 </p>
                 <Button 
                     variant="outline" 
-                    onClick={() => handleDailyOverrideToggle(new Date().toISOString().split('T')[0], isAvailableToday)}
+                    onClick={() => handleDailyOverrideToggle(getLocalDateString(), isAvailableToday)}
                     className="w-48"
+                    disabled={togglingToday}
                 >
-                    {isAvailableToday ? <PowerOff className="mr-2 h-4 w-4" /> : <Power className="mr-2 h-4 w-4" />}
+                    {togglingToday ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (isAvailableToday ? <PowerOff className="mr-2 h-4 w-4" /> : <Power className="mr-2 h-4 w-4" />)}
                     {isAvailableToday ? 'Set to Unavailable' : 'Set to Available'}
                 </Button>
             </CardContent>
