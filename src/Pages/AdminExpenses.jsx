@@ -675,18 +675,17 @@ export default function AdminExpenses() {
                 value={filters.job_id}
                 onChange={(e) => setFilters({...filters, job_id: e.target.value})}
                 placeholder="Filter by job"
-                className="filter-input"
               />
             </div>
             <div className="space-y-2">
               <Label>Search</Label>
-              <div className="relative h-[44px]">
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   value={filters.search}
                   onChange={(e) => setFilters({...filters, search: e.target.value})}
                   placeholder="Search description..."
-                  className="pl-10 filter-input"
+                  className="pl-10"
                 />
               </div>
             </div>
