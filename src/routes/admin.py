@@ -8,7 +8,7 @@ from src.utils.finance import (
     get_job_expense_totals, get_job_agent_invoice_totals, calculate_job_profit,
     lock_job_revenue_snapshot, get_financial_summary
 )
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import json
 import logging
 import requests
@@ -116,9 +116,8 @@ def export_expenses():
         if search:
             s = search.lower()
             def _match(e):
-                return (e.description and s in e.description.lower()) or 
-                       (e.supplier and s in e.supplier.lower()) or 
-                       (e.category and s in e.category.lower())
+                parts = [e.description or '', e.supplier or '', e.category or '']
+                return any(s in (p.lower()) for p in parts)
             expenses = [e for e in expenses if _match(e)]
 
         # Build workbook
