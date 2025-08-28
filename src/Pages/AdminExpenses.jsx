@@ -675,6 +675,7 @@ export default function AdminExpenses() {
                 value={filters.job_id}
                 onChange={(e) => setFilters({...filters, job_id: e.target.value})}
                 placeholder="Filter by job"
+                className="h-10"
               />
             </div>
             <div className="space-y-2">
@@ -685,7 +686,7 @@ export default function AdminExpenses() {
                   value={filters.search}
                   onChange={(e) => setFilters({...filters, search: e.target.value})}
                   placeholder="Search description..."
-                  className="pl-10"
+                  className="pl-10 h-10"
                 />
               </div>
             </div>
