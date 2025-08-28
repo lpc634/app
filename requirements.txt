@@ -22,5 +22,6 @@ boto3
 python-dotenv
 pytest
 pytest-flask
+openpyxl
 
 

@@ -292,6 +292,42 @@ export default function AdminExpenses() {
     }).format(amount || 0);
   };
 
+  const handleExport = async (preset) => {
+    try {
+      const params = new URLSearchParams();
+      if (preset) params.append('period', preset);
+      if (filters.from) params.append('from', filters.from);
+      if (filters.to) params.append('to', filters.to);
+      if (filters.category && filters.category !== 'all') params.append('category', filters.category);
+      if (filters.job_id) params.append('job_id', filters.job_id);
+      if (filters.search) params.append('search', filters.search);
+      const url = `/admin/expenses/export?${params.toString()}`;
+
+      // Use fetch to get blob with auth
+      const token = localStorage.getItem('token');
+      const resp = await fetch((import.meta.env.PROD ? 'https://v3-app-49c3d1eff914.herokuapp.com/api' : 'http://localhost:5001/api') + url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(text || 'Export failed');
+      }
+      const blob = await resp.blob();
+      const dlUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = 'expenses_export.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(dlUrl);
+      toast.success('Export generated');
+    } catch (e) {
+      console.error('Export failed', e);
+      toast.error('Failed to export', { description: e.message });
+    }
+  };
+
   const getStatusBadge = (status) => {
     const variants = {
       logged: 'bg-yellow-900/50 text-yellow-400 border-yellow-500/50',
@@ -590,7 +626,15 @@ export default function AdminExpenses() {
       <section className="mb-6">
       <Card className="bg-zinc-900 border border-zinc-800 shadow-md">
         <CardHeader>
-          <CardTitle className="text-lg">Filters</CardTitle>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-lg">Filters</CardTitle>
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" onClick={() => handleExport('this_month')}><Download className="h-4 w-4 mr-2"/>Export This Month</Button>
+              <Button variant="outline" onClick={() => handleExport('this_quarter')}><Download className="h-4 w-4 mr-2"/>Export This Quarter</Button>
+              <Button variant="outline" onClick={() => handleExport('this_year')}><Download className="h-4 w-4 mr-2"/>Export This Year</Button>
+              <Button onClick={() => handleExport()}><Download className="h-4 w-4 mr-2"/>Export (Current Filters)</Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">

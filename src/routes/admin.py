@@ -1,5 +1,5 @@
 # src/routes/admin.py
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request, current_app, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import User, Job, JobAssignment, AgentAvailability, Invoice, InvoiceJob, Notification, JobBilling, Expense, db
 from src.utils.s3_client import s3_client
@@ -12,8 +12,191 @@ from datetime import datetime, date
 import json
 import logging
 import requests
+import io
+from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
 
 admin_bp = Blueprint('admin', __name__)
+def _parse_date_param(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except Exception:
+        return None
+
+def _daterange_from_period(period, ref_date=None):
+    today = ref_date or date.today()
+    if period == 'this_month':
+        start = today.replace(day=1)
+        if start.month == 12:
+            end = start.replace(year=start.year + 1, month=1)
+        else:
+            end = start.replace(month=start.month + 1)
+        return start, end
+    if period == 'last_month':
+        start = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+        end = today.replace(day=1)
+        return start, end
+    if period == 'this_quarter':
+        q = (today.month - 1) // 3
+        start_month = q * 3 + 1
+        start = date(today.year, start_month, 1)
+        end_month = start_month + 3
+        end_year = today.year + (1 if end_month > 12 else 0)
+        end_month = 1 if end_month > 12 else end_month
+        end = date(end_year, end_month, 1)
+        return start, end
+    if period == 'last_quarter':
+        q = (today.month - 1) // 3
+        start_month = (q - 1) * 3 + 1
+        start_year = today.year
+        if start_month <= 0:
+            start_month += 12
+            start_year -= 1
+        start = date(start_year, start_month, 1)
+        # end is start + 3 months
+        end_month = start_month + 3
+        end_year = start_year + (1 if end_month > 12 else 0)
+        end_month = 1 if end_month > 12 else end_month
+        end = date(end_year, end_month, 1)
+        return start, end
+    if period == 'this_year':
+        start = date(today.year, 1, 1)
+        end = date(today.year + 1, 1, 1)
+        return start, end
+    if period == 'last_year':
+        start = date(today.year - 1, 1, 1)
+        end = date(today.year, 1, 1)
+        return start, end
+    return None, None
+
+@admin_bp.route('/admin/expenses/export', methods=['GET'])
+@jwt_required()
+def export_expenses():
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(int(current_user_id))
+        if not current_user or current_user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Filters
+        period = request.args.get('period')  # this_month, last_month, this_quarter, last_quarter, this_year, last_year
+        from_q = request.args.get('from')
+        to_q = request.args.get('to')
+        category = request.args.get('category')
+        status = request.args.get('status')
+        job_id = request.args.get('job_id', type=int)
+        search = request.args.get('search', type=str)
+
+        start_date, end_date = _daterange_from_period(period)
+        if from_q:
+            start_date = _parse_date_param(from_q)
+        if to_q:
+            to_parsed = _parse_date_param(to_q)
+            # treat 'to' as inclusive by adding one day for < end filtering
+            if to_parsed:
+                end_date = to_parsed + timedelta(days=1)
+
+        # Query
+        q = Expense.query
+        if start_date:
+            q = q.filter(Expense.date >= start_date)
+        if end_date:
+            q = q.filter(Expense.date < end_date)
+        if category:
+            q = q.filter(Expense.category == category)
+        if status:
+            q = q.filter(Expense.status == status)
+        if job_id:
+            q = q.filter(Expense.job_id == job_id)
+
+        expenses = q.order_by(Expense.date.asc()).all()
+        # Client-like search on text fields
+        if search:
+            s = search.lower()
+            def _match(e):
+                return (e.description and s in e.description.lower()) or 
+                       (e.supplier and s in e.supplier.lower()) or 
+                       (e.category and s in e.category.lower())
+            expenses = [e for e in expenses if _match(e)]
+
+        # Build workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Expenses'
+        headers = ['Date','Category','Description','Net','VAT Rate','VAT','Gross','Supplier','Paid With','Status','Job ID','Created By']
+        ws.append(headers)
+        total_net = total_vat = total_gross = 0
+        for e in expenses:
+            net = float(e.amount_net or 0)
+            vat_rate = float(e.vat_rate or 0)
+            vat = float(e.vat_amount or (net * vat_rate))
+            gross = float(e.amount_gross or (net + vat))
+            total_net += net
+            total_vat += vat
+            total_gross += gross
+            ws.append([
+                e.date.isoformat() if e.date else '',
+                e.category,
+                e.description,
+                net,
+                vat_rate,
+                vat,
+                gross,
+                e.supplier or '',
+                e.paid_with,
+                e.status,
+                e.job_id or '',
+                e.created_by
+            ])
+        ws.append([])
+        ws.append(['Totals','','', total_net, '', total_vat, total_gross])
+        # Column widths
+        widths = [12,14,50,12,10,12,12,18,14,12,10,12]
+        for i,w in enumerate(widths, start=1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+
+        # Summary sheet
+        ws2 = wb.create_sheet('Summary')
+        ws2.append(['Metric','Amount'])
+        ws2.append(['Total Net', total_net])
+        ws2.append(['Total VAT (input)', total_vat])
+        ws2.append(['Total Gross', total_gross])
+
+        # VAT by rate
+        by_rate = {}
+        for e in expenses:
+            rate = float(e.vat_rate or 0)
+            net = float(e.amount_net or 0)
+            vat = float(e.vat_amount or net * rate)
+            gross = float(e.amount_gross or net + vat)
+            agg = by_rate.setdefault(rate, {'net':0,'vat':0,'gross':0})
+            agg['net'] += net; agg['vat'] += vat; agg['gross'] += gross
+        ws3 = wb.create_sheet('VAT Report')
+        ws3.append(['VAT Rate','Net','VAT','Gross'])
+        for rate, agg in sorted(by_rate.items()):
+            ws3.append([rate, agg['net'], agg['vat'], agg['gross']])
+
+        # Serialize to bytes
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+
+        # Filename
+        fn_from = (start_date or (expenses[0].date if expenses else date.today())).isoformat()
+        fn_to = ((end_date - timedelta(days=1)) if end_date else (expenses[-1].date if expenses else date.today())).isoformat()
+        filename = f"expenses_{fn_from}_to_{fn_to}.xlsx"
+
+        return send_file(
+            buf,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error exporting expenses: {e}")
+        return jsonify({'error': 'Failed to export expenses'}), 500
 
 def handle_legacy_document_access(file_key):
     """
