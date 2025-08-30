@@ -42,6 +42,103 @@ def require_agent_or_admin():
     user = User.query.get(current_user_id)
     return user
 
+# === Helper: job filled check ===
+def _accepted_count(job_id: int) -> int:
+    return JobAssignment.query.filter_by(job_id=job_id, status='accepted').count()
+
+def _is_job_filled(job: Job) -> bool:
+    try:
+        return _accepted_count(job.id) >= int(job.agents_required or 1)
+    except Exception:
+        return False
+
+# === List assignments for an agent (exclude filled jobs if still pending) ===
+@jobs_bp.route('/assignments/agent/<int:agent_id>', methods=['GET'])
+@jwt_required()
+def list_agent_assignments(agent_id):
+    try:
+        user = User.query.get(get_jwt_identity())
+        if not user:
+            return jsonify({'error': 'Unauthorized'}), 401
+        if user.role not in ['agent', 'admin'] and user.id != agent_id:
+            return jsonify({'error': 'Access denied'}), 403
+
+        status_filter = request.args.get('status')
+        q = JobAssignment.query.filter_by(agent_id=agent_id)
+        if status_filter:
+            q = q.filter(JobAssignment.status == status_filter)
+        assignments = q.order_by(JobAssignment.created_at.desc()).all()
+
+        result = []
+        for a in assignments:
+            job = Job.query.get(a.job_id)
+            if not job:
+                continue
+            if a.status == 'pending' and _is_job_filled(job):
+                # hide pending assignment for already filled job
+                continue
+            item = a.to_dict()
+            item['job_details'] = job.to_dict()
+            result.append(item)
+        return jsonify({'assignments': result}), 200
+    except Exception as e:
+        logger.error(f"Error listing assignments for agent {agent_id}: {e}")
+        return jsonify({'error': 'Failed to load assignments'}), 500
+
+# === Agent respond to a job (accept/decline) ===
+@jobs_bp.route('/jobs/<int:job_id>/respond', methods=['POST'])
+@jwt_required()
+def respond_to_job(job_id):
+    try:
+        user_id = get_jwt_identity()
+        agent = User.query.get(user_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Agent access required'}), 403
+        payload = request.get_json() or {}
+        response = (payload.get('response') or '').lower()
+        if response not in ['accept', 'decline']:
+            return jsonify({'error': 'Invalid response'}), 400
+
+        job = Job.query.get(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        assignment = JobAssignment.query.filter_by(job_id=job_id, agent_id=agent.id).first()
+        if not assignment:
+            return jsonify({'error': 'Assignment not found'}), 404
+
+        if response == 'decline':
+            assignment.status = 'declined'
+            assignment.response_time = datetime.utcnow()
+            db.session.commit()
+            return jsonify({'status': 'declined'}), 200
+
+        # accept
+        if _is_job_filled(job):
+            # Already filled, mark as expired/declined for this agent
+            assignment.status = 'declined'
+            assignment.response_time = datetime.utcnow()
+            db.session.commit()
+            return jsonify({'status': 'declined', 'message': 'Positions already filled'}), 409
+
+        assignment.status = 'accepted'
+        assignment.response_time = datetime.utcnow()
+        db.session.commit()
+
+        # If filled after this acceptance, mark others expired and job filled
+        if _is_job_filled(job):
+            job.status = 'filled'
+            JobAssignment.query.filter(
+                JobAssignment.job_id == job.id,
+                JobAssignment.status == 'pending',
+                JobAssignment.agent_id != agent.id
+            ).update({JobAssignment.status: 'expired'})
+            db.session.commit()
+        return jsonify({'status': 'accepted'}), 200
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error responding to job {job_id}: {e}")
+        return jsonify({'error': 'Failed to respond to job'}), 500
+
 def validate_json_fields(required_fields):
     """Decorator to validate required JSON fields."""
     def decorator(f):
