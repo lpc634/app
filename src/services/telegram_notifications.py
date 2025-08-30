@@ -4,12 +4,42 @@ Telegram notification service for sending job notifications to agents
 import logging
 from flask import current_app
 from src.integrations.telegram_client import send_message
+from urllib.parse import quote_plus
+from datetime import datetime
 
 
 def is_enabled():
     """Check if Telegram notifications are enabled"""
     return current_app.config.get("TELEGRAM_ENABLED", False)
 
+
+def _area_label(job) -> str:
+    for cand in [getattr(job, "town", None), getattr(job, "city", None)]:
+        if cand:
+            return str(cand)
+    pc = getattr(job, "postcode", None)
+    if pc:
+        return str(pc).split(" ")[0]
+    for cand in [getattr(job, "county", None), getattr(job, "region", None)]:
+        if cand:
+            return str(cand)
+    return "Location revealed after acceptance"
+
+def _format_dt(dt: datetime) -> str:
+    try:
+        return dt.strftime('%a %d %b %H:%M')
+    except Exception:
+        return str(dt)
+
+def _build_maps(job) -> str:
+    addr = getattr(job, 'address', None) or getattr(job, 'full_address', None)
+    if addr:
+        return f"https://maps.google.com/?q={quote_plus(addr)}"
+    lat = getattr(job, 'location_lat', None) or getattr(job, 'lat', None)
+    lng = getattr(job, 'location_lng', None) or getattr(job, 'lng', None)
+    if lat and lng:
+        return f"https://maps.google.com/?q={lat},{lng}"
+    return "Maps link unavailable"
 
 def send_job_assignment_notification(agent, job):
     """
@@ -31,16 +61,14 @@ def send_job_assignment_notification(agent, job):
         return False
     
     try:
-        message = f"""
-🚨 <b>New Job Assignment</b>
-
-<b>Job:</b> {job.title or job.job_type}
-<b>Location:</b> {job.address}
-<b>Time:</b> {job.arrival_time.strftime('%d/%m/%Y %H:%M')}
-<b>Type:</b> {job.job_type}
-
-Please check the V3 Services app to accept or decline this assignment.
-        """.strip()
+        # Pre-accept: no exact location, no maps, no priority
+        message = (
+            "🆕 <b>New Job Assignment</b>\n\n"
+            f"<b>Job:</b> {job.title or job.job_type}\n"
+            f"<b>Date/Time:</b> {_format_dt(job.arrival_time) if getattr(job,'arrival_time',None) else 'TBC'}\n"
+            f"<b>Area:</b> {_area_label(job)}\n\n"
+            "Please open the V3 Services app → Jobs → Pending to accept or decline."
+        )
         
         result = send_message(agent.telegram_chat_id, message)
         
@@ -75,15 +103,17 @@ def send_job_acceptance_notification(agent, job):
         return False
     
     try:
-        message = f"""
-✅ <b>Job Accepted</b>
-
-<b>Job:</b> {job.title or job.job_type}
-<b>Location:</b> {job.address}
-<b>Time:</b> {job.arrival_time.strftime('%d/%m/%Y %H:%M')}
-
-You have successfully accepted this job assignment.
-        """.strip()
+        # Post-accept: include full address, maps. Weather optional - integrate when service available.
+        maps_link = _build_maps(job)
+        message = (
+            "✅ <b>Job Accepted</b>\n\n"
+            "<b>Job Details:</b>\n"
+            f"• <b>Type:</b> {job.title or job.job_type}\n"
+            f"• <b>Date/Time:</b> {_format_dt(job.arrival_time) if getattr(job,'arrival_time',None) else 'TBC'}\n"
+            f"• <b>Location:</b> {getattr(job,'address',None) or getattr(job,'full_address','Address unavailable')}\n"
+            f"• <b>Maps:</b> {maps_link}\n\n"
+            "Please check the app for full instructions."
+        )
         
         result = send_message(agent.telegram_chat_id, message)
         
