@@ -354,7 +354,13 @@ def _tax_statement():
     s = _styles()
     txt = ("I confirm that I am responsible for any Tax or National Insurance "
            "due on all invoices that I have submitted to V3 Services Ltd.")
-    box = Table([[Paragraph(txt, s["muted"])]], colWidths=[None])
+    # Render disclaimer in solid black for print legibility
+    black_style = ParagraphStyle(
+        "disclaimer_black",
+        parent=s["small"],
+        textColor=HexColor("#000000"),
+    )
+    box = Table([[Paragraph(txt, black_style)]], colWidths=[None])
     box.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), HexColor("#F1F5F9")),
         ("BOX",        (0,0), (-1,-1), 0.8, GRID),
