@@ -6,6 +6,7 @@ from flask import current_app
 from src.integrations.telegram_client import send_message
 from urllib.parse import quote_plus
 from datetime import datetime
+from src.server.services.weather_service import fetch_weather
 
 
 def is_enabled():
@@ -105,6 +106,16 @@ def send_job_acceptance_notification(agent, job):
     try:
         # Post-accept: include full address, maps. Weather optional - integrate when service available.
         maps_link = _build_maps(job)
+        # Weather using actual location where possible
+        try:
+            lat = getattr(job, 'location_lat', None) or getattr(job, 'lat', None)
+            lng = getattr(job, 'location_lng', None) or getattr(job, 'lng', None)
+            weather = fetch_weather(float(lat), float(lng)) if lat and lng else {"summary":"Unavailable","temp_c":None,"wind_mph":None,"precip_prob":None}
+        except Exception:
+            weather = {"summary":"Unavailable","temp_c":None,"wind_mph":None,"precip_prob":None}
+        temp_txt = f"{round(weather['temp_c'])}°C" if isinstance(weather.get('temp_c'), (int, float)) else "–"
+        wind_txt = f"{round(weather['wind_mph'])} mph" if isinstance(weather.get('wind_mph'), (int, float)) else "–"
+        pop_txt  = f"{round(weather['precip_prob'])}%" if isinstance(weather.get('precip_prob'), (int, float)) else "–"
         message = (
             "✅ <b>Job Accepted</b>\n\n"
             "<b>Job Details:</b>\n"
@@ -112,6 +123,8 @@ def send_job_acceptance_notification(agent, job):
             f"• <b>Date/Time:</b> {_format_dt(job.arrival_time) if getattr(job,'arrival_time',None) else 'TBC'}\n"
             f"• <b>Location:</b> {getattr(job,'address',None) or getattr(job,'full_address','Address unavailable')}\n"
             f"• <b>Maps:</b> {maps_link}\n\n"
+            "<b>Weather (at start):</b>\n"
+            f"• {weather.get('summary','Unavailable')}, {temp_txt}, wind {wind_txt}, precip {pop_txt}\n\n"
             "Please check the app for full instructions."
         )
         
