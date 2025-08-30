@@ -229,20 +229,7 @@ const JobDetails = () => {
                 </div>
             )}
 
-            {/* Urgency Level */}
-            <div className="agent-mobile-section">
-                <h2 className="agent-mobile-section-title">
-                    <AlertCircle size={20} />
-                    Priority Level
-                </h2>
-                <div className="agent-mobile-card">
-                    <div className="agent-mobile-card-content">
-                        <p className="text-v3-text-light capitalize font-medium">
-                            {job.urgency_level || 'Standard'}
-                        </p>
-                    </div>
-                </div>
-            </div>
+            {/* Urgency indicator removed from agent view per policy */}
 
             {/* Job Details */}
             <div className="agent-mobile-section">

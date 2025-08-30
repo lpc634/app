@@ -153,8 +153,6 @@ const AgentNotifications = () => {
   };
 
   const getNotificationColor = (type, priority) => {
-    if (priority === 'high') return 'bg-red-500';
-    
     switch(type) {
       case 'job_offer': return 'bg-v3-orange';
       case 'job_update': return 'bg-blue-500';
@@ -312,15 +310,7 @@ const AgentNotifications = () => {
           <div className="text-2xl font-bold text-v3-text-lightest mt-2">{unreadCount}</div>
         </div>
         
-        <div className="dashboard-card">
-          <div className="flex justify-between items-start">
-            <h3 className="text-v3-text-muted font-semibold">High Priority</h3>
-            <AlertTriangle className="h-5 w-5 text-v3-text-muted" />
-          </div>
-          <div className="text-2xl font-bold text-v3-text-lightest mt-2">
-            {notifications.filter(n => n.priority === 'high').length}
-          </div>
-        </div>
+        {/* Removed priority summary from agent-facing UI */}
       </div>
 
       {/* Search and Filter */}
@@ -394,9 +384,7 @@ const AgentNotifications = () => {
                         {!notification.read && (
                           <div className="w-2 h-2 bg-v3-orange rounded-full"></div>
                         )}
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(notification.priority)}`}>
-                          {notification.priority.toUpperCase()}
-                        </span>
+                        {/* Priority badge removed */}
                       </div>
                       <p className={`leading-relaxed ${notification.read ? 'text-v3-text-muted' : 'text-v3-text-light'}`}>
                         {notification.message}
