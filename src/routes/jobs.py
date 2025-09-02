@@ -130,7 +130,7 @@ def respond_to_job(job_id):
         try:
             agent_name = f"{agent.first_name} {agent.last_name}".strip()
             area = _area_label(job) if '_area_label' in globals() else (job.postcode or job.city or job.town or 'Area')
-            _send_admin_group(
+            sent_ok = _send_admin_group(
                 (
                     "✅ <b>Agent Accepted</b>\n\n"
                     f"<b>Job:</b> #{job.id} — {job.title or job.job_type}\n"
@@ -139,6 +139,10 @@ def respond_to_job(job_id):
                     f"<b>Agent:</b> {agent_name}"
                 )
             )
+            if sent_ok:
+                logger.info(f"Admin acceptance notify sent for job {job.id} to group")
+            else:
+                logger.warning(f"Admin acceptance notify returned False for job {job.id}")
         except Exception as _e:
             logger.warning(f"Admin acceptance notify failed: {_e}")
 
@@ -166,7 +170,7 @@ def respond_to_job(job_id):
                         continue
                 agents_list = "\n".join([f"• {n}" for n in names]) if names else "(names unavailable)"
                 area = _area_label(job) if '_area_label' in globals() else (job.postcode or job.city or job.town or 'Area')
-                _send_admin_group(
+                sent_ok = _send_admin_group(
                     (
                         "🎉 <b>Job Filled</b>\n\n"
                         f"<b>Job:</b> #{job.id} — {job.title or job.job_type}\n"
@@ -175,6 +179,10 @@ def respond_to_job(job_id):
                         f"<b>Agents ({len(names)}):</b>\n{agents_list}"
                     )
                 )
+                if sent_ok:
+                    logger.info(f"Admin filled notify sent for job {job.id} with {len(names)} agents")
+                else:
+                    logger.warning(f"Admin filled notify returned False for job {job.id}")
             except Exception as _e:
                 logger.warning(f"Admin filled notify failed: {_e}")
         # Notify agent acceptance to Telegram
@@ -1144,7 +1152,7 @@ def respond_to_assignment(assignment_id):
             try:
                 agent_name = f"{current_user.first_name} {current_user.last_name}".strip()
                 area = _area_label(job) if '_area_label' in globals() else (job.postcode or job.city or job.town or 'Area')
-                _send_admin_group(
+                sent_ok = _send_admin_group(
                     (
                         "✅ <b>Agent Accepted</b>\n\n"
                         f"<b>Job:</b> #{job.id} — {job.title or job.job_type}\n"
@@ -1153,6 +1161,10 @@ def respond_to_assignment(assignment_id):
                         f"<b>Agent:</b> {agent_name}"
                     )
                 )
+                if sent_ok:
+                    logger.info(f"Admin acceptance notify sent for job {job.id} to group")
+                else:
+                    logger.warning(f"Admin acceptance notify returned False for job {job.id}")
             except Exception as _e:
                 logger.warning(f"Admin acceptance notify failed: {_e}")
 
@@ -1171,7 +1183,7 @@ def respond_to_assignment(assignment_id):
                             continue
                     agents_list = "\n".join([f"• {n}" for n in names]) if names else "(names unavailable)"
                     area = _area_label(job) if '_area_label' in globals() else (job.postcode or job.city or job.town or 'Area')
-                    _send_admin_group(
+                    sent_ok = _send_admin_group(
                         (
                             "🎉 <b>Job Filled</b>\n\n"
                             f"<b>Job:</b> #{job.id} — {job.title or job.job_type}\n"
@@ -1180,6 +1192,10 @@ def respond_to_assignment(assignment_id):
                             f"<b>Agents ({len(names)}):</b>\n{agents_list}"
                         )
                     )
+                    if sent_ok:
+                        logger.info(f"Admin filled notify sent for job {job.id} with {len(names)} agents")
+                    else:
+                        logger.warning(f"Admin filled notify returned False for job {job.id}")
                 except Exception as _e:
                     logger.warning(f"Admin filled notify failed: {_e}")
             
