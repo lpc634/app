@@ -44,8 +44,8 @@ const AgentNotifications = () => {
     try {
       setLoading(true);
       setError('');
-      // Replace with actual API endpoint
-      const data = await apiCall('/agent/notifications');
+      // Use backend notifications endpoint
+      const data = await apiCall('/notifications');
       setNotifications(data);
       setFilteredNotifications(data);
     } catch (error) {
@@ -176,8 +176,7 @@ const AgentNotifications = () => {
 
   const markAsRead = async (notificationId) => {
     try {
-      // Replace with actual API call
-      await apiCall(`/agent/notifications/${notificationId}/read`, { method: 'POST' });
+      await apiCall(`/notifications/${notificationId}/read`, { method: 'PUT' });
       setNotifications(prev => 
         prev.map(notification => 
           notification.id === notificationId 
@@ -192,8 +191,7 @@ const AgentNotifications = () => {
 
   const markAllAsRead = async () => {
     try {
-      // Replace with actual API call
-      await apiCall('/agent/notifications/read-all', { method: 'POST' });
+      await apiCall('/notifications/read-all', { method: 'PUT' });
       setNotifications(prev => 
         prev.map(notification => ({ ...notification, read: true }))
       );
@@ -204,8 +202,7 @@ const AgentNotifications = () => {
 
   const deleteNotification = async (notificationId) => {
     try {
-      // Replace with actual API call
-      await apiCall(`/agent/notifications/${notificationId}`, { method: 'DELETE' });
+      await apiCall(`/notifications/${notificationId}`, { method: 'DELETE' });
       setNotifications(prev => 
         prev.filter(notification => notification.id !== notificationId)
       );

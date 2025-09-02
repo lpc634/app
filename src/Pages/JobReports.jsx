@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'; // Re-added for smooth 
 import { ClipboardList, Edit, CheckCircle, ServerCrash, RefreshCw, X, History, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { toast } from "sonner";
 
 const COGNITO_FORM_CONFIGS = {
   'eviction': { key: 'sZH0eAh12kuFR54t7shuOw', formId: '6', name: 'Eviction Report' },
@@ -134,11 +135,28 @@ const JobReports = () => {
   const handleSelectJob = (job) => setSelectedJob(job);
   const handleCloseModal = () => setSelectedJob(null);
 
-  const handleAfterSubmit = () => {
-    handleCloseModal();
-    setTimeout(() => {
+  const handleAfterSubmit = async () => {
+    try {
+      // Only notify backend for real jobs with numeric IDs
+      if (selectedJob && typeof selectedJob.id === 'number') {
+        const formConfig = getFormConfig(selectedJob);
+        await apiCall('/agent/report-submitted', {
+          method: 'POST',
+          body: JSON.stringify({
+            job_id: selectedJob.id,
+            report_type: formConfig?.name || 'Report'
+          })
+        });
+        toast.success('Report submitted', { description: 'Admin has been notified.' });
+      }
+    } catch (err) {
+      toast.error('Report submit', { description: err?.message || 'Failed to notify admin' });
+    } finally {
+      handleCloseModal();
+      setTimeout(() => {
         fetchCompletedJobs();
-    }, 1000);
+      }, 800);
+    }
   };
 
   const handleViewForm = () => {

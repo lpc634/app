@@ -136,6 +136,16 @@ def mark_notification_read(notification_id):
     db.session.commit()
     return jsonify({'message': 'Notification marked as read'}), 200
 
+
+@notifications_bp.route('/notifications/read-all', methods=['PUT'])
+@jwt_required()
+def mark_all_notifications_read():
+    """Mark all notifications for the current user as read."""
+    current_user_id = get_jwt_identity()
+    updated = Notification.query.filter_by(user_id=current_user_id, is_read=False).update({Notification.is_read: True})
+    db.session.commit()
+    return jsonify({'message': 'All notifications marked as read', 'updated': int(updated or 0)}), 200
+
 @notifications_bp.route('/notifications/<int:notification_id>', methods=['DELETE'])
 @jwt_required()
 def delete_notification(notification_id):

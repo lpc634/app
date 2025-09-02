@@ -44,6 +44,65 @@ def _admin_location_from_job(job) -> str:
     return "Unknown"
 
 
+@agent_bp.route('/agent/report-submitted', methods=['POST'])
+@jwt_required()
+def agent_report_submitted():
+    """Notify admins when an agent submits a job report.
+
+    Expected JSON body:
+    - job_id: int (required)
+    - report_type: str (optional, e.g., 'Eviction Report')
+    - report_url: str (optional link to the report or confirmation page)
+    """
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied. Agent role required.'}), 403
+
+        data = request.get_json() or {}
+        job_id = data.get('job_id')
+        report_type = (data.get('report_type') or '').strip()
+        report_url = (data.get('report_url') or '').strip()
+
+        if not job_id:
+            return jsonify({'error': 'job_id is required'}), 400
+
+        job = Job.query.get(int(job_id))
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        # Ensure this agent was assigned and accepted
+        assignment = JobAssignment.query.filter_by(job_id=job.id, agent_id=agent.id, status='accepted').first()
+        if not assignment:
+            return jsonify({'error': 'You are not assigned to this job or have not accepted it'}), 403
+
+        # Build admin message
+        agent_name = f"{agent.first_name} {agent.last_name}".strip()
+        location_text = _admin_location_from_job(job)
+        parts = [
+            "📝 <b>Job Report Submitted</b>",
+            "",
+            f"<b>Job:</b> #{job.id} — {job.title or job.job_type}",
+            f"<b>Location:</b> {location_text}",
+            f"<b>Agent:</b> {agent_name}"
+        ]
+        if report_type:
+            parts.append(f"<b>Report:</b> {report_type}")
+        if report_url:
+            parts.append(f"<b>Link:</b> {report_url}")
+
+        try:
+            _send_admin_group("\n".join(parts))
+        except Exception as _e:
+            current_app.logger.warning(f"Admin report notify failed: {_e}")
+
+        return jsonify({'message': 'Admin notified of report submission'})
+    except Exception as e:
+        current_app.logger.error(f"Error in report submitted notify: {str(e)}")
+        return jsonify({'error': 'Failed to notify admin'}), 500
+
+
 # --- REPLACED FUNCTION: This now uploads to your computer ---
 @agent_bp.route('/agent/upload-documents', methods=['POST'])
 @jwt_required()
