@@ -84,7 +84,7 @@ export default function NotificationsPage() {
   const markAsRead = async (notificationId) => {
     try {
       await apiCall(`/notifications/${notificationId}/read`, {
-        method: 'POST'
+        method: 'PUT'
       })
       
       setNotifications(notifications.map(n => 
@@ -97,8 +97,8 @@ export default function NotificationsPage() {
 
   const markAllAsRead = async () => {
     try {
-      await apiCall('/notifications/mark-all-read', {
-        method: 'POST'
+      await apiCall('/notifications/read-all', {
+        method: 'PUT'
       })
       
       toast({
@@ -106,7 +106,8 @@ export default function NotificationsPage() {
         description: "Your notification list has been updated",
       })
       
-      fetchNotifications()
+      // Optimistic update
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
     } catch (error) {
       toast({
         title: "Error",
