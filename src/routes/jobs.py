@@ -15,7 +15,7 @@ from src.models.user import User, Job, JobAssignment, AgentAvailability, AgentWe
 from src.utils.finance import update_job_hours
 from src.routes.notifications import trigger_push_notification_for_users
 from src.services.telegram_notifications import send_job_acceptance_notification
-from src.services.telegram_notifications import _send_admin_group, _format_dt
+from src.services.telegram_notifications import _send_admin_group, _format_dt, _area_label
 
 jobs_bp = Blueprint('jobs', __name__)
 
@@ -129,7 +129,7 @@ def respond_to_job(job_id):
         # Admin: notify acceptance
         try:
             agent_name = f"{agent.first_name} {agent.last_name}".strip()
-            area = _area_label(job) if '_area_label' in globals() else (job.postcode or job.city or job.town or 'Area')
+            area = _area_label(job)
             sent_ok = _send_admin_group(
                 (
                     "✅ <b>Agent Accepted</b>\n\n"
@@ -169,7 +169,7 @@ def respond_to_job(job_id):
                     except Exception:
                         continue
                 agents_list = "\n".join([f"• {n}" for n in names]) if names else "(names unavailable)"
-                area = _area_label(job) if '_area_label' in globals() else (job.postcode or job.city or job.town or 'Area')
+                area = _area_label(job)
                 sent_ok = _send_admin_group(
                     (
                         "🎉 <b>Job Filled</b>\n\n"
@@ -1151,7 +1151,7 @@ def respond_to_assignment(assignment_id):
             # Admin: notify acceptance
             try:
                 agent_name = f"{current_user.first_name} {current_user.last_name}".strip()
-                area = _area_label(job) if '_area_label' in globals() else (job.postcode or job.city or job.town or 'Area')
+                area = _area_label(job)
                 sent_ok = _send_admin_group(
                     (
                         "✅ <b>Agent Accepted</b>\n\n"
@@ -1182,7 +1182,7 @@ def respond_to_assignment(assignment_id):
                         except Exception:
                             continue
                     agents_list = "\n".join([f"• {n}" for n in names]) if names else "(names unavailable)"
-                    area = _area_label(job) if '_area_label' in globals() else (job.postcode or job.city or job.town or 'Area')
+                    area = _area_label(job)
                     sent_ok = _send_admin_group(
                         (
                             "🎉 <b>Job Filled</b>\n\n"
