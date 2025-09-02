@@ -258,18 +258,34 @@ export default function AgentDashboard() {
           
           <div className="space-y-3">
             {dashboardData.upcoming_shifts.map(job => (
-              <Link 
-                to={`/agent/jobs/${job.id}`} 
-                key={job.id} 
-                className="agent-mobile-card block hover:border-v3-orange transition-colors"
-              >
-                <div className="agent-mobile-card-header">
-                  <h3 className="agent-mobile-card-title">{job.address}</h3>
-                  <p className="agent-mobile-card-subtitle">
-                    {new Date(job.arrival_time).toLocaleDateString('en-GB', { dateStyle: 'full' })} at {new Date(job.arrival_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+              <div key={job.id} className="agent-mobile-card hover:border-v3-orange transition-colors">
+                <div className="agent-mobile-card-header flex items-start justify-between">
+                  <div>
+                    <h3 className="agent-mobile-card-title">{job.address}</h3>
+                    <p className="agent-mobile-card-subtitle">
+                      {new Date(job.arrival_time).toLocaleDateString('en-GB', { dateStyle: 'full' })} at {new Date(job.arrival_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  {job.assignment_id && (
+                    <button
+                      className="text-v3-text-muted hover:text-red-500 p-2"
+                      onClick={async () => {
+                        try {
+                          await apiCall(`/agent/assignments/${job.assignment_id}/dismiss`, { method: 'POST' });
+                          toast.success('Removed from upcoming');
+                          fetchData();
+                        } catch (e) {
+                          toast.error('Failed to remove', { description: e.message });
+                        }
+                      }}
+                      aria-label="Dismiss"
+                      title="Remove from upcoming"
+                    >
+                      <XCircle size={18} />
+                    </button>
+                  )}
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </div>

@@ -44,6 +44,30 @@ def _admin_location_from_job(job) -> str:
     return "Unknown"
 
 
+@agent_bp.route('/agent/assignments/<int:assignment_id>/dismiss', methods=['POST'])
+@jwt_required()
+def dismiss_upcoming_assignment(assignment_id: int):
+    """Allow an agent to hide/dismiss an upcoming shift from their dashboard.
+
+    This does NOT delete the job; it simply marks the assignment as declined for this agent.
+    """
+    try:
+        current_user_id = int(get_jwt_identity())
+        assign = JobAssignment.query.get(assignment_id)
+        if not assign or assign.agent_id != current_user_id:
+            return jsonify({'error': 'Assignment not found'}), 404
+
+        # Only allow dismiss/hide when still accepted/upcoming
+        assign.status = 'declined'
+        assign.response_time = datetime.utcnow()
+        db.session.commit()
+        return jsonify({'message': 'Assignment dismissed'}), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Dismiss assignment failed: {str(e)}")
+        return jsonify({'error': 'Failed to dismiss assignment'}), 500
+
+
 @agent_bp.route('/agent/report-submitted', methods=['POST'])
 @jwt_required()
 def agent_report_submitted():
@@ -672,13 +696,13 @@ def get_agent_dashboard_data():
         # END OF FIXED LOGIC
         # ================================
 
-        upcoming_shifts = db.session.query(Job).join(JobAssignment).filter(
+        upcoming_assignments = db.session.query(JobAssignment).join(Job).filter(
             JobAssignment.agent_id == user.id,
             JobAssignment.status == 'accepted',
             Job.arrival_time > now
         ).order_by(Job.arrival_time.asc()).all()
         
-        completed_jobs = db.session.query(Job).join(JobAssignment).filter(
+        completed_assignments = db.session.query(JobAssignment).join(Job).filter(
             JobAssignment.agent_id == user.id,
             JobAssignment.status == 'accepted',
             Job.arrival_time <= now
@@ -694,8 +718,10 @@ def get_agent_dashboard_data():
             'agent_name': full_name,
             'today_status': today_status,
             'available_jobs': available_jobs,
-            'upcoming_shifts': [job.to_dict() for job in upcoming_shifts],
-            'completed_jobs': [job.to_dict() for job in completed_jobs],
+            'upcoming_shifts': [
+                dict(assign.job.to_dict(), assignment_id=assign.id) for assign in upcoming_assignments if assign.job
+            ],
+            'completed_jobs': [assign.job.to_dict() for assign in completed_assignments if assign.job],
             'reports_to_file': [job.to_dict() for job in reports_to_file]
         }
         
