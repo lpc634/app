@@ -15,6 +15,7 @@ from src.models.user import User, Job, JobAssignment, AgentAvailability, AgentWe
 from src.utils.finance import update_job_hours
 from src.routes.notifications import trigger_push_notification_for_users
 from src.services.telegram_notifications import send_job_acceptance_notification
+from src.services.telegram_notifications import _send_admin_group, _format_dt
 
 jobs_bp = Blueprint('jobs', __name__)
 
@@ -125,6 +126,22 @@ def respond_to_job(job_id):
         assignment.response_time = datetime.utcnow()
         db.session.commit()
 
+        # Admin: notify acceptance
+        try:
+            agent_name = f"{agent.first_name} {agent.last_name}".strip()
+            area = _area_label(job) if '_area_label' in globals() else (job.postcode or job.city or job.town or 'Area')
+            _send_admin_group(
+                (
+                    "✅ <b>Agent Accepted</b>\n\n"
+                    f"<b>Job:</b> #{job.id} — {job.title or job.job_type}\n"
+                    f"<b>When:</b> {_format_dt(job.arrival_time) if getattr(job,'arrival_time',None) else 'TBC'}\n"
+                    f"<b>Area:</b> {area}\n"
+                    f"<b>Agent:</b> {agent_name}"
+                )
+            )
+        except Exception as _e:
+            logger.warning(f"Admin acceptance notify failed: {_e}")
+
         # If filled after this acceptance, mark others expired and job filled
         if _is_job_filled(job):
             job.status = 'filled'
@@ -134,6 +151,32 @@ def respond_to_job(job_id):
                 JobAssignment.agent_id != agent.id
             ).update({JobAssignment.status: 'expired'})
             db.session.commit()
+
+            # Admin: notify job filled with agent list
+            try:
+                accepted = JobAssignment.query.filter_by(job_id=job.id, status='accepted').all()
+                # Gather names
+                names = []
+                for a in accepted:
+                    try:
+                        u = User.query.get(a.agent_id)
+                        if u:
+                            names.append(f"{u.first_name} {u.last_name}".strip())
+                    except Exception:
+                        continue
+                agents_list = "\n".join([f"• {n}" for n in names]) if names else "(names unavailable)"
+                area = _area_label(job) if '_area_label' in globals() else (job.postcode or job.city or job.town or 'Area')
+                _send_admin_group(
+                    (
+                        "🎉 <b>Job Filled</b>\n\n"
+                        f"<b>Job:</b> #{job.id} — {job.title or job.job_type}\n"
+                        f"<b>When:</b> {_format_dt(job.arrival_time) if getattr(job,'arrival_time',None) else 'TBC'}\n"
+                        f"<b>Area:</b> {area}\n"
+                        f"<b>Agents ({len(names)}):</b>\n{agents_list}"
+                    )
+                )
+            except Exception as _e:
+                logger.warning(f"Admin filled notify failed: {_e}")
         # Notify agent acceptance to Telegram
         try:
             send_job_acceptance_notification(agent, job)
@@ -1097,8 +1140,48 @@ def respond_to_assignment(assignment_id):
                 status='accepted'
             ).count()
             
+            # Admin: notify acceptance
+            try:
+                agent_name = f"{current_user.first_name} {current_user.last_name}".strip()
+                area = _area_label(job) if '_area_label' in globals() else (job.postcode or job.city or job.town or 'Area')
+                _send_admin_group(
+                    (
+                        "✅ <b>Agent Accepted</b>\n\n"
+                        f"<b>Job:</b> #{job.id} — {job.title or job.job_type}\n"
+                        f"<b>When:</b> {_format_dt(job.arrival_time) if getattr(job,'arrival_time',None) else 'TBC'}\n"
+                        f"<b>Area:</b> {area}\n"
+                        f"<b>Agent:</b> {agent_name}"
+                    )
+                )
+            except Exception as _e:
+                logger.warning(f"Admin acceptance notify failed: {_e}")
+
             if accepted_count >= job.agents_required:
                 job.status = 'filled'
+                # Admin: notify job filled with agent list
+                try:
+                    accepted = JobAssignment.query.filter_by(job_id=job.id, status='accepted').all()
+                    names = []
+                    for a in accepted:
+                        try:
+                            u = User.query.get(a.agent_id)
+                            if u:
+                                names.append(f"{u.first_name} {u.last_name}".strip())
+                        except Exception:
+                            continue
+                    agents_list = "\n".join([f"• {n}" for n in names]) if names else "(names unavailable)"
+                    area = _area_label(job) if '_area_label' in globals() else (job.postcode or job.city or job.town or 'Area')
+                    _send_admin_group(
+                        (
+                            "🎉 <b>Job Filled</b>\n\n"
+                            f"<b>Job:</b> #{job.id} — {job.title or job.job_type}\n"
+                            f"<b>When:</b> {_format_dt(job.arrival_time) if getattr(job,'arrival_time',None) else 'TBC'}\n"
+                            f"<b>Area:</b> {area}\n"
+                            f"<b>Agents ({len(names)}):</b>\n{agents_list}"
+                        )
+                    )
+                except Exception as _e:
+                    logger.warning(f"Admin filled notify failed: {_e}")
             
             # Create draft invoice for the agent
             try:
