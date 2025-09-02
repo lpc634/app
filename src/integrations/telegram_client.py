@@ -9,7 +9,7 @@ API_BASE = "https://api.telegram.org"
 # Cache for bot info (username) - expires after 10 minutes
 _bot_info_cache = {"data": None, "expires": 0}
 
-def send_message(chat_id: str, text: str, parse_mode: str = "HTML") -> dict:
+def send_message(chat_id: str, text: str, parse_mode: str = "HTML", message_thread_id: int | None = None) -> dict:
     """
     Send a message to a Telegram chat
     
@@ -36,6 +36,8 @@ def send_message(chat_id: str, text: str, parse_mode: str = "HTML") -> dict:
         "parse_mode": parse_mode,
         "disable_web_page_preview": True
     }
+    if message_thread_id is not None:
+        payload["message_thread_id"] = message_thread_id
     
     try:
         r = requests.post(url, json=payload, timeout=10)

@@ -14,6 +14,7 @@ from sqlalchemy import and_, or_, case
 from src.models.user import User, Job, JobAssignment, AgentAvailability, AgentWeeklyAvailability, Notification, Invoice, InvoiceJob, JobBilling, db
 from src.utils.finance import update_job_hours
 from src.routes.notifications import trigger_push_notification_for_users
+from src.services.telegram_notifications import send_job_acceptance_notification
 
 jobs_bp = Blueprint('jobs', __name__)
 
@@ -133,6 +134,11 @@ def respond_to_job(job_id):
                 JobAssignment.agent_id != agent.id
             ).update({JobAssignment.status: 'expired'})
             db.session.commit()
+        # Notify agent acceptance to Telegram
+        try:
+            send_job_acceptance_notification(agent, job)
+        except Exception as _e:
+            logger.warning(f"Telegram acceptance notify failed: {_e}")
         return jsonify({'status': 'accepted'}), 200
     except Exception as e:
         db.session.rollback()
@@ -766,6 +772,19 @@ def create_job():
         )
         db.session.add(new_job)
         db.session.flush()  # Get the job ID without committing
+        # Admin broadcast for job creation
+        try:
+            from src.services.telegram_notifications import _send_admin_group, _area_label, _format_dt
+            _send_admin_group(
+                (
+                    "📝 <b>Job Created</b>\n\n"
+                    f"<b>Job:</b> #{new_job.id} — {new_job.title or new_job.job_type}\n"
+                    f"<b>When:</b> {_format_dt(new_job.arrival_time) if getattr(new_job,'arrival_time',None) else 'TBC'}\n"
+                    f"<b>Area:</b> {_area_label(new_job)}\n"
+                )
+            )
+        except Exception as _e:
+            logger.warning(f"Admin broadcast (job created) failed: {_e}")
 
         # Find available agents for the job date
         job_date = new_job.arrival_time.date()

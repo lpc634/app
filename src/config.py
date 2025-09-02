@@ -16,3 +16,5 @@ class Config:
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
     TELEGRAM_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
     APP_BASE_URL = os.getenv("APP_BASE_URL", "https://v3-app.herokuapp.com")
+    TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
+    TELEGRAM_ADMIN_THREAD_ID = os.getenv("TELEGRAM_ADMIN_THREAD_ID")

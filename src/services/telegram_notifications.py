@@ -7,6 +7,8 @@ from src.integrations.telegram_client import send_message
 from urllib.parse import quote_plus
 from datetime import datetime
 from src.server.services.weather_service import fetch_weather
+from flask import current_app
+from src.integrations.telegram_client import send_message as _send
 
 
 def is_enabled():
@@ -42,6 +44,17 @@ def _build_maps(job) -> str:
         return f"https://maps.google.com/?q={lat},{lng}"
     return "Maps link unavailable"
 
+def _send_admin_group(text: str) -> bool:
+    chat_id = current_app.config.get("TELEGRAM_ADMIN_CHAT_ID")
+    if not chat_id:
+        return False
+    thread_id = current_app.config.get("TELEGRAM_ADMIN_THREAD_ID")
+    try:
+        _send(chat_id=chat_id, text=text, parse_mode="HTML", message_thread_id=int(thread_id) if thread_id else None)
+        return True
+    except Exception:
+        return False
+
 def send_job_assignment_notification(agent, job):
     """
     Send job assignment notification to agent via Telegram
@@ -70,6 +83,18 @@ def send_job_assignment_notification(agent, job):
             f"<b>Area:</b> {_area_label(job)}\n\n"
             "Please open the V3 Services app → Jobs → Pending to accept or decline."
         )
+        # Admin broadcast for job creation/assignment
+        try:
+            _send_admin_group(
+                (
+                    "📝 <b>Job Created</b>\n\n"
+                    f"<b>Job:</b> #{getattr(job,'id','?')} — {job.title or job.job_type}\n"
+                    f"<b>When:</b> {_format_dt(job.arrival_time) if getattr(job,'arrival_time',None) else 'TBC'}\n"
+                    f"<b>Area:</b> {_area_label(job)}\n"
+                )
+            )
+        except Exception:
+            pass
         
         result = send_message(agent.telegram_chat_id, message)
         
