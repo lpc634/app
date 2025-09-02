@@ -38,6 +38,19 @@ def require_admin():
         return None
     return user
 
+# Admin-safe location label: prefer full address; never hide details
+def _admin_location(job) -> str:
+    for cand in [getattr(job, 'address', None), getattr(job, 'full_address', None)]:
+        if cand:
+            return str(cand)
+    pc = getattr(job, 'postcode', None)
+    if pc:
+        return str(pc)
+    for cand in [getattr(job, 'town', None), getattr(job, 'city', None), getattr(job, 'county', None), getattr(job, 'region', None)]:
+        if cand:
+            return str(cand)
+    return "Unknown"
+
 def require_agent_or_admin():
     """Ensure user is an agent or admin."""
     current_user_id = get_jwt_identity()
@@ -135,7 +148,7 @@ def respond_to_job(job_id):
                     "✅ <b>Agent Accepted</b>\n\n"
                     f"<b>Job:</b> #{job.id} — {job.title or job.job_type}\n"
                     f"<b>When:</b> {_format_dt(job.arrival_time) if getattr(job,'arrival_time',None) else 'TBC'}\n"
-                    f"<b>Area:</b> {area}\n"
+                    f"<b>Location:</b> {_admin_location(job)}\n"
                     f"<b>Agent:</b> {agent_name}"
                 )
             )
@@ -175,7 +188,7 @@ def respond_to_job(job_id):
                         "🎉 <b>Job Filled</b>\n\n"
                         f"<b>Job:</b> #{job.id} — {job.title or job.job_type}\n"
                         f"<b>When:</b> {_format_dt(job.arrival_time) if getattr(job,'arrival_time',None) else 'TBC'}\n"
-                        f"<b>Area:</b> {area}\n"
+                        f"<b>Location:</b> {_admin_location(job)}\n"
                         f"<b>Agents ({len(names)}):</b>\n{agents_list}"
                     )
                 )
@@ -1157,7 +1170,7 @@ def respond_to_assignment(assignment_id):
                         "✅ <b>Agent Accepted</b>\n\n"
                         f"<b>Job:</b> #{job.id} — {job.title or job.job_type}\n"
                         f"<b>When:</b> {_format_dt(job.arrival_time) if getattr(job,'arrival_time',None) else 'TBC'}\n"
-                        f"<b>Area:</b> {area}\n"
+                        f"<b>Location:</b> {_admin_location(job)}\n"
                         f"<b>Agent:</b> {agent_name}"
                     )
                 )
@@ -1188,7 +1201,7 @@ def respond_to_assignment(assignment_id):
                             "🎉 <b>Job Filled</b>\n\n"
                             f"<b>Job:</b> #{job.id} — {job.title or job.job_type}\n"
                             f"<b>When:</b> {_format_dt(job.arrival_time) if getattr(job,'arrival_time',None) else 'TBC'}\n"
-                            f"<b>Area:</b> {area}\n"
+                            f"<b>Location:</b> {_admin_location(job)}\n"
                             f"<b>Agents ({len(names)}):</b>\n{agents_list}"
                         )
                     )

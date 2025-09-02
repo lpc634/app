@@ -12,6 +12,7 @@ from flask import Blueprint, jsonify, request, current_app, redirect, send_file,
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import User, Job, JobAssignment, AgentAvailability, Notification, Invoice, InvoiceJob, db
 from src.utils.finance import update_job_hours
+from src.services.telegram_notifications import _send_admin_group
 from src.utils.s3_client import s3_client
 from datetime import datetime, date, time, timedelta
 from decimal import Decimal, InvalidOperation
@@ -27,6 +28,20 @@ agent_bp = Blueprint('agent', __name__)
 def allowed_file(filename):
     """Check if the file extension is allowed."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'pdf', 'jpg', 'jpeg', 'png'}
+
+
+def _admin_location_from_job(job) -> str:
+    """Return a concise location for admin messages, preferring full address."""
+    for cand in [getattr(job, 'address', None), getattr(job, 'full_address', None)]:
+        if cand:
+            return str(cand)
+    pc = getattr(job, 'postcode', None)
+    if pc:
+        return str(pc)
+    for cand in [getattr(job, 'town', None), getattr(job, 'city', None), getattr(job, 'county', None), getattr(job, 'region', None)]:
+        if cand:
+            return str(cand)
+    return "Unknown"
 
 
 # --- REPLACED FUNCTION: This now uploads to your computer ---
@@ -897,6 +912,19 @@ def create_invoice():
         
         current_app.logger.info(f"Invoice {invoice_number} created for agent {agent.email} - stored in S3")
 
+        # --- Admin Telegram: notify invoice submission (agent name + invoice number) ---
+        try:
+            agent_name = f"{agent.first_name} {agent.last_name}".strip()
+            _send_admin_group(
+                (
+                    "📄 <b>Invoice Submitted</b>\n\n"
+                    f"<b>Agent:</b> {agent_name}\n"
+                    f"<b>Invoice #:</b> {getattr(new_invoice, 'agent_invoice_number', None) or new_invoice.invoice_number}"
+                )
+            )
+        except Exception as _e:
+            current_app.logger.warning(f"Admin invoice notify failed: {_e}")
+
         # --- Commit Transaction ---
         db.session.commit()
         
@@ -906,6 +934,47 @@ def create_invoice():
                 update_job_hours(item['job'].id)
             except Exception as e:
                 current_app.logger.warning(f"Failed to update hours for job {item['job'].id}: {e}")
+
+        # --- Admin Telegram: if all agents linked to each job have invoiced, remind admin to complete job ---
+        try:
+            for item in jobs_to_invoice:
+                job = item['job']
+                # agents required for job
+                required = int(getattr(job, 'agents_required', 1) or 1)
+                # agent_ids who accepted the job
+                accepted_assignments = JobAssignment.query.filter_by(job_id=job.id, status='accepted').all()
+                accepted_agent_ids = [a.agent_id for a in accepted_assignments]
+                # invoices for this job
+                invoice_jobs = InvoiceJob.query.filter_by(job_id=job.id).all()
+                invoiced_agent_ids = []
+                for ij in invoice_jobs:
+                    try:
+                        inv = Invoice.query.get(ij.invoice_id)
+                        if inv and inv.agent_id not in invoiced_agent_ids:
+                            invoiced_agent_ids.append(inv.agent_id)
+                    except Exception:
+                        continue
+                # Check if all accepted up to required count have invoiced
+                accepted_unique = list(dict.fromkeys(accepted_agent_ids))
+                if len(invoiced_agent_ids) >= min(required, len(accepted_unique)) and len(invoiced_agent_ids) > 0:
+                    # Compose agent name list
+                    names = []
+                    for uid in invoiced_agent_ids:
+                        u = User.query.get(uid)
+                        if u:
+                            names.append(f"{u.first_name} {u.last_name}".strip())
+                    agents_list = "\n".join([f"• {n}" for n in names]) if names else "(names unavailable)"
+                    _send_admin_group(
+                        (
+                            "🧾 <b>All Invoices Submitted</b>\n\n"
+                            f"<b>Job:</b> #{job.id} — {job.title or job.job_type}\n"
+                            f"<b>Location:</b> {_admin_location_from_job(job)}\n"
+                            f"<b>Agents ({len(names)}):</b>\n{agents_list}\n\n"
+                            "Please review and mark the job as complete."
+                        )
+                    )
+        except Exception as _e:
+            current_app.logger.warning(f"Admin all-invoiced notify failed: {_e}")
         
         return jsonify({
             'message': 'Invoice created and sent successfully!',
