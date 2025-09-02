@@ -2,13 +2,50 @@
 Telegram notification service for sending job notifications to agents
 """
 import logging
+import os
+import requests
 from flask import current_app
 from src.integrations.telegram_client import send_message
 from urllib.parse import quote_plus
 from datetime import datetime
-from src.server.services.weather_service import fetch_weather
 from flask import current_app
 from src.integrations.telegram_client import send_message as _send
+
+
+def fetch_weather(latitude: float, longitude: float) -> dict:
+    """Return simple weather summary for a coordinate.
+
+    Uses OpenWeather current weather API when OPENWEATHER_API_KEY is set.
+    Returns a minimal, robust structure used by Telegram messages.
+    """
+    api_key = os.environ.get("OPENWEATHER_API_KEY")
+    if not api_key:
+        return {"summary": "Unavailable", "temp_c": None, "wind_mph": None, "precip_prob": None}
+
+    try:
+        url = "https://api.openweathermap.org/data/2.5/weather"
+        params = {"lat": latitude, "lon": longitude, "appid": api_key, "units": "metric"}
+        resp = requests.get(url, params=params, timeout=10)
+        if resp.status_code != 200:
+            return {"summary": "Unavailable", "temp_c": None, "wind_mph": None, "precip_prob": None}
+        data = resp.json() or {}
+
+        weather_list = data.get("weather") or []
+        description = (weather_list[0].get("description") if weather_list else "Weather") or "Weather"
+        summary = description.capitalize()
+
+        main = data.get("main") or {}
+        wind = data.get("wind") or {}
+        temp_c = main.get("temp")
+        wind_mps = wind.get("speed")
+        wind_mph = (wind_mps * 2.23694) if isinstance(wind_mps, (int, float)) else None
+
+        # OpenWeather current API does not provide POP directly; leave None
+        precip_prob = None
+
+        return {"summary": summary, "temp_c": temp_c, "wind_mph": wind_mph, "precip_prob": precip_prob}
+    except Exception:
+        return {"summary": "Unavailable", "temp_c": None, "wind_mph": None, "precip_prob": None}
 
 
 def is_enabled():
