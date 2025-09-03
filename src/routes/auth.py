@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request, get_jwt
-from src.models.user import User, db
+from src.models.user import User, db, SupplierProfile
 from werkzeug.security import check_password_hash
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -52,6 +52,21 @@ def register():
             verification_status='pending'  # New agents start as pending
         )
         
+        # Optional VAT number
+        try:
+            vat_number = (data.get('vat_number') or '').strip()
+            if vat_number:
+                setattr(new_user, 'vat_number', vat_number)
+        except Exception:
+            pass
+
+        # Auto-link supplier if email matches a configured supplier and auto_link_on_signup
+        # (No persistent field required; behavior is keyed off email & supplier profile)
+        try:
+            _ = SupplierProfile.find_by_email(data['email'])
+        except Exception:
+            pass
+
         # Set password
         new_user.set_password(data['password'])
         

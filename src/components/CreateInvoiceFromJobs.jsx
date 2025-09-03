@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Loader2, ArrowLeft, AlertCircle, CheckSquare, Square } from 'lucide-react';
 
 const CreateInvoiceFromJobs = () => {
-  const { apiCall } = useAuth();
+  const { apiCall, user } = useAuth();
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +58,11 @@ const CreateInvoiceFromJobs = () => {
     }, 0);
   }, [selected]);
 
+  const showVat = !!(user?.vat_number);
+  const VAT_RATE = 0.20;
+  const vatAmount = useMemo(() => showVat ? totalAmount * VAT_RATE : 0, [showVat, totalAmount]);
+  const grandTotal = useMemo(() => totalAmount + vatAmount, [totalAmount, vatAmount]);
+
   const handleReviewInvoice = () => {
     const itemsToInvoice = Object.entries(selected)
       .filter(([_, job]) => parseFloat(job.hours) > 0)
@@ -72,12 +77,20 @@ const CreateInvoiceFromJobs = () => {
       return;
     }
     
-    // For now, we'll log the data. In the next step, this will navigate to a review page.
+    // Submit to backend to create invoice
     console.log("Invoice data to be reviewed:", {
       items: itemsToInvoice,
-      total: totalAmount
+      total: grandTotal
     });
-    toast.success("Ready for Review!", { description: `Invoice with ${itemsToInvoice.length} items and a total of £${totalAmount.toFixed(2)}`});
+    apiCall('/agent/invoice', {
+      method: 'POST',
+      body: JSON.stringify({ items: itemsToInvoice })
+    }).then(() => {
+      toast.success("Invoice submitted", { description: `Total £${grandTotal.toFixed(2)}`});
+      navigate('/agent/invoices');
+    }).catch(err => {
+      toast.error('Failed to create invoice', { description: err.message });
+    });
   };
 
   if (loading) {
@@ -139,9 +152,21 @@ const CreateInvoiceFromJobs = () => {
         )}
       </div>
 
-      <div className="dashboard-card p-4 flex items-center justify-between">
-          <p className="text-lg font-semibold text-v3-text-lightest">Invoice Total:</p>
-          <p className="text-2xl font-bold text-v3-orange">£{totalAmount.toFixed(2)}</p>
+      <div className="dashboard-card p-4">
+        <div className="flex items-center justify-between">
+          <p className="text-lg font-semibold text-v3-text-lightest">Subtotal:</p>
+          <p className="text-xl font-bold text-v3-text-lightest">£{totalAmount.toFixed(2)}</p>
+        </div>
+        {showVat && (
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-lg font-semibold text-v3-text-lightest">VAT 20%:</p>
+            <p className="text-xl font-bold text-v3-text-lightest">£{vatAmount.toFixed(2)}</p>
+          </div>
+        )}
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-lg font-semibold text-v3-text-lightest">Grand Total:</p>
+          <p className="text-2xl font-bold text-v3-orange">£{grandTotal.toFixed(2)}</p>
+        </div>
       </div>
 
       <div className="flex justify-end">

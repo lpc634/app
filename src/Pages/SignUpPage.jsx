@@ -22,7 +22,8 @@ const SignUpPage = () => {
         address_line_1: '', address_line_2: '', city: '', postcode: '',
         bank_name: '', bank_account_number: '', bank_sort_code: '',
         utr_number: '', 
-        tax_confirmation: false
+        tax_confirmation: false,
+        vat_number: ''
     });
     const [loading, setLoading] = useState(false);
     const [showTelegramSetup, setShowTelegramSetup] = useState(false);
@@ -109,6 +110,19 @@ const SignUpPage = () => {
                                 <InputField name="bank_account_number" type="text" placeholder="Account Number" value={formData.bank_account_number} onChange={handleChange} />
                                 <InputField name="bank_sort_code" type="text" placeholder="Sort Code" value={formData.bank_sort_code} onChange={handleChange} />
                                 <InputField name="utr_number" type="text" placeholder="UTR Number" value={formData.utr_number} onChange={handleChange} />
+                                <div className='md:col-span-2'>
+                                  <label htmlFor="vat_number" className="block text-sm font-medium text-v3-text-light">VAT Number (Optional)</label>
+                                  <input
+                                    id="vat_number"
+                                    name="vat_number"
+                                    type="text"
+                                    value={formData.vat_number}
+                                    onChange={handleChange}
+                                    placeholder="Enter VAT number if registered"
+                                    className="mt-1 block w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-gray-900 focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+                                  />
+                                  <p className="text-xs text-v3-text-muted mt-1">Optional. If you’re VAT registered, add your VAT number and your invoices will include VAT.</p>
+                                </div>
                            </div>
                         </div>
 

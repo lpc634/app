@@ -47,10 +47,28 @@ const AvailableJobs = () => {
   const handleJobResponse = async (assignment, response) => {
     try {
       console.log(`Responding to job ${assignment.job_id} (assignment ${assignment.id}) with ${response}`);
-      
-      await apiCall(`/jobs/${assignment.job_id}/respond`, {
+      // For supplier Hermes, prompt for headcount on accept
+      let payload = { response };
+      try {
+        const suppliedBy = (assignment?.supplied_by_email || '').toLowerCase();
+        if (response === 'accept' && suppliedBy === 'hermes@pavli.group') {
+          let headcountStr = window.prompt('Number of operatives (required):', '1');
+          if (headcountStr === null) return; // cancel
+          const hc = parseInt(headcountStr, 10);
+          if (!hc || hc < 1) {
+            toast.error('Please enter a valid headcount (>= 1)');
+            return;
+          }
+          payload.supplied_by_email = 'hermes@pavli.group';
+          payload.supplier_headcount = hc;
+        }
+      } catch (e) {
+        console.warn('Headcount prompt failed', e);
+      }
+
+      await apiCall(`/assignments/${assignment.id}/respond`, {
           method: 'POST',
-          body: JSON.stringify({ response })
+          body: JSON.stringify(payload)
       });
 
       toast.success(`Job successfully ${response}!`);

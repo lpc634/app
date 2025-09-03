@@ -1132,6 +1132,8 @@ def respond_to_assignment(assignment_id):
         
         data = request.get_json()
         response = data.get('response')
+        supplied_by_email = (data.get('supplied_by_email') or '').strip().lower() if isinstance(data, dict) else ''
+        supplier_headcount = data.get('supplier_headcount') if isinstance(data, dict) else None
         
         if response not in ['accept', 'decline', 'accepted', 'declined']:
             return jsonify({'error': 'Response must be "accept" or "decline"'}), 400
@@ -1153,9 +1155,25 @@ def respond_to_assignment(assignment_id):
         assignment.status = 'accepted' if response in ['accept', 'accepted'] else 'declined'
         assignment.response_time = datetime.utcnow()
         
-        # If accepted, check if job is now full and update job status
+        # If accepted, supplier validation and metadata
         if response in ['accept', 'accepted']:
             job = assignment.job
+            # Supplier-specific: Hermes requires headcount
+            try:
+                if supplied_by_email == 'hermes@pavli.group' or (getattr(assignment, 'supplied_by_email', '') or '').lower() == 'hermes@pavli.group':
+                    # Persist supplied_by_email if provided
+                    if supplied_by_email:
+                        assignment.supplied_by_email = supplied_by_email
+                    # Validate headcount
+                    try:
+                        headcount_val = int(supplier_headcount) if supplier_headcount is not None else int(getattr(assignment, 'supplier_headcount', 0) or 0)
+                    except Exception:
+                        headcount_val = 0
+                    if headcount_val < 1:
+                        return jsonify({'error': 'Number of operatives is required and must be at least 1 for supplier-provided assignments.'}), 400
+                    assignment.supplier_headcount = headcount_val
+            except Exception:
+                pass
             accepted_count = JobAssignment.query.filter_by(
                 job_id=job.id, 
                 status='accepted'

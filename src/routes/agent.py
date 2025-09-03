@@ -10,7 +10,7 @@ from email.utils import formataddr
 from flask import Blueprint, jsonify, request, current_app, redirect, send_file, url_for
 
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from src.models.user import User, Job, JobAssignment, AgentAvailability, Notification, Invoice, InvoiceJob, db
+from src.models.user import User, Job, JobAssignment, AgentAvailability, Notification, Invoice, InvoiceJob, SupplierProfile, InvoiceLine, db
 from src.utils.finance import update_job_hours
 from src.services.telegram_notifications import _send_admin_group
 from src.utils.s3_client import s3_client
@@ -552,12 +552,32 @@ def generate_invoice_pdf(agent,
                 'amount': amount,
             }]
 
-        # Totals
+        # Totals with VAT logic
         calc_total = sum(_f(r['amount']) for r in normalized_jobs) if total_amount is None else _f(total_amount)
+        # Determine VAT rate
+        vat_rate_val = 0.0
+        try:
+            # Prefer invoice.vat_rate when available
+            if invoice and getattr(invoice, 'vat_rate', None) is not None:
+                vat_rate_val = float(invoice.vat_rate)
+            else:
+                # Supplier invoice: if invoice has supplier_id, use default VAT if supplier is registered
+                if invoice and getattr(invoice, 'supplier_id', None):
+                    sup = SupplierProfile.query.get(invoice.supplier_id)
+                    if sup and sup.vat_registered:
+                        vat_rate_val = float(current_app.config.get('VAT_DEFAULT_RATE', 0.20))
+                # Agent VAT
+                elif getattr(agent, 'vat_number', None):
+                    vat_rate_val = float(current_app.config.get('VAT_DEFAULT_RATE', 0.20))
+        except Exception:
+            vat_rate_val = 0.0
+
+        vat_amount = round(calc_total * vat_rate_val, 2) if vat_rate_val and calc_total else 0.0
         totals = {
             'subtotal': calc_total,
-            'vat': 0.0,
-            'total': calc_total,
+            'vat': vat_amount,
+            'total': round(calc_total + vat_amount, 2),
+            'vat_rate': vat_rate_val,
         }
 
         # Invoice date
@@ -570,10 +590,31 @@ def generate_invoice_pdf(agent,
 
         current_app.logger.info(f"PDF GENERATION: Building to {file_path}")
 
+        # If supplier invoice, override agent display name and VAT number from supplier profile
+        pdf_agent = agent
+        try:
+            if invoice and getattr(invoice, 'supplier_id', None):
+                sup = SupplierProfile.query.get(invoice.supplier_id)
+                if sup:
+                    class AgentView:
+                        pass
+                    av = AgentView()
+                    # Name: use supplier display_name
+                    setattr(av, 'first_name', getattr(sup, 'display_name', '') or getattr(agent, 'first_name', ''))
+                    setattr(av, 'last_name', '')
+                    # VAT number from supplier if present, else fall back to agent
+                    setattr(av, 'vat_number', getattr(sup, 'vat_number', None) or getattr(agent, 'vat_number', None))
+                    # Copy other fields from agent
+                    for attr in ['address_line_1','address_line_2','city','postcode','email','phone','utr_number','bank_name','bank_account_number','bank_sort_code']:
+                        setattr(av, attr, getattr(agent, attr, None))
+                    pdf_agent = av
+        except Exception:
+            pdf_agent = agent
+
         # Build PDF (pass invoice for header/meta if builder uses it)
         build_invoice_pdf(
             file_path=file_path,
-            agent=agent,
+            agent=pdf_agent,
             jobs=normalized_jobs,
             totals=totals,
             invoice_number=invoice_number,
@@ -860,26 +901,68 @@ def create_invoice():
         job_items = data.get('items')
         # Accept agent_invoice_number from frontend (their personal invoice number)
         custom_invoice_number = data.get('agent_invoice_number') or data.get('invoice_number')
+        # Optional supplier invoicing flow
+        supplier_email = (data.get('supplier_email') or '').strip().lower()
 
         if not job_items:
             return jsonify({'error': 'No items provided for invoicing.'}), 400
 
-        # --- Data Validation and Calculation ---
-        total_amount = Decimal(0)
-        jobs_to_invoice = []
-        for item in job_items:
-            job = Job.query.get(item['jobId'])
-            if not job:
-                return jsonify({'error': f"Job with ID {item['jobId']} not found."}), 404
-            
-            hours = Decimal(item.get('hours', 0))
-            if hours <= 0:
-                return jsonify({'error': f"Invalid hours for job at {job.address}."}), 400
+        # --- Branch: Supplier invoice vs Agent invoice ---
+        is_supplier_invoice = False
+        supplier = None
+        if supplier_email:
+            supplier = SupplierProfile.find_by_email(supplier_email)
+            if not supplier:
+                return jsonify({'error': 'Supplier not found'}), 404
+            # Security: only admins or that supplier account can generate supplier invoices
+            is_admin = (agent.role == 'admin')
+            is_supplier_user = (agent.email or '').lower() == supplier.email.lower()
+            if not (is_admin or is_supplier_user):
+                return jsonify({'error': 'Access denied for supplier invoicing'}), 403
+            is_supplier_invoice = True
 
-            rate = Decimal(job.hourly_rate)
-            amount = hours * rate
-            total_amount += amount
-            jobs_to_invoice.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
+        # --- Data Validation and Calculation ---
+        total_amount = Decimal('0')
+        jobs_to_invoice = []
+        supplier_assignment_lines = []
+        if is_supplier_invoice:
+            # items: { job_assignment_id, hours, rate_per_hour }
+            from decimal import Decimal as D
+            for item in job_items:
+                ja_id = int(item.get('job_assignment_id'))
+                hours = D(str(item.get('hours', '0')))
+                rate = D(str(item.get('rate_per_hour', '0')))
+                if hours <= 0 or rate <= 0:
+                    return jsonify({'error': 'Hours and Rate/hour must be > 0 for each line'}), 400
+                assignment = JobAssignment.query.get(ja_id)
+                if not assignment:
+                    return jsonify({'error': f'Assignment {ja_id} not found'}), 404
+                if (assignment.supplied_by_email or '').lower() != supplier.email.lower():
+                    return jsonify({'error': f'Assignment {ja_id} is not supplied by {supplier.email}'}), 400
+                headcount = int(getattr(assignment, 'supplier_headcount', 0) or 0)
+                if headcount < 1:
+                    return jsonify({'error': f'Assignment {ja_id} missing supplier headcount'}), 400
+                line_total = (hours * rate * D(str(headcount))).quantize(D('0.01'))
+                supplier_assignment_lines.append({
+                    'assignment': assignment,
+                    'hours': hours,
+                    'rate': rate,
+                    'headcount': headcount,
+                    'line_total': line_total,
+                })
+                total_amount += line_total
+        else:
+            for item in job_items:
+                job = Job.query.get(item['jobId'])
+                if not job:
+                    return jsonify({'error': f"Job with ID {item['jobId']} not found."}), 404
+                hours = Decimal(item.get('hours', 0))
+                if hours <= 0:
+                    return jsonify({'error': f"Invalid hours for job at {job.address}."}), 400
+                rate = Decimal(job.hourly_rate)
+                amount = hours * rate
+                total_amount += amount
+                jobs_to_invoice.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
 
         # --- Flexible Agent Invoice Number Handling ---
         final_agent_invoice_number = None
@@ -922,7 +1005,10 @@ def create_invoice():
         issue_date = date.today()
         last_invoice = Invoice.query.order_by(Invoice.id.desc()).first()
         new_invoice_id = (last_invoice.id + 1) if last_invoice else 1
-        invoice_number = f"V3-{issue_date.year}-{new_invoice_id:04d}"
+        if is_supplier_invoice and supplier is not None:
+            invoice_number = f"{supplier.invoice_prefix}{issue_date.year}-{new_invoice_id:04d}"
+        else:
+            invoice_number = f"V3-{issue_date.year}-{new_invoice_id:04d}"
 
         # Snapshot job details from the first job for PDF generation
         first_job = jobs_to_invoice[0]['job'] if jobs_to_invoice else None
@@ -940,6 +1026,17 @@ def create_invoice():
             'job_type': job_type_snapshot,
             'address': address_snapshot
         }
+        # VAT rate decision
+        from decimal import Decimal as D
+        vat_rate = D('0')
+        if is_supplier_invoice and supplier and supplier.vat_registered:
+            vat_rate = D(str(current_app.config.get('VAT_DEFAULT_RATE', 0.20)))
+        elif (getattr(agent, 'vat_number', None) or '').strip():
+            vat_rate = D(str(current_app.config.get('VAT_DEFAULT_RATE', 0.20)))
+        if hasattr(Invoice, 'vat_rate'):
+            invoice_kwargs['vat_rate'] = vat_rate
+        if is_supplier_invoice and hasattr(Invoice, 'supplier_id'):
+            invoice_kwargs['supplier_id'] = supplier.id
         
         # Only add agent_invoice_number if the field exists in the model
         if hasattr(Invoice, 'agent_invoice_number'):
@@ -959,22 +1056,56 @@ def create_invoice():
         if hasattr(agent, 'agent_invoice_next'):
             agent.agent_invoice_next = max(current_next, final_agent_invoice_number + 1)
 
-        # 2. Link the jobs to the new invoice
-        for item in jobs_to_invoice:
-            job = item['job']
-            hours = item['hours']
-            rate = job.hourly_rate  # Get the rate from the job
-            
-            invoice_job_link = InvoiceJob(
-                invoice_id=new_invoice.id,
-                job_id=job.id,
-                hours_worked=hours,
-                hourly_rate_at_invoice=rate  # Store the rate at time of invoicing
-            )
-            db.session.add(invoice_job_link)
+        # 2. Link items to invoice
+        if is_supplier_invoice:
+            for ln in supplier_assignment_lines:
+                db.session.add(InvoiceLine(
+                    invoice_id=new_invoice.id,
+                    job_assignment_id=ln['assignment'].id,
+                    hours=ln['hours'],
+                    rate_per_hour=ln['rate'],
+                    headcount=ln['headcount'],
+                    line_total=ln['line_total'],
+                ))
+        else:
+            for item in jobs_to_invoice:
+                job = item['job']
+                hours = item['hours']
+                rate = job.hourly_rate
+                db.session.add(InvoiceJob(
+                    invoice_id=new_invoice.id,
+                    job_id=job.id,
+                    hours_worked=hours,
+                    hourly_rate_at_invoice=rate
+                ))
             
         # --- PDF and Emailing ---
-        pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
+        # Prepare jobs data for PDF and totals with VAT
+        if is_supplier_invoice:
+            jobs_pdf = []
+            for ln in supplier_assignment_lines:
+                job = ln['assignment'].job
+                jobs_pdf.append({
+                    'job': job,
+                    'date': getattr(job, 'arrival_time', None),
+                    'hours': float(ln['hours']),
+                    'rate': float(ln['rate']),
+                    'amount': float(ln['line_total']),
+                    'job_type': getattr(job, 'job_type', None),
+                })
+            from decimal import Decimal as D
+            subtotal = sum((D(str(x['amount'])) for x in jobs_pdf), D('0'))
+            vat_amount = (subtotal * vat_rate).quantize(D('0.01')) if vat_rate and vat_rate > 0 else D('0')
+            grand_total = (subtotal + vat_amount).quantize(D('0.01'))
+            totals_override = {
+                'subtotal': float(subtotal),
+                'vat': float(vat_amount),
+                'total': float(grand_total),
+            }
+            # Temporarily pass grand_total to original function; it recomputes totals but we give exact lines
+            pdf_result = generate_invoice_pdf(agent, jobs_pdf, float(grand_total), invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
+        else:
+            pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
         
         # Handle different return formats (with or without S3 upload)
         if isinstance(pdf_result, tuple):

@@ -74,6 +74,8 @@ class User(db.Model):
             'id_document_url': self.id_document_url,
             'sia_document_url': self.sia_document_url,
             'verification_status': self.verification_status,
+            'vat_number': getattr(self, 'vat_number', None),
+            'is_vat_registered': bool(getattr(self, 'vat_number', None)),
         }
 
 class Job(db.Model):
@@ -184,6 +186,8 @@ class JobAssignment(db.Model):
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'response_time': self.response_time.isoformat() if self.response_time else None,
+            'supplied_by_email': getattr(self, 'supplied_by_email', None),
+            'supplier_headcount': getattr(self, 'supplier_headcount', None),
         }
         
         # Only include job details if explicitly requested and avoid circular references
@@ -258,6 +262,8 @@ class Invoice(db.Model):
     due_date = db.Column(db.Date, nullable=False)
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
     status = db.Column(db.String(20), default='draft')
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier_profiles.id'), nullable=True)
+    vat_rate = db.Column(db.Numeric(5, 4), nullable=True)
     # Snapshotted job details for PDF generation
     job_type = db.Column(db.String(50), nullable=True)
     address = db.Column(db.String(200), nullable=True)
@@ -265,7 +271,9 @@ class Invoice(db.Model):
     # Unique constraint will be added by migration script
     
     agent = db.relationship('User', back_populates='invoices', foreign_keys=[agent_id])
+    supplier = db.relationship('SupplierProfile', back_populates='invoices', foreign_keys=[supplier_id])
     jobs = db.relationship('InvoiceJob', back_populates='invoice', cascade="all, delete-orphan")
+    lines = db.relationship('InvoiceLine', back_populates='invoice', cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -279,7 +287,53 @@ class Invoice(db.Model):
             'status': self.status,
             'job_type': getattr(self, 'job_type', None),
             'address': getattr(self, 'address', None),
-            'jobs': [job.to_dict() for job in self.jobs] if self.jobs else []
+            'jobs': [job.to_dict() for job in self.jobs] if self.jobs else [],
+            'supplier_id': getattr(self, 'supplier_id', None),
+            'vat_rate': float(self.vat_rate) if getattr(self, 'vat_rate', None) is not None else None,
+            'lines': [ln.to_dict() for ln in getattr(self, 'lines', [])] if getattr(self, 'lines', None) else []
+        }
+
+
+class SupplierProfile(db.Model):
+    __tablename__ = 'supplier_profiles'
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, index=True, nullable=False)
+    display_name = db.Column(db.String(255), nullable=True)
+    vat_registered = db.Column(db.Boolean, default=True, nullable=False)
+    vat_number = db.Column(db.String(64), nullable=True)
+    invoice_prefix = db.Column(db.String(32), default='SUP-', nullable=False)
+    auto_link_on_signup = db.Column(db.Boolean, default=True, nullable=False)
+
+    invoices = db.relationship('Invoice', back_populates='supplier', lazy=True)
+
+    @classmethod
+    def find_by_email(cls, email):
+        if not email:
+            return None
+        return cls.query.filter(db.func.lower(cls.email) == (email or '').lower()).first()
+
+
+class InvoiceLine(db.Model):
+    __tablename__ = 'invoice_lines'
+    id = db.Column(db.Integer, primary_key=True)
+    invoice_id = db.Column(db.Integer, db.ForeignKey('invoices.id'), nullable=False)
+    job_assignment_id = db.Column(db.Integer, db.ForeignKey('job_assignments.id'), nullable=False, unique=True)
+    hours = db.Column(db.Numeric(6, 2), nullable=False)
+    rate_per_hour = db.Column(db.Numeric(10, 2), nullable=False)
+    headcount = db.Column(db.Integer, nullable=False)
+    line_total = db.Column(db.Numeric(12, 2), nullable=False)
+
+    invoice = db.relationship('Invoice', back_populates='lines')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'invoice_id': self.invoice_id,
+            'job_assignment_id': self.job_assignment_id,
+            'hours': float(self.hours) if self.hours is not None else 0.0,
+            'rate_per_hour': float(self.rate_per_hour) if self.rate_per_hour is not None else 0.0,
+            'headcount': self.headcount,
+            'line_total': float(self.line_total) if self.line_total is not None else 0.0,
         }
 
 class InvoiceJob(db.Model):

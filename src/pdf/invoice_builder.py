@@ -161,6 +161,7 @@ def _top_meta_row(agent, invoice_date, invoice_number, agent_invoice_number):
         Paragraph(f"<b>Email:</b> {_safe(agent.email)}", s["small"]),
         Paragraph(f"<b>Phone:</b> {_safe(agent.phone)}", s["small"]),
         Paragraph(f"<b>UTR:</b> {_safe(agent.utr_number)}", s["small"]),
+        Paragraph(f"<b>VAT Number:</b> {_safe(getattr(agent, 'vat_number', None))}", s["small"]),
     ], col_width=72*mm)
 
     # BILL TO (V3)
@@ -290,9 +291,14 @@ def _totals_box(totals):
     total    = totals.get("total", 0)
 
     # Two-row card: (Subtotal, VAT) + highlighted TOTAL
+    vat_pct = 0
+    try:
+        vat_pct = int(round(float(totals.get('vat_rate', 0)) * 100))
+    except Exception:
+        vat_pct = 0
     top = Table([
         [Paragraph("Subtotal", s["kv_label"]), Paragraph(_fmt_money(subtotal), s["kv_value"])],
-        [Paragraph("VAT (0%)", s["kv_label"]), Paragraph(_fmt_money(vat), s["kv_value"])],
+        [Paragraph(f"VAT ({vat_pct}%)", s["kv_label"]), Paragraph(_fmt_money(vat), s["kv_value"])],
     ], colWidths=[35*mm, 35*mm])
     top.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), FILL_SOFT),

@@ -18,3 +18,6 @@ class Config:
     APP_BASE_URL = os.getenv("APP_BASE_URL", "https://v3-app.herokuapp.com")
     TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
     TELEGRAM_ADMIN_THREAD_ID = os.getenv("TELEGRAM_ADMIN_THREAD_ID")
+
+    # VAT
+    VAT_DEFAULT_RATE = float(os.getenv('VAT_DEFAULT_RATE', '0.20'))
