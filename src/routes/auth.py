@@ -52,10 +52,14 @@ def register():
             verification_status='pending'  # New agents start as pending
         )
         
-        # Optional VAT number
+        # Optional VAT number (basic non-blocking GB VAT validation)
         try:
+            import re
             vat_number = (data.get('vat_number') or '').strip()
             if vat_number:
+                pattern = re.compile(r'^(GB)?\d{9}(\d{3})?$', re.IGNORECASE)
+                if not pattern.match(vat_number):
+                    current_app.logger.info('VAT number did not match GB pattern; storing anyway as optional')
                 setattr(new_user, 'vat_number', vat_number)
         except Exception:
             pass

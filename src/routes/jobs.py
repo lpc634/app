@@ -1160,18 +1160,22 @@ def respond_to_assignment(assignment_id):
             job = assignment.job
             # Supplier-specific: Hermes requires headcount
             try:
-                if supplied_by_email == 'hermes@pavli.group' or (getattr(assignment, 'supplied_by_email', '') or '').lower() == 'hermes@pavli.group':
-                    # Persist supplied_by_email if provided
-                    if supplied_by_email:
-                        assignment.supplied_by_email = supplied_by_email
-                    # Validate headcount
+                # If the current user is a supplier account (email matches a supplier profile), force supplied_by_email
+                from src.models.user import SupplierProfile
+                supplier = SupplierProfile.find_by_email(current_user.email)
+                if supplier:
+                    assignment.supplied_by_email = supplier.email
                     try:
-                        headcount_val = int(supplier_headcount) if supplier_headcount is not None else int(getattr(assignment, 'supplier_headcount', 0) or 0)
+                        headcount_val = int(supplier_headcount) if supplier_headcount is not None else 0
                     except Exception:
                         headcount_val = 0
                     if headcount_val < 1:
                         return jsonify({'error': 'Number of operatives is required and must be at least 1 for supplier-provided assignments.'}), 400
                     assignment.supplier_headcount = headcount_val
+                else:
+                    # Non-admins cannot set/alter supplied_by_email for other suppliers
+                    if supplied_by_email and supplied_by_email != (assignment.supplied_by_email or '').lower():
+                        return jsonify({'error': 'Not authorized to set supplier for this assignment'}), 403
             except Exception:
                 pass
             accepted_count = JobAssignment.query.filter_by(

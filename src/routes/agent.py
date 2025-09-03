@@ -11,6 +11,7 @@ from flask import Blueprint, jsonify, request, current_app, redirect, send_file,
 
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import User, Job, JobAssignment, AgentAvailability, Notification, Invoice, InvoiceJob, SupplierProfile, InvoiceLine, db
+from src.services.invoicing import build_supplier_invoice
 from src.utils.finance import update_job_hours
 from src.services.telegram_notifications import _send_admin_group
 from src.utils.s3_client import s3_client
@@ -885,6 +886,145 @@ def get_invoiceable_jobs():
     except Exception as e:
         return jsonify({"error": "An internal error occurred", "details": str(e)}), 500
 
+@agent_bp.route('/me/supplier/pending-assignments', methods=['GET'])
+@jwt_required()
+def get_my_supplier_pending_assignments():
+    current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    # Find supplier profile by user email
+    supplier = SupplierProfile.find_by_email(user.email)
+    if not supplier:
+        return jsonify({'error': 'Not a supplier account'}), 403
+    # Uninvoiced = assignments with no invoice_line and supplied_by_email == supplier.email
+    subq = db.session.query(InvoiceLine.job_assignment_id)
+    assignments = (
+        JobAssignment.query
+        .join(Job)
+        .filter(
+            JobAssignment.supplied_by_email == supplier.email,
+            ~JobAssignment.id.in_(subq)
+        )
+        .order_by(Job.arrival_time.desc())
+        .all()
+    )
+    def row(a):
+        return {
+            'job_assignment_id': a.id,
+            'job_id': a.job_id,
+            'date': getattr(a.job, 'arrival_time', None).isoformat() if getattr(a.job, 'arrival_time', None) else None,
+            'address': getattr(a.job, 'address', None),
+            'headcount': getattr(a, 'supplier_headcount', None),
+        }
+    return jsonify({'assignments': [row(a) for a in assignments]}), 200
+
+
+@agent_bp.route('/suppliers/<path:email>/pending-assignments', methods=['GET'])
+@jwt_required()
+def get_supplier_pending_assignments_admin(email):
+    current_user_id = int(get_jwt_identity())
+    actor = User.query.get(current_user_id)
+    if not actor or actor.role != 'admin':
+        return jsonify({'error': 'Admin only'}), 403
+    supplier = SupplierProfile.find_by_email(email)
+    if not supplier:
+        return jsonify({'error': 'Supplier not found'}), 404
+    subq = db.session.query(InvoiceLine.job_assignment_id)
+    assignments = (
+        JobAssignment.query
+        .join(Job)
+        .filter(
+            JobAssignment.supplied_by_email == supplier.email,
+            ~JobAssignment.id.in_(subq)
+        )
+        .order_by(Job.arrival_time.desc())
+        .all()
+    )
+    def row(a):
+        return {
+            'job_assignment_id': a.id,
+            'job_id': a.job_id,
+            'date': getattr(a.job, 'arrival_time', None).isoformat() if getattr(a.job, 'arrival_time', None) else None,
+            'address': getattr(a.job, 'address', None),
+            'headcount': getattr(a, 'supplier_headcount', None),
+        }
+    return jsonify({'assignments': [row(a) for a in assignments]}), 200
+
+
+@agent_bp.route('/supplier-profiles', methods=['GET'])
+@jwt_required()
+def list_supplier_profiles():
+    current_user_id = int(get_jwt_identity())
+    actor = User.query.get(current_user_id)
+    if not actor or actor.role != 'admin':
+        return jsonify({'error': 'Admin only'}), 403
+    suppliers = SupplierProfile.query.order_by(SupplierProfile.email.asc()).all()
+    return jsonify({'suppliers': [
+        {
+            'id': s.id,
+            'email': s.email,
+            'display_name': s.display_name,
+            'vat_registered': bool(s.vat_registered),
+        } for s in suppliers
+    ]}), 200
+
+
+@agent_bp.route('/me/supplier/invoices', methods=['POST'])
+@jwt_required()
+def create_my_supplier_invoice():
+    current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    supplier = SupplierProfile.find_by_email(user.email)
+    if not supplier:
+        return jsonify({'error': 'Not a supplier account'}), 403
+    data = request.get_json() or {}
+    items = data.get('items') or []
+    try:
+        inv, _conflicts_unused = build_supplier_invoice(supplier, items, current_user_id)
+    except IntegrityError:
+        # Determine conflicts
+        ids = [int(it.get('job_assignment_id')) for it in (items or []) if it.get('job_assignment_id') is not None]
+        existing = db.session.query(InvoiceLine.job_assignment_id).filter(InvoiceLine.job_assignment_id.in_(ids)).all()
+        return jsonify({'error': 'duplicate_assignments', 'conflicts': [row[0] for row in existing]}), 409
+    except PermissionError as pe:
+        return jsonify({'error': str(pe)}), 403
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        return jsonify({'error': 'Failed to create supplier invoice', 'details': str(e)}), 500
+    return jsonify({'invoice_number': inv.invoice_number, 'invoice_id': inv.id}), 201
+
+
+@agent_bp.route('/suppliers/<path:email>/invoices', methods=['POST'])
+@jwt_required()
+def create_supplier_invoice_admin(email):
+    current_user_id = int(get_jwt_identity())
+    actor = User.query.get(current_user_id)
+    if not actor or actor.role != 'admin':
+        return jsonify({'error': 'Admin only'}), 403
+    supplier = SupplierProfile.find_by_email(email)
+    if not supplier:
+        return jsonify({'error': 'Supplier not found'}), 404
+    data = request.get_json() or {}
+    items = data.get('items') or []
+    try:
+        inv, _conflicts_unused = build_supplier_invoice(supplier, items, current_user_id)
+    except IntegrityError:
+        ids = [int(it.get('job_assignment_id')) for it in (items or []) if it.get('job_assignment_id') is not None]
+        existing = db.session.query(InvoiceLine.job_assignment_id).filter(InvoiceLine.job_assignment_id.in_(ids)).all()
+        return jsonify({'error': 'duplicate_assignments', 'conflicts': [row[0] for row in existing]}), 409
+    except PermissionError as pe:
+        return jsonify({'error': str(pe)}), 403
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        return jsonify({'error': 'Failed to create supplier invoice', 'details': str(e)}), 500
+    return jsonify({'invoice_number': inv.invoice_number, 'invoice_id': inv.id}), 201
+
+
 @agent_bp.route('/agent/invoice', methods=['POST'])
 @jwt_required()
 def create_invoice():
@@ -902,7 +1042,8 @@ def create_invoice():
         # Accept agent_invoice_number from frontend (their personal invoice number)
         custom_invoice_number = data.get('agent_invoice_number') or data.get('invoice_number')
         # Optional supplier invoicing flow
-        supplier_email = (data.get('supplier_email') or '').strip().lower()
+        # Disallow client-provided supplier spoofing on this agent endpoint
+        supplier_email = ''
 
         if not job_items:
             return jsonify({'error': 'No items provided for invoicing.'}), 400

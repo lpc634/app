@@ -51,7 +51,7 @@ const AvailableJobs = () => {
       let payload = { response };
       try {
         const suppliedBy = (assignment?.supplied_by_email || '').toLowerCase();
-        if (response === 'accept' && suppliedBy === 'hermes@pavli.group') {
+        if (response === 'accept' && (suppliedBy === 'hermes@pavli.group')) {
           let headcountStr = window.prompt('Number of operatives (required):', '1');
           if (headcountStr === null) return; // cancel
           const hc = parseInt(headcountStr, 10);
@@ -59,7 +59,7 @@ const AvailableJobs = () => {
             toast.error('Please enter a valid headcount (>= 1)');
             return;
           }
-          payload.supplied_by_email = 'hermes@pavli.group';
+          // Client must not set supplier email; only send headcount
           payload.supplier_headcount = hc;
         }
       } catch (e) {

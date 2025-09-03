@@ -336,6 +336,17 @@ class InvoiceLine(db.Model):
             'line_total': float(self.line_total) if self.line_total is not None else 0.0,
         }
 
+
+class InvoiceSequence(db.Model):
+    __tablename__ = 'invoice_sequences'
+    id = db.Column(db.Integer, primary_key=True)
+    prefix = db.Column(db.String(32), nullable=False)
+    year = db.Column(db.Integer, nullable=False)
+    next_seq = db.Column(db.Integer, nullable=False, default=1)
+    __table_args__ = (
+        db.UniqueConstraint('prefix', 'year', name='uq_invoice_sequences_prefix_year'),
+    )
+
 class InvoiceJob(db.Model):
     __tablename__ = 'invoice_jobs'
     id = db.Column(db.Integer, primary_key=True)
