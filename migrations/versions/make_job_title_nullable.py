@@ -1,7 +1,7 @@
 """make job title nullable and sync with address
 
-Revision ID: make_job_title_nullable
-Revises: add_coordinates_to_vehicle_sightings
+Revision ID: mjtn_20250819a2
+Revises: acvs_20250819b1
 Create Date: 2025-01-13 12:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'mjtn_20250819a2'
-down_revision = 'acvs_20250819a1'
+down_revision = 'acvs_20250819b1'
 branch_labels = None
 depends_on = None
 

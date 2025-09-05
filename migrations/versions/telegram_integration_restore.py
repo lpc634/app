@@ -1,7 +1,7 @@
 """Add Telegram integration fields to users table
 
 Revision ID: telegram_integration_restore
-Revises: make_job_title_nullable
+Revises: mjtn_20250819a2
 Create Date: 2025-01-20 10:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'telegram_integration_restore'
-down_revision = 'make_job_title_nullable'
+down_revision = 'mjtn_20250819a2'
 branch_labels = None
 depends_on = None
 
