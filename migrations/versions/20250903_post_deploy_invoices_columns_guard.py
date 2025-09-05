@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = 'post_deploy_invoices_cols_20250903'
-down_revision = 'invoice_sequences_20250903'
+down_revision = 'widen_version_fix_20250903'
 branch_labels = None
 depends_on = None
 
