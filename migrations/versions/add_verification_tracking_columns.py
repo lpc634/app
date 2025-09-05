@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'vtck_20250819a6'
-down_revision = 'c135f3c2dd6c'
+down_revision = 'atel_20250819a5'
 branch_labels = None
 depends_on = None
 
@@ -45,14 +45,16 @@ def upgrade():
     else:
         print("verified_at column already exists")
     
-    # Create foreign key constraint for verified_by
-    op.create_foreign_key(
-        'fk_users_verified_by',  # constraint name
-        'users',                 # source table
-        'users',                 # target table
-        ['verified_by'],         # source columns
-        ['id']                   # target columns
-    )
+    # Create foreign key constraint for verified_by (skip on SQLite which can't ALTER TABLE to add FKs)
+    bind = op.get_bind()
+    if bind.dialect.name != 'sqlite':
+        op.create_foreign_key(
+            'fk_users_verified_by',  # constraint name
+            'users',                 # source table
+            'users',                 # target table
+            ['verified_by'],         # source columns
+            ['id']                   # target columns
+        )
 
 
 def downgrade():

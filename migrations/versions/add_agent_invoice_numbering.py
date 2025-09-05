@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'aain_20250819a3'
-down_revision = 'mjtn_20250819a2'
+down_revision = 'telegram_integration_restore'
 branch_labels = None
 depends_on = None
 
@@ -48,22 +48,42 @@ def upgrade():
     """)
     
     # Backfill agent_invoice_next based on existing invoices
-    # Set each user's next number to their highest agent invoice number + 1, or 1 if none
-    op.execute("""
-        WITH mx AS (
-            SELECT agent_id, MAX(agent_invoice_number) AS mxno
-            FROM invoices
-            WHERE agent_invoice_number IS NOT NULL
-            GROUP BY agent_id
+    # Use dialect-specific SQL (SQLite can't use UPDATE ... FROM)
+    bind = op.get_bind()
+    if bind.dialect.name == 'sqlite':
+        op.execute(
+            """
+            UPDATE users
+            SET agent_invoice_next = COALESCE(
+              (
+                SELECT MAX(invoices.agent_invoice_number)
+                FROM invoices
+                WHERE invoices.agent_id = users.id AND invoices.agent_invoice_number IS NOT NULL
+              ),
+              0
+            ) + 1
+            """
         )
-        UPDATE users u
-        SET agent_invoice_next = COALESCE(mx.mxno, 0) + 1
-        FROM mx
-        WHERE u.id = mx.agent_id
-    """)
+    else:
+        op.execute(
+            """
+            WITH mx AS (
+                SELECT agent_id, MAX(agent_invoice_number) AS mxno
+                FROM invoices
+                WHERE agent_invoice_number IS NOT NULL
+                GROUP BY agent_id
+            )
+            UPDATE users u
+            SET agent_invoice_next = COALESCE(mx.mxno, 0) + 1
+            FROM mx
+            WHERE u.id = mx.agent_id
+            """
+        )
     
-    # Remove server default after backfill
-    op.alter_column('users', 'agent_invoice_next', server_default=None)
+    # Remove server default after backfill (skip on SQLite)
+    bind = op.get_bind()
+    if bind.dialect.name != 'sqlite':
+        op.alter_column('users', 'agent_invoice_next', server_default=None)
 
 
 def downgrade():

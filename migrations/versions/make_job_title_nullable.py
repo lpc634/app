@@ -18,10 +18,11 @@ depends_on = None
 
 def upgrade():
     """Make jobs.title nullable and update existing records."""
-    # Make title column nullable
-    op.alter_column('jobs', 'title',
-                   existing_type=sa.String(length=100),
-                   nullable=True)
+    # Use batch_alter_table for SQLite compatibility
+    with op.batch_alter_table('jobs', schema=None) as batch_op:
+        batch_op.alter_column('title',
+                              existing_type=sa.String(length=100),
+                              nullable=True)
     
     # Update existing records where title is NULL or empty to use address
     op.execute("""

@@ -17,50 +17,71 @@ depends_on = None
 
 
 def upgrade():
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+
     # 1) supplier_profiles
-    op.create_table(
-        'supplier_profiles',
-        sa.Column('id', sa.Integer(), primary_key=True, nullable=False),
-        sa.Column('email', sa.String(length=255), nullable=False),
-        sa.Column('display_name', sa.String(length=255), nullable=True),
-        sa.Column('vat_registered', sa.Boolean(), nullable=False, server_default=sa.text('true')),
-        sa.Column('vat_number', sa.String(length=64), nullable=True),
-        sa.Column('invoice_prefix', sa.String(length=32), nullable=False, server_default='SUP-'),
-        sa.Column('auto_link_on_signup', sa.Boolean(), nullable=False, server_default=sa.text('true')),
-    )
-    op.create_index(op.f('ix_supplier_profiles_email'), 'supplier_profiles', ['email'], unique=True)
+    tables = inspector.get_table_names()
+    if 'supplier_profiles' not in tables:
+        op.create_table(
+            'supplier_profiles',
+            sa.Column('id', sa.Integer(), primary_key=True, nullable=False),
+            sa.Column('email', sa.String(length=255), nullable=False),
+            sa.Column('display_name', sa.String(length=255), nullable=True),
+            sa.Column('vat_registered', sa.Boolean(), nullable=False, server_default=sa.text('true')),
+            sa.Column('vat_number', sa.String(length=64), nullable=True),
+            sa.Column('invoice_prefix', sa.String(length=32), nullable=False, server_default='SUP-'),
+            sa.Column('auto_link_on_signup', sa.Boolean(), nullable=False, server_default=sa.text('true')),
+        )
+        op.create_index(op.f('ix_supplier_profiles_email'), 'supplier_profiles', ['email'], unique=True)
 
     # 2) users: vat_number (nullable)
-    with op.batch_alter_table('users') as batch:
-        batch.add_column(sa.Column('vat_number', sa.String(length=64), nullable=True))
+    user_cols = [c['name'] for c in inspector.get_columns('users')]
+    if 'vat_number' not in user_cols:
+        with op.batch_alter_table('users') as batch:
+            batch.add_column(sa.Column('vat_number', sa.String(length=64), nullable=True))
 
     # 3) job_assignments: supplied_by_email, supplier_headcount
+    ja_cols = [c['name'] for c in inspector.get_columns('job_assignments')]
     with op.batch_alter_table('job_assignments') as batch:
-        batch.add_column(sa.Column('supplied_by_email', sa.String(length=255), nullable=True))
-        batch.add_column(sa.Column('supplier_headcount', sa.Integer(), nullable=True))
-    op.create_index(op.f('ix_job_assignments_supplied_by_email'), 'job_assignments', ['supplied_by_email'], unique=False)
+        if 'supplied_by_email' not in ja_cols:
+            batch.add_column(sa.Column('supplied_by_email', sa.String(length=255), nullable=True))
+        if 'supplier_headcount' not in ja_cols:
+            batch.add_column(sa.Column('supplier_headcount', sa.Integer(), nullable=True))
+    existing_ja_indexes = [idx['name'] for idx in inspector.get_indexes('job_assignments')]
+    if op.f('ix_job_assignments_supplied_by_email') not in existing_ja_indexes:
+        op.create_index(op.f('ix_job_assignments_supplied_by_email'), 'job_assignments', ['supplied_by_email'], unique=False)
 
     # 4) invoices: supplier_id (FK), vat_rate (Numeric)
+    inv_cols = [c['name'] for c in inspector.get_columns('invoices')]
     with op.batch_alter_table('invoices') as batch:
-        batch.add_column(sa.Column('supplier_id', sa.Integer(), nullable=True))
-        batch.add_column(sa.Column('vat_rate', sa.Numeric(precision=5, scale=4), nullable=True))
-        batch.create_foreign_key('fk_invoices_supplier_id', 'supplier_profiles', ['supplier_id'], ['id'])
+        if 'supplier_id' not in inv_cols:
+            batch.add_column(sa.Column('supplier_id', sa.Integer(), nullable=True))
+        if 'vat_rate' not in inv_cols:
+            batch.add_column(sa.Column('vat_rate', sa.Numeric(precision=5, scale=4), nullable=True))
+        # Add FK only on non-SQLite
+        if bind.dialect.name != 'sqlite':
+            # Check if FK exists
+            existing_fks = [fk['name'] for fk in inspector.get_foreign_keys('invoices')]
+            if 'fk_invoices_supplier_id' not in (existing_fks or []):
+                batch.create_foreign_key('fk_invoices_supplier_id', 'supplier_profiles', ['supplier_id'], ['id'], ondelete='SET NULL')
 
     # 5) invoice_lines: new table (separate from invoice_jobs) with unique job_assignment_id
-    op.create_table(
-        'invoice_lines',
-        sa.Column('id', sa.Integer(), primary_key=True, nullable=False),
-        sa.Column('invoice_id', sa.Integer(), nullable=False),
-        sa.Column('job_assignment_id', sa.Integer(), nullable=False),
-        sa.Column('hours', sa.Numeric(precision=6, scale=2), nullable=False),
-        sa.Column('rate_per_hour', sa.Numeric(precision=10, scale=2), nullable=False),
-        sa.Column('headcount', sa.Integer(), nullable=False),
-        sa.Column('line_total', sa.Numeric(precision=12, scale=2), nullable=False),
-        sa.ForeignKeyConstraint(['invoice_id'], ['invoices.id'], name='fk_invoice_lines_invoice_id', ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['job_assignment_id'], ['job_assignments.id'], name='fk_invoice_lines_job_assignment_id', ondelete='RESTRICT')
-    )
-    op.create_unique_constraint('uq_invoice_lines_job_assignment_id', 'invoice_lines', ['job_assignment_id'])
-    op.create_index(op.f('ix_invoice_lines_invoice_id'), 'invoice_lines', ['invoice_id'], unique=False)
+    if 'invoice_lines' not in tables:
+        op.create_table(
+            'invoice_lines',
+            sa.Column('id', sa.Integer(), primary_key=True, nullable=False),
+            sa.Column('invoice_id', sa.Integer(), nullable=False),
+            sa.Column('job_assignment_id', sa.Integer(), nullable=False),
+            sa.Column('hours', sa.Numeric(precision=6, scale=2), nullable=False),
+            sa.Column('rate_per_hour', sa.Numeric(precision=10, scale=2), nullable=False),
+            sa.Column('headcount', sa.Integer(), nullable=False),
+            sa.Column('line_total', sa.Numeric(precision=12, scale=2), nullable=False),
+            sa.ForeignKeyConstraint(['invoice_id'], ['invoices.id'], name='fk_invoice_lines_invoice_id', ondelete='CASCADE'),
+            sa.ForeignKeyConstraint(['job_assignment_id'], ['job_assignments.id'], name='fk_invoice_lines_job_assignment_id', ondelete='RESTRICT')
+        )
+        op.create_unique_constraint('uq_invoice_lines_job_assignment_id', 'invoice_lines', ['job_assignment_id'])
+        op.create_index(op.f('ix_invoice_lines_invoice_id'), 'invoice_lines', ['invoice_id'], unique=False)
 
     # Seed supplier_profiles with Hermes
     conn = op.get_bind()

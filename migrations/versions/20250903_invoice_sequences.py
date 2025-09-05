@@ -15,14 +15,17 @@ depends_on = None
 
 
 def upgrade():
-    op.create_table(
-        'invoice_sequences',
-        sa.Column('id', sa.Integer(), primary_key=True, nullable=False),
-        sa.Column('prefix', sa.String(length=32), nullable=False),
-        sa.Column('year', sa.Integer(), nullable=False),
-        sa.Column('next_seq', sa.Integer(), nullable=False, server_default='1'),
-    )
-    op.create_unique_constraint('uq_invoice_sequences_prefix_year', 'invoice_sequences', ['prefix', 'year'])
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if 'invoice_sequences' not in inspector.get_table_names():
+        op.create_table(
+            'invoice_sequences',
+            sa.Column('id', sa.Integer(), primary_key=True, nullable=False),
+            sa.Column('prefix', sa.String(length=32), nullable=False),
+            sa.Column('year', sa.Integer(), nullable=False),
+            sa.Column('next_seq', sa.Integer(), nullable=False, server_default='1'),
+        )
+        op.create_unique_constraint('uq_invoice_sequences_prefix_year', 'invoice_sequences', ['prefix', 'year'])
 
 
 def downgrade():

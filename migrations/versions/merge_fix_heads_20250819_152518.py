@@ -3,14 +3,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "merge_fix_heads_20250819"
-down_revision = (
-    "a1b2c3d4e5f6",
-    "acvs_20250819b1",
-    "atel_20250819a5",
-    "fcm_tokens_001",
-    "fcpr_20250819a7",
-    "vtck_20250819a6",
-)
+down_revision = "fcpr_20250819a7"
 branch_labels = None
 depends_on = None
 

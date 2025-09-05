@@ -17,8 +17,12 @@ depends_on = None
 
 
 def upgrade():
-    with op.batch_alter_table('users', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('verification_status', sa.String(length=20), server_default='pending', nullable=False))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    cols = [c['name'] for c in inspector.get_columns('users')]
+    if 'verification_status' not in cols:
+        with op.batch_alter_table('users', schema=None) as batch_op:
+            batch_op.add_column(sa.Column('verification_status', sa.String(length=20), server_default='pending', nullable=False))
 
     # ### end Alembic commands ###
 
