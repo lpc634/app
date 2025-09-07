@@ -115,6 +115,7 @@ app.config['PUBLIC_BASE_URL'] = os.environ.get("PUBLIC_BASE_URL", "https://v3-ap
 # Admin Telegram group (optional)
 app.config['TELEGRAM_ADMIN_CHAT_ID'] = os.environ.get('TELEGRAM_ADMIN_CHAT_ID')
 app.config['TELEGRAM_ADMIN_THREAD_ID'] = os.environ.get('TELEGRAM_ADMIN_THREAD_ID')
+app.config['TELEGRAM_SET_WEBHOOK_ON_START'] = os.environ.get('TELEGRAM_SET_WEBHOOK_ON_START', 'false')
 
 # --- CORS Configuration for Heroku ---
 LIVE_APP_URL = os.environ.get('LIVE_APP_URL', 'https://v3-app-49c3d1eff914.herokuapp.com')
@@ -287,6 +288,12 @@ def internal_server_error(e):
 with app.app_context():
     db.create_all()  # Create tables first
     init_scheduler(app)  # Then initialize scheduler
+    try:
+        # Optionally set Telegram webhook on startup
+        from src.integrations.telegram_client import ensure_webhook
+        ensure_webhook()
+    except Exception as e:
+        app.logger.warning(f"Skipping Telegram webhook setup: {str(e)}")
 
 # --- Main Execution (Not used by Gunicorn/Heroku) ---
 if __name__ == '__main__':

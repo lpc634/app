@@ -78,7 +78,23 @@ def webhook(secret):
             if existing_agent:
                 send_message(chat_id, "✅ Your Telegram is already linked to your V3 Services account.")
             else:
-                send_message(chat_id, "👋 Welcome! To link your Telegram account, please use the link button in the V3 Services app.")
+                # Provide clear instructions and bot username for deep-linking
+                bot_username = "V3JobsBot"
+                try:
+                    bot_info = get_bot_info()
+                    if bot_info.get("ok") and "result" in bot_info:
+                        bot_username = bot_info["result"].get("username", bot_username)
+                except Exception as e:
+                    current_app.logger.warning(f"Could not get bot username for /start instructions: {str(e)}")
+
+                send_message(
+                    chat_id,
+                    (
+                        "👋 Welcome! To link your Telegram account, go back to the V3 Services app and tap “Link Telegram”.\n\n"
+                        "It will show a button that opens this chat with your one-time code.\n\n"
+                        f"If needed, you can also send: /start <your_code> to @{bot_username}"
+                    )
+                )
     
     # Handle /link command
     elif text.startswith("/link"):
@@ -125,6 +141,11 @@ def webhook(secret):
     
     return jsonify({"ok": True})
 
+# Public webhook under /api namespace to match external configuration
+@telegram_api_bp.route("/webhook/<secret>", methods=["POST"])
+def api_webhook(secret):
+    return webhook(secret)
+
 @telegram_bp.route("/info", methods=["GET"])
 def webhook_info():
     """
@@ -152,6 +173,21 @@ def webhook_info():
     
     except Exception as e:
         current_app.logger.error(f"Error getting webhook info: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# Health endpoint under API namespace for diagnostics
+@telegram_api_bp.route("/webhook/health", methods=["GET"])
+def webhook_health():
+    if not current_app.config.get("TELEGRAM_ENABLED", False):
+        return jsonify({"status": "disabled"})
+    try:
+        from src.integrations.telegram_client import get_webhook_info, get_bot_info
+        return jsonify({
+            "bot_info": get_bot_info(),
+            "webhook_info": get_webhook_info()
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error getting webhook health: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -220,9 +256,12 @@ def start_telegram_link():
         except Exception as e:
             current_app.logger.warning(f"Could not get bot username for link: {str(e)}")
         
+        deeplink_url = f"https://t.me/{bot_username}?start={code}"
         return jsonify({
             "code": code,
-            "bot_username": bot_username
+            "bot_username": bot_username,
+            "deeplink_url": deeplink_url,
+            "instructions": "Tap the button to open Telegram and press Start to complete linking."
         })
     
     except Exception as e:
@@ -282,7 +321,8 @@ def get_telegram_health():
     bot_username = None
 
     if enabled and secret_set and public_base_set:
-        webhook_url = f"{public_base_url}/webhooks/telegram/{webhook_secret}"
+        # Prefer the /api path for webhook
+        webhook_url = f"{public_base_url}/api/telegram/webhook/{webhook_secret}"
 
     if enabled:
         try:

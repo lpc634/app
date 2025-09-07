@@ -82,7 +82,9 @@ def get_bot_info() -> dict:
         current_app.logger.error(f"Telegram get bot info error: {str(e)}")
         return {"status": "error", "message": str(e)}
 
-def set_webhook(webhook_url: str) -> dict:
+def set_webhook(webhook_url: str,
+                allowed_updates: list[str] | None = None,
+                drop_pending_updates: bool = False) -> dict:
     """
     Set webhook URL for the bot
     
@@ -101,6 +103,9 @@ def set_webhook(webhook_url: str) -> dict:
     
     url = f"{API_BASE}/bot{token}/setWebhook"
     payload = {"url": webhook_url}
+    if allowed_updates is not None:
+        payload["allowed_updates"] = allowed_updates
+    payload["drop_pending_updates"] = bool(drop_pending_updates)
     
     try:
         r = requests.post(url, json=payload, timeout=10)
@@ -132,4 +137,34 @@ def get_webhook_info() -> dict:
         return r.json()
     except requests.RequestException as e:
         current_app.logger.error(f"Telegram get webhook info error: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+def ensure_webhook() -> dict:
+    """Optionally set the Telegram webhook on startup based on app config.
+
+    Reads TELEGRAM_SET_WEBHOOK_ON_START, PUBLIC_BASE_URL, and TELEGRAM_WEBHOOK_SECRET
+    from current_app.config.
+    """
+    try:
+        if not current_app.config.get("TELEGRAM_ENABLED", False):
+            return {"status": "skipped", "reason": "disabled"}
+        if not str(current_app.config.get("TELEGRAM_SET_WEBHOOK_ON_START", "false")).lower() in ("1", "true", "yes"): 
+            return {"status": "skipped", "reason": "flag off"}
+
+        public_base_url = current_app.config.get("PUBLIC_BASE_URL")
+        secret = current_app.config.get("TELEGRAM_WEBHOOK_SECRET")
+        if not public_base_url or not secret:
+            return {"status": "skipped", "reason": "missing base url or secret"}
+
+        # Prefer the /api/telegram/webhook/<secret> path
+        webhook_url = f"{public_base_url}/api/telegram/webhook/{secret}"
+        resp = set_webhook(
+            webhook_url,
+            allowed_updates=["message", "callback_query"],
+            drop_pending_updates=False,
+        )
+        current_app.logger.info(f"Telegram setWebhook attempted: {resp}")
+        return resp
+    except Exception as e:
+        current_app.logger.error(f"ensure_webhook error: {str(e)}")
         return {"status": "error", "message": str(e)}
