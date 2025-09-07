@@ -135,6 +135,21 @@ def check_if_token_is_revoked_wrapper(jwt_header, jwt_payload):
     return check_if_token_revoked(jwt_header, jwt_payload)
 
 
+# --- User lookup loader for get_current_user() (Flask-JWT-Extended v4+) ---
+@jwt.user_lookup_loader
+def load_user_from_jwt(_jwt_header, jwt_data):
+    """Resolve the current user from the JWT subject (sub).
+
+    Tokens are issued with identity=str(user.id), so convert to int safely.
+    """
+    identity = jwt_data.get("sub")
+    try:
+        user_id = int(identity) if identity is not None else None
+    except (TypeError, ValueError):
+        user_id = None
+    return User.query.get(user_id) if user_id is not None else None
+
+
 
 # --- Register Blueprints ---
 app.register_blueprint(user_bp, url_prefix='/api')
