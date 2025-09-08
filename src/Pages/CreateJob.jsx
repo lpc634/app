@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useAuth } from "../useAuth";
 import { toast } from 'sonner';
 import { Briefcase, MapPin, Calendar, Users, MessageSquare, Send, Loader2, Navigation, X, ExternalLink, DollarSign } from 'lucide-react';
+import { extractUkPostcode } from '../utils/ukPostcode';
 
 const CreateJob = () => {
     const { apiCall, user } = useAuth();
@@ -42,18 +43,22 @@ const CreateJob = () => {
     };
 
     const openLocationSelector = async () => {
-        if (!formData.address.trim()) {
-            toast.error("Please enter an address first");
+        const full = (formData.address || '').trim();
+        if (!full) {
+            toast.error("Please enter a full address first");
             return;
         }
 
+        const postcode = extractUkPostcode(full);
+        const query = postcode || full;
+
         setMapLoading(true);
         try {
-            // Geocode the address to get coordinates
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.address)}&countrycodes=gb&limit=1`);
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=gb&limit=1`;
+            const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
             const results = await response.json();
-            
-            if (results.length > 0) {
+
+            if (Array.isArray(results) && results.length > 0) {
                 const location = {
                     lat: parseFloat(results[0].lat),
                     lng: parseFloat(results[0].lon)
@@ -61,20 +66,28 @@ const CreateJob = () => {
                 setMapCenter(location);
                 setSelectedLocation(location);
                 setShowMap(true);
+                if (postcode) {
+                    toast.success(`Located by postcode ${postcode}. You can drag the pin to refine.`);
+                } else {
+                    toast.message('Located by full address. Drag the pin to refine if needed.');
+                }
             } else {
-                toast.error("Could not find location for that address");
+                toast.error("Could not find a location. Drag a pin manually on the map.");
+                setMapCenter({ lat: 51.5074, lng: -0.1278 });
+                setSelectedLocation(null);
+                setShowMap(true);
             }
         } catch (error) {
-            toast.error("Failed to geocode address");
+            toast.error("Geocoding failed. You can drag a pin manually.");
+            setMapCenter({ lat: 51.5074, lng: -0.1278 });
+            setSelectedLocation(null);
+            setShowMap(true);
         } finally {
             setMapLoading(false);
         }
     };
 
-    const generateGoogleMapsLink = (lat, lng) => {
-        // Generate Google Maps link that opens in phone's navigation app
-        return `https://www.google.com/maps?q=${lat},${lng}&z=18`;
-    };
+    const generateGoogleMapsLink = (lat, lng) => `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 
     const handleMapClick = async (lat, lng) => {
         setSelectedLocation({ lat, lng });
@@ -457,7 +470,7 @@ const CreateJob = () => {
                                 className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest placeholder-v3-text-muted focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
                             />
                             
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-wrap">
                                 <button
                                     type="button"
                                     onClick={openLocationSelector}
@@ -488,10 +501,17 @@ const CreateJob = () => {
                                         </a>
                                     </div>
                                 )}
+
+                                {/* Detected Postcode chip */}
+                                {extractUkPostcode(formData.address || '') && (
+                                    <div className="px-3 py-2 bg-v3-bg-dark border border-v3-border rounded-lg text-xs text-v3-text-lightest">
+                                        Detected Postcode: <span className="text-v3-orange font-semibold">{extractUkPostcode(formData.address)}</span>
+                                    </div>
+                                )}
                             </div>
                             
                             <p className="text-xs text-v3-text-muted">
-                                Select the exact entrance location for agents to navigate to the precise meeting point using Google Maps.
+                                Pin is based on the postcode extracted from the address. You can drag to refine.
                             </p>
                         </div>
                     </div>

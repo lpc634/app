@@ -151,7 +151,7 @@ def ensure_webhook() -> dict:
         if not str(current_app.config.get("TELEGRAM_SET_WEBHOOK_ON_START", "false")).lower() in ("1", "true", "yes"): 
             return {"status": "skipped", "reason": "flag off"}
 
-        public_base_url = current_app.config.get("PUBLIC_BASE_URL")
+        public_base_url = current_app.config.get("PUBLIC_BASE_URL") or current_app.config.get("LIVE_APP_URL")
         secret = current_app.config.get("TELEGRAM_WEBHOOK_SECRET")
         if not public_base_url or not secret:
             return {"status": "skipped", "reason": "missing base url or secret"}
