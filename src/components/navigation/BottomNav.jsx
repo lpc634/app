@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, Briefcase, Users, FileText, MoreHorizontal } from "lucide-react";
+import { Home, Briefcase, Users, FileText, MoreHorizontal, MessageCircle } from "lucide-react";
 
 const items = [
   { path: "/admin", label: "Dashboard", icon: Home, testid: "bottomnav-dashboard" },
