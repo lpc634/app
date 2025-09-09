@@ -18,6 +18,7 @@ import {
   XCircle,
   Trash2
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch.jsx';
 
 export default function Dashboard() {
   const [liveJobs, setLiveJobs] = useState([]);
@@ -29,6 +30,7 @@ export default function Dashboard() {
   const [jobFilter, setJobFilter] = useState('open');
   const [actionLoading, setActionLoading] = useState({});
   const { apiCall, user } = useAuth();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -46,6 +48,8 @@ export default function Dashboard() {
       if (user?.role === 'admin') {
         promises.push(apiCall('/admin/documents/pending'));
         promises.push(apiCall('/admin/agents/documents'));
+        // Also fetch notifications setting
+        promises.push(apiCall('/admin/settings/notifications'));
       }
 
       const responses = await Promise.all(promises);
@@ -63,6 +67,8 @@ export default function Dashboard() {
           return acc;
         }, { pending: 0, total: 0 });
         setDocumentStats(stats);
+        const notif = responses[4];
+        if (typeof notif?.enabled !== 'undefined') setNotificationsEnabled(Boolean(notif.enabled));
       }
 
     } catch (error) {
@@ -188,6 +194,33 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {user?.role === 'admin' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Notifications</CardTitle>
+            <CardDescription>When off, the system will not send Telegram or other notifications. Safe for testing.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Enable notifications</p>
+              </div>
+              <Switch
+                checked={notificationsEnabled}
+                onCheckedChange={async (val) => {
+                  try {
+                    setNotificationsEnabled(val);
+                    await apiCall('/admin/settings/notifications', 'PUT', { enabled: Boolean(val) });
+                    // toast inside fetchData hook already available
+                  } catch (e) {
+                    setNotificationsEnabled(!val);
+                  }
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <div className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-bold tracking-tight">Dispatch Center</h1>

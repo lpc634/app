@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "./useAuth.jsx";
 
 // --- 1. IMPORT THE SEARCH ICON ---
-import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search, FileText, DollarSign } from 'lucide-react';
+import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search, FileText, DollarSign, Settings as SettingsIcon, BellOff } from 'lucide-react';
 import logo from './assets/new_logo.png';
 
 const navigation = [
@@ -17,6 +17,7 @@ const navigation = [
   { name: 'Document Review', href: '/admin/documents', icon: FileText, adminOnly: true },
   { name: 'Agent Invoices', href: '/admin/agent-invoices', icon: FileText, adminOnly: true },
   { name: 'Expenses', href: '/admin/expenses', icon: DollarSign, adminOnly: true },
+  { name: 'Settings', href: '/admin/settings', icon: SettingsIcon, adminOnly: true },
 ];
 
 function NavigationItems({ onItemClick = () => {} }) {
@@ -58,7 +59,26 @@ function NavigationItems({ onItemClick = () => {} }) {
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, apiCall } = useAuth();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    // Only admins can read the setting; ignore for others
+    if (user?.role === 'admin') {
+      (async () => {
+        try {
+          const res = await apiCall('/admin/settings/notifications');
+          if (mounted && typeof res?.enabled !== 'undefined') {
+            setNotificationsEnabled(Boolean(res.enabled));
+          }
+        } catch (_) {
+          // ignore
+        }
+      })();
+    }
+    return () => { mounted = false; };
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -145,6 +165,13 @@ export default function Layout({ children }) {
         <main className="flex-1 overflow-y-auto py-4 lg:py-10 safe-pb min-h-0">
           {/* Add top padding on mobile to account for fixed header */}
           <div className="px-4 sm:px-6 lg:px-8 pt-20 lg:pt-0 w-full max-w-full pb-24">
+            {/* Notifications disabled banner for admins */}
+            {user?.role === 'admin' && notificationsEnabled === false && (
+              <div className="mb-4 flex items-center gap-2 rounded-md border border-yellow-600 bg-yellow-900/20 px-3 py-2 text-yellow-200">
+                <BellOff className="h-4 w-4 flex-shrink-0" />
+                <span className="text-sm">Notifications are disabled.</span>
+              </div>
+            )}
             {children}
           </div>
         </main>
