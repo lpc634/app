@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { usePageHeader } from '@/components/layout/PageHeaderContext.jsx'
 import StickyActionBar from '@/components/layout/StickyActionBar.jsx'
-import { Loader2, Send, Users, CheckCircle2, XCircle, Link as LinkIcon, Search } from 'lucide-react'
+import { Loader2, Send, Users, CheckCircle2, XCircle, Link as LinkIcon, Search, X } from 'lucide-react'
 
 export default function MessageAgents() {
   const { apiCall, user } = useAuth()
@@ -17,6 +17,7 @@ export default function MessageAgents() {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState([])
   const [includeUnlinked, setIncludeUnlinked] = useState(false)
+  const [showLinked, setShowLinked] = useState(true)
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [results, setResults] = useState(null)
@@ -43,10 +44,10 @@ export default function MessageAgents() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const base = includeUnlinked ? agents : agents.filter(a => a.linked)
+    const base = agents.filter(a => (showLinked && a.linked) || (includeUnlinked && !a.linked))
     if (!q) return base
     return base.filter(a => a.name?.toLowerCase().includes(q) || a.email?.toLowerCase().includes(q))
-  }, [agents, query, includeUnlinked])
+  }, [agents, query, includeUnlinked, showLinked])
 
   const linkedCount = agents.filter(a => a.linked).length
   const toggle = (id) => {
@@ -125,11 +126,11 @@ export default function MessageAgents() {
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">Recipients</div>
               <div className="flex gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setIncludeUnlinked(v => !v)} aria-pressed={includeUnlinked}>
-                  {includeUnlinked ? 'Hide unlinked' : 'Show unlinked'}
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={selectAllLinked}>Select all linked ({linkedCount})</Button>
-                <Button type="button" variant="outline" size="sm" onClick={clearAll}>Clear</Button>
+                <Button type="button" variant={showLinked ? 'default' : 'outline'} size="sm" onClick={() => setShowLinked(v => !v)} aria-pressed={showLinked}>Linked</Button>
+                <Button type="button" variant={includeUnlinked ? 'default' : 'outline'} size="sm" onClick={() => setIncludeUnlinked(v => !v)} aria-pressed={includeUnlinked}>Not linked</Button>
+                <div className="w-px h-6 bg-border" />
+                <Button type="button" variant="default" size="sm" onClick={selectAllLinked}>Select all linked ({linkedCount})</Button>
+                <Button type="button" variant="ghost" size="sm" onClick={clearAll}>Clear</Button>
               </div>
             </div>
 
@@ -151,13 +152,14 @@ export default function MessageAgents() {
                 <div className="p-3 text-sm text-muted-foreground">No agents found.</div>
               ) : (
                 filtered.map(a => (
-                  <label key={a.id} className="flex items-center gap-3 p-2 cursor-pointer tap-target">
+                  <label key={a.id} className="flex items-center gap-3 p-3 cursor-pointer tap-target min-h-[48px]">
                     <input type="checkbox" className="h-4 w-4" checked={selected.includes(a.id)} onChange={() => toggle(a.id)} />
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">{a.name}</div>
                       <div className="text-xs text-muted-foreground truncate">{a.email}</div>
                     </div>
-                    <div className="ml-auto text-xs">
+                    <div className="ml-auto flex items-center gap-2 text-xs">
+                      <span className={`w-2 h-2 rounded-full ${a.linked ? 'bg-green-500' : 'bg-gray-500'}`} />
                       {a.linked ? (
                         <span className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">Linked</span>
                       ) : (
@@ -175,12 +177,15 @@ export default function MessageAgents() {
       {results && (
         <Card>
           <CardHeader>
-            <CardTitle>Results</CardTitle>
-            <CardDescription>
-              <span className="mr-3">Success: <strong>{summary.success}</strong></span>
-              <span className="mr-3">Failed: <strong>{summary.failed}</strong></span>
-              <span>Not linked: <strong>{summary.not_linked}</strong></span>
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <CardTitle>Results</CardTitle>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20">Success {summary.success}</Badge>
+                <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20">Failed {summary.failed}</Badge>
+                <Badge variant="outline" className="bg-gray-500/10 text-gray-300 border-gray-500/20">Not linked {summary.not_linked}</Badge>
+                <Button size="sm" variant="ghost" onClick={() => setResults(null)} aria-label="Clear results"><X className="h-4 w-4" /></Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid gap-2">
@@ -210,7 +215,14 @@ export default function MessageAgents() {
       </div>
 
       <StickyActionBar>
-        <div className="text-xs text-muted-foreground mr-auto">Selected: {selected.length}</div>
+        <div className="text-xs text-muted-foreground mr-auto">
+          {disabledSend
+            ? 'Type a message and select at least one linked agent'
+            : `Ready to send to ${selected.length} agent${selected.length === 1 ? '' : 's'}`}
+          {!disabledSend && includeUnlinked && selected.some(id => (agents.find(a => a.id === id)?.linked === false)) && (
+            <span className="ml-2">• Unlinked recipients will appear under Not linked</span>
+          )}
+        </div>
         <Button data-testid="send-message" className="flex-1" disabled={disabledSend} onClick={handleSend}>
           {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
           Send
