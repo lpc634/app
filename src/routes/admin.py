@@ -2453,3 +2453,27 @@ def finance_summary():
     except Exception as e:
         current_app.logger.error(f"Error building finance summary: {e}")
         return jsonify({'error': 'Failed to build finance summary'}), 500
+
+@admin_bp.route('/admin/settings/notifications', methods=['GET'])
+@jwt_required()
+def get_notifications_setting():
+	user = require_admin()
+	if not user:
+		return jsonify({'error': 'Access denied. Admin role required.'}), 403
+	from src.models.user import Setting
+	default_enabled = str(current_app.config.get('NOTIFICATIONS_ENABLED', 'true')).lower() in ('1','true','yes','on')
+	enabled = Setting.get_bool('notifications_enabled', default_enabled)
+	return jsonify({'enabled': bool(enabled)})
+
+@admin_bp.route('/admin/settings/notifications', methods=['PUT'])
+@jwt_required()
+def set_notifications_setting():
+	user = require_admin()
+	if not user:
+		return jsonify({'error': 'Access denied. Admin role required.'}), 403
+	from src.models.user import Setting, db
+	data = request.get_json(silent=True) or {}
+	enabled = bool(data.get('enabled', True))
+	Setting.set_bool('notifications_enabled', enabled)
+	current_app.logger.info(f"Admin set notifications_enabled={enabled}")
+	return jsonify({'enabled': enabled})

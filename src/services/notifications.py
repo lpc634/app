@@ -1,6 +1,22 @@
 from flask import current_app
-from src.models.user import User
+from src.models.user import User, Setting
 from src.integrations.telegram_client import send_message
+def _notifications_enabled() -> bool:
+    # DB value overrides env; env default comes from app.config
+    default_enabled = bool(current_app.config.get('NOTIFICATIONS_ENABLED', True))
+    return Setting.get_bool('notifications_enabled', default_enabled)
+
+def _skip_if_muted(event_name: str, context: dict | None = None) -> bool:
+    if not _notifications_enabled():
+        try:
+            current_app.logger.info(
+                "Notification skipped (muted)",
+                extra={"event": event_name, **(context or {})}
+            )
+        except Exception:
+            current_app.logger.info(f"Notification skipped (muted): {event_name} {context or {}}")
+        return True
+    return False
 
 
 def notify_agent(agent_id: int, title: str, body: str, notification_type: str = "general"):
@@ -17,6 +33,8 @@ def notify_agent(agent_id: int, title: str, body: str, notification_type: str = 
         dict: Status of notification delivery
     """
     try:
+        if _skip_if_muted('notify_agent', {"agent_id": agent_id, "type": notification_type}):
+            return {"status": "skipped", "reason": "muted"}
         # Get the agent
         agent = User.query.get(agent_id)
         if not agent:
@@ -84,6 +102,8 @@ def notify_job_assignment(agent_id: int, job_data: dict):
         agent_id: ID of the agent
         job_data: Complete job information dictionary
     """
+    if _skip_if_muted('job_assignment', {"agent_id": agent_id, "job": job_data.get('id')}):
+        return {"status": "skipped", "reason": "muted"}
     title = "🚨 NEW JOB ASSIGNMENT"
     
     # Parse arrival time for better formatting
@@ -223,6 +243,8 @@ def notify_invoice_generated(agent_id: int, invoice_number: str, amount: float):
         invoice_number: Generated invoice number
         amount: Invoice total amount
     """
+    if _skip_if_muted('invoice_generated', {"agent_id": agent_id, "invoice": invoice_number}):
+        return {"status": "skipped", "reason": "muted"}
     title = f"Invoice {invoice_number} Generated"
     body = f"Your invoice {invoice_number} for £{amount:.2f} has been generated and is ready for download."
     
@@ -238,6 +260,8 @@ def notify_job_update(agent_id: int, job_title: str, update_message: str):
         job_title: Title of the job
         update_message: Update details
     """
+    if _skip_if_muted('job_update', {"agent_id": agent_id}):
+        return {"status": "skipped", "reason": "muted"}
     title = f"Job Update: {job_title}"
     body = update_message
     
@@ -253,6 +277,8 @@ def notify_payment_received(agent_id: int, invoice_number: str, amount: float):
         invoice_number: Paid invoice number
         amount: Payment amount
     """
+    if _skip_if_muted('payment_received', {"agent_id": agent_id, "invoice": invoice_number}):
+        return {"status": "skipped", "reason": "muted"}
     title = "💰 PAYMENT RECEIVED"
     
     body = f"""<b>💰 PAYMENT RECEIVED</b>
@@ -277,6 +303,8 @@ def send_test_notification(agent_id: int):
         dict: Result of the test
     """
     try:
+        if _skip_if_muted('test_notification', {"agent_id": agent_id}):
+            return {"status": "skipped", "reason": "muted"}
         agent = User.query.get(agent_id)
         if not agent:
             return {"status": "error", "message": "Agent not found"}
@@ -306,6 +334,9 @@ def bulk_notify_agents(agent_ids: list, title: str, body: str, notification_type
     """
     results = {"success": [], "failed": []}
     
+    if _skip_if_muted('bulk_notify', {"count": len(agent_ids)}):
+        return {"status": "skipped", "reason": "muted", "total": len(agent_ids)}
+
     for agent_id in agent_ids:
         try:
             result = notify_agent(agent_id, title, body, notification_type)

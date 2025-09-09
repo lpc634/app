@@ -469,6 +469,43 @@ class FCMToken(db.Model):
         return len(inactive_tokens)
 
 
+class Setting(db.Model):
+    """Simple key/value settings store for global flags (e.g., notifications)."""
+    __tablename__ = 'settings'
+    key = db.Column(db.String(64), primary_key=True)
+    value = db.Column(db.Text, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @classmethod
+    def get(cls, key: str, default: str | None = None) -> str | None:
+        try:
+            row = cls.query.filter_by(key=key).first()
+            return row.value if row else default
+        except Exception:
+            return default
+
+    @classmethod
+    def set(cls, key: str, value: str) -> None:
+        row = cls.query.filter_by(key=key).first()
+        if row:
+            row.value = value
+        else:
+            row = cls(key=key, value=value)
+            db.session.add(row)
+        db.session.commit()
+
+    @classmethod
+    def get_bool(cls, key: str, default: bool = True) -> bool:
+        val = cls.get(key, None)
+        if val is None:
+            return bool(default)
+        return str(val).strip().lower() in ("1", "true", "yes", "on")
+
+    @classmethod
+    def set_bool(cls, key: str, value: bool) -> None:
+        cls.set(key, "true" if value else "false")
+
+
 class JobBilling(db.Model):
     """Job billing configuration and aggregated financial data"""
     __tablename__ = 'job_billing'

@@ -26,6 +26,7 @@ from src.models.user import User
 from src.models.vehicle import VehicleSighting
 from src.models.vehicle_details import VehicleDetails
 from src.scheduler import init_scheduler
+from src.models.user import Setting
 
 # --- Route Blueprint Imports ---
 from src.routes.user import user_bp
@@ -116,6 +117,7 @@ app.config['PUBLIC_BASE_URL'] = os.environ.get("PUBLIC_BASE_URL", "https://v3-ap
 app.config['TELEGRAM_ADMIN_CHAT_ID'] = os.environ.get('TELEGRAM_ADMIN_CHAT_ID')
 app.config['TELEGRAM_ADMIN_THREAD_ID'] = os.environ.get('TELEGRAM_ADMIN_THREAD_ID')
 app.config['TELEGRAM_SET_WEBHOOK_ON_START'] = os.environ.get('TELEGRAM_SET_WEBHOOK_ON_START', 'false')
+app.config['NOTIFICATIONS_ENABLED'] = os.environ.get('NOTIFICATIONS_ENABLED', 'true')
 
 # --- CORS Configuration for Heroku ---
 LIVE_APP_URL = os.environ.get('LIVE_APP_URL', 'https://v3-app-49c3d1eff914.herokuapp.com')
@@ -294,6 +296,16 @@ with app.app_context():
         ensure_webhook()
     except Exception as e:
         app.logger.warning(f"Skipping Telegram webhook setup: {str(e)}")
+
+    # Seed notifications toggle if missing
+    try:
+        key = 'notifications_enabled'
+        if Setting.get(key, None) is None:
+            default_enabled = str(app.config.get('NOTIFICATIONS_ENABLED', 'true')).lower() in ('1','true','yes','on')
+            Setting.set_bool(key, default_enabled)
+            app.logger.info(f"Seeded {key}={default_enabled}")
+    except Exception as e:
+        app.logger.warning(f"Unable to seed notifications setting: {e}")
 
 # --- Main Execution (Not used by Gunicorn/Heroku) ---
 if __name__ == '__main__':
