@@ -12,17 +12,12 @@ export default function AgentMultiSelect({ value = [], onChange = () => {} }) {
     ;(async () => {
       try {
         setLoading(true)
-        // Prefer admin agents endpoint if available, fallback to /users
-        let res
-        try {
-          res = await apiCall('/admin/agents/documents')
-          const mapped = (res.agents || []).map(a => ({ id: a.agent_id, name: a.agent_name }))
-          if (mounted) setAgents(mapped)
-        } catch (_) {
-          const users = await apiCall('/users')
-          const mapped = (users.users || []).filter(u => u.role === 'agent').map(u => ({ id: u.id, name: `${u.first_name} ${u.last_name}`.trim() }))
-          if (mounted) setAgents(mapped)
-        }
+        // Use /users and map to id/name
+        const users = await apiCall('/users')
+        const mapped = (users.users || [])
+          .filter(u => u.role === 'agent')
+          .map(u => ({ id: u.id, name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || `Agent #${u.id}` }))
+        if (mounted) setAgents(mapped)
       } finally {
         setLoading(false)
       }
