@@ -1,10 +1,17 @@
 import { Outlet, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import BottomNav from "@/components/navigation/BottomNav.jsx";
 import { usePageHeaderState } from "@/components/layout/PageHeaderContext.jsx";
 
 export default function MobileShell() {
   const { title, action } = usePageHeaderState();
   const location = useLocation();
+  useEffect(() => {
+    const nav = document.getElementById('bottom-nav');
+    const sticky = document.getElementById('sticky-action-bar');
+    if (nav) document.documentElement.style.setProperty('--bottom-nav-h', `${nav.offsetHeight}px`);
+    if (sticky) document.documentElement.style.setProperty('--sticky-bar-h', `${sticky.offsetHeight}px`);
+  }, [location]);
 
   return (
     <div className="md:hidden">
@@ -17,7 +24,7 @@ export default function MobileShell() {
         </div>
       </div>
 
-      <div className="pt-[56px] pb-[64px]">
+      <div id="app-scroll" className="pt-[56px] pb-[calc(var(--bottom-nav-h,64px)+var(--sticky-bar-h,56px)+var(--safe-bottom,0px)+16px)]">
         <Outlet key={location.key} />
       </div>
 

@@ -12,10 +12,10 @@ const items = [
 export default function BottomNav() {
   const location = useLocation();
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 safe-pb">
-      <div className="mx-auto max-w-screen-sm">
-        <div className="backdrop-blur supports-[backdrop-filter]:bg-background/70 bg-background/95 border-t">
-          <ul className="grid grid-cols-5">
+    <nav id="bottom-nav" className="md:hidden fixed inset-x-0 bottom-0 z-[50] h-16 pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-auto max-w-screen-sm h-full">
+        <div className="backdrop-blur supports-[backdrop-filter]:bg-background/70 bg-background/95 border-t h-full">
+          <ul className="grid grid-cols-5 h-full">
             {items.map(({ path, label, icon: Icon, testid }) => {
               const isActive = location.pathname === path || location.pathname.startsWith(path + "/");
               return (
@@ -24,7 +24,7 @@ export default function BottomNav() {
                     to={path}
                     aria-label={label}
                     data-testid={testid}
-                    className={`flex flex-col items-center justify-center py-2 tap-target min-h-[52px] ${isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`flex flex-col items-center justify-center tap-target h-16 ${isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     <Icon className="h-6 w-6" aria-hidden="true" />
                     <span className="text-[11px] leading-tight mt-0.5">{label}</span>

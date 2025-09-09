@@ -5,3 +5,13 @@
 .tap-target { min-height: 44px; min-width: 44px; }
 .prevent-horizontal-scroll { overflow-x: hidden; }
 
+:root{
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --bottom-nav-h: 64px;
+  --sticky-bar-h: 56px;
+}
+
+@supports (height: 100dvh){
+  .min-h-mobile { min-height: 100dvh; }
+}
+
