@@ -709,7 +709,21 @@ const CreateJob = () => {
                                     <p className="text-sm font-semibold text-v3-text-lightest">Send to all agents</p>
                                     <p className="text-xs text-v3-text-muted">Turn off to choose specific agents.</p>
                                 </div>
-                                <Switch checked={notifyAll} onCheckedChange={setNotifyAll} />
+                                <div className="flex items-center gap-3">
+                                  {/* Primary control */}
+                                  <Switch checked={notifyAll} onCheckedChange={setNotifyAll} />
+                                  {/* Fallback explicit controls for visibility */}
+                                  <div className="flex items-center gap-3 text-xs">
+                                    <label className="flex items-center gap-1 cursor-pointer">
+                                      <input type="radio" name="notifyMode" checked={notifyAll} onChange={() => setNotifyAll(true)} />
+                                      <span>All</span>
+                                    </label>
+                                    <label className="flex items-center gap-1 cursor-pointer">
+                                      <input type="radio" name="notifyMode" checked={!notifyAll} onChange={() => setNotifyAll(false)} />
+                                      <span>Selected</span>
+                                    </label>
+                                  </div>
+                                </div>
                             </div>
                             {!notifyAll && (
                                 <AgentMultiSelect value={selectedAgents} onChange={setSelectedAgents} />
