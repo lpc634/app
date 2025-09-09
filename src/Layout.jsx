@@ -164,7 +164,7 @@ export default function Layout({ children }) {
       <div className="lg:pl-72 w-full max-w-full overflow-x-hidden flex flex-col flex-1 min-h-0">
         <main className="flex-1 overflow-y-auto py-4 lg:py-10 safe-pb min-h-0">
           {/* Add top padding on mobile to account for fixed header */}
-          <div className="px-4 sm:px-6 lg:px-8 pt-20 lg:pt-0 w-full max-w-full pb-24">
+          <div className="px-4 sm:px-6 lg:px-8 pt-20 lg:pt-0 w-full max-w-full pb-24 md:pb-0">
             {/* Notifications disabled banner for admins */}
             {user?.role === 'admin' && notificationsEnabled === false && (
               <div className="mb-4 flex items-center gap-2 rounded-md border border-yellow-600 bg-yellow-900/20 px-3 py-2 text-yellow-200">

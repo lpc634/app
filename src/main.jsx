@@ -4,6 +4,7 @@ import App from './App.jsx';
 
 // Import the main Tailwind styles FIRST
 import './index.css'; 
+import './styles/utilities.css';
 
 // Import your custom theme styles SECOND
 import './v3-services-theme.css';

@@ -19,8 +19,11 @@ import {
   Trash2
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch.jsx';
+import { useEffect } from 'react';
+import { usePageHeader } from '@/components/layout/PageHeaderContext.jsx';
 
 export default function Dashboard() {
+  const { register } = usePageHeader();
   const [liveJobs, setLiveJobs] = useState([]);
   const [availableAgents, setAvailableAgents] = useState([]);
   const [pendingDocuments, setPendingDocuments] = useState([]);
@@ -166,6 +169,19 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData();
   }, []);
+  useEffect(() => {
+    register({
+      title: 'Dashboard',
+      action: (
+        <Link to="/admin/jobs" className="hidden md:inline-flex">
+          <Button className="button-refresh flex items-center gap-2">
+            <PlusCircle className="h-5 w-5" />
+            Create Job
+          </Button>
+        </Link>
+      )
+    });
+  }, [register]);
   
   if (loading) {
     return (

@@ -2,6 +2,7 @@
 from flask import Blueprint, jsonify, request, current_app, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import User, Job, JobAssignment, AgentAvailability, Invoice, InvoiceJob, Notification, JobBilling, Expense, db
+from src.models.admin_message import AdminMessage, AdminMessageDelivery
 from src.utils.s3_client import s3_client
 from src.utils.finance import (
     update_job_hours, calculate_job_revenue, calculate_expense_vat,
@@ -9,6 +10,7 @@ from src.utils.finance import (
     lock_job_revenue_snapshot, get_financial_summary
 )
 from datetime import datetime, date, timedelta
+import requests
 import json
 import logging
 import requests
@@ -17,6 +19,131 @@ from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
 admin_bp = Blueprint('admin', __name__)
+@admin_bp.route('/admin/agents/minimal', methods=['GET'])
+@jwt_required()
+def get_agents_minimal():
+    user = require_admin()
+    if not user:
+        return jsonify({'error': 'Forbidden'}), 403
+
+    linked_only = str(request.args.get('linked_only', 'false')).lower() in ('1', 'true', 'yes')
+    q = User.query.filter(User.role == 'agent')
+    if linked_only:
+        q = q.filter(User.telegram_chat_id.isnot(None))
+
+    def _name(u: User):
+        first = u.first_name or ''
+        last = u.last_name or ''
+        name = f"{first} {last}".strip()
+        return name or (u.email or f"Agent #{u.id}")
+
+    agents = [{
+        'id': a.id,
+        'name': _name(a),
+        'email': a.email,
+        'linked': bool(a.telegram_chat_id)
+    } for a in q.all()]
+
+    return jsonify(agents)
+
+
+@admin_bp.route('/admin/telegram/messages', methods=['POST'])
+@jwt_required()
+def send_admin_telegram_messages():
+    user = require_admin()
+    if not user:
+        return jsonify({'error': 'Forbidden'}), 403
+
+    data = request.get_json(silent=True) or {}
+    message = (data.get('message') or '').strip()
+    agent_ids = data.get('agent_ids') or []
+    send_to_all = bool(data.get('send_to_all'))
+
+    if not (1 <= len(message) <= 1000):
+        return jsonify({'error': 'Message must be 1..1000 chars'}), 400
+
+    # Resolve recipients
+    query = User.query.filter(User.role == 'agent')
+    if send_to_all:
+        # take all linked & active agents
+        linked_agents = query.filter(User.telegram_chat_id.isnot(None)).all()
+        target_agents = linked_agents
+    else:
+        if not isinstance(agent_ids, list) or not all(isinstance(x, (int, str)) for x in agent_ids):
+            return jsonify({'error': 'agent_ids must be an array'}), 400
+        # cast to int ids (ids are int in this codebase)
+        ids = []
+        for x in agent_ids:
+            try:
+                ids.append(int(x))
+            except Exception:
+                pass
+        if len(ids) == 0:
+            return jsonify({'error': 'No recipients selected'}), 400
+        target_agents = query.filter(User.id.in_(ids)).all()
+
+    if not send_to_all and len(target_agents) > 200:
+        return jsonify({'error': 'Too many recipients (>200). Use send_to_all or split batches.'}), 400
+
+    # Split into linked vs not linked
+    linked = [a for a in target_agents if a.telegram_chat_id]
+    not_linked = [str(a.id) for a in target_agents if not a.telegram_chat_id]
+
+    # Create admin message record
+    admin_msg = AdminMessage(admin_id=user.id, message=message)
+    db.session.add(admin_msg)
+    db.session.flush()  # get id
+
+    results = []
+    queued = 0
+
+    # Use integrations.telegram_client for consistency
+    from src.integrations.telegram_client import send_message as telegram_send
+
+    for agent in linked[:200]:
+        chat_id = agent.telegram_chat_id
+        try:
+            resp = telegram_send(chat_id, message, parse_mode=None)
+            ok = bool(resp) and bool(resp.get('ok', False))
+            telegram_message_id = None
+            if ok:
+                result_payload = resp.get('result') or {}
+                telegram_message_id = str(result_payload.get('message_id')) if result_payload else None
+                status = 'success'
+                queued += 1
+            else:
+                status = 'failed'
+            err = None if ok else (resp.get('description') or resp.get('message') or 'send failed')
+        except Exception as e:
+            status = 'failed'
+            telegram_message_id = None
+            err = str(e)
+
+        # Persist delivery row
+        delivery = AdminMessageDelivery(
+            message_id=admin_msg.id,
+            agent_id=agent.id,
+            status=status,
+            telegram_message_id=telegram_message_id,
+            error=(err[:250] if err else None)
+        )
+        db.session.add(delivery)
+        results.append({
+            'agent_id': str(agent.id),
+            'status': status,
+            **({'telegram_message_id': telegram_message_id} if telegram_message_id else {}),
+            **({'error': err} if err else {})
+        })
+
+    db.session.commit()
+
+    return jsonify({
+        'message_id': str(admin_msg.id),
+        'total_requested': len(target_agents),
+        'queued': queued,
+        'not_linked': not_linked,
+        'results': results,
+    })
 
 # Helper: ensure current user is admin
 def require_admin():

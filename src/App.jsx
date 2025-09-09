@@ -2,9 +2,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth, AuthProvider } from './useAuth';
 import LoginPage from './Pages/LoginPage.jsx';
 import Layout from './Layout';
+import AdminLayoutOutlet from './components/layout/AdminLayoutOutlet.jsx';
 import { Toaster as SonnerToaster } from "./components/ui/sonner.jsx"; // Corrected import path
 import Dashboard from './Pages/Dashboard';
-import CreateJob from './Pages/CreateJob';
+import JobManagement from './Pages/JobManagement';
+import AgentManagement from './Pages/AgentManagement';
+import AdminAgentInvoices from './Pages/AdminAgentInvoices';
 import AgentDashboard from './components/AgentDashboard';
 import AgentNotifications from './components/AgentNotifications';
 import JobReports from './Pages/JobReports'; 
@@ -18,12 +21,11 @@ import CreateInvoicePage from './components/CreateInvoicePage';
 import CreateInvoiceFromJobs from './components/CreateInvoiceFromJobs';
 import CreateMiscInvoice from './components/CreateMiscInvoice';
 import ReviewInvoicePage from './components/ReviewInvoicePage';
-import AgentManagement from './Pages/AgentManagement';
+import AdminMore from './Pages/admin/AdminMore.jsx';
+import MessageAgents from './Pages/admin/communications/MessageAgents.jsx';
 import Analytics from './Pages/Analytics';
 import AvailabilityPage from './Pages/AvailabilityPage';
-import JobManagement from './Pages/JobManagement';
 import AdminDocumentReview from './components/AdminDocumentReview';
-import AdminAgentInvoices from './Pages/AdminAgentInvoices';
 import AdminExpenses from './Pages/AdminExpenses';
 import PoliceInteractionsPage from './Pages/PoliceInteractionsPage.jsx';
 
@@ -47,7 +49,7 @@ function RootRedirect() {
 
   // If the user is an admin or manager, show the admin dashboard
   if (user?.role === 'admin' || user?.role === 'manager') {
-    return <Layout><Dashboard /></Layout>;
+    return <Navigate to="/admin" replace />;
   }
 
   // If no user, redirect to login
@@ -86,9 +88,19 @@ function App() {
           {/* This route now uses the RootRedirect component */}
           <Route path="/" element={<ProtectedRoute allowedRoles={['admin', 'manager', 'agent']}><RootRedirect /></ProtectedRoute>} />
 
-          {/* Admin Specific Routes (can stay as they are) */}
+          {/* Admin Routes (mobile shell + bottom nav) */}
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'manager']}><AdminLayoutOutlet /></ProtectedRoute>}>
+            <Route path="/admin" element={<Dashboard />} />
+            <Route path="/admin/jobs" element={<JobManagement />} />
+            <Route path="/admin/agents" element={<AgentManagement />} />
+            <Route path="/admin/invoices" element={<AdminAgentInvoices />} />
+            <Route path="/admin/more" element={<AdminMore />} />
+            <Route path="/admin/communications/message-agents" element={<MessageAgents />} />
+          </Route>
+
+          {/* Legacy Admin Paths (back-compat) */}
           <Route path="/agents" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><AgentManagement /></Layout></ProtectedRoute>} />
-          <Route path="/jobs" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><CreateJob /></Layout></ProtectedRoute>} />
+          <Route path="/jobs" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><JobManagement /></Layout></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><Analytics /></Layout></ProtectedRoute>} />
           <Route path="/admin/vehicle-search" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><VehicleSearchPage /></Layout></ProtectedRoute>} />
           <Route path="/admin/documents" element={<ProtectedRoute allowedRoles={['admin']}><Layout><AdminDocumentReview /></Layout></ProtectedRoute>} />

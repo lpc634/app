@@ -19,9 +19,12 @@ import {
   Archive,
   AlertCircle
 } from 'lucide-react';
+import ResponsiveList from '@/components/responsive/ResponsiveList.jsx';
+import { usePageHeader } from '@/components/layout/PageHeaderContext.jsx';
 
 const AdminAgentInvoices = () => {
   const { apiCall } = useAuth();
+  const { register } = usePageHeader();
   
   // State management
   const [openJobs, setOpenJobs] = useState([]);
@@ -36,6 +39,10 @@ const AdminAgentInvoices = () => {
   const [jobFinance, setJobFinance] = useState(null);
   const [loadingFinance, setLoadingFinance] = useState(false);
   const [lockingFinance, setLockingFinance] = useState(false);
+
+  useEffect(() => {
+    register({ title: 'Invoices' });
+  }, [register]);
 
   // Load jobs on mount
   useEffect(() => {
@@ -416,50 +423,56 @@ const AdminAgentInvoices = () => {
                       <p>No invoices found for this job</p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left p-2 text-sm font-medium">Invoice #</th>
-                            <th className="text-left p-2 text-sm font-medium">Agent</th>
-                            <th className="text-left p-2 text-sm font-medium">Issue Date</th>
-                            <th className="text-left p-2 text-sm font-medium">Amount</th>
-                            <th className="text-left p-2 text-sm font-medium">Status</th>
-                            <th className="text-left p-2 text-sm font-medium">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {jobInvoices.map((invoice) => (
-                            <tr key={invoice.id} className="border-b hover:bg-muted/50">
-                              <td className="p-2 text-sm">
-                                {invoice.agent_invoice_number || invoice.invoice_number || `#${invoice.id}`}
-                              </td>
-                              <td className="p-2 text-sm">{invoice.agent_name || 'Unknown'}</td>
-                              <td className="p-2 text-sm">{formatDate(invoice.issue_date)}</td>
-                              <td className="p-2 text-sm font-medium">
-                                {formatCurrency(invoice.total_amount)}
-                              </td>
-                              <td className="p-2">
+                    <ResponsiveList
+                      data={jobInvoices}
+                      columns={[
+                        { key: 'num', header: 'Invoice #' },
+                        { key: 'agent', header: 'Agent' },
+                        { key: 'issue', header: 'Issue Date' },
+                        { key: 'amount', header: 'Amount' },
+                        { key: 'status', header: 'Status' },
+                        { key: 'actions', header: 'Actions' },
+                      ]}
+                      renderCard={(invoice) => (
+                        <Card key={invoice.id}>
+                          <CardContent className="pt-4">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <div className="font-medium text-sm">
+                                  {invoice.agent_invoice_number || invoice.invoice_number || `#${invoice.id}`}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {invoice.agent_name || 'Unknown'} • {formatDate(invoice.issue_date)}
+                                </div>
+                                <div className="text-sm font-semibold mt-1">
+                                  {formatCurrency(invoice.total_amount)}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
                                 <Badge className={getStatusBadge(invoice.status)} variant="outline">
                                   {invoice.status}
                                 </Badge>
-                              </td>
-                              <td className="p-2">
-                                <Button
-                                  onClick={() => handleInvoiceDownload(invoice)}
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={!invoice.pdf_available}
-                                >
-                                  <Download className="h-3 w-3 mr-1" />
-                                  Download
-                                </Button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 mt-3">
+                              <Button onClick={() => handleInvoiceDownload(invoice)} size="sm" variant="outline" disabled={!invoice.pdf_available}>Download</Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                      renderRow={(invoice) => (
+                        <tr key={invoice.id} className="border-b">
+                          <td className="p-2 text-sm">{invoice.agent_invoice_number || invoice.invoice_number || `#${invoice.id}`}</td>
+                          <td className="p-2 text-sm">{invoice.agent_name || 'Unknown'}</td>
+                          <td className="p-2 text-sm">{formatDate(invoice.issue_date)}</td>
+                          <td className="p-2 text-sm font-medium">{formatCurrency(invoice.total_amount)}</td>
+                          <td className="p-2"> <Badge className={getStatusBadge(invoice.status)} variant="outline">{invoice.status}</Badge> </td>
+                          <td className="p-2">
+                            <Button onClick={() => handleInvoiceDownload(invoice)} size="sm" variant="outline" disabled={!invoice.pdf_available}>Download</Button>
+                          </td>
+                        </tr>
+                      )}
+                    />
                   )}
                 </CardContent>
               </Card>

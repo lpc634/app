@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import StickyActionBar from '@/components/layout/StickyActionBar.jsx';
+import { Button } from '@/components/ui/button';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../useAuth';
 import { 
@@ -116,7 +118,7 @@ const JobDetails = () => {
             `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address)}`);
 
     return (
-        <div className="agent-mobile-content">
+        <div className="agent-mobile-content pb-24 md:pb-0">
             {/* Back Navigation */}
             <div className="mb-6">
                 <Link 
@@ -308,6 +310,19 @@ const JobDetails = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Sticky actions for mobile */}
+            <StickyActionBar>
+                <Button size="sm" variant="outline" className="flex-1" aria-label="Message">
+                    Message
+                </Button>
+                <Button size="sm" className="flex-1" aria-label="Assign">
+                    Assign
+                </Button>
+                <Button size="sm" variant="secondary" className="flex-1" aria-label="Save">
+                    Save
+                </Button>
+            </StickyActionBar>
         </div>
     );
 };

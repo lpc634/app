@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import ResponsiveList from '@/components/responsive/ResponsiveList.jsx'
+import { usePageHeader } from '@/components/layout/PageHeaderContext.jsx'
 import AgentVerification from '../components/AgentVerification';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +22,7 @@ import {
 } from 'lucide-react'
 
 export default function AgentManagement() {
+  const { register } = usePageHeader();
   const [agents, setAgents] = useState([])
   const [availableAgents, setAvailableAgents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -43,6 +46,10 @@ export default function AgentManagement() {
     fetchAgents()
     fetchAvailableAgents()
   }, [selectedDate])
+
+  useEffect(() => {
+    register({ title: 'Agents' });
+  }, [register]);
 
   const fetchAgents = async () => {
     try {
@@ -327,95 +334,84 @@ export default function AgentManagement() {
             </div>
           </div>
 
-          {/* Agents Grid */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredAgents.length === 0 ? (
-              <div className="col-span-full">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center">
-                      <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">No agents found</h3>
-                      <p className="text-muted-foreground">
-                        {searchTerm ? 'Try adjusting your search terms' : 'No agents registered yet'}
-                      </p>
+          {/* Agents List: mobile cards, md+ table */}
+          <ResponsiveList
+            data={filteredAgents}
+            columns={[
+              { key: 'name', header: 'Name' },
+              { key: 'email', header: 'Email' },
+              { key: 'status', header: 'Status' },
+              { key: 'joined', header: 'Joined' },
+              { key: 'actions', header: 'Actions' },
+            ]}
+            renderCard={(agent) => {
+              const status = getAvailabilityStatus(agent.id)
+              const availabilityData = availableAgents.find(a => a.id === agent.id)
+              return (
+                <Card key={agent.id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <CardTitle className="text-lg">
+                          {agent.first_name} {agent.last_name}
+                        </CardTitle>
+                        <CardDescription className="flex items-center gap-2">
+                          <Mail className="h-4 w-4" />
+                          {agent.email}
+                        </CardDescription>
+                        {agent.phone && (
+                          <CardDescription className="flex items-center gap-2">
+                            <Phone className="h-4 w-4" />
+                            {agent.phone}
+                          </CardDescription>
+                        )}
+                      </div>
+                      {getStatusBadge(status)}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium mb-1">Availability Status</p>
+                        <p className="text-sm text-muted-foreground">
+                          {status === 'available' 
+                            ? `Available for ${selectedDate}`
+                            : `Not available for ${selectedDate}`
+                          }
+                        </p>
+                        {availabilityData?.availability?.notes && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Note: {availabilityData.availability.notes}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 pt-2 border-t">
+                        <Button size="sm" variant="outline" className="flex-1" onClick={() => handleViewDetails(agent)}>View Details</Button>
+                        <Button size="sm" variant="outline" className="flex-1">Send Message</Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
-              </div>
-            ) : (
-              filteredAgents.map((agent) => {
-                const status = getAvailabilityStatus(agent.id)
-                const availabilityData = availableAgents.find(a => a.id === agent.id)
-                
-                return (
-                  <Card key={agent.id}>
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <CardTitle className="text-lg">
-                            {agent.first_name} {agent.last_name}
-                          </CardTitle>
-                          <CardDescription className="flex items-center gap-2">
-                            <Mail className="h-4 w-4" />
-                            {agent.email}
-                          </CardDescription>
-                          {agent.phone && (
-                            <CardDescription className="flex items-center gap-2">
-                              <Phone className="h-4 w-4" />
-                              {agent.phone}
-                            </CardDescription>
-                          )}
-                        </div>
-                        {getStatusBadge(status)}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-sm font-medium mb-1">Availability Status</p>
-                          <p className="text-sm text-muted-foreground">
-                            {status === 'available' 
-                              ? `Available for ${selectedDate}`
-                              : `Not available for ${selectedDate}`
-                            }
-                          </p>
-                          {availabilityData?.availability?.notes && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Note: {availabilityData.availability.notes}
-                            </p>
-                          )}
-                        </div>
-
-                        <div>
-                          <p className="text-sm font-medium mb-1">Account Info</p>
-                          <div className="text-xs text-muted-foreground space-y-1">
-                            <p>Role: {agent.role}</p>
-                            <p>Joined: {new Date(agent.created_at).toLocaleDateString()}</p>
-                            <p>Last updated: {new Date(agent.updated_at).toLocaleDateString()}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2 pt-2 border-t">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="flex-1"
-                            onClick={() => handleViewDetails(agent)}
-                          >
-                            View Details
-                          </Button>
-                          <Button size="sm" variant="outline" className="flex-1">
-                            Send Message
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })
-            )}
-          </div>
+              )
+            }}
+            renderRow={(agent) => {
+              const status = getAvailabilityStatus(agent.id)
+              return (
+                <tr key={agent.id} className="border-b">
+                  <td className="p-2 text-sm">{agent.first_name} {agent.last_name}</td>
+                  <td className="p-2 text-sm">{agent.email}</td>
+                  <td className="p-2 text-sm">{getStatusBadge(status)}</td>
+                  <td className="p-2 text-sm">{new Date(agent.created_at).toLocaleDateString()}</td>
+                  <td className="p-2 text-sm">
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => handleViewDetails(agent)}>Details</Button>
+                      <Button size="sm" variant="outline">Message</Button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            }}
+          />
 
           {/* Weekly Calendar View */}
           <Card>

@@ -7,6 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import StickyActionBar from "@/components/layout/StickyActionBar.jsx";
+import ResponsiveList from "@/components/responsive/ResponsiveList.jsx";
+import { usePageHeader } from "@/components/layout/PageHeaderContext.jsx";
 import { useAuth } from '../useAuth.jsx';
 import { toast } from 'sonner'; 
 import {
@@ -24,6 +27,7 @@ import {
 } from 'lucide-react';
 
 export default function JobManagement() {
+  const { register } = usePageHeader();
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -49,6 +53,18 @@ export default function JobManagement() {
   useEffect(() => {
     fetchJobs()
   }, [])
+
+  useEffect(() => {
+    register({
+      title: "Jobs",
+      action: (
+        <Button size="sm" className="button-refresh hidden md:inline-flex" onClick={() => setShowCreateDialog(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Create
+        </Button>
+      )
+    });
+  }, [register]);
 
   // Fix dialog transparency issue
   useEffect(() => {
@@ -401,7 +417,7 @@ export default function JobManagement() {
       </div>
 
       {/* Jobs List */}
-      <div className="grid gap-4">
+      <div>
         {filteredJobs.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
@@ -418,104 +434,113 @@ export default function JobManagement() {
             </CardContent>
           </Card>
         ) : (
-          filteredJobs.map((job) => (
-            <Card key={job.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="flex items-center gap-2">
-                      {job.address}
-                      {getUrgencyBadge(job.urgency_level)}
-                    </CardTitle>
-                    <CardDescription className="flex items-center gap-4">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {job.job_type}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {new Date(job.arrival_time).toLocaleString()}
-                      </span>
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(job.status)}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium mb-1">Address</p>
-                      <p className="text-sm text-muted-foreground">{job.address}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium mb-1">Requirements</p>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <ResponsiveList
+            data={filteredJobs}
+            columns={[
+              { key: 'address', header: 'Address' },
+              { key: 'type', header: 'Type' },
+              { key: 'arrival', header: 'Arrival' },
+              { key: 'agents', header: 'Agents' },
+              { key: 'status', header: 'Status' },
+              { key: 'actions', header: 'Actions' },
+            ]}
+            renderCard={(job) => (
+              <Card key={job.id}>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <CardTitle className="flex items-center gap-2">
+                        {job.address}
+                        {getUrgencyBadge(job.urgency_level)}
+                      </CardTitle>
+                      <CardDescription className="flex items-center gap-4">
                         <span className="flex items-center gap-1">
-                          <Users className="h-4 w-4" />
-                          {job.agents_required} agents needed
+                          <MapPin className="h-4 w-4" />
+                          {job.job_type}
                         </span>
-                        {job.lead_agent_name && (
-                          <span>Lead: {job.lead_agent_name}</span>
-                        )}
-                      </div>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          {new Date(job.arrival_time).toLocaleString()}
+                        </span>
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(job.status)}
                     </div>
                   </div>
-
-                  {job.instructions && (
-                    <div>
-                      <p className="text-sm font-medium mb-1">Instructions</p>
-                      <p className="text-sm text-muted-foreground">{job.instructions}</p>
-                    </div>
-                  )}
-
-                  {job.assignments && job.assignments.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium mb-2">Agent Responses</p>
-                      <div className="flex flex-wrap gap-2">
-                        {job.assignments.map((assignment) => (
-                          <Badge 
-                            key={assignment.id} 
-                            variant={assignment.status === 'accepted' ? 'default' : 
-                                   assignment.status === 'declined' ? 'destructive' : 'secondary'}
-                          >
-                            {assignment.agent?.first_name} {assignment.agent?.last_name} - {assignment.status}
-                          </Badge>
-                        ))}
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium mb-1">Address</p>
+                        <p className="text-sm text-muted-foreground">{job.address}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium mb-1">Requirements</p>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Users className="h-4 w-4" />
+                            {job.agents_required} agents needed
+                          </span>
+                          {job.lead_agent_name && (
+                            <span>Lead: {job.lead_agent_name}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  )}
-
-                  <div className="flex gap-2 pt-2 border-t">
+                    {job.instructions && (
+                      <div>
+                        <p className="text-sm font-medium mb-1">Instructions</p>
+                        <p className="text-sm text-muted-foreground">{job.instructions}</p>
+                      </div>
+                    )}
+                    <div className="flex gap-2 pt-2 border-t">
+                      {job.status === 'open' && (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => handleUpdateJobStatus(job.id, 'cancelled')}>Cancel Job</Button>
+                          <Button size="sm" onClick={() => handleUpdateJobStatus(job.id, 'filled')}>Mark as Filled</Button>
+                        </>
+                      )}
+                      <Button size="sm" variant="destructive" onClick={() => handleDeleteJob(job.id)}>Delete Job</Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            renderRow={(job) => (
+              <tr key={job.id} className="border-b">
+                <td className="p-2 text-sm">{job.address}</td>
+                <td className="p-2 text-sm">{job.job_type}</td>
+                <td className="p-2 text-sm">{new Date(job.arrival_time).toLocaleString()}</td>
+                <td className="p-2 text-sm">{job.agents_required}</td>
+                <td className="p-2 text-sm">{getStatusBadge(job.status)}</td>
+                <td className="p-2 text-sm">
+                  <div className="flex gap-2">
                     {job.status === 'open' && (
                       <>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handleUpdateJobStatus(job.id, 'cancelled')}
-                        >
-                          Cancel Job
-                        </Button>
-                        <Button 
-                          size="sm"
-                          onClick={() => handleUpdateJobStatus(job.id, 'filled')}
-                        >
-                          Mark as Filled
-                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleUpdateJobStatus(job.id, 'cancelled')}>Cancel</Button>
+                        <Button size="sm" onClick={() => handleUpdateJobStatus(job.id, 'filled')}>Filled</Button>
                       </>
                     )}
-                    <Button size="sm" variant="destructive" onClick={() => handleDeleteJob(job.id)}>
-                      Delete Job
-                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => handleDeleteJob(job.id)}>Delete</Button>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </td>
+              </tr>
+            )}
+          />
         )}
       </div>
+      {/* FAB for mobile create */}
+      <div className="md:hidden fixed bottom-16 right-4 z-30">
+        <Button size="icon" className="rounded-full h-14 w-14 shadow-lg" aria-label="Create Job" data-testid="fab-create-job" onClick={() => setShowCreateDialog(true)}>
+          <Plus className="h-6 w-6" />
+        </Button>
+      </div>
+
+      {/* Sticky Action Bar example if needed for bulk actions (hidden for now) */}
+      <StickyActionBar className="hidden" />
+
     </div>
   )
 }
