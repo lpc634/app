@@ -3,7 +3,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '20250909_add_police_interactions'
-down_revision = None
+down_revision = 'post_deploy_invoices_cols_20250903'
 branch_labels = None
 depends_on = None
 
