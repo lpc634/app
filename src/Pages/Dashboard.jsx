@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [actionLoading, setActionLoading] = useState({});
   const { apiCall, user } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [savingToggle, setSavingToggle] = useState(false);
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -192,6 +193,24 @@ export default function Dashboard() {
     );
   }
 
+  const toggleNotifications = async (nextVal) => {
+    const desired = typeof nextVal === 'boolean' ? nextVal : !notificationsEnabled;
+    try {
+      setSavingToggle(true);
+      setNotificationsEnabled(desired);
+      await apiCall('/admin/settings/notifications', {
+        method: 'PUT',
+        body: JSON.stringify({ enabled: Boolean(desired) })
+      });
+      toast({ title: desired ? 'Notifications enabled' : 'Notifications disabled' });
+    } catch (e) {
+      setNotificationsEnabled(!desired);
+      toast({ title: 'Failed to update notifications', variant: 'destructive' });
+    } finally {
+      setSavingToggle(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {user?.role === 'admin' && (
@@ -205,18 +224,16 @@ export default function Dashboard() {
               <div>
                 <p className="font-medium">Enable notifications</p>
               </div>
-              <Switch
-                checked={notificationsEnabled}
-                onCheckedChange={async (val) => {
-                  try {
-                    setNotificationsEnabled(val);
-                    await apiCall('/admin/settings/notifications', 'PUT', { enabled: Boolean(val) });
-                    // toast inside fetchData hook already available
-                  } catch (e) {
-                    setNotificationsEnabled(!val);
-                  }
-                }}
-              />
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={notificationsEnabled}
+                  onCheckedChange={(val) => toggleNotifications(val)}
+                  disabled={savingToggle}
+                />
+                <Button variant="outline" onClick={() => toggleNotifications()} disabled={savingToggle}>
+                  {notificationsEnabled ? 'Disable' : 'Enable'}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
