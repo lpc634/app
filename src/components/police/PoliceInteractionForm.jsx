@@ -75,11 +75,14 @@ export default function PoliceInteractionForm({ onClose }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-muted-foreground mb-1">Open job</label>
-                <Select value={form.job_id} onValueChange={(v)=>updateField('job_id', v)}>
+                <Select
+                  value={form.job_id ? String(form.job_id) : 'MANUAL'}
+                  onValueChange={(v)=> updateField('job_id', v === 'MANUAL' ? undefined : v)}
+                >
                   <SelectTrigger className="w-full"><SelectValue placeholder="Select open job (optional)" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
-                    {openJobs.map(j=> <SelectItem key={j.id} value={String(j.id)}>{j.address}</SelectItem>)}
+                    <SelectItem value="MANUAL">Enter job address manually</SelectItem>
+                    {openJobs.map(j=> <SelectItem key={j.id ?? j.address} value={String(j.id)}>{j.address}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
