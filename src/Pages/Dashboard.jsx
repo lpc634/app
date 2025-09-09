@@ -19,7 +19,6 @@ import {
   Trash2
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch.jsx';
-import { useEffect } from 'react';
 import { usePageHeader } from '@/components/layout/PageHeaderContext.jsx';
 
 export default function Dashboard() {
