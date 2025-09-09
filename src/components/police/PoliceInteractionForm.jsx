@@ -11,13 +11,13 @@ export default function PoliceInteractionForm({ onClose }) {
   const { apiCall } = useAuth()
   const [openJobs, setOpenJobs] = useState([])
   const [form, setForm] = useState({
-    job_id: '',
+    job_id: undefined,
     job_address: '',
-    force: '',
+    force: undefined,
     officers: [{ shoulder_number: '', name: '' }],
-    reason: '',
-    outcome: '',
-    helpfulness: 3,
+    reason: undefined,
+    outcome: undefined,
+    helpfulness: undefined,
     notes: ''
   })
   const [saving, setSaving] = useState(false)
@@ -75,7 +75,7 @@ export default function PoliceInteractionForm({ onClose }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-muted-foreground mb-1">Open job</label>
-                <Select value={form.job_id||''} onValueChange={(v)=>updateField('job_id', v)}>
+                <Select value={form.job_id} onValueChange={(v)=>updateField('job_id', v)}>
                   <SelectTrigger className="w-full"><SelectValue placeholder="Select open job (optional)" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">None</SelectItem>
@@ -95,7 +95,7 @@ export default function PoliceInteractionForm({ onClose }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-muted-foreground mb-1">Force</label>
-                <Select value={form.force||''} onValueChange={(v)=>updateField('force', v)}>
+                <Select value={form.force} onValueChange={(v)=>updateField('force', v)}>
                   <SelectTrigger className="w-full"><SelectValue placeholder="Select force" /></SelectTrigger>
                   <SelectContent>
                     {POLICE_FORCES.map(f=> <SelectItem key={f} value={f}>{f}</SelectItem>)}
@@ -108,7 +108,7 @@ export default function PoliceInteractionForm({ onClose }) {
               </div>
               <div>
                 <label className="block text-xs text-muted-foreground mb-1">Helpfulness (1-5)</label>
-                <Select value={String(form.helpfulness)} onValueChange={(v)=>updateField('helpfulness', Number(v))}>
+                <Select value={form.helpfulness && String(form.helpfulness)} onValueChange={(v)=>updateField('helpfulness', Number(v))}>
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {HELP_RANGE.map(n=> <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
@@ -137,7 +137,7 @@ export default function PoliceInteractionForm({ onClose }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-muted-foreground mb-1">Reason</label>
-                <Select value={form.reason||''} onValueChange={(v)=>updateField('reason', v)}>
+                <Select value={form.reason} onValueChange={(v)=>updateField('reason', v)}>
                   <SelectTrigger className="w-full"><SelectValue placeholder="Select reason" /></SelectTrigger>
                   <SelectContent>
                     {REASONS.map(r=> <SelectItem key={r} value={r}>{r}</SelectItem>)}
@@ -150,7 +150,7 @@ export default function PoliceInteractionForm({ onClose }) {
               </div>
               <div>
                 <label className="block text-xs text-muted-foreground mb-1">Outcome</label>
-                <Select value={form.outcome||''} onValueChange={(v)=>updateField('outcome', v)}>
+                <Select value={form.outcome} onValueChange={(v)=>updateField('outcome', v)}>
                   <SelectTrigger className="w-full"><SelectValue placeholder="Select outcome" /></SelectTrigger>
                   <SelectContent>
                     {OUTCOMES.map(o=> <SelectItem key={o} value={o}>{o}</SelectItem>)}

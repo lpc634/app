@@ -5,19 +5,22 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import { Input } from '@/components/ui/input.jsx'
 import { Button } from '@/components/ui/button.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
-import { POLICE_FORCES, OUTCOMES, HELP_RANGE, outcomeBadgeVariant } from '@/constants/policeOptions.js'
+import { POLICE_FORCES, OUTCOMES, HELP_RANGE, ALL } from '@/constants/policeOptions.js'
 
 export default function PoliceInteractionsPage() {
   const { apiCall, user } = useAuth()
   const [items, setItems] = useState([])
-  const [filters, setFilters] = useState({ force: '', outcome: '', job_address: '', helpfulness: '' })
+  const [filters, setFilters] = useState({ force: undefined, outcome: undefined, job_address: undefined, helpfulness: undefined })
   const [openJobs, setOpenJobs] = useState([])
   const [loading, setLoading] = useState(false)
   const [openForm, setOpenForm] = useState(false)
 
   const load = async () => {
     const params = new URLSearchParams()
-    Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v) })
+    if (filters.force && filters.force !== ALL) params.append('force', filters.force)
+    if (filters.outcome && filters.outcome !== ALL) params.append('outcome', filters.outcome)
+    if (filters.job_address && filters.job_address !== ALL) params.append('job_address', filters.job_address)
+    if (filters.helpfulness && filters.helpfulness !== ALL) params.append('helpfulness', String(filters.helpfulness))
     setLoading(true)
     try {
       const res = await apiCall(`/police-interactions?${params.toString()}`)
@@ -66,49 +69,49 @@ export default function PoliceInteractionsPage() {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
         <div>
           <label className="block text-xs text-v3-text-muted mb-1">Force</label>
-          <Select value={filters.force || ''} onValueChange={(v)=>setFilters({...filters, force: v})}>
+          <Select value={filters.force} onValueChange={(v)=>setFilters({...filters, force: v})}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="All forces" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All</SelectItem>
+              <SelectItem value={ALL}>All forces</SelectItem>
               {POLICE_FORCES.map(f=> <SelectItem key={f} value={f}>{f}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div>
           <label className="block text-xs text-v3-text-muted mb-1">Outcome</label>
-          <Select value={filters.outcome || ''} onValueChange={(v)=>setFilters({...filters, outcome: v})}>
+          <Select value={filters.outcome} onValueChange={(v)=>setFilters({...filters, outcome: v})}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="All outcomes" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All</SelectItem>
+              <SelectItem value={ALL}>All outcomes</SelectItem>
               {OUTCOMES.map(o=> <SelectItem key={o} value={o}>{o}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div className="md:col-span-2">
           <label className="block text-xs text-v3-text-muted mb-1">Job address</label>
-          <Select value={filters.job_address || ''} onValueChange={(v)=>setFilters({...filters, job_address: v})}>
+          <Select value={filters.job_address} onValueChange={(v)=>setFilters({...filters, job_address: v})}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="All jobs" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All jobs</SelectItem>
+              <SelectItem value={ALL}>All jobs</SelectItem>
               {openJobs.map(j=> <SelectItem key={j.id} value={j.address}>{j.address}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div>
           <label className="block text-xs text-v3-text-muted mb-1">Helpfulness</label>
-          <Select value={filters.helpfulness || ''} onValueChange={(v)=>setFilters({...filters, helpfulness: v})}>
+          <Select value={filters.helpfulness} onValueChange={(v)=>setFilters({...filters, helpfulness: v})}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="All" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All</SelectItem>
-              {HELP_RANGE.map(n=> <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              <SelectItem value={ALL}>All</SelectItem>
+              {HELP_RANGE.map(n=> <SelectItem key={n} value={n}>{n}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
