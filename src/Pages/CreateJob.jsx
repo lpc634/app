@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Briefcase, MapPin, Calendar, Users, MessageSquare, Send, Loader2, Navigation, X, ExternalLink, DollarSign } from 'lucide-react';
 import { extractUkPostcode } from '../utils/ukPostcode';
 import { Switch } from '@/components/ui/switch.jsx';
+import AgentMultiSelect from '@/components/forms/AgentMultiSelect.jsx';
 
 const CreateJob = () => {
     const { apiCall, user } = useAuth();
