@@ -17,6 +17,17 @@ from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
 admin_bp = Blueprint('admin', __name__)
+
+# Helper: ensure current user is admin
+def require_admin():
+    try:
+        current_user_id = get_jwt_identity()
+        user = User.query.get(int(current_user_id)) if current_user_id is not None else None
+        if not user or user.role != 'admin':
+            return None
+        return user
+    except Exception:
+        return None
 def _parse_date_param(value):
     if not value:
         return None
