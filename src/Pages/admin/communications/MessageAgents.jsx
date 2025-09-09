@@ -200,6 +200,15 @@ export default function MessageAgents() {
         </Card>
       )}
 
+      {/* Desktop action bar */}
+      <div className="hidden md:flex items-center gap-2 justify-end pt-2 border-t">
+        <div className="mr-auto text-sm text-muted-foreground">Selected: {selected.length}</div>
+        <Button data-testid="send-message-desktop" disabled={disabledSend} onClick={handleSend}>
+          {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+          Send
+        </Button>
+      </div>
+
       <StickyActionBar>
         <div className="text-xs text-muted-foreground mr-auto">Selected: {selected.length}</div>
         <Button data-testid="send-message" className="flex-1" disabled={disabledSend} onClick={handleSend}>
