@@ -3,6 +3,7 @@ import { useAuth } from "../useAuth";
 import { toast } from 'sonner';
 import { Briefcase, MapPin, Calendar, Users, MessageSquare, Send, Loader2, Navigation, X, ExternalLink, DollarSign } from 'lucide-react';
 import { extractUkPostcode } from '../utils/ukPostcode';
+import { Switch } from '@/components/ui/switch.jsx';
 
 const CreateJob = () => {
     const { apiCall, user } = useAuth();
@@ -27,6 +28,8 @@ const CreateJob = () => {
         billable_hours_override: ''
     });
     const [loading, setLoading] = useState(false);
+    const [notifyAll, setNotifyAll] = useState(true);
+    const [selectedAgents, setSelectedAgents] = useState([]);
     const [showMap, setShowMap] = useState(false);
     const [mapCenter, setMapCenter] = useState({ lat: 51.5074, lng: -0.1278 }); // London default
     const [selectedLocation, setSelectedLocation] = useState(null);
@@ -392,9 +395,15 @@ const CreateJob = () => {
                 jobData.billing = billing;
             }
 
+            // Notification targeting (admins only)
+            const notifyPayload = (user?.role === 'admin' || user?.role === 'manager') ? {
+                notify_all: Boolean(notifyAll),
+                notify_agents: notifyAll ? [] : selectedAgents.map(id => Number(id))
+            } : {};
+
             const response = await apiCall('/jobs', {
                 method: 'POST',
-                body: JSON.stringify(jobData),
+                body: JSON.stringify({ ...jobData, ...notifyPayload }),
             });
             
             toast.success('Job Created Successfully', {
@@ -413,6 +422,8 @@ const CreateJob = () => {
                 maps_link: '',
                 urgency_level: 'medium',
             });
+            setNotifyAll(true);
+            setSelectedAgents([]);
             
             // Reset billing data
             setBillingData({
@@ -686,6 +697,22 @@ const CreateJob = () => {
                                     <p>• Billable Hours Override: Manual override for calculated hours (optional)</p>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Notifications Targeting (Admin Only) */}
+                    {(user?.role === 'admin' || user?.role === 'manager') && (
+                        <div className="dashboard-card p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <p className="text-sm font-semibold text-v3-text-lightest">Send to all agents</p>
+                                    <p className="text-xs text-v3-text-muted">Turn off to choose specific agents.</p>
+                                </div>
+                                <Switch checked={notifyAll} onCheckedChange={setNotifyAll} />
+                            </div>
+                            {!notifyAll && (
+                                <AgentMultiSelect value={selectedAgents} onChange={setSelectedAgents} />
+                            )}
                         </div>
                     )}
 

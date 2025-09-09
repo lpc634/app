@@ -850,7 +850,19 @@ def create_job():
         except Exception as _e:
             logger.warning(f"Admin broadcast (job created) failed: {_e}")
 
-        # Find available agents for the job date
+        # Optional targeting controls (admin-only). Default notify_all=True.
+        notify_all = True
+        target_agent_ids = []
+        try:
+            notify_all = bool(data.get('notify_all', True))
+            if not notify_all:
+                target_agent_ids = [int(a) for a in (data.get('notify_agents') or []) if str(a).isdigit()]
+                if len(target_agent_ids) == 0:
+                    return jsonify({'error': 'notify_agents is required when notify_all is false'}), 400
+        except Exception:
+            return jsonify({'error': 'Invalid notification targeting payload'}), 400
+
+        # Find available agents for the job date, then restrict to targets if provided
         job_date = new_job.arrival_time.date()
         day_of_week = job_date.weekday()  # 0 = Monday, 6 = Sunday
         
@@ -906,6 +918,10 @@ def create_job():
                         filtered_agents.append(agent)
             
             available_agents = filtered_agents
+
+        # If notify_all is false, restrict available list to selected agent IDs
+        if not notify_all and target_agent_ids:
+            available_agents = [a for a in available_agents if a.id in target_agent_ids]
 
         print(f"[DEBUG] Found {len(available_agents)} available agents: {[agent.id for agent in available_agents]}")
         logger.error(f"[DEBUG] Found {len(available_agents)} available agents: {[agent.id for agent in available_agents]}")
@@ -999,6 +1015,7 @@ def create_job():
             
             # Send push notifications
             try:
+                # Only push to assigned (targeted) agent IDs
                 trigger_push_notification_for_users(assigned_agent_ids, notification_title, notification_message)
             except Exception as e:
                 logger.warning(f"Failed to send push notifications: {str(e)}")
