@@ -17,6 +17,7 @@ const navigation = [
   { name: 'Document Review', href: '/admin/documents', icon: FileText, adminOnly: true },
   { name: 'Agent Invoices', href: '/admin/agent-invoices', icon: FileText, adminOnly: true },
   { name: 'Expenses', href: '/admin/expenses', icon: DollarSign, adminOnly: true },
+  { name: 'Police Interactions', href: '/police-interactions', icon: FileText },
 ];
 
 function NavigationItems({ onItemClick = () => {} }) {

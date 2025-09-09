@@ -44,6 +44,7 @@ from src.routes.health import health_bp
 from src.routes.admin import admin_bp
 from src.routes.vehicles import vehicles_bp
 from src.routes.telegram import telegram_bp, telegram_api_bp, agent_telegram_bp
+from src.routes.police_interactions import bp as police_bp
 
 
 # --- Flask App Initialization ---
@@ -173,6 +174,7 @@ app.register_blueprint(vehicles_bp, url_prefix='/api')
 app.register_blueprint(telegram_bp)
 app.register_blueprint(telegram_api_bp)
 app.register_blueprint(agent_telegram_bp)
+app.register_blueprint(police_bp, url_prefix='/api')
 
 
 # --- Version tracking routes and headers ---
