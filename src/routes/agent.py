@@ -2111,6 +2111,16 @@ def send_test_telegram():
         if not current_app.config.get('TELEGRAM_ENABLED', False):
             return jsonify({'error': 'Telegram integration is disabled'}), 400
         
+        # Respect global notifications mute
+        try:
+            from src.models.user import Setting
+            default_enabled = str(current_app.config.get('NOTIFICATIONS_ENABLED', 'true')).lower() in ('1','true','yes','on')
+            if not Setting.get_bool('notifications_enabled', default_enabled):
+                current_app.logger.info("Notification skipped (muted)", extra={"event": "agent_test_telegram", "agent_id": agent.id})
+                return jsonify({'status': 'skipped', 'message': 'Notifications are disabled by admin'}), 200
+        except Exception:
+            pass
+
         if not agent.telegram_chat_id or not agent.telegram_opt_in:
             return jsonify({'error': 'Telegram not connected or notifications disabled'}), 400
         

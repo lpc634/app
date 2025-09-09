@@ -117,7 +117,7 @@ app.config['PUBLIC_BASE_URL'] = os.environ.get("PUBLIC_BASE_URL", "https://v3-ap
 app.config['TELEGRAM_ADMIN_CHAT_ID'] = os.environ.get('TELEGRAM_ADMIN_CHAT_ID')
 app.config['TELEGRAM_ADMIN_THREAD_ID'] = os.environ.get('TELEGRAM_ADMIN_THREAD_ID')
 app.config['TELEGRAM_SET_WEBHOOK_ON_START'] = os.environ.get('TELEGRAM_SET_WEBHOOK_ON_START', 'false')
-app.config['NOTIFICATIONS_ENABLED'] = os.environ.get('NOTIFICATIONS_ENABLED', 'true')
+app.config['NOTIFICATIONS_ENABLED'] = env_bool('NOTIFICATIONS_ENABLED', True)
 
 # --- CORS Configuration for Heroku ---
 LIVE_APP_URL = os.environ.get('LIVE_APP_URL', 'https://v3-app-49c3d1eff914.herokuapp.com')

@@ -6,6 +6,7 @@ import os
 import requests
 from flask import current_app
 from src.integrations.telegram_client import send_message
+from src.models.user import Setting
 from urllib.parse import quote_plus
 from datetime import datetime
 from flask import current_app
@@ -48,9 +49,34 @@ def fetch_weather(latitude: float, longitude: float) -> dict:
         return {"summary": "Unavailable", "temp_c": None, "wind_mph": None, "precip_prob": None}
 
 
+def _global_notifications_enabled() -> bool:
+    """Master kill switch from DB with env/config default."""
+    default_enabled = str(current_app.config.get('NOTIFICATIONS_ENABLED', 'true')).lower() in ('1','true','yes','on')
+    try:
+        return Setting.get_bool('notifications_enabled', default_enabled)
+    except Exception:
+        return default_enabled
+
+
 def is_enabled():
-    """Check if Telegram notifications are enabled"""
-    return current_app.config.get("TELEGRAM_ENABLED", False)
+    """Check if Telegram notifications are enabled and not globally muted."""
+    if not current_app.config.get("TELEGRAM_ENABLED", False):
+        return False
+    return _global_notifications_enabled()
+
+
+def _skip_if_muted(event_name: str, context: dict | None = None) -> bool:
+    """Log and skip when globally muted."""
+    if not _global_notifications_enabled():
+        try:
+            current_app.logger.info(
+                "Notification skipped (muted)",
+                extra={"event": event_name, **(context or {})}
+            )
+        except Exception:
+            pass
+        return True
+    return False
 
 
 def _area_label(job) -> str:
@@ -82,6 +108,9 @@ def _build_maps(job) -> str:
     return "Maps link unavailable"
 
 def _send_admin_group(text: str) -> bool:
+    # Respect global mute
+    if _skip_if_muted("admin_broadcast"):
+        return False
     chat_id = current_app.config.get("TELEGRAM_ADMIN_CHAT_ID")
     if not chat_id:
         return False
@@ -103,8 +132,7 @@ def send_job_assignment_notification(agent, job):
     Returns:
         bool: True if sent successfully, False otherwise
     """
-    if not is_enabled():
-        logging.info("Telegram notifications disabled, skipping job assignment notification")
+    if _skip_if_muted("telegram_job_assignment", {"agent_id": getattr(agent, 'id', None), "job_id": getattr(job, 'id', None)}):
         return False
     
     if not agent.telegram_chat_id or not agent.telegram_opt_in:
@@ -158,8 +186,7 @@ def send_job_acceptance_notification(agent, job):
     Returns:
         bool: True if sent successfully, False otherwise
     """
-    if not is_enabled():
-        logging.info("Telegram notifications disabled, skipping job acceptance notification")
+    if _skip_if_muted("telegram_job_acceptance", {"agent_id": getattr(agent, 'id', None), "job_id": getattr(job, 'id', None)}):
         return False
     
     if not agent.telegram_chat_id or not agent.telegram_opt_in:
@@ -215,8 +242,7 @@ def send_invoice_notification(agent, invoice):
     Returns:
         bool: True if sent successfully, False otherwise
     """
-    if not is_enabled():
-        logging.info("Telegram notifications disabled, skipping invoice notification")
+    if _skip_if_muted("telegram_invoice", {"agent_id": getattr(agent, 'id', None), "invoice_id": getattr(invoice, 'id', None)}):
         return False
     
     if not agent.telegram_chat_id or not agent.telegram_opt_in:
@@ -259,8 +285,7 @@ def send_generic_notification(agent, title, message):
     Returns:
         bool: True if sent successfully, False otherwise
     """
-    if not is_enabled():
-        logging.info("Telegram notifications disabled, skipping generic notification")
+    if _skip_if_muted("telegram_generic", {"agent_id": getattr(agent, 'id', None)}):
         return False
     
     if not agent.telegram_chat_id or not agent.telegram_opt_in:

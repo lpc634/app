@@ -53,6 +53,15 @@ def trigger_push_notification_for_users(user_ids, title, message):
     """
     Send push notifications to users using both legacy Web Push and new FCM system
     """
+    # Global master mute switch
+    try:
+        from src.models.user import Setting
+        default_enabled = str(current_app.config.get('NOTIFICATIONS_ENABLED', 'true')).lower() in ('1','true','yes','on')
+        if not Setting.get_bool('notifications_enabled', default_enabled):
+            current_app.logger.info("Notification skipped (muted)", extra={"event": "push_notification", "count": len(user_ids) if isinstance(user_ids, list) else 1})
+            return {"status": "skipped", "reason": "muted"}
+    except Exception:
+        pass
     if not isinstance(user_ids, list):
         user_ids = [user_ids]
     

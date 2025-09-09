@@ -19,5 +19,8 @@ class Config:
     TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
     TELEGRAM_ADMIN_THREAD_ID = os.getenv("TELEGRAM_ADMIN_THREAD_ID")
 
+    # Global notifications default (master switch default)
+    NOTIFICATIONS_ENABLED = os.getenv("NOTIFICATIONS_ENABLED", "true").lower() in ("1","true","yes","on")
+
     # VAT
     VAT_DEFAULT_RATE = float(os.getenv('VAT_DEFAULT_RATE', '0.20'))
