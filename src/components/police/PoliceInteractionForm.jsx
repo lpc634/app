@@ -1,5 +1,11 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/useAuth.jsx'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog.jsx'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select.jsx'
+import { Input } from '@/components/ui/input.jsx'
+import { Textarea } from '@/components/ui/textarea.jsx'
+import { Button } from '@/components/ui/button.jsx'
+import { POLICE_FORCES, REASONS, OUTCOMES, HELP_RANGE } from '@/constants/policeOptions.js'
 
 export default function PoliceInteractionForm({ onClose }) {
   const { apiCall } = useAuth()
@@ -56,73 +62,120 @@ export default function PoliceInteractionForm({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-v3-bg-card border border-v3-border rounded-lg w-full max-w-2xl p-4" onClick={e=>e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">New Police Interaction</h2>
-          <button onClick={onClose} className="px-2 py-1">Close</button>
-        </div>
+    <Dialog open onOpenChange={(v)=>{ if(!v) onClose?.() }}> 
+      <DialogContent className="max-w-3xl rounded-2xl border-neutral-800 shadow-2xl backdrop-blur-sm">
+        <DialogHeader>
+          <DialogTitle>New Police Interaction</DialogTitle>
+          <DialogDescription>Record details of police involvement for a job.</DialogDescription>
+        </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="space-y-6">
           <div>
-            <label className="block text-sm mb-1">Job (open)</label>
-            <select className="w-full bg-v3-bg-dark border border-v3-border rounded px-2 py-2" value={form.job_id} onChange={e=>updateField('job_id', e.target.value)}>
-              <option value="">Select open job (optional)</option>
-              {openJobs.map(j=> <option key={j.id} value={j.id}>{j.address}</option>)}
-            </select>
-            <input className="mt-2 w-full bg-v3-bg-dark border border-v3-border rounded px-2 py-2" placeholder="Or enter job address" value={form.job_address} onChange={e=>updateField('job_address', e.target.value)} />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm mb-1">Force</label>
-              <input className="w-full bg-v3-bg-dark border border-v3-border rounded px-2 py-2" value={form.force} onChange={e=>updateField('force', e.target.value)} placeholder="e.g. Met Police" />
-            </div>
-            <div>
-              <label className="block text-sm mb-1">Helpfulness (1-5)</label>
-              <select className="w-full bg-v3-bg-dark border border-v3-border rounded px-2 py-2" value={form.helpfulness} onChange={e=>updateField('helpfulness', e.target.value)}>
-                {[1,2,3,4,5].map(n=> <option key={n} value={n}>{n}</option>)}
-              </select>
+            <div className="pl-3 border-l-2 border-orange-500 mb-2 text-sm text-muted-foreground">Job</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Open job</label>
+                <Select value={form.job_id||''} onValueChange={(v)=>updateField('job_id', v)}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select open job (optional)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None</SelectItem>
+                    {openJobs.map(j=> <SelectItem key={j.id} value={String(j.id)}>{j.address}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Or enter address</label>
+                <Input value={form.job_address} onChange={e=>updateField('job_address', e.target.value)} placeholder="Manual job address" />
+              </div>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm mb-1">Officers</label>
+            <div className="pl-3 border-l-2 border-orange-500 mb-2 text-sm text-muted-foreground">Details</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Force</label>
+                <Select value={form.force||''} onValueChange={(v)=>updateField('force', v)}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select force" /></SelectTrigger>
+                  <SelectContent>
+                    {POLICE_FORCES.map(f=> <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                {form.force === 'Other' && (
+                  <Input className="mt-2" placeholder="Enter force" onChange={e=>updateField('force', e.target.value)} />
+                )}
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Helpfulness (1-5)</label>
+                <Select value={String(form.helpfulness)} onValueChange={(v)=>updateField('helpfulness', Number(v))}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {HELP_RANGE.map(n=> <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="pl-3 border-l-2 border-orange-500 mb-2 text-sm text-muted-foreground">Officers</div>
             <div className="space-y-2">
               {form.officers.map((o, idx) => (
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
-                  <input placeholder="Shoulder number" className="bg-v3-bg-dark border border-v3-border rounded px-2 py-2" value={o.shoulder_number} onChange={e=>updateOfficer(idx, 'shoulder_number', e.target.value)} />
-                  <input placeholder="Name (optional)" className="bg-v3-bg-dark border border-v3-border rounded px-2 py-2 md:col-span-2" value={o.name} onChange={e=>updateOfficer(idx, 'name', e.target.value)} />
-                  {idx>0 && <button className="text-xs" onClick={()=>removeOfficer(idx)}>Remove</button>}
+                  <Input placeholder="Shoulder number" value={o.shoulder_number} onChange={e=>updateOfficer(idx, 'shoulder_number', e.target.value)} />
+                  <Input placeholder="Name (optional)" value={o.name} onChange={e=>updateOfficer(idx, 'name', e.target.value)} className="md:col-span-2" />
+                  {idx>0 && <Button variant="outline" onClick={()=>removeOfficer(idx)} className="justify-self-start">Remove</Button>}
                 </div>
               ))}
-              <button className="text-xs" onClick={addOfficer}>Add officer</button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm mb-1">Reason</label>
-              <input className="w-full bg-v3-bg-dark border border-v3-border rounded px-2 py-2" value={form.reason} onChange={e=>updateField('reason', e.target.value)} placeholder="e.g. Section 61" />
-            </div>
-            <div>
-              <label className="block text-sm mb-1">Outcome</label>
-              <input className="w-full bg-v3-bg-dark border border-v3-border rounded px-2 py-2" value={form.outcome} onChange={e=>updateField('outcome', e.target.value)} placeholder="e.g. Support provided" />
+              <Button variant="outline" onClick={addOfficer} className="mt-1">Add officer</Button>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm mb-1">Notes</label>
-            <textarea rows={4} className="w-full bg-v3-bg-dark border border-v3-border rounded px-2 py-2" value={form.notes} onChange={e=>updateField('notes', e.target.value)} />
+            <div className="pl-3 border-l-2 border-orange-500 mb-2 text-sm text-muted-foreground">Reason & Outcome</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Reason</label>
+                <Select value={form.reason||''} onValueChange={(v)=>updateField('reason', v)}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select reason" /></SelectTrigger>
+                  <SelectContent>
+                    {REASONS.map(r=> <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                {form.reason === 'Other' && (
+                  <Input className="mt-2" placeholder="Enter reason" onChange={e=>updateField('reason', e.target.value)} />
+                )}
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Outcome</label>
+                <Select value={form.outcome||''} onValueChange={(v)=>updateField('outcome', v)}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select outcome" /></SelectTrigger>
+                  <SelectContent>
+                    {OUTCOMES.map(o=> <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                {form.outcome === 'Other' && (
+                  <Input className="mt-2" placeholder="Enter outcome" onChange={e=>updateField('outcome', e.target.value)} />
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="pl-3 border-l-2 border-orange-500 mb-2 text-sm text-muted-foreground">Notes</div>
+            <Textarea rows={4} value={form.notes} onChange={e=>updateField('notes', e.target.value)} />
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <button className="px-3 py-2 border border-v3-border rounded" onClick={onClose}>Cancel</button>
-            <button className="button-refresh" disabled={saving} onClick={submit}>{saving ? 'Saving...' : 'Save'}</button>
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button onClick={submit} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -1,21 +1,34 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/useAuth.jsx'
 import PoliceInteractionForm from '@/components/police/PoliceInteractionForm.jsx'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select.jsx'
+import { Input } from '@/components/ui/input.jsx'
+import { Button } from '@/components/ui/button.jsx'
+import { Badge } from '@/components/ui/badge.jsx'
+import { POLICE_FORCES, OUTCOMES, HELP_RANGE, outcomeBadgeVariant } from '@/constants/policeOptions.js'
 
 export default function PoliceInteractionsPage() {
   const { apiCall, user } = useAuth()
   const [items, setItems] = useState([])
   const [filters, setFilters] = useState({ force: '', outcome: '', job_address: '', helpfulness: '' })
+  const [openJobs, setOpenJobs] = useState([])
+  const [loading, setLoading] = useState(false)
   const [openForm, setOpenForm] = useState(false)
 
   const load = async () => {
     const params = new URLSearchParams()
     Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v) })
-    const res = await apiCall(`/police-interactions?${params.toString()}`)
-    setItems(res.items || [])
+    setLoading(true)
+    try {
+      const res = await apiCall(`/police-interactions?${params.toString()}`)
+      setItems(res.items || [])
+    } finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    ;(async ()=>{ try{ const jobs = await apiCall('/jobs/open-min'); setOpenJobs(jobs||[]) } catch(_){} })()
+  }, [])
 
   const canEdit = user?.role === 'admin'
 
@@ -26,16 +39,57 @@ export default function PoliceInteractionsPage() {
         <button className="button-refresh" onClick={() => setOpenForm(true)}>New</button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-        <input placeholder="Force" className="bg-v3-bg-dark border border-v3-border rounded px-2 py-2" value={filters.force} onChange={e=>setFilters({...filters, force:e.target.value})} />
-        <input placeholder="Outcome" className="bg-v3-bg-dark border border-v3-border rounded px-2 py-2" value={filters.outcome} onChange={e=>setFilters({...filters, outcome:e.target.value})} />
-        <input placeholder="Job address" className="bg-v3-bg-dark border border-v3-border rounded px-2 py-2" value={filters.job_address} onChange={e=>setFilters({...filters, job_address:e.target.value})} />
-        <select className="bg-v3-bg-dark border border-v3-border rounded px-2 py-2" value={filters.helpfulness} onChange={e=>setFilters({...filters, helpfulness:e.target.value})}>
-          <option value="">Helpfulness</option>
-          {[1,2,3,4,5].map(n=> <option key={n} value={n}>{n}</option>)}
-        </select>
-        <div className="md:col-span-4">
-          <button className="px-3 py-2 bg-v3-bg-dark border border-v3-border rounded" onClick={load}>Apply Filters</button>
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+        <div>
+          <label className="block text-xs text-v3-text-muted mb-1">Force</label>
+          <Select value={filters.force || ''} onValueChange={(v)=>setFilters({...filters, force: v})}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="All forces" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All</SelectItem>
+              {POLICE_FORCES.map(f=> <SelectItem key={f} value={f}>{f}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="block text-xs text-v3-text-muted mb-1">Outcome</label>
+          <Select value={filters.outcome || ''} onValueChange={(v)=>setFilters({...filters, outcome: v})}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="All outcomes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All</SelectItem>
+              {OUTCOMES.map(o=> <SelectItem key={o} value={o}>{o}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-xs text-v3-text-muted mb-1">Job address</label>
+          <Select value={filters.job_address || ''} onValueChange={(v)=>setFilters({...filters, job_address: v})}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="All jobs" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All jobs</SelectItem>
+              {openJobs.map(j=> <SelectItem key={j.id} value={j.address}>{j.address}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="block text-xs text-v3-text-muted mb-1">Helpfulness</label>
+          <Select value={filters.helpfulness || ''} onValueChange={(v)=>setFilters({...filters, helpfulness: v})}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All</SelectItem>
+              {HELP_RANGE.map(n=> <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Button onClick={load} className="w-full">Apply Filters</Button>
         </div>
       </div>
 
@@ -55,14 +109,26 @@ export default function PoliceInteractionsPage() {
             </tr>
           </thead>
           <tbody>
-            {items.map(i => (
+            {(loading ? Array.from({length:4}).map((_,idx)=>(
+              <tr key={`s-${idx}`} className="border-t border-v3-border animate-pulse">
+                <td className="px-3 py-3" colSpan={8}><div className="h-3 bg-v3-bg-dark rounded" /></td>
+              </tr>
+            )) : items.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-3 py-10 text-center text-v3-text-muted">
+                  No police interactions yet. <button className="button-refresh ml-2" onClick={()=>setOpenForm(true)}>New</button>
+                </td>
+              </tr>
+            ) : items.map(i => (
               <tr key={i.id} className="border-t border-v3-border">
                 <td className="px-3 py-2">{new Date(i.created_at).toLocaleString()}</td>
                 <td className="px-3 py-2">{i.job_address}</td>
                 <td className="px-3 py-2">{i.force}</td>
-                <td className="px-3 py-2">{(i.officers||[]).map(o=>o.shoulder_number).join(', ')}</td>
+                <td className="px-3 py-2">
+                  {(() => { const arr=(i.officers||[]).map(o=>o.shoulder_number); return arr.length<=2? arr.join(', ') : `${arr.slice(0,2).join(', ')} +${arr.length-2} more`; })()}
+                </td>
                 <td className="px-3 py-2">{i.reason}</td>
-                <td className="px-3 py-2">{i.outcome}</td>
+                <td className="px-3 py-2"><Badge>{i.outcome}</Badge></td>
                 <td className="px-3 py-2">{i.helpfulness}</td>
                 <td className="px-3 py-2">{i.created_by_role} #{i.created_by_user_id}</td>
                 {canEdit && (
