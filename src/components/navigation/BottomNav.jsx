@@ -12,7 +12,7 @@ const items = [
 export default function BottomNav() {
   const location = useLocation();
   return (
-    <nav id="bottom-nav" className="md:hidden fixed inset-x-0 bottom-0 z-[50] h-16 pb-[env(safe-area-inset-bottom)]">
+    <nav id="bottom-nav" className="md:hidden fixed inset-x-0 bottom-0 z-[50] h-16 pb-[env(safe-area-inset-bottom)] pointer-events-auto">
       <div className="mx-auto max-w-screen-sm h-full">
         <div className="backdrop-blur supports-[backdrop-filter]:bg-background/70 bg-background/95 border-t h-full">
           <ul className="grid grid-cols-5 h-full">

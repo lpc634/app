@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { usePageHeader } from '@/components/layout/PageHeaderContext.jsx'
 import StickyActionBar from '@/components/layout/StickyActionBar.jsx'
+import Portal from '@/components/Portal.jsx'
 import { Loader2, Send, Users, CheckCircle2, XCircle, Link as LinkIcon, Search, X } from 'lucide-react'
 
 export default function MessageAgents() {
@@ -214,20 +215,22 @@ export default function MessageAgents() {
         </Button>
       </div>
 
-      <StickyActionBar>
-        <div className="text-xs text-muted-foreground mr-auto">
-          {disabledSend
-            ? 'Type a message and select at least one linked agent'
-            : `Ready to send to ${selected.length} agent${selected.length === 1 ? '' : 's'}`}
-          {!disabledSend && includeUnlinked && selected.some(id => (agents.find(a => a.id === id)?.linked === false)) && (
-            <span className="ml-2">• Unlinked recipients will appear under Not linked</span>
-          )}
-        </div>
-        <Button data-testid="send-message" className="flex-1" disabled={disabledSend} onClick={handleSend}>
-          {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-          Send
-        </Button>
-      </StickyActionBar>
+      <Portal>
+        <StickyActionBar>
+          <div className="text-xs text-muted-foreground mr-auto">
+            {disabledSend
+              ? 'Type a message and select at least one linked agent'
+              : `Ready to send to ${selected.length} agent${selected.length === 1 ? '' : 's'}`}
+            {!disabledSend && includeUnlinked && selected.some(id => (agents.find(a => a.id === id)?.linked === false)) && (
+              <span className="ml-2">• Unlinked recipients will appear under Not linked</span>
+            )}
+          </div>
+          <Button data-testid="send-message" className="flex-1" disabled={disabledSend} onClick={handleSend}>
+            {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+            Send
+          </Button>
+        </StickyActionBar>
+      </Portal>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
