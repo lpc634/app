@@ -113,7 +113,7 @@ def send_admin_telegram_messages():
                 queued += 1
             else:
                 status = 'failed'
-            err = None if ok else (resp.get('description') or resp.get('message') or 'send failed')
+            err = None if ok else (resp.get('description') or 'send failed')
         except Exception as e:
             status = 'failed'
             telegram_message_id = None

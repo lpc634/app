@@ -9,43 +9,54 @@ API_BASE = "https://api.telegram.org"
 # Cache for bot info (username) - expires after 10 minutes
 _bot_info_cache = {"data": None, "expires": 0}
 
-def send_message(chat_id: str, text: str, parse_mode: str = "HTML", message_thread_id: int | None = None) -> dict:
+def send_message(chat_id: str, text: str, parse_mode: str | None = None, message_thread_id: int | None = None, timeout: int = 4) -> dict:
     """
     Send a message to a Telegram chat
     
     Args:
         chat_id: Telegram chat ID
         text: Message text
-        parse_mode: Message formatting mode (HTML, Markdown, etc.)
+        parse_mode: Optional formatting mode (HTML, Markdown, etc.)
     
     Returns:
-        dict: API response or status info
+        dict: { ok: bool, result?: {...}, description?: str }
     """
     if not current_app.config["TELEGRAM_ENABLED"]:
-        return {"status": "disabled"}
+        return {"ok": False, "description": "telegram_disabled"}
     
     token = current_app.config["TELEGRAM_BOT_TOKEN"]
     if not token:
         current_app.logger.error("TELEGRAM_BOT_TOKEN missing")
-        return {"status": "error", "message": "Bot token not configured"}
+        return {"ok": False, "description": "bot_token_not_configured"}
     
     url = f"{API_BASE}/bot{token}/sendMessage"
     payload = {
         "chat_id": chat_id,
         "text": text,
-        "parse_mode": parse_mode,
         "disable_web_page_preview": True
     }
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
     if message_thread_id is not None:
         payload["message_thread_id"] = message_thread_id
     
     try:
-        r = requests.post(url, json=payload, timeout=10)
-        r.raise_for_status()
-        return r.json()
+        r = requests.post(url, json=payload, timeout=timeout)
+        if r.ok:
+            data = r.json()
+            # Normalize to { ok, result }
+            return {"ok": True, "result": data.get("result")}
+        else:
+            # Try to extract Telegram error description
+            try:
+                data = r.json()
+                desc = data.get("description") or r.reason
+            except Exception:
+                desc = r.reason
+            return {"ok": False, "description": f"{r.status_code}: {desc}"}
     except requests.RequestException as e:
         current_app.logger.error(f"Telegram send message error: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        return {"ok": False, "description": str(e)}
 
 def get_bot_info() -> dict:
     """
