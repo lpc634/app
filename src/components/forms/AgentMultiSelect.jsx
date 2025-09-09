@@ -53,15 +53,15 @@ export default function AgentMultiSelect({ value = [], onChange = () => {} }) {
           <div className="p-3 text-sm text-v3-text-muted">No agents found.</div>
         ) : (
           filtered.map(a => (
-            <label key={a.id} className="flex items-center gap-3 p-2 text-sm text-v3-text-lightest cursor-pointer">
+            <label key={a.id ?? `missing-${Math.random()}`} className="flex items-center gap-3 p-2 text-sm text-v3-text-lightest cursor-pointer">
               <input
                 type="checkbox"
                 checked={value.includes(a.id)}
                 onChange={() => toggle(a.id)}
                 className="h-4 w-4"
               />
-              <span className="truncate">{a.name}</span>
-              <span className="ml-auto text-xs text-v3-text-muted">#{a.id}</span>
+              <span className="truncate">{a.name || `Agent #${a.id}`}</span>
+              <span className="ml-auto text-xs text-v3-text-muted">{`#${a.id}`}</span>
             </label>
           ))
         )}
