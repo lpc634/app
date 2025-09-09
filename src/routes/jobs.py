@@ -862,66 +862,67 @@ def create_job():
         except Exception:
             return jsonify({'error': 'Invalid notification targeting payload'}), 400
 
-        # Find available agents for the job date, then restrict to targets if provided
+        # Find agents to notify/assign
         job_date = new_job.arrival_time.date()
         day_of_week = job_date.weekday()  # 0 = Monday, 6 = Sunday
         
         print(f"[DEBUG] Looking for available agents for job date: {job_date} (day_of_week: {day_of_week})")
         logger.error(f"[DEBUG] Looking for available agents for job date: {job_date} (day_of_week: {day_of_week})")
 
-        # Query ALL agents regardless of verification status (as per requirements)
-        # This ensures push notifications reach ALL agents for job opportunities
-        available_agents = db.session.query(User) \
-            .outerjoin(AgentAvailability, and_(AgentAvailability.agent_id == User.id, AgentAvailability.date == job_date)) \
-            .outerjoin(AgentWeeklyAvailability, AgentWeeklyAvailability.agent_id == User.id) \
-            .filter(
-                User.role == 'agent'
-                # REMOVED VERIFICATION STATUS FILTER - notifications go to ALL agents
-            ).all()
-        
-        # Filter by availability if we have availability data
-        if available_agents:
-            filtered_agents = []
-            for agent in available_agents:
-                # Check if agent has specific availability for this date
-                daily_avail = next((avail for avail in agent.availability if avail.date == job_date), None)
-                
-                if daily_avail:
-                    # Use daily availability
-                    if daily_avail.is_available and not daily_avail.is_away:
-                        filtered_agents.append(agent)
-                else:
-                    # Fallback to weekly schedule if available
-                    if agent.weekly_availability:
-                        weekly_avail = agent.weekly_availability
-                        day_available = False
-                        
-                        if day_of_week == 0 and weekly_avail.monday:
-                            day_available = True
-                        elif day_of_week == 1 and weekly_avail.tuesday:
-                            day_available = True
-                        elif day_of_week == 2 and weekly_avail.wednesday:
-                            day_available = True
-                        elif day_of_week == 3 and weekly_avail.thursday:
-                            day_available = True
-                        elif day_of_week == 4 and weekly_avail.friday:
-                            day_available = True
-                        elif day_of_week == 5 and weekly_avail.saturday:
-                            day_available = True
-                        elif day_of_week == 6 and weekly_avail.sunday:
-                            day_available = True
-                        
-                        if day_available:
+        if notify_all:
+            # Broadcast mode: respect availability window as before
+            available_agents = db.session.query(User) \
+                .outerjoin(AgentAvailability, and_(AgentAvailability.agent_id == User.id, AgentAvailability.date == job_date)) \
+                .outerjoin(AgentWeeklyAvailability, AgentWeeklyAvailability.agent_id == User.id) \
+                .filter(
+                    User.role == 'agent'
+                ).all()
+
+            # Filter by availability if we have availability data
+            if available_agents:
+                filtered_agents = []
+                for agent in available_agents:
+                    # Check if agent has specific availability for this date
+                    daily_avail = next((avail for avail in agent.availability if avail.date == job_date), None)
+                    
+                    if daily_avail:
+                        # Use daily availability
+                        if daily_avail.is_available and not daily_avail.is_away:
                             filtered_agents.append(agent)
                     else:
-                        # No availability data - include agent for notification
-                        filtered_agents.append(agent)
-            
-            available_agents = filtered_agents
-
-        # If notify_all is false, restrict available list to selected agent IDs
-        if not notify_all and target_agent_ids:
-            available_agents = [a for a in available_agents if a.id in target_agent_ids]
+                        # Fallback to weekly schedule if available
+                        if agent.weekly_availability:
+                            weekly_avail = agent.weekly_availability
+                            day_available = False
+                            
+                            if day_of_week == 0 and weekly_avail.monday:
+                                day_available = True
+                            elif day_of_week == 1 and weekly_avail.tuesday:
+                                day_available = True
+                            elif day_of_week == 2 and weekly_avail.wednesday:
+                                day_available = True
+                            elif day_of_week == 3 and weekly_avail.thursday:
+                                day_available = True
+                            elif day_of_week == 4 and weekly_avail.friday:
+                                day_available = True
+                            elif day_of_week == 5 and weekly_avail.saturday:
+                                day_available = True
+                            elif day_of_week == 6 and weekly_avail.sunday:
+                                day_available = True
+                            
+                            if day_available:
+                                filtered_agents.append(agent)
+                        else:
+                            # No availability data - include agent for notification
+                            filtered_agents.append(agent)
+                
+                available_agents = filtered_agents
+        else:
+            # Targeted mode: ignore availability filters and notify only selected agents
+            if target_agent_ids:
+                available_agents = User.query.filter(User.role == 'agent', User.id.in_(target_agent_ids)).all()
+            else:
+                available_agents = []
 
         print(f"[DEBUG] Found {len(available_agents)} available agents: {[agent.id for agent in available_agents]}")
         logger.error(f"[DEBUG] Found {len(available_agents)} available agents: {[agent.id for agent in available_agents]}")
