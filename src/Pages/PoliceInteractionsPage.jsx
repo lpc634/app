@@ -32,6 +32,30 @@ export default function PoliceInteractionsPage() {
 
   const canEdit = user?.role === 'admin'
 
+  function formatDate(iso) {
+    if (!iso) return '—'
+    try { return new Date(iso).toLocaleString() } catch { return iso }
+  }
+
+  function renderOfficers(officers) {
+    const list = (Array.isArray(officers) ? officers : [])
+      .filter(Boolean)
+      .map(o => o?.shoulder_number ? (o.name ? `${o.shoulder_number} (${o.name})` : String(o.shoulder_number)) : null)
+      .filter(Boolean)
+    if (list.length === 0) return '—'
+    const [first, second, ...rest] = list
+    return (
+      <div className="flex flex-wrap gap-1">
+        {[first, second].filter(Boolean).map((t, i) => (
+          <span key={i} className="px-2 py-0.5 rounded bg-v3-bg-dark text-v3-text-lightest text-xs">{t}</span>
+        ))}
+        {rest.length > 0 && (
+          <span className="px-2 py-0.5 rounded bg-v3-bg-dark text-v3-text-muted text-xs">+{rest.length} more</span>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -109,35 +133,33 @@ export default function PoliceInteractionsPage() {
             </tr>
           </thead>
           <tbody>
-            {(loading ? Array.from({length:4}).map((_,idx)=>(
-              <tr key={`s-${idx}`} className="border-t border-v3-border animate-pulse">
-                <td className="px-3 py-3" colSpan={8}><div className="h-3 bg-v3-bg-dark rounded" /></td>
+            {loading ? (
+              <tr>
+                <td colSpan={8} className="px-3 py-6 text-sm text-v3-text-muted">Loading…</td>
               </tr>
-            )) : items.length === 0 ? (
+            ) : items.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-3 py-10 text-center text-v3-text-muted">
                   No police interactions yet. <button className="button-refresh ml-2" onClick={()=>setOpenForm(true)}>New</button>
                 </td>
               </tr>
-            ) : items.map(i => (
-              <tr key={i.id} className="border-t border-v3-border">
-                <td className="px-3 py-2">{new Date(i.created_at).toLocaleString()}</td>
-                <td className="px-3 py-2">{i.job_address}</td>
-                <td className="px-3 py-2">{i.force}</td>
-                <td className="px-3 py-2">
-                  {(() => { const arr=(i.officers||[]).map(o=>o.shoulder_number); return arr.length<=2? arr.join(', ') : `${arr.slice(0,2).join(', ')} +${arr.length-2} more`; })()}
-                </td>
-                <td className="px-3 py-2">{i.reason}</td>
-                <td className="px-3 py-2"><Badge>{i.outcome}</Badge></td>
-                <td className="px-3 py-2">{i.helpfulness}</td>
-                <td className="px-3 py-2">{i.created_by_role} #{i.created_by_user_id}</td>
-                {canEdit && (
-                  <td className="px-3 py-2 text-right space-x-2">
-                    {/* Edit/Delete will be wired inside form later if needed */}
-                  </td>
-                )}
-              </tr>
-            ))}
+            ) : (
+              items.map((i) => (
+                <tr key={i.id} className="border-t border-v3-border hover:bg-v3-bg-dark/40">
+                  <td className="px-3 py-2">{formatDate(i.created_at)}</td>
+                  <td className="px-3 py-2">{i.job_address}</td>
+                  <td className="px-3 py-2">{i.force}</td>
+                  <td className="px-3 py-2">{renderOfficers(i.officers)}</td>
+                  <td className="px-3 py-2">{i.reason}</td>
+                  <td className="px-3 py-2">{i.outcome}</td>
+                  <td className="px-3 py-2">{i.helpfulness}</td>
+                  <td className="px-3 py-2">{i.created_by_role} #{i.created_by_user_id}</td>
+                  {canEdit && (
+                    <td className="px-3 py-2 text-right space-x-2" />
+                  )}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
