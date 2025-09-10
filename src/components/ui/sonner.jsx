@@ -4,6 +4,7 @@ const Toaster = (props) => {
   return (
     <Sonner
       theme="dark"
+      position="top-center"
       className="toaster group pointer-events-none fixed top-3 inset-x-0 z-[1000] flex justify-center"
       toastOptions={{
         classNames: {

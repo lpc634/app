@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/useAuth.jsx'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -21,10 +21,12 @@ export default function MessageAgents() {
   const [showLinked, setShowLinked] = useState(true)
   const [showAll, setShowAll] = useState(false)
   const [message, setMessage] = useState('')
+  const maxLength = 1000
   const [sending, setSending] = useState(false)
   const [results, setResults] = useState(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [loadingAgents, setLoadingAgents] = useState(false)
+  const textareaRef = useRef(null)
 
   useEffect(() => {
     register({ title: 'Message agents' })
@@ -55,8 +57,8 @@ export default function MessageAgents() {
   const toggle = (id) => {
     setSelected((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
-  const selectAllLinked = () => {
-    setSelected(agents.filter(a => a.linked).map(a => a.id))
+  const selectAllInView = () => {
+    setSelected(filtered.map(a => a.id))
   }
   const clearAll = () => setSelected([])
 
@@ -95,10 +97,19 @@ export default function MessageAgents() {
     return { success, failed, not_linked: notLinked }
   }, [results])
 
-  const disabledSend = sending || message.trim().length === 0 || (selected.length === 0)
+  const length = message.length
+  const overLimit = length > maxLength
+  const disabledSend = sending || message.trim().length === 0 || (selected.length === 0) || overLimit
+
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 320)}px`
+  }, [message])
 
   return (
-    <div className="space-y-4 pb-24 md:pb-0 px-3">
+    <div className="min-h-screen space-y-4 pb-24 md:pb-0 px-3">
       <div>
         <h1 className="text-2xl font-semibold">Message agents</h1>
         <p className="text-sm text-muted-foreground">Send a Telegram message to one or many agents. Linked agents have Telegram connected.</p>
@@ -117,22 +128,23 @@ export default function MessageAgents() {
           <div className="space-y-3">
             <div className="relative">
               <Textarea
+                ref={textareaRef}
                 value={message}
-                onChange={(e) => setMessage(e.target.value.slice(0, 1000))}
+                onChange={(e) => setMessage(e.target.value)}
                 placeholder="Write your message..."
-                className="min-h-28"
+                className="min-h-28 resize-none"
               />
-              <div className="absolute right-2 bottom-2 text-xs text-muted-foreground">{message.length}/1000</div>
+              <div className={`absolute right-2 bottom-2 text-xs ${overLimit ? 'text-red-500' : 'text-muted-foreground'}`}>{length}/{maxLength}</div>
             </div>
 
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">Recipients</div>
               <div className="flex gap-2">
                 <Button type="button" variant={showAll ? 'default' : 'outline'} size="sm" onClick={() => { setShowAll(true); setShowLinked(true); setIncludeUnlinked(true); }} aria-pressed={showAll}>All</Button>
-                <Button type="button" variant={showLinked && !showAll ? 'default' : 'outline'} size="sm" onClick={() => { setShowAll(false); setShowLinked(v => !v); }} aria-pressed={showLinked}>Linked</Button>
-                <Button type="button" variant={includeUnlinked && !showAll ? 'default' : 'outline'} size="sm" onClick={() => { setShowAll(false); setIncludeUnlinked(v => !v); }} aria-pressed={includeUnlinked}>Not linked</Button>
+                <Button type="button" variant={showLinked && !showAll && !includeUnlinked ? 'default' : 'outline'} size="sm" onClick={() => { setShowAll(false); setShowLinked(true); setIncludeUnlinked(false); }} aria-pressed={showLinked && !showAll && !includeUnlinked}>Linked</Button>
+                <Button type="button" variant={includeUnlinked && !showAll && !showLinked ? 'default' : 'outline'} size="sm" onClick={() => { setShowAll(false); setShowLinked(false); setIncludeUnlinked(true); }} aria-pressed={includeUnlinked && !showAll && !showLinked}>Not linked</Button>
                 <div className="w-px h-6 bg-border" />
-                <Button type="button" variant="default" size="sm" onClick={selectAllLinked}>Select linked ({linkedCount})</Button>
+                <Button type="button" variant="default" size="sm" onClick={selectAllInView}>Select all (view) ({filtered.length})</Button>
                 <Button type="button" variant="ghost" size="sm" onClick={clearAll}>Clear</Button>
               </div>
             </div>
@@ -148,7 +160,6 @@ export default function MessageAgents() {
               />
             </div>
 
-            {/* Single page scroll: remove inner clamps/scroll */}
             <div className="rounded-lg border divide-y">
               {loadingAgents ? (
                 <div className="p-3 text-sm text-muted-foreground">Loading agents...</div>
@@ -156,8 +167,7 @@ export default function MessageAgents() {
                 <div className="p-3 text-sm text-muted-foreground">No agents found.</div>
               ) : (
                 filtered.map(a => (
-                  <label key={a.id} className="flex items-center gap-3 p-3 cursor-pointer tap-target min-h-[48px]">
-                    <input type="checkbox" className="h-4 w-4" checked={selected.includes(a.id)} onChange={() => toggle(a.id)} />
+                  <label key={a.id} className="flex items-center gap-3 p-3 cursor-pointer min-h-[56px]">
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">{a.name}</div>
                       <div className="text-xs text-muted-foreground truncate">{a.email}</div>
@@ -169,6 +179,7 @@ export default function MessageAgents() {
                       ) : (
                         <span className="px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-400 border border-gray-500/20">Not linked</span>
                       )}
+                      <input aria-label={`Select ${a.name}`} type="checkbox" className="h-11 w-11" checked={selected.includes(a.id)} onChange={() => toggle(a.id)} />
                     </div>
                   </label>
                 ))
@@ -220,16 +231,17 @@ export default function MessageAgents() {
 
       <Portal>
         <StickyActionBar>
-          <div className="text-xs text-muted-foreground mr-auto">
-            {disabledSend
-              ? 'Type a message and select at least one linked agent'
-              : `Ready to send to ${selected.length} agent${selected.length === 1 ? '' : 's'}`}
-            {!disabledSend && includeUnlinked && selected.some(id => (agents.find(a => a.id === id)?.linked === false)) && (
-              <span className="ml-2">• Unlinked recipients will appear under Not linked</span>
+          <div className="mr-auto text-xs">
+            {overLimit && <div className="text-red-500">Message exceeds {maxLength} characters.</div>}
+            {!overLimit && disabledSend && (
+              <div className="text-muted-foreground">Type a message and select at least one linked agent</div>
+            )}
+            {!disabledSend && (
+              <div className="text-muted-foreground">Ready to send to {selected.length} agent{selected.length === 1 ? '' : 's'}</div>
             )}
           </div>
-          <Button data-testid="send-message" className="flex-1" disabled={disabledSend} onClick={handleSend}>
-            {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+          <Button data-testid="send-message" className="flex-1 h-11 text-base" disabled={disabledSend} onClick={handleSend}>
+            {sending ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Send className="h-5 w-5 mr-2" />}
             Send
           </Button>
         </StickyActionBar>
