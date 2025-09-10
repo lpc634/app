@@ -6,12 +6,17 @@ import { usePageHeaderState } from "@/components/layout/PageHeaderContext.jsx";
 export default function MobileShell() {
   const { title, action } = usePageHeaderState();
   const location = useLocation();
+  const hideBottomNav = location.pathname.startsWith('/admin/communications');
   useEffect(() => {
     const nav = document.getElementById('bottom-nav');
     const sticky = document.getElementById('sticky-action-bar');
-    if (nav) document.documentElement.style.setProperty('--bottom-nav-h', `${nav.offsetHeight}px`);
+    if (hideBottomNav) {
+      document.documentElement.style.setProperty('--bottom-nav-h', `0px`);
+    } else if (nav) {
+      document.documentElement.style.setProperty('--bottom-nav-h', `${nav.offsetHeight}px`);
+    }
     if (sticky) document.documentElement.style.setProperty('--sticky-bar-h', `${sticky.offsetHeight}px`);
-  }, [location]);
+  }, [location, hideBottomNav]);
 
   return (
     <div className="md:hidden">
@@ -24,11 +29,11 @@ export default function MobileShell() {
         </div>
       </div>
 
-      <div id="app-scroll" className="pt-[56px] pb-[120px]">
+      <div id="app-scroll" className="pt-[56px] pb-[calc(var(--bottom-nav-h,64px)+var(--sticky-bar-h,56px)+var(--safe-bottom,0px)+16px)]">
         <Outlet key={location.key} />
       </div>
 
-      <BottomNav />
+      {!hideBottomNav && <BottomNav />}
     </div>
   );
 }
