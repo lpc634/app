@@ -24,7 +24,7 @@ export default function MobileShell() {
         </div>
       </div>
 
-      <div id="app-scroll" className="pt-[56px] pb-[calc(var(--bottom-nav-h,64px)+var(--sticky-bar-h,56px)+var(--safe-bottom,0px)+16px)]">
+      <div id="app-scroll" className="pt-[56px] pb-[120px]">
         <Outlet key={location.key} />
       </div>
 
