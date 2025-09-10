@@ -19,6 +19,7 @@ export default function MessageAgents() {
   const [selected, setSelected] = useState([])
   const [includeUnlinked, setIncludeUnlinked] = useState(false)
   const [showLinked, setShowLinked] = useState(true)
+  const [showAll, setShowAll] = useState(false)
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [results, setResults] = useState(null)
@@ -45,10 +46,10 @@ export default function MessageAgents() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const base = agents.filter(a => (showLinked && a.linked) || (includeUnlinked && !a.linked))
+    const base = showAll ? agents : agents.filter(a => (showLinked && a.linked) || (includeUnlinked && !a.linked))
     if (!q) return base
     return base.filter(a => a.name?.toLowerCase().includes(q) || a.email?.toLowerCase().includes(q))
-  }, [agents, query, includeUnlinked, showLinked])
+  }, [agents, query, includeUnlinked, showLinked, showAll])
 
   const linkedCount = agents.filter(a => a.linked).length
   const toggle = (id) => {
@@ -127,10 +128,11 @@ export default function MessageAgents() {
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">Recipients</div>
               <div className="flex gap-2">
-                <Button type="button" variant={showLinked ? 'default' : 'outline'} size="sm" onClick={() => setShowLinked(v => !v)} aria-pressed={showLinked}>Linked</Button>
-                <Button type="button" variant={includeUnlinked ? 'default' : 'outline'} size="sm" onClick={() => setIncludeUnlinked(v => !v)} aria-pressed={includeUnlinked}>Not linked</Button>
+                <Button type="button" variant={showAll ? 'default' : 'outline'} size="sm" onClick={() => { setShowAll(true); setShowLinked(true); setIncludeUnlinked(true); }} aria-pressed={showAll}>All</Button>
+                <Button type="button" variant={showLinked && !showAll ? 'default' : 'outline'} size="sm" onClick={() => { setShowAll(false); setShowLinked(v => !v); }} aria-pressed={showLinked}>Linked</Button>
+                <Button type="button" variant={includeUnlinked && !showAll ? 'default' : 'outline'} size="sm" onClick={() => { setShowAll(false); setIncludeUnlinked(v => !v); }} aria-pressed={includeUnlinked}>Not linked</Button>
                 <div className="w-px h-6 bg-border" />
-                <Button type="button" variant="default" size="sm" onClick={selectAllLinked}>Select all linked ({linkedCount})</Button>
+                <Button type="button" variant="default" size="sm" onClick={selectAllLinked}>Select linked ({linkedCount})</Button>
                 <Button type="button" variant="ghost" size="sm" onClick={clearAll}>Clear</Button>
               </div>
             </div>
