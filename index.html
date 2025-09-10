@@ -7,24 +7,28 @@
     <meta name="format-detection" content="telephone=no" />
     <title>V3 Services - Admin Dashboard</title>
 
-    <!-- CE guard must run before any 3rd-party bundles that may register custom elements -->
     <script>
       (function () {
-        try {
-          if (!('customElements' in window)) return;
-          var ce = window.customElements;
-          var orig = ce.define.bind(ce);
-          ce.define = function (name, ctor, opts) {
-            try {
-              if (ce.get(name)) return;
-              return orig(name, ctor, opts);
-            } catch (e) {
-              var msg = e && e.message ? String(e.message) : '';
-              if (!msg.includes('has already been defined')) throw e;
-            }
+        if (!('customElements' in window)) return;
+        function wrap(ce){
+          if (!ce || ce.__wrappedDefine) return ce;
+          const def = ce.define.bind(ce);
+          ce.define = function(name, ctor, opts){
+            if (ce.get && ce.get(name)) return;
+            try { return def(name, ctor, opts); }
+            catch(e){ if (!String(e?.message||'').includes('already been defined')) throw e; }
           };
-          console.log('CE guard active (HTML head).');
-        } catch (_) {}
+          ce.__wrappedDefine = true;
+          return ce;
+        }
+        if (window.customElements) wrap(window.customElements);
+        let _ce = window.customElements;
+        Object.defineProperty(window, 'customElements', {
+          configurable: true,
+          get(){ return _ce; },
+          set(v){ _ce = wrap(v); }
+        });
+        console.log('CE guard (pre) active');
       })();
     </script>
 
@@ -35,6 +39,20 @@
   </head>
   <body style="height: 100%;">
     <div id="root" style="height: 100%;"></div>
+    <script>
+      (function(){ try{ window.customElements && window.customElements.define && (function(ce){
+        if (!ce.__wrappedDefine) {
+          const def = ce.define.bind(ce);
+          ce.define = function(name, ctor, opts){
+            if (ce.get && ce.get(name)) return;
+            try { return def(name, ctor, opts); }
+            catch(e){ if (!String(e?.message||'').includes('already been defined')) throw e; }
+          };
+          ce.__wrappedDefine = true;
+          console.log('CE guard (post) active');
+        }
+      })(window.customElements); }catch(_){} })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
