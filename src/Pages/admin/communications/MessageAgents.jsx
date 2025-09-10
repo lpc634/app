@@ -97,7 +97,7 @@ export default function MessageAgents() {
   const disabledSend = sending || message.trim().length === 0 || (selected.length === 0)
 
   return (
-    <div className="space-y-4 pb-24 md:pb-0">
+    <div className="space-y-4 pb-24 md:pb-0 px-3">
       <div>
         <h1 className="text-2xl font-semibold">Message agents</h1>
         <p className="text-sm text-muted-foreground">Send a Telegram message to one or many agents. Linked agents have Telegram connected.</p>
@@ -107,7 +107,7 @@ export default function MessageAgents() {
         </div>
       </div>
 
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>Compose</CardTitle>
           <CardDescription>Up to 1000 characters. Telegram formatting is disabled.</CardDescription>
@@ -142,11 +142,11 @@ export default function MessageAgents() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search agents by name or email..."
-                className="w-full pl-10 pr-3 py-2 rounded-md border bg-background"
+                className="w-full pl-10 pr-3 h-10 rounded-md border bg-background"
               />
             </div>
 
-            <div className="max-h-64 overflow-y-auto rounded-md border divide-y">
+            <div className="max-h-[60vh] overflow-y-auto rounded-lg border divide-y">
               {loadingAgents ? (
                 <div className="p-3 text-sm text-muted-foreground">Loading agents...</div>
               ) : filtered.length === 0 ? (
