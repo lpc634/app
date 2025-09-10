@@ -148,7 +148,8 @@ export default function MessageAgents() {
               />
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto rounded-lg border divide-y">
+            {/* Single page scroll: remove inner clamps/scroll */}
+            <div className="rounded-lg border divide-y">
               {loadingAgents ? (
                 <div className="p-3 text-sm text-muted-foreground">Loading agents...</div>
               ) : filtered.length === 0 ? (
