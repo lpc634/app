@@ -1,3 +1,4 @@
+import './boot/fix-custom-elements.js';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
