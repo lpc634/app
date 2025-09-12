@@ -4,9 +4,15 @@ from sqlalchemy.orm import joinedload
 from src.models.user import db, JobBilling, Invoice, InvoiceJob, Expense, Job, JobAssignment
 import logging
 from datetime import date, datetime
-from config import FINANCIAL_THRESHOLDS  # Assumes config.py defines thresholds
 
 logger = logging.getLogger(__name__)
+
+# Define financial thresholds internally to avoid ImportError
+FINANCIAL_THRESHOLDS = {
+    'very_low_margin': 5.0,
+    'low_margin': 15.0,
+    'expense_ratio_threshold': 0.5
+}
 
 class FinancialCalculationError(Exception):
     """Custom exception for financial calculation errors."""
