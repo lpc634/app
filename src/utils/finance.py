@@ -488,11 +488,9 @@ def calculate_revenue_for_period(from_date, to_date, job_id=None):
 
         for job, billing in jobs_with_billing:
             # Use snapshot if available (job completed), otherwise calculate live
-            if (
-                billing.revenue_net_snapshot is not None and
+            if (billing.revenue_net_snapshot is not None and
                 billing.revenue_vat_snapshot is not None and
-                billing.revenue_gross_snapshot is not None
-            ):
+                billing.revenue_gross_snapshot is not None):
                 revenue['net'] += float(billing.revenue_net_snapshot)
                 revenue['vat'] += float(billing.revenue_vat_snapshot)
                 revenue['gross'] += float(billing.revenue_gross_snapshot)
