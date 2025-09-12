@@ -524,8 +524,11 @@ def calculate_agent_invoices_for_period(from_date, to_date):
             raise FinancialCalculationError("from_date cannot be later than to_date")
         
         valid_statuses = ['submitted', 'sent', 'paid']
-        invoices = db.session.query(Invoice).join(InvoiceJob).join(Job).options(
-            joinedload(Invoice.invoice_jobs).joinedload(InvoiceJob.job)
+        query = (
+            db.session.query(Invoice)
+            .options(joinedload(Invoice.agent))
+            .join(InvoiceJob, InvoiceJob.invoice_id == Invoice.id)
+            .join(Job, Job.id == InvoiceJob.job_id)
         )
         # Apply status and date filters
         filters = [Invoice.status.in_(valid_statuses)]
@@ -537,7 +540,7 @@ def calculate_agent_invoices_for_period(from_date, to_date):
                     col <= datetime.combine(to_date, datetime.max.time())
                 )
             )
-        invoices = invoices.filter(and_(*filters)).all()
+        invoices = query.filter(and_(*filters)).all()
         
         total = sum(invoice.total_amount for invoice in invoices)
         return float(total) if total else 0.0
