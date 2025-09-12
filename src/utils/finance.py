@@ -14,6 +14,15 @@ FINANCIAL_THRESHOLDS = {
     'expense_ratio_threshold': 0.5
 }
 
+def _job_date_col():
+    # Prefer completed_at if it exists, else updated_at, else created_at
+    from src.models.user import Job
+    for name in ("completed_at", "updated_at", "created_at"):
+        if hasattr(Job, name):
+            return getattr(Job, name)
+    # last resort: don’t filter by job date at all (callers may pass job_id)
+    return None
+
 class FinancialCalculationError(Exception):
     """Custom exception for financial calculation errors."""
     pass
@@ -517,13 +526,18 @@ def calculate_agent_invoices_for_period(from_date, to_date):
         valid_statuses = ['submitted', 'sent', 'paid']
         invoices = db.session.query(Invoice).join(InvoiceJob).join(Job).options(
             joinedload(Invoice.invoice_jobs).joinedload(InvoiceJob.job)
-        ).filter(
-            and_(
-                Invoice.status.in_(valid_statuses),
-                Job.completed_at >= datetime.combine(from_date, datetime.min.time()),
-                Job.completed_at <= datetime.combine(to_date, datetime.max.time())
+        )
+        # Apply status and date filters
+        filters = [Invoice.status.in_(valid_statuses)]
+        col = _job_date_col()
+        if col is not None:
+            filters.append(
+                and_(
+                    col >= datetime.combine(from_date, datetime.min.time()),
+                    col <= datetime.combine(to_date, datetime.max.time())
+                )
             )
-        ).all()
+        invoices = invoices.filter(and_(*filters)).all()
         
         total = sum(invoice.total_amount for invoice in invoices)
         return float(total) if total else 0.0
@@ -696,13 +710,15 @@ def calculate_revenue_for_period(from_date, to_date, job_id=None):
         if job_id:
             query = query.filter(Job.id == job_id)
         
-        # Filter by completion date
-        query = query.filter(
-            and_(
-                Job.completed_at >= datetime.combine(from_date, datetime.min.time()),
-                Job.completed_at <= datetime.combine(to_date, datetime.max.time())
+        # Filter by job date using a resilient column resolver
+        col = _job_date_col()
+        if col is not None:
+            query = query.filter(
+                and_(
+                    col >= datetime.combine(from_date, datetime.min.time()),
+                    col <= datetime.combine(to_date, datetime.max.time())
+                )
             )
-        )
         
         jobs_with_billing = query.all()
         
