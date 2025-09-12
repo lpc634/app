@@ -523,27 +523,9 @@ def calculate_agent_invoices_for_period(from_date, to_date):
         if from_date > to_date:
             raise FinancialCalculationError("from_date cannot be later than to_date")
         
-        valid_statuses = ['submitted', 'sent', 'paid']
-        query = (
-            db.session.query(Invoice)
-            .options(joinedload(Invoice.agent))
-            .join(InvoiceJob, InvoiceJob.invoice_id == Invoice.id)
-            .join(Job, Job.id == InvoiceJob.job_id)
-        )
-        # Apply status and date filters
-        filters = [Invoice.status.in_(valid_statuses)]
-        col = _job_date_col()
-        if col is not None:
-            filters.append(
-                and_(
-                    col >= datetime.combine(from_date, datetime.min.time()),
-                    col <= datetime.combine(to_date, datetime.max.time())
-                )
-            )
-        invoices = query.filter(and_(*filters)).all()
-        
-        total = sum(invoice.total_amount for invoice in invoices)
-        return float(total) if total else 0.0
+        # Back-compat shim: return GROSS total using the new breakdown
+        br = calculate_agent_invoices_breakdown(from_date, to_date)
+        return float(br["gross"]) if br else 0.0
         
     except FinancialCalculationError as e:
         raise
@@ -593,6 +575,90 @@ def calculate_expenses_for_period(from_date, to_date):
             'vat': float(vat_total) if vat_total else 0.0,
             'gross': float(gross_total) if gross_total else 0.0
         }
+
+def _backout_vat_from_gross(gross: Decimal, vat_rate: Decimal):
+    if vat_rate is None:
+        vat_rate = Decimal("0")
+    if vat_rate <= 0:
+        return Decimal(str(gross)), Decimal("0.00")
+    net = (Decimal(str(gross)) / (Decimal("1.0") + vat_rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    vat = (Decimal(str(gross)) - net).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return net, vat
+
+def calculate_agent_invoices_breakdown(from_date, to_date):
+    """
+    Return agent invoice totals as a dict: {'net': float, 'vat': float, 'gross': float}
+    Includes invoices with status in {'submitted','sent','paid'} for jobs in the date window.
+    VAT handling priority:
+      - If invoice has (total_amount_net, vat_amount, total_amount) use them directly.
+      - Else if it has vat_amount, treat total_amount as gross.
+      - Else if it has vat_rate > 0 and the agent is VAT-registered, back out VAT from total_amount.
+      - Else if agent is VAT-registered but no rate given, assume 20% and back out.
+      - Otherwise treat total_amount as NET (no VAT).
+    """
+    try:
+        if not isinstance(from_date, date) or not isinstance(to_date, date):
+            raise FinancialCalculationError("from_date and to_date must be date objects")
+        if from_date > to_date:
+            raise FinancialCalculationError("from_date cannot be later than to_date")
+
+        valid_statuses = ['submitted', 'sent', 'paid']
+        q = (
+            db.session.query(Invoice)
+            .options(joinedload(Invoice.agent))
+            .join(InvoiceJob, InvoiceJob.invoice_id == Invoice.id)
+            .join(Job, Job.id == InvoiceJob.job_id)
+        )
+        filters = [Invoice.status.in_(valid_statuses)]
+        col = _job_date_col()
+        if col is not None:
+            filters.append(
+                and_(
+                    col >= datetime.combine(from_date, datetime.min.time()),
+                    col <= datetime.combine(to_date, datetime.max.time())
+                )
+            )
+        invoices = q.filter(and_(*filters)).all()
+
+        total_net = Decimal("0.00"); total_vat = Decimal("0.00"); total_gross = Decimal("0.00")
+        for inv in invoices:
+            amt = Decimal(str(getattr(inv, "total_amount", 0) or 0))
+            agent = getattr(inv, "agent", None)
+            agent_vat_registered = bool(getattr(agent, "is_vat_registered", False) or getattr(agent, "vat_registered", False))
+
+            if hasattr(inv, "total_amount_net") and hasattr(inv, "vat_amount") and getattr(inv, "total_amount_net") is not None:
+                n = Decimal(str(getattr(inv, "total_amount_net") or 0))
+                v = Decimal(str(getattr(inv, "vat_amount") or 0))
+                g = n + v
+            elif hasattr(inv, "vat_amount") and getattr(inv, "vat_amount") is not None:
+                v = Decimal(str(inv.vat_amount))
+                g = amt
+                n = g - v
+            else:
+                vat_rate = getattr(inv, "vat_rate", None)
+                try:
+                    vat_rate = Decimal(str(vat_rate)) if vat_rate is not None else None
+                except Exception:
+                    vat_rate = None
+                if agent_vat_registered and (vat_rate is not None and vat_rate > 0):
+                    n, v = _backout_vat_from_gross(amt, vat_rate)
+                    g = amt
+                elif agent_vat_registered and (vat_rate is None or vat_rate == 0):
+                    n, v = _backout_vat_from_gross(amt, Decimal("0.20"))
+                    g = amt
+                else:
+                    n = amt; v = Decimal("0.00"); g = amt
+
+            total_net += n; total_vat += v; total_gross += g
+
+        return {
+            "net": float(total_net.quantize(Decimal("0.01"))),
+            "vat": float(total_vat.quantize(Decimal("0.01"))),
+            "gross": float(total_gross.quantize(Decimal("0.01"))),
+        }
+    except Exception as e:
+        logger.error(f"Error calculating agent invoice breakdown for period {from_date} to {to_date}: {e}")
+        raise FinancialCalculationError(f"Failed to calculate agent invoice breakdown: {str(e)}")
         
     except FinancialCalculationError as e:
         raise
@@ -624,8 +690,8 @@ def get_financial_summary_corrected(from_date=None, to_date=None):
         # Revenue (includes VAT output)
         revenue = calculate_revenue_for_period(from_date, to_date)
         
-        # Agent invoices (no VAT - agents not VAT registered)
-        agent_invoices_total = calculate_agent_invoices_for_period(from_date, to_date)
+        # Agent invoices (supports VAT where applicable)
+        agent = calculate_agent_invoices_breakdown(from_date, to_date)
         
         # Expenses (includes VAT input)
         expenses = calculate_expenses_for_period(from_date, to_date)
@@ -634,9 +700,9 @@ def get_financial_summary_corrected(from_date=None, to_date=None):
         money_in_net = revenue['net']
         money_in_gross = revenue['gross']
         
-        # Money out: Agent costs (no VAT) + Expense costs
-        money_out_net = agent_invoices_total + expenses['net']
-        money_out_gross = agent_invoices_total + expenses['gross']
+        # Money out: Agent costs + Expense costs
+        money_out_net = agent['net'] + expenses['net']
+        money_out_gross = agent['gross'] + expenses['gross']
         
         # Profit
         profit_net = money_in_net - money_out_net
@@ -644,7 +710,7 @@ def get_financial_summary_corrected(from_date=None, to_date=None):
         
         # VAT summary
         vat_output = revenue['vat']  # VAT we charge customers
-        vat_input = expenses['vat']  # VAT we can reclaim
+        vat_input = expenses['vat'] + agent['vat']  # VAT we can reclaim (expenses + VAT-charging agents)
         vat_net_due = vat_output - vat_input  # VAT we owe HMRC
         
         return {
@@ -658,7 +724,10 @@ def get_financial_summary_corrected(from_date=None, to_date=None):
                 'gross': round(revenue['gross'], 2)
             },
             'costs': {
-                'agent_invoices': round(agent_invoices_total, 2),
+                'agent_invoices': round(agent['gross'], 2),  # legacy gross
+                'agent_invoices_net': round(agent['net'], 2),
+                'agent_invoices_vat': round(agent['vat'], 2),
+                'agent_invoices_gross': round(agent['gross'], 2),
                 'expenses_net': round(expenses['net'], 2),
                 'expenses_vat': round(expenses['vat'], 2),
                 'expenses_gross': round(expenses['gross'], 2),
