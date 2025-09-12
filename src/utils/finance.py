@@ -469,13 +469,13 @@ def calculate_revenue_for_period(from_date, to_date, job_id=None):
     """Calculate revenue for a date period."""
     try:
         revenue = {'net': 0.0, 'vat': 0.0, 'gross': 0.0}
-        
+
         # Get all jobs with billing config
         query = db.session.query(Job, JobBilling).join(JobBilling)
-        
+
         if job_id:
             query = query.filter(Job.id == job_id)
-        
+
         # Filter by completion date or creation date
         query = query.filter(
             and_(
@@ -483,11 +483,27 @@ def calculate_revenue_for_period(from_date, to_date, job_id=None):
                 Job.created_at <= datetime.combine(to_date, datetime.max.time())
             )
         )
-        
+
         jobs_with_billing = query.all()
-        
+
         for job, billing in jobs_with_billing:
             # Use snapshot if available (job completed), otherwise calculate live
-            if (billing.revenue_net_snapshot and 
-                billing.revenue_vat_snapshot and 
-                billing
+            if (
+                billing.revenue_net_snapshot is not None and
+                billing.revenue_vat_snapshot is not None and
+                billing.revenue_gross_snapshot is not None
+            ):
+                revenue['net'] += float(billing.revenue_net_snapshot)
+                revenue['vat'] += float(billing.revenue_vat_snapshot)
+                revenue['gross'] += float(billing.revenue_gross_snapshot)
+            else:
+                job_revenue = calculate_job_revenue(billing)
+                revenue['net'] += job_revenue['revenue_net']
+                revenue['vat'] += job_revenue['revenue_vat']
+                revenue['gross'] += job_revenue['revenue_gross']
+
+        return revenue
+
+    except Exception as e:
+        logger.error(f"Error calculating revenue for period: {e}")
+        return {'net': 0.0, 'vat': 0.0, 'gross': 0.0}
