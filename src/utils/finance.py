@@ -573,12 +573,16 @@ def calculate_expenses_for_period(from_date, to_date):
         
         expenses = db.session.query(Expense).join(Job).options(
             joinedload(Expense.job)
-        ).filter(
-            and_(
-                Job.completed_at >= datetime.combine(from_date, datetime.min.time()),
-                Job.completed_at <= datetime.combine(to_date, datetime.max.time())
+        )
+        col = _job_date_col()
+        if col is not None:
+            expenses = expenses.filter(
+                and_(
+                    col >= datetime.combine(from_date, datetime.min.time()),
+                    col <= datetime.combine(to_date, datetime.max.time())
+                )
             )
-        ).all()
+        expenses = expenses.all()
         
         net_total = sum(expense.amount_net for expense in expenses)
         vat_total = sum(expense.vat_amount for expense in expenses)
