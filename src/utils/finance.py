@@ -728,3 +728,29 @@ def calculate_revenue_for_period(from_date, to_date, job_id=None):
     except Exception as e:
         logger.error(f"Error calculating revenue for period {from_date} to {to_date}: {e}")
         raise FinancialCalculationError(f"Failed to calculate revenue: {str(e)}")
+
+# --- Backwards-compat exports & explicit public API ---
+
+# Alias old name to the corrected implementation to avoid breaking imports
+def get_financial_summary(*args, **kwargs):
+    return get_financial_summary_corrected(*args, **kwargs)
+
+# Make the module’s public surface explicit
+__all__ = [
+    "FINANCIAL_THRESHOLDS",
+    "FinancialCalculationError",
+    "validate_job_billing_schema",
+    "update_job_hours",
+    "calculate_job_revenue",
+    "calculate_expense_vat",
+    "get_job_expense_totals",
+    "get_job_agent_invoice_totals",
+    "calculate_job_profit",
+    "validate_job_finances",
+    "lock_job_revenue_snapshot",
+    "calculate_agent_invoices_for_period",
+    "calculate_expenses_for_period",
+    "calculate_revenue_for_period",
+    "get_financial_summary_corrected",
+    "get_financial_summary",  # alias for backwards compat
+]
