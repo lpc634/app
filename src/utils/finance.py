@@ -577,24 +577,28 @@ def calculate_expenses_for_period(from_date, to_date):
         }
 
 def _backout_vat_from_gross(gross: Decimal, vat_rate: Decimal):
+    """
+    Given a GROSS amount and a VAT rate (e.g. Decimal('0.20') for 20%),
+    return (net, vat) as Decimals rounded to 2dp (ROUND_HALF_UP).
+    If vat_rate is None/<=0, returns (gross, 0).
+    """
     if vat_rate is None or vat_rate <= 0:
-        return gross, Decimal("0.00")
-    net = (Decimal(str(gross)) / (Decimal("1.0") + vat_rate)).quantize(
-        Decimal("0.01"), rounding=ROUND_HALF_UP
-    )
-    vat = (Decimal(str(gross)) - net).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return Decimal(str(gross)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), Decimal("0.00")
+    gross = Decimal(str(gross))
+    net = (gross / (Decimal("1.0") + vat_rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    vat = (gross - net).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return net, vat
 
 def calculate_agent_invoices_breakdown(from_date, to_date):
     """
     Return agent invoice totals as a dict: {'net': float, 'vat': float, 'gross': float}
     Includes invoices with status in {'submitted','sent','paid'} for jobs in the date window.
-    VAT handling priority:
+    VAT handling:
       - If invoice has (total_amount_net, vat_amount, total_amount) use them directly.
-      - Else if it has vat_amount, treat total_amount as gross.
-      - Else if it has vat_rate > 0 and the agent is VAT-registered, back out VAT from total_amount.
-      - Else if agent is VAT-registered but no rate given, assume 20% and back out.
-      - Otherwise treat total_amount as NET (no VAT).
+      - Else if it has vat_amount: treat total_amount as gross, net = gross - vat.
+      - Else if it has vat_rate > 0 and the agent is VAT-registered, back out VAT from gross.
+      - Else if agent is VAT-registered but no vat_rate, assume 20% and back out.
+      - Otherwise: treat total_amount as NET (no VAT).
     """
     try:
         if not isinstance(from_date, date) or not isinstance(to_date, date):
@@ -603,28 +607,38 @@ def calculate_agent_invoices_breakdown(from_date, to_date):
             raise FinancialCalculationError("from_date cannot be later than to_date")
 
         valid_statuses = ['submitted', 'sent', 'paid']
+
+        # Resolve a job date column safely (completed_at -> updated_at -> created_at)
+        col = _job_date_col()
+
+        # Build query: Invoice -> InvoiceJob -> Job
         q = (
             db.session.query(Invoice)
             .options(joinedload(Invoice.agent))
             .join(InvoiceJob, InvoiceJob.invoice_id == Invoice.id)
             .join(Job, Job.id == InvoiceJob.job_id)
+            .filter(Invoice.status.in_(valid_statuses))
         )
-        filters = [Invoice.status.in_(valid_statuses)]
-        col = _job_date_col()
         if col is not None:
-            filters.append(
+            q = q.filter(
                 and_(
                     col >= datetime.combine(from_date, datetime.min.time()),
-                    col <= datetime.combine(to_date, datetime.max.time())
+                    col <= datetime.combine(to_date, datetime.max.time()),
                 )
             )
-        invoices = q.filter(and_(*filters)).all()
 
-        total_net = Decimal("0.00"); total_vat = Decimal("0.00"); total_gross = Decimal("0.00")
+        invoices = q.all()
+
+        net = Decimal("0.00")
+        vat = Decimal("0.00")
+        gross = Decimal("0.00")
+
         for inv in invoices:
             amt = Decimal(str(getattr(inv, "total_amount", 0) or 0))
             agent = getattr(inv, "agent", None)
-            agent_vat_registered = bool(getattr(agent, "is_vat_registered", False) or getattr(agent, "vat_registered", False))
+            agent_vat_registered = bool(
+                getattr(agent, "is_vat_registered", False) or getattr(agent, "vat_registered", False)
+            )
 
             if hasattr(inv, "total_amount_net") and hasattr(inv, "vat_amount") and getattr(inv, "total_amount_net") is not None:
                 n = Decimal(str(getattr(inv, "total_amount_net") or 0))
@@ -640,22 +654,30 @@ def calculate_agent_invoices_breakdown(from_date, to_date):
                     vat_rate = Decimal(str(vat_rate)) if vat_rate is not None else None
                 except Exception:
                     vat_rate = None
+
                 if agent_vat_registered and (vat_rate is not None and vat_rate > 0):
                     n, v = _backout_vat_from_gross(amt, vat_rate)
                     g = amt
                 elif agent_vat_registered and (vat_rate is None or vat_rate == 0):
+                    # assume 20% standard rate if agent is VAT-registered but no rate stored
                     n, v = _backout_vat_from_gross(amt, Decimal("0.20"))
                     g = amt
                 else:
-                    n = amt; v = Decimal("0.00"); g = amt
+                    # not VAT-registered (or no VAT charged) -> gross==net, vat=0
+                    n = amt
+                    v = Decimal("0.00")
+                    g = amt
 
-            total_net += n; total_vat += v; total_gross += g
+            net += n
+            vat += v
+            gross += g
 
         return {
-            "net": float(total_net.quantize(Decimal("0.01"))),
-            "vat": float(total_vat.quantize(Decimal("0.01"))),
-            "gross": float(total_gross.quantize(Decimal("0.01"))),
+            "net": float(net.quantize(Decimal("0.01"))),
+            "vat": float(vat.quantize(Decimal("0.01"))),
+            "gross": float(gross.quantize(Decimal("0.01"))),
         }
+
     except Exception as e:
         logger.error(f"Error calculating agent invoice breakdown for period {from_date} to {to_date}: {e}")
         raise FinancialCalculationError(f"Failed to calculate agent invoice breakdown: {str(e)}")
