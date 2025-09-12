@@ -1,12 +1,39 @@
-# src/utils/finance.py - CORRECTED VERSION
 from decimal import Decimal, ROUND_HALF_UP
 from sqlalchemy import and_
+from sqlalchemy.orm import joinedload
 from src.models.user import db, JobBilling, Invoice, InvoiceJob, Expense, Job, JobAssignment
 import logging
 from datetime import date, datetime
+from config import FINANCIAL_THRESHOLDS  # Assumes config.py defines thresholds
 
 logger = logging.getLogger(__name__)
 
+class FinancialCalculationError(Exception):
+    """Custom exception for financial calculation errors."""
+    pass
+
+def validate_job_billing_schema(billing):
+    """
+    Validate that required fields exist in JobBilling model.
+    
+    Args:
+        billing (JobBilling): JobBilling instance
+        
+    Raises:
+        AttributeError: If required fields are missing
+    """
+    if billing is None:
+        raise FinancialCalculationError("No billing configuration provided")
+    
+    required_fields = [
+        'billable_hours_calculated', 'billable_hours_override',
+        'hourly_rate_net', 'vat_rate', 'first_hour_units',
+        'revenue_net_snapshot', 'revenue_vat_snapshot', 'revenue_gross_snapshot'
+    ]
+    for field in required_fields:
+        if not hasattr(billing, field):
+            logger.error(f"Missing required field {field} in JobBilling model")
+            raise AttributeError(f"JobBilling model missing {field}")
 
 def update_job_hours(job_id):
     """
@@ -18,19 +45,29 @@ def update_job_hours(job_id):
         
     Returns:
         dict: Updated hours data with validation warnings
+        
+    Raises:
+        FinancialCalculationError: If job_id is invalid
     """
     try:
+        if not isinstance(job_id, int) or job_id <= 0:
+            raise FinancialCalculationError(f"Invalid job_id: {job_id}")
+        
         # Get or create JobBilling for this job
         billing = JobBilling.query.filter_by(job_id=job_id).first()
         if not billing:
             logger.info(f"No JobBilling config found for job {job_id}, skipping hours update")
             return None
         
+        validate_job_billing_schema(billing)
+        
         # Include invoices with status in {'submitted','sent','paid'}; exclude {'draft','void','deleted'}
         valid_statuses = ['submitted', 'sent', 'paid']
         
-        # Get all invoice jobs for this job with valid invoice statuses
-        invoice_jobs = db.session.query(InvoiceJob).join(Invoice).filter(
+        # Get all invoice jobs with joined Invoice data
+        invoice_jobs = db.session.query(InvoiceJob).join(Invoice).options(
+            joinedload(InvoiceJob.invoice)
+        ).filter(
             and_(
                 InvoiceJob.job_id == job_id,
                 Invoice.status.in_(valid_statuses)
@@ -44,7 +81,6 @@ def update_job_hours(job_id):
                 total_hours += Decimal(str(ij.hours_worked))
         
         # Calculate first-hour units F (all-or-nothing per agent)
-        # Group by agent_id, count agents with hours > 0
         agent_hours = {}
         for ij in invoice_jobs:
             agent_id = ij.invoice.agent_id
@@ -62,7 +98,7 @@ def update_job_hours(job_id):
         
         validation_warnings = []
         if planned_agent_count != actual_working_agents:
-            warning = f"Job {job_id}: Planned {planned_agent_count} agents, but {actual_working_agents} actually worked"
+            warning = f"Job {job_id}: Planned {planned_agent_count} agents, but {actual_working_agents} actually worked (Invoice IDs: {[ij.invoice_id for ij in invoice_jobs]})"
             validation_warnings.append(warning)
             logger.warning(warning)
         
@@ -87,8 +123,7 @@ def update_job_hours(job_id):
     except Exception as e:
         logger.error(f"Error updating job hours for job {job_id}: {e}")
         db.session.rollback()
-        return None
-
+        raise FinancialCalculationError(f"Failed to update job hours: {str(e)}")
 
 def calculate_job_revenue(billing):
     """
@@ -100,11 +135,16 @@ def calculate_job_revenue(billing):
         
     Returns:
         dict: Revenue breakdown (net, vat, gross)
+        
+    Raises:
+        FinancialCalculationError: If billing is invalid
     """
     if not billing:
-        return {'revenue_net': 0, 'revenue_vat': 0, 'revenue_gross': 0}
+        raise FinancialCalculationError("No billing configuration provided")
     
     try:
+        validate_job_billing_schema(billing)
+        
         # Use override hours if set, otherwise calculated hours
         H = Decimal(str(billing.billable_hours_override)) if billing.billable_hours_override else billing.billable_hours_calculated
         F = billing.first_hour_units  # Use ACTUAL working agents (not planned)
@@ -135,8 +175,7 @@ def calculate_job_revenue(billing):
         
     except Exception as e:
         logger.error(f"Error calculating revenue for billing {billing.id}: {e}")
-        return {'revenue_net': 0, 'revenue_vat': 0, 'revenue_gross': 0}
-
+        raise FinancialCalculationError(f"Failed to calculate revenue: {str(e)}")
 
 def calculate_expense_vat(amount_net, vat_rate):
     """
@@ -148,10 +187,17 @@ def calculate_expense_vat(amount_net, vat_rate):
         
     Returns:
         tuple: (vat_amount, amount_gross)
+        
+    Raises:
+        FinancialCalculationError: If inputs are invalid
     """
     try:
+        if amount_net is None or vat_rate is None:
+            raise FinancialCalculationError("amount_net and vat_rate cannot be None")
         net = Decimal(str(amount_net))
         rate = Decimal(str(vat_rate))
+        if net < 0 or rate < 0:
+            raise FinancialCalculationError("Negative values not allowed for amount_net or vat_rate")
         
         vat_amount = (net * rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         amount_gross = net + vat_amount
@@ -160,8 +206,7 @@ def calculate_expense_vat(amount_net, vat_rate):
         
     except Exception as e:
         logger.error(f"Error calculating VAT: {e}")
-        return Decimal('0'), amount_net
-
+        raise FinancialCalculationError(f"Failed to calculate VAT: {str(e)}")
 
 def get_job_expense_totals(job_id):
     """
@@ -172,8 +217,14 @@ def get_job_expense_totals(job_id):
         
     Returns:
         dict: Expense totals (count, net, vat, gross)
+        
+    Raises:
+        FinancialCalculationError: If job_id is invalid
     """
     try:
+        if not isinstance(job_id, int) or job_id <= 0:
+            raise FinancialCalculationError(f"Invalid job_id: {job_id}")
+        
         expenses = Expense.query.filter_by(job_id=job_id).all()
         
         count = len(expenses)
@@ -190,8 +241,7 @@ def get_job_expense_totals(job_id):
         
     except Exception as e:
         logger.error(f"Error calculating expense totals for job {job_id}: {e}")
-        return {'count': 0, 'net': 0.0, 'vat': 0.0, 'gross': 0.0}
-
+        raise FinancialCalculationError(f"Failed to calculate expense totals: {str(e)}")
 
 def get_job_agent_invoice_totals(job_id):
     """
@@ -202,10 +252,18 @@ def get_job_agent_invoice_totals(job_id):
         
     Returns:
         dict: Agent invoice totals (count, total)
+        
+    Raises:
+        FinancialCalculationError: If job_id is invalid
     """
     try:
-        # Get all invoices linked to this job
-        invoice_jobs = InvoiceJob.query.filter_by(job_id=job_id).all()
+        if not isinstance(job_id, int) or job_id <= 0:
+            raise FinancialCalculationError(f"Invalid job_id: {job_id}")
+        
+        # Get all invoices linked to this job with joined data
+        invoice_jobs = InvoiceJob.query.filter_by(job_id=job_id).options(
+            joinedload(InvoiceJob.invoice)
+        ).all()
         invoice_ids = [ij.invoice_id for ij in invoice_jobs]
         
         if not invoice_ids:
@@ -230,12 +288,10 @@ def get_job_agent_invoice_totals(job_id):
         
     except Exception as e:
         logger.error(f"Error calculating agent invoice totals for job {job_id}: {e}")
-        return {'count': 0, 'total': 0.0}
-
+        raise FinancialCalculationError(f"Failed to calculate agent invoice totals: {str(e)}")
 
 def calculate_job_profit(job_id):
     """
-    CORRECTED PROFIT CALCULATION
     Calculate profit for a job with proper cost accounting.
     
     Args:
@@ -243,17 +299,19 @@ def calculate_job_profit(job_id):
         
     Returns:
         dict: Profit calculation with margins and validation
+        
+    Raises:
+        FinancialCalculationError: If job_id is invalid
     """
     try:
+        if not isinstance(job_id, int) or job_id <= 0:
+            raise FinancialCalculationError(f"Invalid job_id: {job_id}")
+        
         billing = JobBilling.query.filter_by(job_id=job_id).first()
         if not billing:
-            return {
-                'profit_net': 0.0, 
-                'profit_gross': 0.0,
-                'margin_net': 0.0,
-                'margin_gross': 0.0,
-                'warnings': ['No billing configuration found']
-            }
+            raise FinancialCalculationError("No billing configuration found")
+        
+        validate_job_billing_schema(billing)
         
         # Get revenue (includes VAT)
         revenue = calculate_job_revenue(billing)
@@ -264,8 +322,7 @@ def calculate_job_profit(job_id):
         # Get agent invoices (NO VAT - agents aren't VAT registered)
         agent_invoices = get_job_agent_invoice_totals(job_id)
         
-        # CORRECTED PROFIT CALCULATION:
-        # Agent costs have no VAT, so they're treated as net costs
+        # Profit calculation: Agent costs have no VAT, so they're treated as net costs
         total_costs_net = agent_invoices['total'] + expenses['net']
         total_costs_gross = agent_invoices['total'] + expenses['gross']
         
@@ -278,39 +335,34 @@ def calculate_job_profit(job_id):
         
         # Validation warnings
         warnings = []
-        if margin_net < 5:
+        if margin_net < FINANCIAL_THRESHOLDS['very_low_margin']:
             warnings.append(f"Very low net profit margin: {margin_net:.1f}%")
-        elif margin_net < 15:
+        elif margin_net < FINANCIAL_THRESHOLDS['low_margin']:
             warnings.append(f"Low net profit margin: {margin_net:.1f}%")
             
         if profit_net < 0:
             warnings.append("Job is making a loss!")
             
         return {
-            'profit_net': profit_net,
-            'profit_gross': profit_gross,
-            'margin_net': margin_net,
-            'margin_gross': margin_gross,
+            'profit_net': float(profit_net),
+            'profit_gross': float(profit_gross),
+            'margin_net': float(margin_net),
+            'margin_gross': float(margin_gross),
             'revenue_net': revenue['revenue_net'],
             'revenue_gross': revenue['revenue_gross'],
-            'costs_net': total_costs_net,
-            'costs_gross': total_costs_gross,
+            'costs_net': float(total_costs_net),
+            'costs_gross': float(total_costs_gross),
             'agent_costs': agent_invoices['total'],
             'expense_costs_net': expenses['net'],
             'expense_costs_gross': expenses['gross'],
             'warnings': warnings
         }
         
+    except FinancialCalculationError as e:
+        raise
     except Exception as e:
         logger.error(f"Error calculating profit for job {job_id}: {e}")
-        return {
-            'profit_net': 0.0, 
-            'profit_gross': 0.0,
-            'margin_net': 0.0,
-            'margin_gross': 0.0,
-            'warnings': [f'Calculation error: {str(e)}']
-        }
-
+        raise FinancialCalculationError(f"Failed to calculate profit: {str(e)}")
 
 def validate_job_finances(job_id):
     """
@@ -321,8 +373,14 @@ def validate_job_finances(job_id):
         
     Returns:
         dict: Validation results with issues and recommendations
+        
+    Raises:
+        FinancialCalculationError: If job_id is invalid
     """
     try:
+        if not isinstance(job_id, int) or job_id <= 0:
+            raise FinancialCalculationError(f"Invalid job_id: {job_id}")
+        
         issues = []
         warnings = []
         recommendations = []
@@ -336,6 +394,8 @@ def validate_job_finances(job_id):
         if not billing:
             issues.append("No billing configuration found")
             return {'issues': issues, 'warnings': warnings, 'recommendations': recommendations}
+        
+        validate_job_billing_schema(billing)
         
         # Check agent count consistency
         assigned_count = JobAssignment.query.filter_by(job_id=job_id).count()
@@ -356,7 +416,7 @@ def validate_job_finances(job_id):
             
         # Check for excessive expenses
         expenses = get_job_expense_totals(job_id)
-        if expenses['gross'] > profit['revenue_gross'] * 0.5:  # Expenses > 50% of revenue
+        if expenses['gross'] > profit['revenue_gross'] * FINANCIAL_THRESHOLDS['expense_ratio_threshold']:
             warnings.append(f"High expense ratio: £{expenses['gross']:.2f} expenses vs £{profit['revenue_gross']:.2f} revenue")
             
         # Business recommendations
@@ -375,28 +435,164 @@ def validate_job_finances(job_id):
             'validation_passed': len(issues) == 0
         }
         
+    except FinancialCalculationError as e:
+        raise
     except Exception as e:
         logger.error(f"Error validating job finances for {job_id}: {e}")
-        return {
-            'issues': [f'Validation error: {str(e)}'],
-            'warnings': [],
-            'recommendations': [],
-            'validation_passed': False
-        }
+        raise FinancialCalculationError(f"Failed to validate job finances: {str(e)}")
 
+def lock_job_revenue_snapshot(job_id):
+    """
+    Lock the current revenue calculation as a snapshot for the job billing.
+    
+    Args:
+        job_id (int): Job ID to lock snapshots for
+        
+    Returns:
+        bool: True if successful, False otherwise
+        
+    Raises:
+        FinancialCalculationError: If job_id is invalid or operation fails
+    """
+    try:
+        if not isinstance(job_id, int) or job_id <= 0:
+            raise FinancialCalculationError(f"Invalid job_id: {job_id}")
+        
+        billing = JobBilling.query.filter_by(job_id=job_id).first()
+        if not billing:
+            raise FinancialCalculationError(f"No JobBilling found for job {job_id}")
+        
+        validate_job_billing_schema(billing)
+        
+        # Calculate current revenue
+        revenue = calculate_job_revenue(billing)
+        
+        # Set snapshots
+        billing.revenue_net_snapshot = Decimal(str(revenue['revenue_net']))
+        billing.revenue_vat_snapshot = Decimal(str(revenue['revenue_vat']))
+        billing.revenue_gross_snapshot = Decimal(str(revenue['revenue_gross']))
+        
+        # Lock hours if not already done
+        if billing.billable_hours_calculated:
+            billing.billable_hours_override = billing.billable_hours_calculated
+        
+        db.session.commit()
+        
+        logger.info(f"Locked revenue snapshot for job {job_id}: Net £{revenue['revenue_net']:.2f}, VAT £{revenue['revenue_vat']:.2f}, Gross £{revenue['revenue_gross']:.2f}")
+        return True
+        
+    except FinancialCalculationError as e:
+        raise
+    except Exception as e:
+        logger.error(f"Error locking revenue snapshot for job {job_id}: {e}")
+        db.session.rollback()
+        raise FinancialCalculationError(f"Failed to lock revenue snapshot: {str(e)}")
+
+def calculate_agent_invoices_for_period(from_date, to_date):
+    """
+    Calculate total agent invoice amounts for a date period.
+    
+    Args:
+        from_date (date): Start date of the period
+        to_date (date): End date of the period
+        
+    Returns:
+        float: Total agent invoice amount
+        
+    Raises:
+        FinancialCalculationError: If dates are invalid
+    """
+    try:
+        if not isinstance(from_date, date) or not isinstance(to_date, date):
+            raise FinancialCalculationError("from_date and to_date must be date objects")
+        if from_date > to_date:
+            raise FinancialCalculationError("from_date cannot be later than to_date")
+        
+        valid_statuses = ['submitted', 'sent', 'paid']
+        invoices = db.session.query(Invoice).join(InvoiceJob).join(Job).options(
+            joinedload(Invoice.invoice_jobs).joinedload(InvoiceJob.job)
+        ).filter(
+            and_(
+                Invoice.status.in_(valid_statuses),
+                Job.completed_at >= datetime.combine(from_date, datetime.min.time()),
+                Job.completed_at <= datetime.combine(to_date, datetime.max.time())
+            )
+        ).all()
+        
+        total = sum(invoice.total_amount for invoice in invoices)
+        return float(total) if total else 0.0
+        
+    except FinancialCalculationError as e:
+        raise
+    except Exception as e:
+        logger.error(f"Error calculating agent invoices for period {from_date} to {to_date}: {e}")
+        raise FinancialCalculationError(f"Failed to calculate agent invoices: {str(e)}")
+
+def calculate_expenses_for_period(from_date, to_date):
+    """
+    Calculate total expenses for a date period.
+    
+    Args:
+        from_date (date): Start date of the period
+        to_date (date): End date of the period
+        
+    Returns:
+        dict: Expense totals (net, vat, gross)
+        
+    Raises:
+        FinancialCalculationError: If dates are invalid
+    """
+    try:
+        if not isinstance(from_date, date) or not isinstance(to_date, date):
+            raise FinancialCalculationError("from_date and to_date must be date objects")
+        if from_date > to_date:
+            raise FinancialCalculationError("from_date cannot be later than to_date")
+        
+        expenses = db.session.query(Expense).join(Job).options(
+            joinedload(Expense.job)
+        ).filter(
+            and_(
+                Job.completed_at >= datetime.combine(from_date, datetime.min.time()),
+                Job.completed_at <= datetime.combine(to_date, datetime.max.time())
+            )
+        ).all()
+        
+        net_total = sum(expense.amount_net for expense in expenses)
+        vat_total = sum(expense.vat_amount for expense in expenses)
+        gross_total = sum(expense.amount_gross for expense in expenses)
+        
+        return {
+            'net': float(net_total) if net_total else 0.0,
+            'vat': float(vat_total) if vat_total else 0.0,
+            'gross': float(gross_total) if gross_total else 0.0
+        }
+        
+    except FinancialCalculationError as e:
+        raise
+    except Exception as e:
+        logger.error(f"Error calculating expenses for period {from_date} to {to_date}: {e}")
+        raise FinancialCalculationError(f"Failed to calculate expenses: {str(e)}")
 
 def get_financial_summary_corrected(from_date=None, to_date=None):
     """
-    CORRECTED financial summary with proper VAT handling.
+    Financial summary with proper VAT handling.
     
     Returns:
         dict: Complete financial breakdown
+        
+    Raises:
+        FinancialCalculationError: If dates are invalid
     """
     try:
         if not from_date:
             from_date = date.today().replace(day=1)  # Start of current month
         if not to_date:
             to_date = date.today()
+            
+        if not isinstance(from_date, date) or not isinstance(to_date, date):
+            raise FinancialCalculationError("from_date and to_date must be date objects")
+        if from_date > to_date:
+            raise FinancialCalculationError("from_date cannot be later than to_date")
             
         # Revenue (includes VAT output)
         revenue = calculate_revenue_for_period(from_date, to_date)
@@ -455,38 +651,57 @@ def get_financial_summary_corrected(from_date=None, to_date=None):
             }
         }
         
+    except FinancialCalculationError as e:
+        raise
     except Exception as e:
         logger.error(f"Error generating financial summary: {e}")
-        return {
-            'revenue': {'net': 0, 'vat': 0, 'gross': 0},
-            'costs': {'agent_invoices': 0, 'expenses_net': 0, 'expenses_vat': 0, 'expenses_gross': 0, 'total_net': 0, 'total_gross': 0},
-            'profit': {'net': 0, 'gross': 0, 'margin_net': 0, 'margin_gross': 0},
-            'vat': {'output': 0, 'input': 0, 'net_due': 0}
-        }
-
+        raise FinancialCalculationError(f"Failed to generate financial summary: {str(e)}")
 
 def calculate_revenue_for_period(from_date, to_date, job_id=None):
-    """Calculate revenue for a date period."""
+    """
+    Calculate revenue for a date period.
+    
+    Args:
+        from_date (date): Start date
+        to_date (date): End date
+        job_id (int, optional): Specific job ID to filter
+        
+    Returns:
+        dict: Revenue totals (net, vat, gross)
+        
+    Raises:
+        FinancialCalculationError: If inputs are invalid
+    """
     try:
+        if not isinstance(from_date, date) or not isinstance(to_date, date):
+            raise FinancialCalculationError("from_date and to_date must be date objects")
+        if from_date > to_date:
+            raise FinancialCalculationError("from_date cannot be later than to_date")
+        if job_id is not None and (not isinstance(job_id, int) or job_id <= 0):
+            raise FinancialCalculationError(f"Invalid job_id: {job_id}")
+        
         revenue = {'net': 0.0, 'vat': 0.0, 'gross': 0.0}
-
+        
         # Get all jobs with billing config
-        query = db.session.query(Job, JobBilling).join(JobBilling)
-
+        query = db.session.query(Job, JobBilling).join(JobBilling).options(
+            joinedload(Job.billing)
+        )
+        
         if job_id:
             query = query.filter(Job.id == job_id)
-
-        # Filter by completion date or creation date
+        
+        # Filter by completion date
         query = query.filter(
             and_(
-                Job.created_at >= datetime.combine(from_date, datetime.min.time()),
-                Job.created_at <= datetime.combine(to_date, datetime.max.time())
+                Job.completed_at >= datetime.combine(from_date, datetime.min.time()),
+                Job.completed_at <= datetime.combine(to_date, datetime.max.time())
             )
         )
-
+        
         jobs_with_billing = query.all()
-
+        
         for job, billing in jobs_with_billing:
+            validate_job_billing_schema(billing)
             # Use snapshot if available (job completed), otherwise calculate live
             if (billing.revenue_net_snapshot is not None and
                 billing.revenue_vat_snapshot is not None and
@@ -499,9 +714,11 @@ def calculate_revenue_for_period(from_date, to_date, job_id=None):
                 revenue['net'] += job_revenue['revenue_net']
                 revenue['vat'] += job_revenue['revenue_vat']
                 revenue['gross'] += job_revenue['revenue_gross']
-
+        
         return revenue
-
+        
+    except FinancialCalculationError as e:
+        raise
     except Exception as e:
-        logger.error(f"Error calculating revenue for period: {e}")
-        return {'net': 0.0, 'vat': 0.0, 'gross': 0.0}
+        logger.error(f"Error calculating revenue for period {from_date} to {to_date}: {e}")
+        raise FinancialCalculationError(f"Failed to calculate revenue: {str(e)}")
