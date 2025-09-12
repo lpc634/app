@@ -577,11 +577,11 @@ def calculate_expenses_for_period(from_date, to_date):
         }
 
 def _backout_vat_from_gross(gross: Decimal, vat_rate: Decimal):
-    if vat_rate is None:
-        vat_rate = Decimal("0")
-    if vat_rate <= 0:
-        return Decimal(str(gross)), Decimal("0.00")
-    net = (Decimal(str(gross)) / (Decimal("1.0") + vat_rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    if vat_rate is None or vat_rate <= 0:
+        return gross, Decimal("0.00")
+    net = (Decimal(str(gross)) / (Decimal("1.0") + vat_rate)).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
     vat = (Decimal(str(gross)) - net).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return net, vat
 
@@ -659,12 +659,6 @@ def calculate_agent_invoices_breakdown(from_date, to_date):
     except Exception as e:
         logger.error(f"Error calculating agent invoice breakdown for period {from_date} to {to_date}: {e}")
         raise FinancialCalculationError(f"Failed to calculate agent invoice breakdown: {str(e)}")
-        
-    except FinancialCalculationError as e:
-        raise
-    except Exception as e:
-        logger.error(f"Error calculating expenses for period {from_date} to {to_date}: {e}")
-        raise FinancialCalculationError(f"Failed to calculate expenses: {str(e)}")
 
 def get_financial_summary_corrected(from_date=None, to_date=None):
     """
