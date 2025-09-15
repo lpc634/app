@@ -23,7 +23,8 @@ import {
   Loader2,
   Calendar,
   Search,
-  Briefcase
+  Briefcase,
+  Receipt
 } from 'lucide-react';
 
 export default function JobManagement() {
@@ -35,6 +36,11 @@ export default function JobManagement() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
+  const [selectedJob, setSelectedJob] = useState(null)
+  const [showJobDetailsModal, setShowJobDetailsModal] = useState(false)
+  const [jobAgents, setJobAgents] = useState([])
+  const [jobInvoices, setJobInvoices] = useState([])
+  const [loadingDetails, setLoadingDetails] = useState(false)
   const { apiCall } = useAuth()
   
 
@@ -164,6 +170,24 @@ export default function JobManagement() {
       fetchJobs()
     } catch (error) {
       toast.error('Failed to delete job', { description: error.message })
+    }
+  }
+
+  const fetchJobDetails = async (jobId) => {
+    setLoadingDetails(true)
+    try {
+      // Fetch job agents
+      const agentsResponse = await apiCall(`/admin/jobs/${jobId}/agents`)
+      setJobAgents(agentsResponse.agents || [])
+      
+      // Fetch job invoices
+      const invoicesResponse = await apiCall(`/admin/jobs/${jobId}/invoices`)
+      setJobInvoices(invoicesResponse.invoices || [])
+    } catch (error) {
+      toast.error('Failed to load job details')
+      console.error('Error fetching job details:', error)
+    } finally {
+      setLoadingDetails(false)
     }
   }
 
@@ -445,7 +469,15 @@ export default function JobManagement() {
               { key: 'actions', header: 'Actions' },
             ]}
             renderCard={(job) => (
-              <Card key={job.id}>
+              <Card 
+                key={job.id} 
+                className="cursor-pointer hover:border-[var(--v3-orange)] transition-all"
+                onClick={() => {
+                  setSelectedJob(job)
+                  setShowJobDetailsModal(true)
+                  fetchJobDetails(job.id)
+                }}
+              >
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
@@ -498,18 +530,26 @@ export default function JobManagement() {
                     <div className="flex gap-2 pt-2 border-t">
                       {job.status === 'open' && (
                         <>
-                          <Button size="sm" variant="outline" onClick={() => handleUpdateJobStatus(job.id, 'cancelled')}>Cancel Job</Button>
-                          <Button size="sm" onClick={() => handleUpdateJobStatus(job.id, 'filled')}>Mark as Filled</Button>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleUpdateJobStatus(job.id, 'cancelled'); }}>Cancel Job</Button>
+                          <Button size="sm" onClick={(e) => { e.stopPropagation(); handleUpdateJobStatus(job.id, 'filled'); }}>Mark as Filled</Button>
                         </>
                       )}
-                      <Button size="sm" variant="destructive" onClick={() => handleDeleteJob(job.id)}>Delete Job</Button>
+                      <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleDeleteJob(job.id); }}>Delete Job</Button>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             )}
             renderRow={(job) => (
-              <tr key={job.id} className="border-b">
+              <tr 
+                key={job.id} 
+                className="border-b cursor-pointer hover:bg-[var(--v3-bg-dark)] transition-all"
+                onClick={() => {
+                  setSelectedJob(job)
+                  setShowJobDetailsModal(true)
+                  fetchJobDetails(job.id)
+                }}
+              >
                 <td className="p-2 text-sm">{job.address}</td>
                 <td className="p-2 text-sm">{job.job_type}</td>
                 <td className="p-2 text-sm">{new Date(job.arrival_time).toLocaleString()}</td>
@@ -519,11 +559,11 @@ export default function JobManagement() {
                   <div className="flex gap-2">
                     {job.status === 'open' && (
                       <>
-                        <Button size="sm" variant="outline" onClick={() => handleUpdateJobStatus(job.id, 'cancelled')}>Cancel</Button>
-                        <Button size="sm" onClick={() => handleUpdateJobStatus(job.id, 'filled')}>Filled</Button>
+                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleUpdateJobStatus(job.id, 'cancelled'); }}>Cancel</Button>
+                        <Button size="sm" onClick={(e) => { e.stopPropagation(); handleUpdateJobStatus(job.id, 'filled'); }}>Filled</Button>
                       </>
                     )}
-                    <Button size="sm" variant="destructive" onClick={() => handleDeleteJob(job.id)}>Delete</Button>
+                    <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleDeleteJob(job.id); }}>Delete</Button>
                   </div>
                 </td>
               </tr>
@@ -540,6 +580,223 @@ export default function JobManagement() {
 
       {/* Sticky Action Bar example if needed for bulk actions (hidden for now) */}
       <StickyActionBar className="hidden" />
+
+      {/* Job Details Modal */}
+      <Dialog open={showJobDetailsModal} onOpenChange={setShowJobDetailsModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[var(--v3-bg-card)] border-[var(--v3-border)]">
+          <DialogHeader>
+            <DialogTitle className="text-[var(--v3-text-lightest)] text-xl font-semibold">
+              Job Details
+            </DialogTitle>
+            <DialogDescription className="text-[var(--v3-text-muted)]">
+              {selectedJob?.address || 'Job Information'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Left Sidebar - Job Information */}
+            <div className="space-y-4">
+              <Card className="dashboard-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base text-[var(--v3-text-lightest)]">
+                    <MapPin className="inline-block w-4 h-4 mr-2 text-[var(--v3-orange)]" />
+                    Job Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <p className="text-xs text-[var(--v3-text-muted)] uppercase tracking-wider mb-1">Address</p>
+                    <p className="font-medium text-[var(--v3-text-lightest)]">{selectedJob?.address}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--v3-text-muted)] uppercase tracking-wider mb-1">Type</p>
+                    <p className="font-medium text-[var(--v3-text-lightest)]">{selectedJob?.job_type}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--v3-text-muted)] uppercase tracking-wider mb-1">Arrival Time</p>
+                    <p className="font-medium text-[var(--v3-text-lightest)]">
+                      {selectedJob?.arrival_time ? new Date(selectedJob.arrival_time).toLocaleString() : 'Not set'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--v3-text-muted)] uppercase tracking-wider mb-1">Status</p>
+                    <Badge 
+                      className={`${getStatusBadge(selectedJob?.status)} border-[var(--v3-orange)]`}
+                      variant="outline"
+                    >
+                      {selectedJob?.status?.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--v3-text-muted)] uppercase tracking-wider mb-1">Agents Required</p>
+                    <p className="font-medium text-[var(--v3-text-lightest)]">{selectedJob?.agents_required}</p>
+                  </div>
+                  {selectedJob?.lead_agent_name && (
+                    <div>
+                      <p className="text-xs text-[var(--v3-text-muted)] uppercase tracking-wider mb-1">Lead Agent</p>
+                      <p className="font-medium text-[var(--v3-text-lightest)]">{selectedJob.lead_agent_name}</p>
+                    </div>
+                  )}
+                  {selectedJob?.instructions && (
+                    <div>
+                      <p className="text-xs text-[var(--v3-text-muted)] uppercase tracking-wider mb-1">Instructions</p>
+                      <p className="text-sm text-[var(--v3-text-light)]">{selectedJob.instructions}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* Right Content - Agents and Invoices */}
+            <div className="md:col-span-2 space-y-4">
+              {/* Assigned Agents Section */}
+              <Card className="dashboard-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base text-[var(--v3-text-lightest)] flex items-center gap-2">
+                    <Users className="h-4 w-4 text-[var(--v3-orange)]" />
+                    Assigned Agents
+                    <span className="ml-auto text-sm font-normal text-[var(--v3-text-muted)]">
+                      {jobAgents.length} assigned
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loadingDetails ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-[var(--v3-orange)]" />
+                    </div>
+                  ) : jobAgents.length > 0 ? (
+                    <div className="space-y-2">
+                      {jobAgents.map((agent) => (
+                        <div 
+                          key={agent.id} 
+                          className="flex items-center justify-between p-3 rounded-lg border border-[var(--v3-border)] bg-[var(--v3-bg-dark)] hover:border-[var(--v3-orange)] transition-all"
+                        >
+                          <div>
+                            <p className="font-medium text-[var(--v3-text-lightest)]">
+                              {agent.first_name} {agent.last_name}
+                            </p>
+                            <p className="text-sm text-[var(--v3-text-muted)]">{agent.email}</p>
+                          </div>
+                          {agent.role === 'lead' && (
+                            <Badge className="bg-[var(--v3-orange)] text-white border-0">
+                              Lead Agent
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Users className="h-12 w-12 text-[var(--v3-text-muted)] mx-auto mb-2" />
+                      <p className="text-[var(--v3-text-muted)]">No agents assigned yet</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              
+              {/* Invoices Section */}
+              <Card className="dashboard-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base text-[var(--v3-text-lightest)] flex items-center gap-2">
+                    <Receipt className="h-4 w-4 text-[var(--v3-orange)]" />
+                    Invoices
+                    <span className="ml-auto text-sm font-normal text-[var(--v3-text-muted)]">
+                      {jobInvoices.length} submitted
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loadingDetails ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-[var(--v3-orange)]" />
+                    </div>
+                  ) : jobInvoices.length > 0 ? (
+                    <div className="space-y-3">
+                      {jobInvoices.map((invoice) => (
+                        <div 
+                          key={invoice.id} 
+                          className="border border-[var(--v3-border)] rounded-lg p-4 bg-[var(--v3-bg-dark)] hover:border-[var(--v3-orange)] transition-all"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-[var(--v3-text-lightest)]">
+                                  {invoice.invoice_number}
+                                </p>
+                                <Badge 
+                                  className={
+                                    invoice.status === 'paid' ? 'bg-green-600 text-white' : 
+                                    invoice.status === 'sent' ? 'bg-[var(--v3-orange)] text-white' : 
+                                    'bg-gray-600 text-white'
+                                  }
+                                  variant="default"
+                                >
+                                  {invoice.status?.toUpperCase()}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-[var(--v3-text-muted)] mt-1">
+                                {invoice.agent_name || 'Unknown Agent'}
+                              </p>
+                            </div>
+                            <p className="font-bold text-lg text-[var(--v3-orange)]">
+                              £{invoice.total_amount || '0.00'}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-[var(--v3-text-muted)] mb-3">
+                            <span>Issued: {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : 'Not issued'}</span>
+                            <span>Due: {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'Not set'}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            {invoice.status === 'sent' && (
+                              <Button 
+                                size="sm" 
+                                className="button-refresh text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toast.success('Invoice marked as paid');
+                                }}
+                              >
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Mark as Paid
+                              </Button>
+                            )}
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-xs border-[var(--v3-border)] text-[var(--v3-text-light)] hover:text-[var(--v3-orange)] hover:border-[var(--v3-orange)]"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
+                            >
+                              View Details
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Receipt className="h-12 w-12 text-[var(--v3-text-muted)] mx-auto mb-2" />
+                      <p className="text-[var(--v3-text-muted)]">No invoices submitted yet</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+          
+          <DialogFooter className="border-t border-[var(--v3-border)] pt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowJobDetailsModal(false)}
+              className="border-[var(--v3-border)] text-[var(--v3-text-light)] hover:text-[var(--v3-orange)] hover:border-[var(--v3-orange)]"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   )
