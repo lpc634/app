@@ -529,6 +529,9 @@ def calculate_expenses_for_period(from_date, to_date):
             raise FinancialCalculationError("from_date and to_date must be date objects")
         if from_date > to_date:
             raise FinancialCalculationError("from_date cannot be later than to_date")
+    except Exception as e:
+        logger.error(f"Error in input validation: {e}")
+        raise FinancialCalculationError(f"Failed during input validation: {str(e)}")
         
         expenses = db.session.query(Expense).join(Job).options(
             joinedload(Expense.job)
