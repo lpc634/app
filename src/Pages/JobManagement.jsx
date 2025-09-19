@@ -267,6 +267,9 @@ export default function JobManagement() {
       return
     }
 
+    const notifyAgentIds = newJob.notify_agent_ids || []
+    const hasTargetedAgents = notifyAgentIds.length > 0
+
     const payload = {
       ...newJob,
       agents_required: Number(newJob.agents_required) || 1,
@@ -277,7 +280,8 @@ export default function JobManagement() {
         vat_rate: vatRate,
         notice_fee_net: noticeFee,
       },
-      notify_agent_ids: newJob.notify_agent_ids || [],
+      notify_all: !hasTargetedAgents,
+      notify_agents: hasTargetedAgents ? notifyAgentIds : [],
     }
 
     if (Number.isFinite(loc.lat) && Number.isFinite(loc.lng)) {

@@ -13,13 +13,12 @@ export async function getAgentsAvailable(dateISO, apiCall) {
   }
 
   try {
-    const params = new URLSearchParams({
-      start: dateISO,
-      end: dateISO
-    }).toString()
-
+    const params = new URLSearchParams({ date: dateISO }).toString()
     const result = await apiCall(`/agents/available?${params}`)
-    return { data: result.agents || [], error: null }
+
+    // Handle different response formats
+    const agents = result.agents || result.available_agents || result || []
+    return { data: Array.isArray(agents) ? agents : [], error: null }
   } catch (error) {
     console.warn('getAgentsAvailable error:', error)
     return { data: [], error }
@@ -45,7 +44,8 @@ export async function getAgentsAvailableRange(startISO, endISO, apiCall) {
     }).toString()
 
     const result = await apiCall(`/agents/available?${params}`)
-    return { data: result.agents || [], error: null }
+    const agents = result.agents || result.available_agents || result || []
+    return { data: Array.isArray(agents) ? agents : [], error: null }
   } catch (error) {
     console.warn('getAgentsAvailableRange error:', error)
     return { data: [], error }
@@ -61,7 +61,10 @@ export async function getAllAgents(apiCall) {
   try {
     const params = new URLSearchParams({ active: 'true' }).toString()
     const result = await apiCall(`/agents?${params}`)
-    return { data: result.agents || [], error: null }
+
+    // Handle different response formats
+    const agents = result.agents || result || []
+    return { data: Array.isArray(agents) ? agents : [], error: null }
   } catch (error) {
     console.warn('getAllAgents error:', error)
     return { data: [], error }
@@ -76,9 +79,20 @@ export async function getAllAgents(apiCall) {
  */
 export async function getReliableAgents(limit = 20, apiCall) {
   try {
-    const params = new URLSearchParams({ limit: limit.toString() }).toString()
+    // Calculate 90-day window
+    const endDate = new Date()
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - 90)
+
+    const params = new URLSearchParams({
+      start: startDate.toISOString().split('T')[0],
+      end: endDate.toISOString().split('T')[0],
+      limit: limit.toString()
+    }).toString()
+
     const result = await apiCall(`/agents/reliability?${params}`)
-    return { data: result.agents || [], error: null }
+    const agents = result.agents || result || []
+    return { data: Array.isArray(agents) ? agents : [], error: null }
   } catch (error) {
     console.warn('getReliableAgents error:', error)
     return { data: [], error }
