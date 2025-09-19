@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useAuth } from '../useAuth.jsx'
+import { getAllAgents, getAgentsAvailable, getReliableAgents } from '../lib/agentsApi.js'
 
 export default function AgentMultiSelect({ arrivalISO = null, value = [], onChange }) {
   const [allAgents, setAllAgents] = useState([])
@@ -34,45 +35,39 @@ export default function AgentMultiSelect({ arrivalISO = null, value = [], onChan
   }, [arrivalISO])
 
   const fetchAllAgents = async () => {
-    try {
-      setLoading(prev => ({ ...prev, all: true }))
-      const data = await apiCall('/agents?active=true')
-      setAllAgents(data.agents || [])
-    } catch (error) {
+    setLoading(prev => ({ ...prev, all: true }))
+    const { data, error } = await getAllAgents(apiCall)
+    if (error) {
       console.error('Failed to fetch all agents:', error)
-      setAllAgents([])
-    } finally {
-      setLoading(prev => ({ ...prev, all: false }))
     }
+    setAllAgents(data)
+    setLoading(prev => ({ ...prev, all: false }))
   }
 
   const fetchAvailableAgents = async () => {
-    if (!arrivalISO) return
-
-    try {
-      setLoading(prev => ({ ...prev, available: true }))
-      const date = arrivalISO.split('T')[0] // Extract YYYY-MM-DD from datetime
-      const data = await apiCall(`/agents/available?start=${date}&end=${date}`)
-      setAvailableAgents(data.agents || [])
-    } catch (error) {
-      console.error('Failed to fetch available agents:', error)
+    if (!arrivalISO) {
       setAvailableAgents([])
-    } finally {
-      setLoading(prev => ({ ...prev, available: false }))
+      return
     }
+
+    setLoading(prev => ({ ...prev, available: true }))
+    const date = arrivalISO.split('T')[0] // Extract YYYY-MM-DD from datetime
+    const { data, error } = await getAgentsAvailable(date, apiCall)
+    if (error) {
+      console.error('Failed to fetch available agents:', error)
+    }
+    setAvailableAgents(data)
+    setLoading(prev => ({ ...prev, available: false }))
   }
 
   const fetchReliableAgents = async () => {
-    try {
-      setLoading(prev => ({ ...prev, reliable: true }))
-      const data = await apiCall('/agents/reliability?limit=20')
-      setReliableAgents(data.agents || [])
-    } catch (error) {
+    setLoading(prev => ({ ...prev, reliable: true }))
+    const { data, error } = await getReliableAgents(20, apiCall)
+    if (error) {
       console.error('Failed to fetch reliable agents:', error)
-      setReliableAgents([])
-    } finally {
-      setLoading(prev => ({ ...prev, reliable: false }))
     }
+    setReliableAgents(data)
+    setLoading(prev => ({ ...prev, reliable: false }))
   }
 
   const handleToggle = (agentId) => {

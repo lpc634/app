@@ -44,7 +44,8 @@ export default function Dashboard() {
       const jobsPromise = apiCall('/jobs');
       
       const today = new Date().toISOString().split('T')[0];
-      const agentsPromise = apiCall(`/agents/available?date=${today}`);
+      const params = new URLSearchParams({ date: today }).toString();
+      const agentsPromise = apiCall(`/agents/available?${params}`);
 
       // Only fetch document data for admin users
       const promises = [jobsPromise, agentsPromise];

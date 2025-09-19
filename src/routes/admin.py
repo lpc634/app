@@ -85,11 +85,27 @@ def get_agents_available():
         return jsonify({'error': 'Forbidden'}), 403
 
     try:
-        start_date = _parse_date_param(request.args.get('start'))
-        end_date = _parse_date_param(request.args.get('end'))
+        # Support both single date and date range
+        date_param = request.args.get('date')
+        start_param = request.args.get('start')
+        end_param = request.args.get('end')
+
+        if date_param:
+            # Single date format
+            start_date = _parse_date_param(date_param)
+            end_date = start_date
+        elif start_param and end_param:
+            # Date range format
+            start_date = _parse_date_param(start_param)
+            end_date = _parse_date_param(end_param)
+        else:
+            # Return empty list instead of 400 to avoid UI hard-fail
+            current_app.logger.warning("agents_available called without date/start/end parameters")
+            return jsonify({'agents': []})
 
         if not start_date or not end_date:
-            return jsonify({'error': 'start and end date parameters required (YYYY-MM-DD)'}), 400
+            current_app.logger.warning(f"agents_available bad date params: date={date_param}, start={start_param}, end={end_param}")
+            return jsonify({'agents': []})
 
         # Get agents available within the date range
         available_agents = (
@@ -119,8 +135,8 @@ def get_agents_available():
         return jsonify({'agents': result})
 
     except Exception as e:
-        current_app.logger.error(f"Error fetching available agents: {e}")
-        return jsonify({'error': 'Failed to fetch available agents'}), 500
+        current_app.logger.warning(f"Error fetching available agents: {e}")
+        return jsonify({'agents': []})
 
 
 @admin_bp.route('/agents/reliability', methods=['GET'])

@@ -66,8 +66,9 @@ export default function AgentManagement() {
 
   const fetchAvailableAgents = async () => {
     try {
-      const data = await apiCall(`/agents/available?date=${selectedDate}`)
-      setAvailableAgents(data.available_agents || [])
+      const params = new URLSearchParams({ date: selectedDate }).toString()
+      const data = await apiCall(`/agents/available?${params}`)
+      setAvailableAgents(data.agents || [])
     } catch (error) {
       console.error('Available agents error:', error)
     }
