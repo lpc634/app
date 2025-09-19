@@ -486,7 +486,7 @@ export default function JobManagement() {
                       </div>
                       <div className="flex items-center gap-2 px-3 py-2 bg-[var(--v3-bg-dark)] border border-[var(--v3-border)] rounded-lg">
                         <MapPin className="h-4 w-4" style={{ color: 'var(--v3-orange)' }} />
-                        <span className="text-sm" style={{ color: 'var(--v3-text-lightest)' }}">
+                        <span className="text-sm" style={{ color: 'var(--v3-text-lightest)' }}>
                           Coordinates: {loc.lat?.toFixed(6)}, {loc.lng?.toFixed(6)}
                         </span>
                       </div>
