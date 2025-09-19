@@ -921,6 +921,8 @@ def create_job():
             # Targeted mode: ignore availability filters and notify only selected agents
             if target_agent_ids:
                 available_agents = User.query.filter(User.role == 'agent', User.id.in_(target_agent_ids)).all()
+                print(f"[DEBUG] Targeted mode: selected {len(available_agents)} specific agents: {[a.id for a in available_agents]}")
+                logger.error(f"[DEBUG] Targeted mode: selected {len(available_agents)} specific agents: {[a.id for a in available_agents]}")
             else:
                 available_agents = []
 

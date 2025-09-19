@@ -51,40 +51,44 @@ def get_agents_minimal():
 @jwt_required()
 def list_agents():
     """Get all agents with basic info. Supports ?active=true filter."""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden'}), 403
+    try:
+        user = require_admin()
+        if not user:
+            return jsonify({'error': 'Forbidden'}), 403
 
-    active = request.args.get('active') == 'true'
-    query = User.query.filter(User.role == 'agent')
+        active = request.args.get('active') == 'true'
+        query = User.query.filter(User.role == 'agent')
 
-    if active:
-        query = query.filter(User.is_active.is_(True))
+        if active:
+            query = query.filter(User.is_active.is_(True))
 
-    agents = query.order_by(User.first_name, User.last_name).all()
+        agents = query.order_by(User.first_name, User.last_name).all()
 
-    result = []
-    for agent in agents:
-        result.append({
-            'id': agent.id,
-            'display_name': f"{agent.first_name or ''} {agent.last_name or ''}".strip() or agent.email,
-            'email': agent.email,
-            'region': getattr(agent, 'region', None),
-            'skills': getattr(agent, 'skills', [])
-        })
+        result = []
+        for agent in agents:
+            result.append({
+                'id': agent.id,
+                'display_name': f"{agent.first_name or ''} {agent.last_name or ''}".strip() or agent.email,
+                'email': agent.email,
+                'region': getattr(agent, 'region', None),
+                'skills': getattr(agent, 'skills', [])
+            })
 
-    return jsonify({'agents': result})
+        return jsonify({'agents': result})
+    except Exception as e:
+        current_app.logger.exception("list_agents failed: %s", e)
+        return jsonify({'agents': []})
 
 
 @admin_bp.route('/agents/available', methods=['GET'])
 @jwt_required()
 def get_agents_available():
     """Get agents available for a specific date range."""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden'}), 403
-
     try:
+        user = require_admin()
+        if not user:
+            return jsonify({'error': 'Forbidden'}), 403
+
         # Support both single date and date range
         date_param = request.args.get('date')
         start_param = request.args.get('start')
@@ -143,11 +147,10 @@ def get_agents_available():
 @jwt_required()
 def get_agents_reliability():
     """Get most reliable agents based on job acceptance rate."""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden'}), 403
-
     try:
+        user = require_admin()
+        if not user:
+            return jsonify({'error': 'Forbidden'}), 403
         # Default to last 90 days
         end_date = date.today()
         start_date = end_date - timedelta(days=90)
@@ -226,8 +229,8 @@ def get_agents_reliability():
         return jsonify({'agents': agents_data[:limit]})
 
     except Exception as e:
-        current_app.logger.error(f"Error fetching agent reliability: {e}")
-        return jsonify({'error': 'Failed to fetch agent reliability'}), 500
+        current_app.logger.exception(f"get_agents_reliability failed: {e}")
+        return jsonify({'agents': []})
 
 
 @admin_bp.route('/admin/telegram/messages', methods=['POST'])
