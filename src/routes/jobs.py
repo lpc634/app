@@ -1057,14 +1057,27 @@ def create_job():
         if 'billing' in data and data['billing']:
             billing_data = data['billing']
             try:
+                agent_count = billing_data.get('agent_count')
+                if agent_count in (None, '', 0):
+                    agent_count = data.get('agents_required') or new_job.agents_required or 1
+                try:
+                    agent_count = int(agent_count)
+                except (TypeError, ValueError):
+                    agent_count = int(new_job.agents_required or 1)
+
+                def _to_float(value):
+                    if value in (None, ''):
+                        return None
+                    return float(value)
+
                 job_billing = JobBilling(
                     job_id=new_job.id,
-                    agent_count=billing_data.get('agent_count'),
-                    hourly_rate_net=billing_data['hourly_rate_net'],
-                    first_hour_rate_net=billing_data.get('first_hour_rate_net'),
-                    notice_fee_net=billing_data.get('notice_fee_net'),
-                    vat_rate=billing_data.get('vat_rate', 0.20),
-                    billable_hours_override=billing_data.get('billable_hours_override')
+                    agent_count=agent_count,
+                    hourly_rate_net=float(billing_data['hourly_rate_net']),
+                    first_hour_rate_net=_to_float(billing_data.get('first_hour_rate_net')),
+                    notice_fee_net=_to_float(billing_data.get('notice_fee_net')),
+                    vat_rate=float(billing_data.get('vat_rate', 0.20)),
+                    billable_hours_override=_to_float(billing_data.get('billable_hours_override'))
                 )
                 db.session.add(job_billing)
                 print(f"[DEBUG] Created billing config for job {new_job.id}")

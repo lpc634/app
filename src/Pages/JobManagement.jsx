@@ -56,6 +56,16 @@ export default function JobManagement() {
     urgency_level: 'Standard'
   })
 
+  const [billingAgentCount, setBillingAgentCount] = useState('1')
+  const [billingHourlyNet, setBillingHourlyNet] = useState('')
+  const [billingFirstHourNet, setBillingFirstHourNet] = useState('')
+  const [billingVatRate, setBillingVatRate] = useState('0.20')
+  const [billingNoticeFeeNet, setBillingNoticeFeeNet] = useState('')
+
+  useEffect(() => {
+    const count = Number(newJob.agents_required)
+    setBillingAgentCount(String(Number.isFinite(count) && count > 0 ? count : 1))
+  }, [newJob.agents_required])
   useEffect(() => {
     fetchJobs()
   }, [])
@@ -105,16 +115,63 @@ export default function JobManagement() {
     } finally {
       setLoading(false)
     }
-  }
 
   const handleCreateJob = async (e) => {
     e.preventDefault()
     setCreateLoading(true)
 
+    const agentCount = Number(billingAgentCount)
+    const hourlyRate = parseFloat(billingHourlyNet)
+    const firstHourRate = billingFirstHourNet ? parseFloat(billingFirstHourNet) : null
+    const vatRate = billingVatRate === '' || billingVatRate === null ? 0.2 : parseFloat(billingVatRate)
+    const noticeFee = billingNoticeFeeNet ? parseFloat(billingNoticeFeeNet) : null
+
+    if (!Number.isFinite(agentCount) || agentCount < 1) {
+      toast.error('Client pricing requires at least one billed agent')
+      setCreateLoading(false)
+      return
+    }
+
+    if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) {
+      toast.error('Client hourly rate must be greater than zero')
+      setCreateLoading(false)
+      return
+    }
+
+    if (firstHourRate !== null && (!Number.isFinite(firstHourRate) || firstHourRate < hourlyRate)) {
+      toast.error('First hour rate must be at least the standard hourly rate')
+      setCreateLoading(false)
+      return
+    }
+
+    if (!Number.isFinite(vatRate) || vatRate < 0) {
+      toast.error('VAT rate must be zero or a positive number')
+      setCreateLoading(false)
+      return
+    }
+
+    if (noticeFee !== null && (!Number.isFinite(noticeFee) || noticeFee < 0)) {
+      toast.error('Notice fee must be zero or a positive number')
+      setCreateLoading(false)
+      return
+    }
+
+    const payload = {
+      ...newJob,
+      agents_required: Number(newJob.agents_required) || 1,
+      billing: {
+        agent_count: agentCount,
+        hourly_rate_net: hourlyRate,
+        first_hour_rate_net: firstHourRate,
+        vat_rate: vatRate,
+        notice_fee_net: noticeFee,
+      },
+    }
+
     try {
       await apiCall('/jobs', {
         method: 'POST',
-        body: JSON.stringify(newJob)
+        body: JSON.stringify(payload)
       })
 
       toast.success("Job Created", {
@@ -133,6 +190,11 @@ export default function JobManagement() {
         instructions: '',
         urgency_level: 'Standard'
       })
+      setBillingAgentCount('1')
+      setBillingHourlyNet('')
+      setBillingFirstHourNet('')
+      setBillingVatRate('0.20')
+      setBillingNoticeFeeNet('')
       fetchJobs()
     } catch (error) {
       toast.error("Error", {
@@ -412,6 +474,75 @@ export default function JobManagement() {
                     onChange={(e) => setNewJob({...newJob, instructions: e.target.value})}
                     placeholder="Special instructions, dress code, equipment needed, etc."
                   />
+                </div>
+
+                <div className="rounded-lg border border-[var(--v3-border)] bg-[var(--v3-bg-dark)] p-4 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold" style={{ color: 'var(--v3-text-lightest)' }}>Client Pricing (per agent)</h3>
+                    <p className="text-xs" style={{ color: 'var(--v3-text-muted)' }}>
+                      Agent costs will appear after agents submit their invoices.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="billingAgentCount">Billable Agents</Label>
+                      <Input
+                        id="billingAgentCount"
+                        type="number"
+                        min="1"
+                        value={billingAgentCount}
+                        onChange={(e) => setBillingAgentCount(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="billingHourlyNet">Hourly Rate (net)</Label>
+                      <Input
+                        id="billingHourlyNet"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={billingHourlyNet}
+                        onChange={(e) => setBillingHourlyNet(e.target.value)}
+                        placeholder="e.g., 40"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="billingFirstHourNet">First Hour Rate (net)</Label>
+                      <Input
+                        id="billingFirstHourNet"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={billingFirstHourNet}
+                        onChange={(e) => setBillingFirstHourNet(e.target.value)}
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="billingVatRate">VAT Rate</Label>
+                      <Input
+                        id="billingVatRate"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={billingVatRate}
+                        onChange={(e) => setBillingVatRate(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="billingNoticeFeeNet">Notice Fee (net)</Label>
+                      <Input
+                        id="billingNoticeFeeNet"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={billingNoticeFeeNet}
+                        onChange={(e) => setBillingNoticeFeeNet(e.target.value)}
+                        placeholder="Optional"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -840,4 +971,3 @@ export default function JobManagement() {
     </div>
   )
 }
-
