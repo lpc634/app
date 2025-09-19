@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useAuth } from '../useAuth.jsx'
-import { getAllAgents, getAgentsAvailable, getReliableAgents } from '../lib/agentsApi.js'
+import { getAgentsPicker } from '../lib/agentsApi.js'
 
 export default function AgentMultiSelect({ arrivalISO = null, value = [], onChange }) {
   const [allAgents, setAllAgents] = useState([])
@@ -19,56 +19,35 @@ export default function AgentMultiSelect({ arrivalISO = null, value = [], onChan
   })
   const { apiCall } = useAuth()
 
-  // Fetch all agents on mount
+  // Fetch all agent data when component mounts or arrival date changes
   useEffect(() => {
-    fetchAllAgents()
-    fetchReliableAgents()
-  }, [])
+    let mounted = true
 
-  // Fetch available agents when arrival date changes
-  useEffect(() => {
-    if (arrivalISO) {
-      fetchAvailableAgents()
-    } else {
-      setAvailableAgents([])
-    }
-  }, [arrivalISO])
+    const fetchAgents = async () => {
+      setLoading({ all: true, available: true, reliable: true })
 
-  const fetchAllAgents = async () => {
-    setLoading(prev => ({ ...prev, all: true }))
-    const { data, error } = await getAllAgents(apiCall)
-    if (error) {
-      console.error('Failed to fetch all agents:', error)
-    }
-    setAllAgents(data)
-    setLoading(prev => ({ ...prev, all: false }))
-  }
+      const dateISO = arrivalISO?.slice(0, 10) // Ensure YYYY-MM-DD format
+      const { data, error } = await getAgentsPicker(dateISO, apiCall)
 
-  const fetchAvailableAgents = async () => {
-    if (!arrivalISO) {
-      setAvailableAgents([])
-      return
+      if (!mounted) return
+
+      if (error) {
+        console.error('Failed to fetch agents:', error)
+      }
+
+      setAllAgents(data.all || [])
+      setAvailableAgents(data.available || [])
+      setReliableAgents(data.reliable || [])
+      setLoading({ all: false, available: false, reliable: false })
     }
 
-    setLoading(prev => ({ ...prev, available: true }))
-    const date = arrivalISO.split('T')[0] // Extract YYYY-MM-DD from datetime
-    const { data, error } = await getAgentsAvailable(date, apiCall)
-    if (error) {
-      console.error('Failed to fetch available agents:', error)
-    }
-    setAvailableAgents(data)
-    setLoading(prev => ({ ...prev, available: false }))
-  }
+    fetchAgents()
 
-  const fetchReliableAgents = async () => {
-    setLoading(prev => ({ ...prev, reliable: true }))
-    const { data, error } = await getReliableAgents(20, apiCall)
-    if (error) {
-      console.error('Failed to fetch reliable agents:', error)
+    return () => {
+      mounted = false
     }
-    setReliableAgents(data)
-    setLoading(prev => ({ ...prev, reliable: false }))
-  }
+  }, [arrivalISO, apiCall])
+
 
   const handleToggle = (agentId) => {
     const newValue = value.includes(agentId)

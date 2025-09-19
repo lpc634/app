@@ -98,3 +98,38 @@ export async function getReliableAgents(limit = 20, apiCall) {
     return { data: [], error }
   }
 }
+
+/**
+ * Get aggregated agent data for picker (all, available, reliable in one call)
+ * @param {string} dateISO - Date in YYYY-MM-DD format (optional)
+ * @param {function} apiCall - The apiCall function from useAuth
+ * @returns {Promise<{data: {all: Array, available: Array, reliable: Array}, error: any}>}
+ */
+export async function getAgentsPicker(dateISO, apiCall) {
+  try {
+    const params = new URLSearchParams({
+      window_days: '90'
+    })
+
+    if (dateISO) {
+      params.set('date', dateISO.slice(0, 10)) // Ensure YYYY-MM-DD format
+    }
+
+    const result = await apiCall(`/agents/picker?${params.toString()}`)
+
+    // Ensure we have the expected structure
+    const data = {
+      all: result.all || [],
+      available: result.available || [],
+      reliable: result.reliable || []
+    }
+
+    return { data, error: null }
+  } catch (error) {
+    console.warn('getAgentsPicker error:', error)
+    return {
+      data: { all: [], available: [], reliable: [] },
+      error
+    }
+  }
+}
