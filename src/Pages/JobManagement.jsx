@@ -115,6 +115,7 @@ export default function JobManagement() {
     } finally {
       setLoading(false)
     }
+  }
 
   const handleCreateJob = async (e) => {
     e.preventDefault()
