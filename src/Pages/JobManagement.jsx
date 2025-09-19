@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,9 @@ export default function JobManagement() {
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  // Parent state machine for modal management
+  const [createOpen, setCreateOpen] = useState(false)
+  const [mapOpen, setMapOpen] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
   const [selectedJob, setSelectedJob] = useState(null)
   const [showJobDetailsModal, setShowJobDetailsModal] = useState(false)
@@ -58,12 +60,14 @@ export default function JobManagement() {
   const [jobInvoices, setJobInvoices] = useState([])
   const [loadingDetails, setLoadingDetails] = useState(false)
   const { apiCall } = useAuth()
-  
+
 
   const [newJob, setNewJob] = useState(() => ({ ...initialJobState }))
 
   const [loc, setLoc] = useState({ lat: null, lng: null, maps_link: '' })
-  const [locModalOpen, setLocModalOpen] = useState(false)
+
+  // Focus management
+  const selectPinBtnRef = useRef(null)
 
   const detectedPostcode = extractUkPostcode(newJob.address || '')
   const hasLocation = Number.isFinite(loc.lat) && Number.isFinite(loc.lng)
@@ -74,26 +78,29 @@ export default function JobManagement() {
   const [billingVatRate, setBillingVatRate] = useState('0.20')
   const [billingNoticeFeeNet, setBillingNoticeFeeNet] = useState('')
 
-  const handleLocationChange = (next) => {
-    if (!next || next.lat === null || next.lat === undefined || next.lng === null || next.lng === undefined) {
-      setLoc({ lat: null, lng: null, maps_link: '' });
-      return;
-    }
+  // Modal transition handlers
+  const handleOpenCreate = () => setCreateOpen(true)
 
-    const lat = Number(next.lat);
-    const lng = Number(next.lng);
+  const handleOpenMap = () => {
+    setCreateOpen(false)   // retract create modal
+    setMapOpen(true)       // show map picker
+  }
 
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      setLoc({ lat: null, lng: null, maps_link: '' });
-      return;
-    }
+  const handleMapConfirm = ({ lat, lng }) => {
+    const maps_link = `https://www.google.com/maps?q=${lat},${lng}`
+    setLoc({ lat, lng, maps_link })
+    setMapOpen(false)
+    setCreateOpen(true)    // bring modal back
+    // restore focus to the button for a11y
+    requestAnimationFrame(() => selectPinBtnRef.current?.focus())
+  }
 
-    setLoc({
-      lat,
-      lng,
-      maps_link: next.maps_link || `https://www.google.com/maps?q=${lat},${lng}`
-    });
-  };
+  const handleMapCancel = () => {
+    setMapOpen(false)
+    setCreateOpen(true)
+    requestAnimationFrame(() => selectPinBtnRef.current?.focus())
+  }
+
 
   const fetchJobs = async () => {
     try {
@@ -121,7 +128,7 @@ export default function JobManagement() {
     register({
       title: "Jobs",
       action: (
-        <Button size="sm" className="button-refresh hidden md:inline-flex" onClick={() => setShowCreateDialog(true)}>
+        <Button size="sm" className="button-refresh hidden md:inline-flex" onClick={handleOpenCreate}>
           <Plus className="mr-2 h-4 w-4" />
           Create
         </Button>
@@ -146,14 +153,42 @@ export default function JobManagement() {
     observer.observe(document.body, { childList: true, subtree: true });
 
     return () => observer.disconnect();
-  }, [showCreateDialog]);
+  }, [createOpen]);
 
   useEffect(() => {
-    if (!showCreateDialog) {
+    if (!createOpen && !mapOpen) {
       setLoc({ lat: null, lng: null, maps_link: '' });
-      setLocModalOpen(false);
     }
-  }, [showCreateDialog])
+  }, [createOpen, mapOpen])
+
+  // Keyboard accessibility
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        if (mapOpen) {
+          handleMapCancel()
+        } else if (createOpen) {
+          setCreateOpen(false)
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [mapOpen, createOpen, handleMapCancel])
+
+  // Prevent background scroll when map is open
+  useEffect(() => {
+    if (mapOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [mapOpen])
 
   const handleCreateJob = async (e) => {
     e.preventDefault()
@@ -225,7 +260,7 @@ export default function JobManagement() {
   description: "New job has been created and notifications sent to available agents.",
 })
 
-      setShowCreateDialog(false)
+      setCreateOpen(false)
       setNewJob({ ...initialJobState })
       setBillingAgentCount('1')
       setBillingHourlyNet('')
@@ -233,7 +268,7 @@ export default function JobManagement() {
       setBillingVatRate('0.20')
       setBillingNoticeFeeNet('')
       setLoc({ lat: null, lng: null, maps_link: '' })
-      setLocModalOpen(false)
+      setMapOpen(false)
       fetchJobs()
     } catch (error) {
       toast.error("Error", {
@@ -392,7 +427,7 @@ export default function JobManagement() {
           </p>
         </div>
         
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
@@ -461,7 +496,8 @@ export default function JobManagement() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setLocModalOpen(true)}
+                      ref={selectPinBtnRef}
+                      onClick={handleOpenMap}
                       className="button-refresh flex items-center gap-2 px-3 py-2 text-sm"
                     >
                       <Navigation className="h-4 w-4" />
@@ -635,10 +671,10 @@ export default function JobManagement() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
+                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createLoading}>
+                <Button type="submit" disabled={createLoading || mapOpen}>
                   {createLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -814,7 +850,7 @@ export default function JobManagement() {
       </div>
       {/* FAB for mobile create */}
       <div className="md:hidden fixed bottom-16 right-4 z-30">
-        <Button size="icon" className="rounded-full h-14 w-14 shadow-lg" aria-label="Create Job" data-testid="fab-create-job" onClick={() => setShowCreateDialog(true)}>
+        <Button size="icon" className="rounded-full h-14 w-14 shadow-lg" aria-label="Create Job" data-testid="fab-create-job" onClick={handleOpenCreate}>
           <Plus className="h-6 w-6" />
         </Button>
       </div>
@@ -1058,12 +1094,11 @@ export default function JobManagement() {
       )}
 
       <LocationPicker
-        isOpen={locModalOpen}
-        onClose={() => setLocModalOpen(false)}
+        isOpen={mapOpen}
+        onConfirm={handleMapConfirm}
+        onCancel={handleMapCancel}
         address={newJob.address}
         postcode={newJob.postcode}
-        value={loc}
-        onChange={handleLocationChange}
       />
     </div>
   )

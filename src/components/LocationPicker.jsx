@@ -24,7 +24,8 @@ const buildMapsLink = (lat, lng) => `https://www.google.com/maps?q=${lat},${lng}
 
 const LocationPicker = ({
   isOpen,
-  onClose,
+  onConfirm,
+  onCancel,
   address = '',
   postcode = '',
   value,
@@ -238,6 +239,11 @@ const LocationPicker = ({
       handleSelection(lat, lng);
     });
 
+    // Call invalidateSize after map is mounted to avoid rendering issues
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+
     return () => {
       map.remove();
       mapInstance.current = null;
@@ -272,9 +278,8 @@ const LocationPicker = ({
   }, [mapCenter, pendingLocation, isOpen, handleSelection]);
 
   const handleCancel = () => {
-    onChange?.(previousValueRef.current);
     setPendingLocation(previousValueRef.current);
-    onClose?.();
+    onCancel?.();
   };
 
   const handleConfirm = () => {
@@ -283,7 +288,10 @@ const LocationPicker = ({
       return;
     }
 
-    onClose?.();
+    onConfirm?.({
+      lat: pendingLocation.lat,
+      lng: pendingLocation.lng
+    });
   };
 
   if (!isOpen) {
@@ -320,7 +328,7 @@ const LocationPicker = ({
           </p>
           {mapLoading && (
             <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--v3-text-muted)' }}>
-              <Loader2 className="h-4 w-4 animate-spin" /> Locating best starting point…
+              <Loader2 className="h-4 w-4 animate-spin" /> Locating best starting pointï¿½
             </div>
           )}
           {Number.isFinite(pendingLocation.lat) && Number.isFinite(pendingLocation.lng) ? (
