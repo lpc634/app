@@ -16,6 +16,7 @@ from src.utils.finance import update_job_hours
 from src.routes.notifications import trigger_push_notification_for_users
 from src.services.telegram_notifications import send_job_acceptance_notification
 from src.services.telegram_notifications import _send_admin_group, _format_dt, _area_label
+from src.constants.job_types import ALLOWED_JOB_TYPE_CODES, JOB_TYPES, get_job_type_label
 
 jobs_bp = Blueprint('jobs', __name__)
 
@@ -815,10 +816,17 @@ def create_job():
         if not title:
             title = data['address']
 
+        # Validate job type
+        job_type = data.get('job_type', '').strip()
+        if not job_type:
+            return jsonify({'error': 'job_type is required'}), 400
+        if job_type not in ALLOWED_JOB_TYPE_CODES:
+            return jsonify({'error': 'Invalid job_type'}), 400
+
         # Create the job first
         new_job = Job(
             title=title,
-            job_type=data['job_type'],
+            job_type=job_type,
             address=data['address'],
             postcode=data.get('postcode'),
             arrival_time=parse(data['arrival_time']),
@@ -1113,6 +1121,7 @@ def create_job():
             job_notification_data = {
                 'title': new_job.title,
                 'job_type': new_job.job_type,
+                'job_type_label': get_job_type_label(new_job.job_type),
                 'address': new_job.address,
                 'postcode': new_job.postcode,
                 'arrival_time': new_job.arrival_time.strftime('%Y-%m-%d %H:%M'),

@@ -519,7 +519,7 @@ export default function JobManagement() {
                       </SelectTrigger>
                       <SelectContent>
                         {JOB_TYPES.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
+                          <SelectItem key={type.code} value={type.code}>
                             {type.label}
                           </SelectItem>
                         ))}

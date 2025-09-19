@@ -139,10 +139,18 @@ class Job(db.Model):
         # Calculate agents allocated by counting accepted assignments
         agents_allocated = len([a for a in self.assignments if a.status == 'accepted'])
         
+        # Get job type label
+        try:
+            from src.constants.job_types import get_job_type_label
+            job_type_label = get_job_type_label(self.job_type)
+        except ImportError:
+            job_type_label = self.job_type or "Unknown"
+
         return {
-            'id': self.id, 
-            'title': self.title, 
-            'job_type': self.job_type, 
+            'id': self.id,
+            'title': self.title,
+            'job_type': self.job_type,
+            'job_type_label': job_type_label,
             'address': self.address, 
             'postcode': self.postcode, 
             'arrival_time': self.arrival_time.isoformat(), 
