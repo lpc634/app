@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import StickyActionBar from "@/components/layout/StickyActionBar.jsx";
 import ResponsiveList from "@/components/responsive/ResponsiveList.jsx";
+import LocationPicker from '@/components/LocationPicker.jsx';
 import { usePageHeader } from "@/components/layout/PageHeaderContext.jsx";
 import { useAuth } from '../useAuth.jsx';
+import { extractUkPostcode } from '../utils/ukPostcode';
 import { toast } from 'sonner'; 
 import {
   Plus,
@@ -24,8 +26,22 @@ import {
   Calendar,
   Search,
   Briefcase,
-  Receipt
+  Receipt,
+  Navigation,
+  ExternalLink
 } from 'lucide-react';
+
+const initialJobState = {
+  title: '',
+  job_type: '',
+  address: '',
+  postcode: '',
+  arrival_time: '',
+  agents_required: 1,
+  lead_agent_name: '',
+  instructions: '',
+  urgency_level: 'Standard',
+};
 
 export default function JobManagement() {
   const { register } = usePageHeader();
@@ -44,17 +60,13 @@ export default function JobManagement() {
   const { apiCall } = useAuth()
   
 
-  const [newJob, setNewJob] = useState({
-    title: '',
-    job_type: '',
-    address: '',
-    postcode: '',
-    arrival_time: '',
-    agents_required: 1,
-    lead_agent_name: '',
-    instructions: '',
-    urgency_level: 'Standard'
-  })
+  const [newJob, setNewJob] = useState(() => ({ ...initialJobState }))
+
+  const [loc, setLoc] = useState({ lat: null, lng: null, maps_link: '' })
+  const [locModalOpen, setLocModalOpen] = useState(false)
+
+  const detectedPostcode = extractUkPostcode(newJob.address || '')
+  const hasLocation = Number.isFinite(loc.lat) && Number.isFinite(loc.lng)
 
   const [billingAgentCount, setBillingAgentCount] = useState('1')
   const [billingHourlyNet, setBillingHourlyNet] = useState('')
@@ -62,10 +74,45 @@ export default function JobManagement() {
   const [billingVatRate, setBillingVatRate] = useState('0.20')
   const [billingNoticeFeeNet, setBillingNoticeFeeNet] = useState('')
 
+  const handleLocationChange = (next) => {
+    if (!next || next.lat === null || next.lat === undefined || next.lng === null || next.lng === undefined) {
+      setLoc({ lat: null, lng: null, maps_link: '' });
+      return;
+    }
+
+    const lat = Number(next.lat);
+    const lng = Number(next.lng);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setLoc({ lat: null, lng: null, maps_link: '' });
+      return;
+    }
+
+    setLoc({
+      lat,
+      lng,
+      maps_link: next.maps_link || `https://www.google.com/maps?q=${lat},${lng}`
+    });
+  };
+
+  const fetchJobs = async () => {
+    try {
+      setLoading(true)
+      const data = await apiCall('/jobs')
+      setJobs(data.jobs || [])
+    } catch (error) {
+      setError('Failed to load jobs')
+      console.error('Jobs error:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     const count = Number(newJob.agents_required)
     setBillingAgentCount(String(Number.isFinite(count) && count > 0 ? count : 1))
   }, [newJob.agents_required])
+
   useEffect(() => {
     fetchJobs()
   }, [])
@@ -82,7 +129,6 @@ export default function JobManagement() {
     });
   }, [register]);
 
-  // Fix dialog transparency issue
   useEffect(() => {
     const fixDialogStyling = () => {
       const dialogs = document.querySelectorAll('[role="dialog"]');
@@ -94,28 +140,20 @@ export default function JobManagement() {
       });
     };
 
-    // Run immediately
     fixDialogStyling();
-    
-    // Also run when DOM changes
+
     const observer = new MutationObserver(fixDialogStyling);
     observer.observe(document.body, { childList: true, subtree: true });
-    
+
     return () => observer.disconnect();
   }, [showCreateDialog]);
 
-  const fetchJobs = async () => {
-    try {
-      setLoading(true)
-      const data = await apiCall('/jobs')
-      setJobs(data.jobs || [])
-    } catch (error) {
-      setError('Failed to load jobs')
-      console.error('Jobs error:', error)
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    if (!showCreateDialog) {
+      setLoc({ lat: null, lng: null, maps_link: '' });
+      setLocModalOpen(false);
     }
-  }
+  }, [showCreateDialog])
 
   const handleCreateJob = async (e) => {
     e.preventDefault()
@@ -169,6 +207,14 @@ export default function JobManagement() {
       },
     }
 
+    if (Number.isFinite(loc.lat) && Number.isFinite(loc.lng)) {
+      payload.location_lat = loc.lat
+      payload.location_lng = loc.lng
+      if (loc.maps_link) {
+        payload.maps_link = loc.maps_link
+      }
+    }
+
     try {
       await apiCall('/jobs', {
         method: 'POST',
@@ -180,22 +226,14 @@ export default function JobManagement() {
 })
 
       setShowCreateDialog(false)
-      setNewJob({
-        title: '',
-        job_type: '',
-        address: '',
-        postcode: '',
-        arrival_time: '',
-        agents_required: 1,
-        lead_agent_name: '',
-        instructions: '',
-        urgency_level: 'Standard'
-      })
+      setNewJob({ ...initialJobState })
       setBillingAgentCount('1')
       setBillingHourlyNet('')
       setBillingFirstHourNet('')
       setBillingVatRate('0.20')
       setBillingNoticeFeeNet('')
+      setLoc({ lat: null, lng: null, maps_link: '' })
+      setLocModalOpen(false)
       fetchJobs()
     } catch (error) {
       toast.error("Error", {
@@ -413,6 +451,56 @@ export default function JobManagement() {
                       placeholder="e.g., SW1A 1AA"
                     />
                   </div>
+                </div>
+
+                <div className="rounded-lg border border-[var(--v3-border)] bg-[var(--v3-bg-dark)] p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold" style={{ color: 'var(--v3-text-lightest)' }}>Entrance location</h3>
+                      <p className="text-xs" style={{ color: 'var(--v3-text-muted)' }}>Drop a pin so agents can navigate to the exact entrance.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLocModalOpen(true)}
+                      className="button-refresh flex items-center gap-2 px-3 py-2 text-sm"
+                    >
+                      <Navigation className="h-4 w-4" />
+                      Select Pin
+                    </button>
+                  </div>
+                  {hasLocation ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-green-900/20 border border-green-500/30 rounded-lg">
+                        <div className="w-2 h-2 bg-green-400 rounded-full" />
+                        <span className="text-sm text-green-400">Navigation link ready</span>
+                        {loc.maps_link ? (
+                          <a
+                            href={loc.maps_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-auto text-green-400 hover:text-green-300"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-2 px-3 py-2 bg-[var(--v3-bg-dark)] border border-[var(--v3-border)] rounded-lg">
+                        <MapPin className="h-4 w-4" style={{ color: 'var(--v3-orange)' }} />
+                        <span className="text-sm" style={{ color: 'var(--v3-text-lightest)' }}">
+                          Coordinates: {loc.lat?.toFixed(6)}, {loc.lng?.toFixed(6)}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs" style={{ color: 'var(--v3-text-muted)' }}>
+                      No pin selected yet. Agents will only see the typed address until you place the marker.
+                    </p>
+                  )}
+                  {detectedPostcode && (
+                    <div className="px-3 py-2 bg-[var(--v3-bg-dark)] border border-[var(--v3-border)] rounded-lg text-xs" style={{ color: 'var(--v3-text-lightest)' }}>
+                      Detected postcode: <span className="text-[var(--v3-orange)] font-semibold">{detectedPostcode}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -969,6 +1057,14 @@ export default function JobManagement() {
         </Dialog>
       )}
 
+      <LocationPicker
+        isOpen={locModalOpen}
+        onClose={() => setLocModalOpen(false)}
+        address={newJob.address}
+        postcode={newJob.postcode}
+        value={loc}
+        onChange={handleLocationChange}
+      />
     </div>
   )
 }

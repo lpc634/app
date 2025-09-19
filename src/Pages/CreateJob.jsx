@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from "../useAuth";
 import { toast } from 'sonner';
-import { Briefcase, MapPin, Calendar, Users, MessageSquare, Send, Loader2, Navigation, X, ExternalLink, DollarSign } from 'lucide-react';
+import { Briefcase, MapPin, Calendar, Users, MessageSquare, Send, Loader2, Navigation, ExternalLink, DollarSign } from 'lucide-react';
 import { extractUkPostcode } from '../utils/ukPostcode';
 import { Switch } from '@/components/ui/switch.jsx';
 import AgentMultiSelect from '@/components/forms/AgentMultiSelect.jsx';
+import LocationPicker from '@/components/LocationPicker.jsx';
 
 const CreateJob = () => {
     const { apiCall, user } = useAuth();
@@ -31,340 +32,51 @@ const CreateJob = () => {
     const [loading, setLoading] = useState(false);
     const [notifyAll, setNotifyAll] = useState(true);
     const [selectedAgents, setSelectedAgents] = useState([]);
-    const [showMap, setShowMap] = useState(false);
-    const [mapCenter, setMapCenter] = useState({ lat: 51.5074, lng: -0.1278 }); // London default
-    const [selectedLocation, setSelectedLocation] = useState(null);
-    const [mapLoading, setMapLoading] = useState(false);
-    
-    // Refs for Leaflet map
-    const mapRef = useRef(null);
-    const mapInstance = useRef(null);
-    const markerRef = useRef(null);
+    const [locationPickerOpen, setLocationPickerOpen] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const openLocationSelector = async () => {
+    const openLocationSelector = () => {
         const full = (formData.address || '').trim();
         if (!full) {
             toast.error("Please enter a full address first");
             return;
         }
-
-        const postcode = extractUkPostcode(full);
-        const query = postcode || full;
-
-        setMapLoading(true);
-        try {
-            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=gb&limit=1`;
-            const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
-            const results = await response.json();
-
-            if (Array.isArray(results) && results.length > 0) {
-                const location = {
-                    lat: parseFloat(results[0].lat),
-                    lng: parseFloat(results[0].lon)
-                };
-                setMapCenter(location);
-                setSelectedLocation(location);
-                setShowMap(true);
-                if (postcode) {
-                    toast.success(`Located by postcode ${postcode}. You can drag the pin to refine.`);
-                } else {
-                    toast.message('Located by full address. Drag the pin to refine if needed.');
-                }
-            } else {
-                toast.error("Could not find a location. Drag a pin manually on the map.");
-                setMapCenter({ lat: 51.5074, lng: -0.1278 });
-                setSelectedLocation(null);
-                setShowMap(true);
-            }
-        } catch (error) {
-            toast.error("Geocoding failed. You can drag a pin manually.");
-            setMapCenter({ lat: 51.5074, lng: -0.1278 });
-            setSelectedLocation(null);
-            setShowMap(true);
-        } finally {
-            setMapLoading(false);
-        }
+        setLocationPickerOpen(true);
     };
 
-    const generateGoogleMapsLink = (lat, lng) => `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    const handleLocationChange = (next) => {
+        const lat = Number(next?.lat);
+        const lng = Number(next?.lng);
 
-    const handleMapClick = async (lat, lng) => {
-        setSelectedLocation({ lat, lng });
-        
-        // Generate Google Maps link
-        const mapsLink = generateGoogleMapsLink(lat, lng);
-        
-        setFormData(prev => ({ 
-            ...prev, 
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            setFormData((prev) => ({
+                ...prev,
+                location_lat: '',
+                location_lng: '',
+                maps_link: ''
+            }));
+            return;
+        }
+
+        setFormData((prev) => ({
+            ...prev,
             location_lat: lat.toString(),
             location_lng: lng.toString(),
-            maps_link: mapsLink
+            maps_link: next?.maps_link || `https://www.google.com/maps?q=${lat},${lng}`
         }));
-        
-        toast.success(`Entrance location set! Google Maps link generated.`);
     };
 
-    const MapModal = () => {
-        useEffect(() => {
-            if (showMap && mapRef.current && !mapInstance.current) {
-                // Initialize Leaflet map
-                mapInstance.current = window.L.map(mapRef.current).setView([mapCenter.lat, mapCenter.lng], 18);
-                
-                // Define tile layers
-                const satelliteLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-                    id: 'satellite'
-                });
-                
-                const streetLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-                    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom',
-                    id: 'street'
-                });
-                
-                const labelsLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-                    attribution: 'Labels &copy; Esri',
-                    id: 'labels'
-                });
-                
-                // Store layer references for control
-                mapInstance.current._satelliteLayer = satelliteLayer;
-                mapInstance.current._streetLayer = streetLayer;
-                mapInstance.current._labelsLayer = labelsLayer;
-                mapInstance.current._currentView = 'satellite';
-                
-                // Add initial satellite layer
-                satelliteLayer.addTo(mapInstance.current);
-                labelsLayer.addTo(mapInstance.current);
-                
-                // Create custom map view control
-                const MapViewControl = window.L.Control.extend({
-                    onAdd: function(map) {
-                        const container = window.L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-                        container.style.cssText = `
-                            background: var(--v3-bg-card);
-                            border: 1px solid var(--v3-border);
-                            border-radius: 8px;
-                            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                            overflow: hidden;
-                        `;
-                        
-                        const button = window.L.DomUtil.create('button', '', container);
-                        button.innerHTML = 'Street';
-                        button.style.cssText = `
-                            background: transparent;
-                            border: none;
-                            padding: 8px 12px;
-                            color: var(--v3-text-lightest);
-                            font-size: 12px;
-                            font-weight: 500;
-                            cursor: pointer;
-                            transition: all 0.2s ease;
-                            min-width: 60px;
-                            min-height: 44px;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                        `;
-                        
-                        button.onmouseover = function() {
-                            this.style.backgroundColor = 'var(--v3-orange)';
-                            this.style.color = 'white';
-                        };
-                        
-                        button.onmouseout = function() {
-                            this.style.backgroundColor = 'transparent';
-                            this.style.color = 'var(--v3-text-lightest)';
-                        };
-                        
-                        button.onclick = function(e) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            
-                            if (map._currentView === 'satellite') {
-                                // Switch to street view
-                                map.removeLayer(map._satelliteLayer);
-                                map.removeLayer(map._labelsLayer);
-                                map._streetLayer.addTo(map);
-                                map._currentView = 'street';
-                                button.innerHTML = 'Satellite';
-                            } else {
-                                // Switch to satellite view
-                                map.removeLayer(map._streetLayer);
-                                map._satelliteLayer.addTo(map);
-                                map._labelsLayer.addTo(map);
-                                map._currentView = 'satellite';
-                                button.innerHTML = 'Street';
-                            }
-                        };
-                        
-                        // Prevent map interactions when clicking control
-                        window.L.DomEvent.disableClickPropagation(container);
-                        window.L.DomEvent.disableScrollPropagation(container);
-                        
-                        return container;
-                    },
-                    
-                    onRemove: function(map) {
-                        // Cleanup if needed
-                    }
-                });
-                
-                // Add control to map
-                const mapViewControl = new MapViewControl({ position: 'topright' });
-                mapViewControl.addTo(mapInstance.current);
-
-                // Add initial marker if location is selected
-                if (selectedLocation) {
-                    markerRef.current = window.L.marker([selectedLocation.lat, selectedLocation.lng], {
-                        draggable: true
-                    }).addTo(mapInstance.current);
-
-                    // Handle marker drag
-                    markerRef.current.on('dragend', function(e) {
-                        const position = e.target.getLatLng();
-                        handleMapClick(position.lat, position.lng);
-                    });
-                }
-
-                // Handle map clicks
-                mapInstance.current.on('click', function(e) {
-                    const { lat, lng } = e.latlng;
-                    
-                    // Remove existing marker
-                    if (markerRef.current) {
-                        mapInstance.current.removeLayer(markerRef.current);
-                    }
-                    
-                    // Add new marker
-                    markerRef.current = window.L.marker([lat, lng], {
-                        draggable: true
-                    }).addTo(mapInstance.current);
-
-                    // Handle marker drag
-                    markerRef.current.on('dragend', function(e) {
-                        const position = e.target.getLatLng();
-                        handleMapClick(position.lat, position.lng);
-                    });
-
-                    handleMapClick(lat, lng);
-                });
-            }
-        }, [showMap, mapCenter]);
-
-        // Cleanup map when modal closes
-        useEffect(() => {
-            if (!showMap && mapInstance.current) {
-                mapInstance.current.remove();
-                mapInstance.current = null;
-                markerRef.current = null;
-            }
-        }, [showMap]);
-
-        if (!showMap) return null;
-
-        return (
-            <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: 'var(--v3-bg-darkest)' }}>
-                <div className="rounded-lg w-full max-w-4xl h-[80vh] flex flex-col shadow-2xl" style={{ 
-                    backgroundColor: 'var(--v3-bg-card)', 
-                    border: '1px solid var(--v3-border)' 
-                }}>
-                    <div className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid var(--v3-border)' }}>
-                        <div className="flex items-center gap-2">
-                            <Navigation className="w-5 h-5" style={{ color: 'var(--v3-orange)' }} />
-                            <h3 className="text-lg font-semibold" style={{ color: 'var(--v3-text-lightest)' }}>Select Entrance Location</h3>
-                        </div>
-                        <button 
-                            onClick={() => setShowMap(false)}
-                            className="p-2 rounded transition-colors"
-                            style={{ color: 'var(--v3-text-muted)' }}
-                            onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--v3-bg-dark)'}
-                            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-                    
-                    <div className="p-4" style={{ 
-                        borderBottom: '1px solid var(--v3-border)', 
-                        backgroundColor: 'var(--v3-bg-dark)' 
-                    }}>
-                        <p className="text-sm mb-2" style={{ color: 'var(--v3-text-muted)' }}>
-                            <strong style={{ color: 'var(--v3-orange)' }}>Address:</strong> {formData.address}
-                        </p>
-                        <p className="text-xs" style={{ color: 'var(--v3-text-muted)' }}>
-                            Click on the map to mark the exact entrance location. The pin can be dragged to fine-tune the position.
-                        </p>
-                        {formData.maps_link && (
-    <div className="mt-3 p-4 rounded-lg" style={{ 
-        backgroundColor: 'var(--v3-bg-card)', 
-        border: '1px solid var(--v3-orange)',
-        boxShadow: '0 0 15px rgba(255, 87, 34, 0.2)'
-    }}>
-        <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--v3-orange)' }}>
-                <Navigation className="w-4 h-4 text-white" />
-            </div>
-            <div>
-                <h4 className="font-semibold" style={{ color: 'var(--v3-orange)' }}>✓ Entrance Location Set</h4>
-                <p className="text-sm" style={{ color: 'var(--v3-text-muted)' }}>
-                    Agents will receive a Google Maps link to navigate directly to this location.
-                </p>
-            </div>
-        </div>
-        
-        <div className="flex items-center gap-2 p-3 rounded-lg" style={{ 
-            backgroundColor: 'var(--v3-bg-dark)', 
-            border: '1px solid var(--v3-border)' 
-        }}>
-            <MapPin className="w-4 h-4" style={{ color: 'var(--v3-orange)' }} />
-            <span className="text-sm" style={{ color: 'var(--v3-text-lightest)' }}>
-                Coordinates: {parseFloat(formData.location_lat).toFixed(6)}, {parseFloat(formData.location_lng).toFixed(6)}
-            </span>
-            <a 
-                href={formData.maps_link} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="ml-auto transition-colors"
-                style={{ color: 'var(--v3-orange)' }}
-                onMouseEnter={(e) => e.target.style.color = 'var(--v3-orange-dark)'}
-                onMouseLeave={(e) => e.target.style.color = 'var(--v3-orange)'}
-                title="Test navigation link"
-            >
-                <ExternalLink className="w-4 h-4" />
-            </a>
-        </div>
-    </div>
-)}
-                    </div>
-                    
-                    <div className="flex-1 relative">
-                        <div 
-                            ref={mapRef}
-                            className="w-full h-full rounded-b-lg"
-                            style={{ minHeight: '400px' }}
-                        />
-                        
-                        <div className="absolute bottom-4 right-4 rounded-lg p-3 max-w-xs" style={{ 
-                            backgroundColor: 'var(--v3-bg-card)', 
-                            border: '1px solid var(--v3-border)',
-                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
-                        }}>
-                            <p className="text-xs" style={{ color: 'var(--v3-text-muted)' }}>
-                                Switch between satellite and street views using the control above. 
-                                Click to mark the exact entrance location.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
+    const parseCoordinate = (value) => {
+        if (value === undefined || value === null || value === '') {
+            return null;
+        }
+        const num = Number(value);
+        return Number.isFinite(num) ? num : null;
     };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -425,6 +137,7 @@ const CreateJob = () => {
             });
             setNotifyAll(true);
             setSelectedAgents([]);
+            setLocationPickerOpen(false);
             
             // Reset billing data
             setBillingData({
@@ -436,7 +149,6 @@ const CreateJob = () => {
                 billable_hours_override: ''
             });
             
-            setSelectedLocation(null);
 
         } catch (err) {
             toast.error('Failed to Create Job', {
@@ -486,14 +198,10 @@ const CreateJob = () => {
                                 <button
                                     type="button"
                                     onClick={openLocationSelector}
-                                    disabled={!formData.address.trim() || mapLoading}
-                                    className="button-refresh flex items-center gap-2 px-4 py-2 disabled:opacity-50"
+                                    disabled={!formData.address.trim()}
+                                    className="button-refresh flex items-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {mapLoading ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <Navigation className="w-4 h-4" />
-                                    )}
+                                    <Navigation className="w-4 h-4" />
                                     Select Entrance Location
                                 </button>
                                 
@@ -744,11 +452,25 @@ const CreateJob = () => {
                     </div>
                 </form>
 
-                {/* Map Modal */}
-                <MapModal />
+                <LocationPicker
+                    isOpen={locationPickerOpen}
+                    onClose={() => setLocationPickerOpen(false)}
+                    address={formData.address}
+                    postcode={extractUkPostcode(formData.address || '')}
+                    value={{
+                        lat: parseCoordinate(formData.location_lat),
+                        lng: parseCoordinate(formData.location_lng),
+                        maps_link: formData.maps_link
+                    }}
+                    onChange={handleLocationChange}
+                />
             </div>
         </main>
     );
 };
 
 export default CreateJob;
+
+
+
+
