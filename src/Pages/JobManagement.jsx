@@ -10,9 +10,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import StickyActionBar from "@/components/layout/StickyActionBar.jsx";
 import ResponsiveList from "@/components/responsive/ResponsiveList.jsx";
 import LocationPicker from '@/components/LocationPicker.jsx';
+import AgentMultiSelect from '@/components/AgentMultiSelect.jsx';
 import { usePageHeader } from "@/components/layout/PageHeaderContext.jsx";
 import { useAuth } from '../useAuth.jsx';
 import { extractUkPostcode } from '../utils/ukPostcode';
+import { JOB_TYPES } from '../constants/jobTypes.js';
 import { toast } from 'sonner'; 
 import {
   Plus,
@@ -33,7 +35,7 @@ import {
 
 const initialJobState = {
   title: '',
-  job_type: '',
+  job_type: undefined,
   address: '',
   postcode: '',
   arrival_time: '',
@@ -41,6 +43,8 @@ const initialJobState = {
   lead_agent_name: '',
   instructions: '',
   urgency_level: 'Standard',
+  use_address_as_title: false,
+  notify_agent_ids: [],
 };
 
 export default function JobManagement() {
@@ -71,6 +75,32 @@ export default function JobManagement() {
 
   const detectedPostcode = extractUkPostcode(newJob.address || '')
   const hasLocation = Number.isFinite(loc.lat) && Number.isFinite(loc.lng)
+
+  // Auto-parse postcode from address and update title if checkbox is checked
+  const handleAddressChange = (address) => {
+    const updates = { address }
+
+    // Auto-parse postcode
+    const parsedPostcode = extractUkPostcode(address)
+    if (parsedPostcode) {
+      updates.postcode = parsedPostcode
+    }
+
+    // Auto-update title if checkbox is checked
+    if (newJob.use_address_as_title) {
+      updates.title = address
+    }
+
+    setNewJob(prev => ({ ...prev, ...updates }))
+  }
+
+  const handleUseAddressAsTitle = (checked) => {
+    const updates = { use_address_as_title: checked }
+    if (checked) {
+      updates.title = newJob.address
+    }
+    setNewJob(prev => ({ ...prev, ...updates }))
+  }
 
   const [billingAgentCount, setBillingAgentCount] = useState('1')
   const [billingHourlyNet, setBillingHourlyNet] = useState('')
@@ -194,6 +224,13 @@ export default function JobManagement() {
     e.preventDefault()
     setCreateLoading(true)
 
+    // Validate required fields
+    if (!newJob.job_type) {
+      toast.error('Please select a job type')
+      setCreateLoading(false)
+      return
+    }
+
     const agentCount = Number(billingAgentCount)
     const hourlyRate = parseFloat(billingHourlyNet)
     const firstHourRate = billingFirstHourNet ? parseFloat(billingFirstHourNet) : null
@@ -240,6 +277,7 @@ export default function JobManagement() {
         vat_rate: vatRate,
         notice_fee_net: noticeFee,
       },
+      notify_agent_ids: newJob.notify_agent_ids || [],
     }
 
     if (Number.isFinite(loc.lat) && Number.isFinite(loc.lng)) {
@@ -445,47 +483,63 @@ export default function JobManagement() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="title">Job Address</Label>
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="title">Job Title/Label</Label>
+                      <input
+                        type="checkbox"
+                        id="use_address_as_title"
+                        checked={newJob.use_address_as_title}
+                        onChange={(e) => handleUseAddressAsTitle(e.target.checked)}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="use_address_as_title" className="text-xs text-muted-foreground">
+                        Use address as title
+                      </Label>
+                    </div>
                     <Input
                       id="title"
                       value={newJob.title}
                       onChange={(e) => setNewJob({...newJob, title: e.target.value})}
                       placeholder="e.g., Security Guard - Shopping Center"
-                      required
+                      disabled={newJob.use_address_as_title}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="job_type">Job Type</Label>
-                    <Input
-                      id="job_type"
+                    <Select
                       value={newJob.job_type}
-                      onChange={(e) => setNewJob({...newJob, job_type: e.target.value})}
-                      placeholder="e.g., Security, Event Staff"
-                      required
-                    />
+                      onValueChange={(value) => setNewJob({...newJob, job_type: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select job type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {JOB_TYPES.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Textarea
-                      id="address"
-                      value={newJob.address}
-                      onChange={(e) => setNewJob({...newJob, address: e.target.value})}
-                      placeholder="Full address including postcode"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="postcode">Postcode</Label>
-                    <Input
-                      id="postcode"
-                      value={newJob.postcode}
-                      onChange={(e) => setNewJob({...newJob, postcode: e.target.value})}
-                      placeholder="e.g., SW1A 1AA"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address">Full Address</Label>
+                  <Textarea
+                    id="address"
+                    value={newJob.address}
+                    onChange={(e) => handleAddressChange(e.target.value)}
+                    placeholder="Full address including postcode (e.g., 123 Main Street, London, SW1A 1AA)"
+                    required
+                  />
+                  {detectedPostcode && (
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        Postcode: {detectedPostcode}
+                      </Badge>
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded-lg border border-[var(--v3-border)] bg-[var(--v3-bg-dark)] p-4 space-y-3">
@@ -668,6 +722,20 @@ export default function JobManagement() {
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* Agent Notification Section */}
+                <div className="rounded-lg border border-[var(--v3-border)] bg-[var(--v3-bg-dark)] p-4 space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold" style={{ color: 'var(--v3-text-lightest)' }}>Notify Agents</h3>
+                    <p className="text-xs" style={{ color: 'var(--v3-text-muted)' }}>
+                      Only selected agents will be notified. You can broadcast to all later from Job actions.
+                    </p>
+                  </div>
+                  <AgentMultiSelect
+                    value={newJob.notify_agent_ids}
+                    onChange={(ids) => setNewJob({...newJob, notify_agent_ids: ids})}
+                  />
                 </div>
               </div>
               <DialogFooter>
