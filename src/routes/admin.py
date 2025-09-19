@@ -47,6 +47,173 @@ def get_agents_minimal():
     return jsonify(agents)
 
 
+@admin_bp.route('/agents', methods=['GET'])
+@jwt_required()
+def list_agents():
+    """Get all agents with basic info. Supports ?active=true filter."""
+    user = require_admin()
+    if not user:
+        return jsonify({'error': 'Forbidden'}), 403
+
+    active = request.args.get('active') == 'true'
+    query = User.query.filter(User.role == 'agent')
+
+    if active:
+        query = query.filter(User.is_active.is_(True))
+
+    agents = query.order_by(User.first_name, User.last_name).all()
+
+    result = []
+    for agent in agents:
+        result.append({
+            'id': agent.id,
+            'display_name': f"{agent.first_name or ''} {agent.last_name or ''}".strip() or agent.email,
+            'email': agent.email,
+            'region': getattr(agent, 'region', None),
+            'skills': getattr(agent, 'skills', [])
+        })
+
+    return jsonify({'agents': result})
+
+
+@admin_bp.route('/agents/available', methods=['GET'])
+@jwt_required()
+def get_agents_available():
+    """Get agents available for a specific date range."""
+    user = require_admin()
+    if not user:
+        return jsonify({'error': 'Forbidden'}), 403
+
+    try:
+        start_date = _parse_date_param(request.args.get('start'))
+        end_date = _parse_date_param(request.args.get('end'))
+
+        if not start_date or not end_date:
+            return jsonify({'error': 'start and end date parameters required (YYYY-MM-DD)'}), 400
+
+        # Get agents available within the date range
+        available_agents = (
+            db.session.query(User)
+            .join(AgentAvailability, AgentAvailability.agent_id == User.id)
+            .filter(
+                User.role == 'agent',
+                User.is_active.is_(True),
+                AgentAvailability.date.between(start_date, end_date),
+                AgentAvailability.is_available.is_(True)
+            )
+            .distinct()
+            .order_by(User.first_name, User.last_name)
+            .all()
+        )
+
+        result = []
+        for agent in available_agents:
+            result.append({
+                'id': agent.id,
+                'display_name': f"{agent.first_name or ''} {agent.last_name or ''}".strip() or agent.email,
+                'email': agent.email,
+                'region': getattr(agent, 'region', None),
+                'skills': getattr(agent, 'skills', [])
+            })
+
+        return jsonify({'agents': result})
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching available agents: {e}")
+        return jsonify({'error': 'Failed to fetch available agents'}), 500
+
+
+@admin_bp.route('/agents/reliability', methods=['GET'])
+@jwt_required()
+def get_agents_reliability():
+    """Get most reliable agents based on job acceptance rate."""
+    user = require_admin()
+    if not user:
+        return jsonify({'error': 'Forbidden'}), 403
+
+    try:
+        # Default to last 90 days
+        end_date = date.today()
+        start_date = end_date - timedelta(days=90)
+
+        # Allow custom date range
+        if request.args.get('start'):
+            start_date = _parse_date_param(request.args.get('start'))
+        if request.args.get('end'):
+            end_date = _parse_date_param(request.args.get('end'))
+
+        limit = int(request.args.get('limit', 20))
+
+        # Count job assignments (accepted) per agent in date range
+        accepted_subq = (
+            db.session.query(
+                JobAssignment.agent_id,
+                db.func.count().label('accepted')
+            )
+            .filter(
+                JobAssignment.status == 'accepted',
+                JobAssignment.created_at.between(start_date, end_date)
+            )
+            .group_by(JobAssignment.agent_id)
+            .subquery()
+        )
+
+        # Count total job offers/assignments per agent in date range
+        offered_subq = (
+            db.session.query(
+                JobAssignment.agent_id,
+                db.func.count().label('offered')
+            )
+            .filter(
+                JobAssignment.created_at.between(start_date, end_date)
+            )
+            .group_by(JobAssignment.agent_id)
+            .subquery()
+        )
+
+        # Get agents with their acceptance stats
+        query = (
+            db.session.query(
+                User.id,
+                User.first_name,
+                User.last_name,
+                User.email,
+                db.func.coalesce(accepted_subq.c.accepted, 0).label('accepted'),
+                db.func.coalesce(offered_subq.c.offered, 0).label('offered')
+            )
+            .outerjoin(accepted_subq, accepted_subq.c.agent_id == User.id)
+            .outerjoin(offered_subq, offered_subq.c.agent_id == User.id)
+            .filter(
+                User.role == 'agent',
+                User.is_active.is_(True)
+            )
+        )
+
+        agents_data = []
+        for row in query.all():
+            accepted = int(row.accepted or 0)
+            offered = int(row.offered or 0)
+            accept_rate = float(accepted) / offered if offered > 0 else 0.0
+
+            agents_data.append({
+                'id': row.id,
+                'display_name': f"{row.first_name or ''} {row.last_name or ''}".strip() or row.email,
+                'email': row.email,
+                'accepted': accepted,
+                'offered': offered,
+                'accept_rate': accept_rate
+            })
+
+        # Sort by accept_rate (desc) then by accepted count (desc)
+        agents_data.sort(key=lambda x: (x['accept_rate'], x['accepted']), reverse=True)
+
+        return jsonify({'agents': agents_data[:limit]})
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching agent reliability: {e}")
+        return jsonify({'error': 'Failed to fetch agent reliability'}), 500
+
+
 @admin_bp.route('/admin/telegram/messages', methods=['POST'])
 @jwt_required()
 def send_admin_telegram_messages():

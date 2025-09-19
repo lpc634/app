@@ -733,6 +733,7 @@ export default function JobManagement() {
                     </p>
                   </div>
                   <AgentMultiSelect
+                    arrivalISO={newJob.arrival_time}
                     value={newJob.notify_agent_ids}
                     onChange={(ids) => setNewJob({...newJob, notify_agent_ids: ids})}
                   />
