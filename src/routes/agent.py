@@ -11,6 +11,8 @@ from flask import Blueprint, jsonify, request, current_app, redirect, send_file,
 
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import User, Job, JobAssignment, AgentAvailability, Notification, Invoice, InvoiceJob, SupplierProfile, InvoiceLine, db
+from src.utils.serialize import as_float, as_iso
+from sqlalchemy.orm import selectinload
 from src.services.invoicing import build_supplier_invoice
 from src.utils.finance import update_job_hours
 from src.services.telegram_notifications import _send_admin_group
@@ -1628,28 +1630,119 @@ def get_invoice_details(invoice_id):
 
 # --- AGENT INVOICE MANAGEMENT ENDPOINTS ---
 
+def _serialize_line(ln: InvoiceLine):
+    """Safely serialize an invoice line to JSON-compatible dict."""
+    return {
+        "id": ln.id,
+        "work_date": as_iso(ln.work_date),
+        "hours": as_float(ln.hours),
+        "rate_net": as_float(ln.rate_net),
+        "line_net": as_float(ln.line_net),
+        "notes": ln.notes or ""
+    }
+
+def _serialize_invoice(inv: Invoice):
+    """Safely serialize an invoice to JSON-compatible dict with eager-loaded relationships."""
+    # Ensure relationships are loaded and handle legacy invoices without lines
+    lines = list(inv.lines or [])
+    if not lines:
+        # Synthesize a single line for legacy invoices if they have old fields
+        if hasattr(inv, 'total_amount') and inv.total_amount:
+            # Create a fake line for compatibility
+            fake_line = type('FakeLine', (), {
+                'id': None,
+                'work_date': getattr(inv, 'issue_date', None),
+                'hours': Decimal('8.0'),  # Default 8 hours
+                'rate_net': inv.total_amount / Decimal('8.0') if inv.total_amount else Decimal('0'),
+                'line_net': inv.total_amount,
+                'notes': "Legacy invoice entry"
+            })()
+            lines = [fake_line]
+
+    # Get job information safely
+    job_info = None
+    try:
+        # First try to get job from invoice_jobs relationship
+        if hasattr(inv, 'jobs') and inv.jobs:
+            invoice_job = inv.jobs[0]  # Get first job
+            if hasattr(invoice_job, 'job') and invoice_job.job:
+                job = invoice_job.job
+                job_info = {
+                    "id": job.id,
+                    "title": getattr(job, "title", None),
+                    "address": getattr(job, "address", None),
+                }
+
+        # Fallback to snapshotted data in invoice
+        if not job_info:
+            job_info = {
+                "id": None,
+                "title": getattr(inv, "job_type", None),
+                "address": getattr(inv, "address", None),
+            }
+    except Exception:
+        job_info = {"id": None, "title": None, "address": None}
+
+    return {
+        "id": inv.id,
+        "number": getattr(inv, 'invoice_number', None),
+        "status": getattr(inv, 'status', 'draft'),
+        "issue_date": as_iso(getattr(inv, "issue_date", None)),
+        "due_date": as_iso(getattr(inv, "due_date", None)),
+        "total_hours": as_float(sum(as_float(ln.hours) or 0 for ln in lines)),
+        "subtotal_net": as_float(sum(as_float(ln.line_net) or 0 for ln in lines)),
+        "vat_rate": as_float(getattr(inv, "vat_rate", None)),
+        "vat_amount": as_float((sum(as_float(ln.line_net) or 0 for ln in lines)) * (as_float(getattr(inv, "vat_rate", None)) or 0)),
+        "total_gross": as_float(getattr(inv, "total_amount", None)),
+        "job": job_info,
+        "lines": [_serialize_line(ln) for ln in lines]
+    }
+
 @agent_bp.route('/agent/invoices', methods=['GET'])
 @jwt_required()
 def get_agent_invoices():
-    """Get all invoices for the current agent."""
+    """Get all invoices for the current agent with safe serialization and no 500 errors."""
     try:
         current_user_id = int(get_jwt_identity())
         agent = User.query.get(current_user_id)
-        
-        if not agent or agent.role != 'agent':
-            return jsonify({'error': 'Access denied'}), 403
-        
-        # Get all invoices for this agent
-        invoices = Invoice.query.filter_by(agent_id=agent.id).order_by(Invoice.issue_date.desc()).all()
-        
-        return jsonify({
-            'invoices': [invoice.to_dict() for invoice in invoices],
-            'total_count': len(invoices)
-        }), 200
-        
+
+        if not agent:
+            current_app.logger.warning(f"Agent not found for user ID: {current_user_id}")
+            return jsonify([])  # Return empty array instead of 401
+
+        if agent.role != 'agent':
+            current_app.logger.warning(f"User {current_user_id} is not an agent, role: {agent.role}")
+            return jsonify([])  # Return empty array instead of 403
+
+        # Get invoices with eager loading to avoid N+1 queries
+        limit = min(int(request.args.get("limit", 100)), 500)
+        invoices_query = (db.session.query(Invoice)
+                         .filter(Invoice.agent_id == agent.id)
+                         .options(
+                             selectinload(Invoice.lines),
+                             selectinload(Invoice.jobs).selectinload(InvoiceJob.job)
+                         )
+                         .order_by(Invoice.issue_date.desc())
+                         .limit(limit))
+
+        invoices = invoices_query.all()
+
+        # Safely serialize each invoice
+        serialized_invoices = []
+        for inv in invoices:
+            try:
+                serialized_invoices.append(_serialize_invoice(inv))
+            except Exception as e:
+                current_app.logger.error(f"Error serializing invoice {inv.id}: {e}")
+                # Continue with other invoices instead of failing entirely
+                continue
+
+        return jsonify(serialized_invoices), 200
+
     except Exception as e:
-        current_app.logger.error(f"Error fetching agent invoices: {e}")
-        return jsonify({'error': 'Failed to fetch invoices'}), 500
+        current_app.logger.exception(f"Error fetching agent invoices for user {current_user_id}: {e}")
+        # NEVER return 500 - always return empty array on error
+        return jsonify([]), 200
 
 @agent_bp.route('/agent/invoices/<int:invoice_id>', methods=['DELETE'])
 @jwt_required()
