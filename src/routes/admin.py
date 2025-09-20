@@ -9,6 +9,7 @@ from src.utils.finance import (
     get_job_expense_totals, get_job_agent_invoice_totals, calculate_job_profit,
     lock_job_revenue_snapshot, get_financial_summary
 )
+from src.utils.dbcheck import full_health_check
 from datetime import datetime, date, timedelta
 import requests
 import json
@@ -494,6 +495,25 @@ def _parse_date_param(value):
         return datetime.strptime(value, '%Y-%m-%d').date()
     except Exception:
         return None
+
+@admin_bp.route('/admin/health/db', methods=['GET'])
+@jwt_required()
+def admin_db_health_check():
+    """Admin-only database health check endpoint."""
+    user = require_admin()
+    if not user:
+        return jsonify({'error': 'Forbidden'}), 403
+
+    try:
+        health_result = full_health_check()
+        return jsonify(health_result), 200
+    except Exception as e:
+        current_app.logger.error(f"Health check failed: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': f"Health check failed: {str(e)}"
+        }), 500
+
 
 def _daterange_from_period(period, ref_date=None):
     today = ref_date or date.today()

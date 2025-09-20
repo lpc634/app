@@ -402,7 +402,7 @@ class InvoiceLine(db.Model):
 
     # Multi-day support - changed from unique job_assignment_id to flexible structure
     job_assignment_id = db.Column(db.Integer, db.ForeignKey('job_assignments.id'), nullable=True)  # Made nullable for backward compatibility
-    work_date = db.Column(db.Date, nullable=False)  # New: specific date for this time entry
+    work_date = db.Column(db.Date, nullable=False, index=True)  # New: specific date for this time entry
 
     hours = db.Column(db.Numeric(6, 2), nullable=False)
     rate_net = db.Column(db.Numeric(10, 2), nullable=False)  # Renamed from rate_per_hour for clarity
