@@ -405,8 +405,15 @@ class InvoiceLine(db.Model):
     work_date = db.Column(db.Date, nullable=False, index=True)  # New: specific date for this time entry
 
     hours = db.Column(db.Numeric(6, 2), nullable=False)
-    rate_net = db.Column(db.Numeric(10, 2), nullable=False)  # Renamed from rate_per_hour for clarity
-    line_net = db.Column(db.Numeric(12, 2), nullable=False)  # Renamed from line_total for clarity
+
+    # Rate and line total columns - handle both old and new names
+    rate_net = db.Column(db.Numeric(10, 2), nullable=True)  # New column name
+    line_net = db.Column(db.Numeric(12, 2), nullable=True)  # New column name
+
+    # Legacy column names (may exist in production DB)
+    rate_per_hour = db.Column(db.Numeric(10, 2), nullable=True)  # Legacy name
+    line_total = db.Column(db.Numeric(12, 2), nullable=True)  # Legacy name
+
     notes = db.Column(db.Text, nullable=True)  # New: optional notes per day
 
     # Legacy fields for backward compatibility
@@ -415,19 +422,23 @@ class InvoiceLine(db.Model):
     invoice = db.relationship('Invoice', back_populates='lines')
 
     def to_dict(self):
+        # Handle both old and new column names for rates and totals
+        rate_value = self.rate_net if self.rate_net is not None else self.rate_per_hour
+        line_total_value = self.line_net if self.line_net is not None else self.line_total
+
         return {
             'id': self.id,
             'invoice_id': self.invoice_id,
             'work_date': self.work_date.isoformat() if self.work_date else None,
             'hours': float(self.hours) if self.hours is not None else 0.0,
-            'rate_net': float(self.rate_net) if self.rate_net is not None else 0.0,
-            'line_net': float(self.line_net) if self.line_net is not None else 0.0,
+            'rate_net': float(rate_value) if rate_value is not None else 0.0,
+            'line_net': float(line_total_value) if line_total_value is not None else 0.0,
             'notes': self.notes,
             # Legacy compatibility
             'job_assignment_id': self.job_assignment_id,
-            'rate_per_hour': float(self.rate_net) if self.rate_net is not None else 0.0,  # Alias for backward compatibility
+            'rate_per_hour': float(rate_value) if rate_value is not None else 0.0,  # Alias for backward compatibility
             'headcount': self.headcount or 1,
-            'line_total': float(self.line_net) if self.line_net is not None else 0.0,  # Alias for backward compatibility
+            'line_total': float(line_total_value) if line_total_value is not None else 0.0,  # Alias for backward compatibility
         }
 
 

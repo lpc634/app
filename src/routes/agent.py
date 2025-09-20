@@ -1632,13 +1632,26 @@ def get_invoice_details(invoice_id):
 
 def _serialize_line(ln: InvoiceLine):
     """Safely serialize an invoice line to JSON-compatible dict."""
+    # Handle both old and new column names for backward compatibility
+    rate_value = None
+    if hasattr(ln, 'rate_net') and ln.rate_net is not None:
+        rate_value = ln.rate_net
+    elif hasattr(ln, 'rate_per_hour') and ln.rate_per_hour is not None:
+        rate_value = ln.rate_per_hour
+
+    line_total_value = None
+    if hasattr(ln, 'line_net') and ln.line_net is not None:
+        line_total_value = ln.line_net
+    elif hasattr(ln, 'line_total') and ln.line_total is not None:
+        line_total_value = ln.line_total
+
     return {
         "id": ln.id,
         "work_date": as_iso(ln.work_date),
         "hours": as_float(ln.hours),
-        "rate_net": as_float(ln.rate_net),
-        "line_net": as_float(ln.line_net),
-        "notes": ln.notes or ""
+        "rate_net": as_float(rate_value),
+        "line_net": as_float(line_total_value),
+        "notes": getattr(ln, 'notes', None) or ""
     }
 
 def _serialize_invoice(inv: Invoice):
