@@ -1735,36 +1735,21 @@ def get_agent_invoices():
         if not agent_id:
             return jsonify([])
 
-        # Path A: invoices.agent_id == agent_id
-        sub_a = select(Invoice.id).where(Invoice.agent_id == agent_id)
-
-        # Path B (legacy): invoice_lines → job_assignments.agent_id == agent_id
-        sub_b = (
-            select(InvoiceLine.invoice_id)
-            .select_from(InvoiceLine)
-            .join(JobAssignment, JobAssignment.id == InvoiceLine.job_assignment_id)
-            .where(JobAssignment.agent_id == agent_id)
-        )
-
-        # Union and dedupe ids
-        inv_ids_union = union_all(sub_a, sub_b).subquery()
-        inv_ids = select(db.func.distinct(inv_ids_union.c[0])).subquery()
-
         # Get limit
         limit = min(int(request.args.get("limit", 100)), 500)
 
-        # Fetch invoices by the calculated IDs with eager loading
-        q = (
-            db.session.query(Invoice)
-            .filter(Invoice.id.in_(select(inv_ids)))
+        # Simple direct query - all invoices for this agent
+        invoices = (
+            Invoice.query
+            .filter_by(agent_id=agent_id)
             .options(
                 selectinload(Invoice.lines),
                 selectinload(Invoice.jobs)
             )
             .order_by(Invoice.issue_date.desc())
             .limit(limit)
+            .all()
         )
-        invoices = q.all()
 
         # DEBUG (remove after verifying once)
         current_app.logger.info(
