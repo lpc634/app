@@ -1714,29 +1714,47 @@ def _serialize_invoice(inv: Invoice):
 
 def _current_agent_id():
     """Helper function to resolve the current agent's User.id from JWT."""
-    user_id = int(get_jwt_identity())
-    if not user_id:
-        current_app.logger.warning("No user ID in JWT token")
-        return None
+    try:
+        user_id = int(get_jwt_identity())
+        if not user_id:
+            current_app.logger.warning("No user ID in JWT token")
+            return None
 
-    agent = User.query.filter(User.id == user_id, User.role == 'agent').first()
-    if not agent:
-        current_app.logger.warning(f"No Agent found for user_id={user_id}")
-        return None
+        agent = User.query.filter(User.id == user_id, User.role == 'agent').first()
+        if not agent:
+            current_app.logger.warning(f"No Agent found for user_id={user_id} or user is not an agent")
+            # Check what role the user actually has
+            user = User.query.get(user_id)
+            if user:
+                current_app.logger.warning(f"User {user_id} has role: {user.role}")
+            return None
 
-    return agent.id
+        return agent.id
+    except Exception as e:
+        current_app.logger.error(f"Error in _current_agent_id: {e}")
+        return None
 
 @agent_bp.route('/agent/invoices', methods=['GET'])
 @jwt_required()
 def get_agent_invoices():
     """Get all invoices for the current agent with safe serialization and no 500 errors."""
     try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+
+        current_app.logger.info(f"Getting invoices for user_id={current_user_id}, role={agent.role if agent else 'None'}")
+
         agent_id = _current_agent_id()
         if not agent_id:
+            current_app.logger.warning(f"No agent_id found for user_id={current_user_id}")
             return jsonify([])
 
         # Get limit
         limit = min(int(request.args.get("limit", 100)), 500)
+
+        # Count total invoices for this agent
+        total_count = Invoice.query.filter_by(agent_id=agent_id).count()
+        current_app.logger.info(f"Total invoices in DB for agent_id={agent_id}: {total_count}")
 
         # Simple direct query - all invoices for this agent
         invoices = (
@@ -1751,10 +1769,8 @@ def get_agent_invoices():
             .all()
         )
 
-        # DEBUG (remove after verifying once)
         current_app.logger.info(
-            "Agent invoices resolved: user_id=%s agent_id=%s count=%s",
-            get_jwt_identity(), agent_id, len(invoices)
+            f"Agent invoices query result: user_id={current_user_id}, agent_id={agent_id}, found={len(invoices)} invoices"
         )
 
         # Safely serialize each invoice
@@ -1764,14 +1780,13 @@ def get_agent_invoices():
                 serialized_invoices.append(_serialize_invoice(inv))
             except Exception as e:
                 current_app.logger.error(f"Error serializing invoice {inv.id}: {e}")
-                # Continue with other invoices instead of failing entirely
                 continue
 
+        current_app.logger.info(f"Successfully serialized {len(serialized_invoices)} invoices")
         return jsonify(serialized_invoices), 200
 
     except Exception as e:
         current_app.logger.exception(f"Error fetching agent invoices: {e}")
-        # NEVER return 500 - always return empty array on error
         return jsonify([]), 200
 
 @agent_bp.route('/agent/invoices/summary', methods=['GET'])
@@ -1783,20 +1798,10 @@ def invoices_summary():
         if not agent_id:
             return jsonify({"total_invoiced":0,"total_paid":0,"amount_owed":0,"earned_since_first_invoice":0})
 
-        # Use same union logic as the list endpoint
-        sub_a = select(Invoice.id).where(Invoice.agent_id == agent_id)
-        sub_b = (
-            select(InvoiceLine.invoice_id)
-            .select_from(InvoiceLine)
-            .join(JobAssignment, JobAssignment.id == InvoiceLine.job_assignment_id)
-            .where(JobAssignment.agent_id == agent_id)
-        )
-        inv_ids_union = union_all(sub_a, sub_b).subquery()
-        inv_ids = select(db.func.distinct(inv_ids_union.c[0])).subquery()
+        # Simple direct query
+        base = Invoice.query.filter_by(agent_id=agent_id)
 
-        base = db.session.query(Invoice).filter(Invoice.id.in_(select(inv_ids)))
-
-        total_invoiced = base.filter(Invoice.status.in_(["sent","paid"])) \
+        total_invoiced = base.filter(Invoice.status.in_(["sent","submitted","paid"])) \
                              .with_entities(db.func.coalesce(db.func.sum(Invoice.total_amount), 0)).scalar() or 0
         total_paid     = base.filter(Invoice.status == "paid") \
                              .with_entities(db.func.coalesce(db.func.sum(Invoice.total_amount), 0)).scalar() or 0
