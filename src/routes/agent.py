@@ -13,6 +13,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import User, Job, JobAssignment, AgentAvailability, Notification, Invoice, InvoiceJob, SupplierProfile, InvoiceLine, db
 from src.utils.serialize import as_float, as_iso
 from sqlalchemy.orm import selectinload
+from sqlalchemy import select, union_all
 from src.services.invoicing import build_supplier_invoice
 from src.utils.finance import update_job_hours
 from src.services.telegram_notifications import _send_admin_group
@@ -1727,10 +1728,27 @@ def get_agent_invoices():
             current_app.logger.warning(f"User {current_user_id} is not an agent, role: {agent.role}")
             return jsonify([])  # Return empty array instead of 403
 
-        # Get invoices with eager loading to avoid N+1 queries
+        # Get invoices with union logic to include both direct and legacy associations
         limit = min(int(request.args.get("limit", 100)), 500)
+
+        # Subquery A: Direct link on invoices.agent_id
+        sub_a = select(Invoice.id).where(Invoice.agent_id == agent.id)
+
+        # Subquery B: Legacy link via invoice_lines -> job_assignments.agent_id
+        sub_b = (
+            select(InvoiceLine.invoice_id)
+            .select_from(InvoiceLine)
+            .join(JobAssignment, JobAssignment.id == InvoiceLine.job_assignment_id)
+            .where(JobAssignment.agent_id == agent.id)
+        )
+
+        # Union and dedupe invoice IDs
+        inv_ids_union = union_all(sub_a, sub_b).subquery()
+        inv_ids = select(db.func.distinct(inv_ids_union.c[0])).subquery()
+
+        # Fetch invoices by the calculated IDs with eager loading
         invoices_query = (db.session.query(Invoice)
-                         .filter(Invoice.agent_id == agent.id)
+                         .filter(Invoice.id.in_(select(inv_ids)))
                          .options(
                              selectinload(Invoice.lines),
                              selectinload(Invoice.jobs).selectinload(InvoiceJob.job)
