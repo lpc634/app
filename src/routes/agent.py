@@ -1712,51 +1712,65 @@ def _serialize_invoice(inv: Invoice):
         "lines": [_serialize_line(ln) for ln in lines]
     }
 
+def _current_agent_id():
+    """Helper function to resolve the current agent's User.id from JWT."""
+    user_id = int(get_jwt_identity())
+    if not user_id:
+        current_app.logger.warning("No user ID in JWT token")
+        return None
+
+    agent = User.query.filter(User.id == user_id, User.role == 'agent').first()
+    if not agent:
+        current_app.logger.warning(f"No Agent found for user_id={user_id}")
+        return None
+
+    return agent.id
+
 @agent_bp.route('/agent/invoices', methods=['GET'])
 @jwt_required()
 def get_agent_invoices():
     """Get all invoices for the current agent with safe serialization and no 500 errors."""
     try:
-        current_user_id = int(get_jwt_identity())
-        agent = User.query.get(current_user_id)
+        agent_id = _current_agent_id()
+        if not agent_id:
+            return jsonify([])
 
-        if not agent:
-            current_app.logger.warning(f"Agent not found for user ID: {current_user_id}")
-            return jsonify([])  # Return empty array instead of 401
+        # Path A: invoices.agent_id == agent_id
+        sub_a = select(Invoice.id).where(Invoice.agent_id == agent_id)
 
-        if agent.role != 'agent':
-            current_app.logger.warning(f"User {current_user_id} is not an agent, role: {agent.role}")
-            return jsonify([])  # Return empty array instead of 403
-
-        # Get invoices with union logic to include both direct and legacy associations
-        limit = min(int(request.args.get("limit", 100)), 500)
-
-        # Subquery A: Direct link on invoices.agent_id
-        sub_a = select(Invoice.id).where(Invoice.agent_id == agent.id)
-
-        # Subquery B: Legacy link via invoice_lines -> job_assignments.agent_id
+        # Path B (legacy): invoice_lines → job_assignments.agent_id == agent_id
         sub_b = (
             select(InvoiceLine.invoice_id)
             .select_from(InvoiceLine)
             .join(JobAssignment, JobAssignment.id == InvoiceLine.job_assignment_id)
-            .where(JobAssignment.agent_id == agent.id)
+            .where(JobAssignment.agent_id == agent_id)
         )
 
-        # Union and dedupe invoice IDs
+        # Union and dedupe ids
         inv_ids_union = union_all(sub_a, sub_b).subquery()
         inv_ids = select(db.func.distinct(inv_ids_union.c[0])).subquery()
 
-        # Fetch invoices by the calculated IDs with eager loading
-        invoices_query = (db.session.query(Invoice)
-                         .filter(Invoice.id.in_(select(inv_ids)))
-                         .options(
-                             selectinload(Invoice.lines),
-                             selectinload(Invoice.jobs).selectinload(InvoiceJob.job)
-                         )
-                         .order_by(Invoice.issue_date.desc())
-                         .limit(limit))
+        # Get limit
+        limit = min(int(request.args.get("limit", 100)), 500)
 
-        invoices = invoices_query.all()
+        # Fetch invoices by the calculated IDs with eager loading
+        q = (
+            db.session.query(Invoice)
+            .filter(Invoice.id.in_(select(inv_ids)))
+            .options(
+                selectinload(Invoice.lines),
+                selectinload(Invoice.jobs)
+            )
+            .order_by(Invoice.issue_date.desc())
+            .limit(limit)
+        )
+        invoices = q.all()
+
+        # DEBUG (remove after verifying once)
+        current_app.logger.info(
+            "Agent invoices resolved: user_id=%s agent_id=%s count=%s",
+            get_jwt_identity(), agent_id, len(invoices)
+        )
 
         # Safely serialize each invoice
         serialized_invoices = []
@@ -1771,21 +1785,57 @@ def get_agent_invoices():
         return jsonify(serialized_invoices), 200
 
     except Exception as e:
-        current_app.logger.exception(f"Error fetching agent invoices for user {current_user_id}: {e}")
+        current_app.logger.exception(f"Error fetching agent invoices: {e}")
         # NEVER return 500 - always return empty array on error
         return jsonify([]), 200
+
+@agent_bp.route('/agent/invoices/summary', methods=['GET'])
+@jwt_required()
+def invoices_summary():
+    """Get invoice summary statistics for the current agent."""
+    try:
+        agent_id = _current_agent_id()
+        if not agent_id:
+            return jsonify({"total_invoiced":0,"total_paid":0,"amount_owed":0,"earned_since_first_invoice":0})
+
+        # Use same union logic as the list endpoint
+        sub_a = select(Invoice.id).where(Invoice.agent_id == agent_id)
+        sub_b = (
+            select(InvoiceLine.invoice_id)
+            .select_from(InvoiceLine)
+            .join(JobAssignment, JobAssignment.id == InvoiceLine.job_assignment_id)
+            .where(JobAssignment.agent_id == agent_id)
+        )
+        inv_ids_union = union_all(sub_a, sub_b).subquery()
+        inv_ids = select(db.func.distinct(inv_ids_union.c[0])).subquery()
+
+        base = db.session.query(Invoice).filter(Invoice.id.in_(select(inv_ids)))
+
+        total_invoiced = base.filter(Invoice.status.in_(["sent","paid"])) \
+                             .with_entities(db.func.coalesce(db.func.sum(Invoice.total_amount), 0)).scalar() or 0
+        total_paid     = base.filter(Invoice.status == "paid") \
+                             .with_entities(db.func.coalesce(db.func.sum(Invoice.total_amount), 0)).scalar() or 0
+
+        return jsonify({
+            "total_invoiced": float(total_invoiced),
+            "total_paid": float(total_paid),
+            "amount_owed": float(total_invoiced - total_paid),
+            "earned_since_first_invoice": float(total_paid),
+        })
+    except Exception as e:
+        current_app.logger.exception(f"invoices_summary failed: {e}")
+        return jsonify({"total_invoiced":0,"total_paid":0,"amount_owed":0,"earned_since_first_invoice":0})
 
 @agent_bp.route('/agent/invoices/<int:invoice_id>', methods=['DELETE'])
 @jwt_required()
 def delete_agent_invoice(invoice_id):
     """Delete an invoice owned by the current agent (including links)."""
     try:
-        current_user_id = int(get_jwt_identity())
-        agent = User.query.get(current_user_id)
-        if not agent or agent.role != 'agent':
+        agent_id = _current_agent_id()
+        if not agent_id:
             return jsonify({'error': 'Access denied'}), 403
 
-        invoice = Invoice.query.filter_by(id=invoice_id, agent_id=agent.id).first()
+        invoice = Invoice.query.filter_by(id=invoice_id, agent_id=agent_id).first()
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404
 
