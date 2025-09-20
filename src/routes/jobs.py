@@ -11,6 +11,7 @@ import logging
 
 # --- Corrected Imports ---
 from sqlalchemy import and_, or_, case
+from sqlalchemy.orm import joinedload
 from src.models.user import User, Job, JobAssignment, AgentAvailability, AgentWeeklyAvailability, Notification, Invoice, InvoiceJob, JobBilling, db
 from src.utils.finance import update_job_hours
 from src.routes.notifications import trigger_push_notification_for_users
@@ -83,18 +84,23 @@ def list_agent_assignments(agent_id):
         q = JobAssignment.query.filter_by(agent_id=agent_id)
         if status_filter:
             q = q.filter(JobAssignment.status == status_filter)
-        assignments = q.order_by(JobAssignment.created_at.desc()).all()
+
+        assignments = (
+            q.options(joinedload(JobAssignment.job))
+             .order_by(JobAssignment.created_at.desc())
+             .all()
+        )
 
         result = []
-        for a in assignments:
-            job = Job.query.get(a.job_id)
+        for assignment in assignments:
+            job = assignment.job
             if not job:
                 continue
-            if a.status == 'pending' and _is_job_filled(job):
+            if assignment.status == 'pending' and _is_job_filled(job):
                 # hide pending assignment for already filled job
                 continue
-            item = a.to_dict()
-            item['job_details'] = job.to_dict()
+
+            item = assignment.to_dict(include_job_details=True)
             result.append(item)
         return jsonify({'assignments': result}), 200
     except Exception as e:

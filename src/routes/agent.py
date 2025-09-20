@@ -1698,20 +1698,44 @@ def _serialize_invoice(inv: Invoice):
     except Exception:
         job_info = {"id": None, "title": None, "address": None}
 
+    jobs_payload = []
+    for invoice_job in getattr(inv, 'jobs', []) or []:
+        try:
+            jobs_payload.append(invoice_job.to_dict())
+        except Exception:
+            jobs_payload.append({
+                'id': getattr(invoice_job, 'id', None),
+                'invoice_id': getattr(invoice_job, 'invoice_id', None),
+                'job_id': getattr(invoice_job, 'job_id', None),
+            })
+
+    total_hours = sum(as_float(getattr(ln, 'hours', None)) or 0.0 for ln in lines)
+    subtotal_val = sum(as_float(getattr(ln, 'line_net', None)) or 0.0 for ln in lines)
+    vat_rate_val = as_float(getattr(inv, 'vat_rate', None))
+    vat_amount_val = subtotal_val * (vat_rate_val if vat_rate_val is not None else 0.0)
+    total_amount_val = as_float(getattr(inv, 'total_amount', None)) or 0.0
+
     return {
         "id": inv.id,
         "number": getattr(inv, 'invoice_number', None),
+        "invoice_number": getattr(inv, 'invoice_number', None),
+        "agent_invoice_number": getattr(inv, 'agent_invoice_number', None),
+        "agent_id": getattr(inv, 'agent_id', None),
         "status": getattr(inv, 'status', 'draft'),
         "issue_date": as_iso(getattr(inv, "issue_date", None)),
         "due_date": as_iso(getattr(inv, "due_date", None)),
-        "total_hours": as_float(sum(as_float(ln.hours) or 0 for ln in lines)),
-        "subtotal_net": as_float(sum(as_float(ln.line_net) or 0 for ln in lines)),
-        "vat_rate": as_float(getattr(inv, "vat_rate", None)),
-        "vat_amount": as_float((sum(as_float(ln.line_net) or 0 for ln in lines)) * (as_float(getattr(inv, "vat_rate", None)) or 0)),
-        "total_gross": as_float(getattr(inv, "total_amount", None)),
+        "total_hours": total_hours,
+        "subtotal_net": subtotal_val,
+        "vat_rate": vat_rate_val,
+        "vat_amount": vat_amount_val,
+        "total_gross": total_amount_val,
+        "total_amount": total_amount_val,
         "job": job_info,
+        "jobs": jobs_payload,
         "lines": [_serialize_line(ln) for ln in lines]
     }
+
+
 
 def _current_agent_id():
     """Helper function to resolve the current agent's User.id from JWT."""

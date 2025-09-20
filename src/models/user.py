@@ -258,20 +258,26 @@ class JobAssignment(db.Model):
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'response_time': self.response_time.isoformat() if self.response_time else None,
+            'responded_at': self.response_time.isoformat() if self.response_time else None,
             'supplied_by_email': getattr(self, 'supplied_by_email', None),
             'supplier_headcount': getattr(self, 'supplier_headcount', None),
         }
         
         # Only include job details if explicitly requested and avoid circular references
         if include_job_details and self.job:
-            result['job_details'] = {
-                'id': self.job.id,
-                'title': self.job.title,
-                'job_type': self.job.job_type,
-                'address': self.job.address,
-                'arrival_time': self.job.arrival_time.isoformat(),
-                'status': self.job.status
-            }
+            try:
+                job_payload = self.job.to_dict_agent_safe()
+            except AttributeError:
+                job_payload = {
+                    'id': self.job.id,
+                    'title': getattr(self.job, 'title', None),
+                    'job_type': getattr(self.job, 'job_type', None),
+                    'address': getattr(self.job, 'address', None),
+                    'arrival_time': self.job.arrival_time.isoformat() if getattr(self.job, 'arrival_time', None) else None,
+                    'status': getattr(self.job, 'status', None),
+                }
+            result['job'] = job_payload
+            result['job_details'] = job_payload
             
         return result
 
