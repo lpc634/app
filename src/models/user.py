@@ -173,6 +173,70 @@ class Job(db.Model):
             'weather': weather_info
         }
 
+    def to_dict_agent_safe(self):
+        """Agent-safe version that excludes client billing information"""
+        # Get weather information using the improved function
+        import logging
+        logger = logging.getLogger(__name__)
+
+        logger.info(f"Job.to_dict_agent_safe() called for job {self.id}: {self.title}")
+
+        weather_info = None
+        try:
+            # Avoid circular import by doing lazy import
+            from src.routes.jobs import get_weather_for_job
+            weather_info = get_weather_for_job(self)
+        except ImportError as ie:
+            logger.warning(f"Could not import weather function for job {self.id}: {str(ie)}")
+            weather_info = {
+                'forecast': 'Weather information temporarily unavailable',
+                'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+            }
+        except Exception as e:
+            # Log the error for debugging
+            logger.error(f"Error getting weather for job {self.id}: {str(e)}", exc_info=True)
+            weather_info = {
+                'forecast': 'Weather information unavailable - error occurred',
+                'clothing': 'Please check weather forecast and dress appropriately for outdoor work.'
+            }
+
+        # Calculate agents allocated by counting accepted assignments
+        agents_allocated = len([a for a in self.assignments if a.status == 'accepted'])
+
+        # Get job type label
+        try:
+            from src.constants.job_types import get_job_type_label
+            job_type_label = get_job_type_label(self.job_type)
+        except ImportError:
+            job_type_label = self.job_type or "Unknown"
+
+        return {
+            'id': self.id,
+            'title': self.title,
+            'job_type': self.job_type,
+            'job_type_label': job_type_label,
+            'address': self.address,
+            'postcode': self.postcode,
+            'arrival_time': self.arrival_time.isoformat(),
+            'agents_required': self.agents_required,
+            'agents_allocated': agents_allocated,
+            'lead_agent_name': self.lead_agent_name,
+            'instructions': self.instructions,
+            'urgency_level': self.urgency_level,
+            'status': self.status,
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'number_of_dwellings': self.number_of_dwellings,
+            'police_liaison_required': self.police_liaison_required,
+            'what3words_address': self.what3words_address,
+            # EXCLUDED: hourly_rate (client billing information)
+            'location_lat': self.location_lat,
+            'location_lng': self.location_lng,
+            'maps_link': self.maps_link,
+            'weather': weather_info
+        }
+
 class JobAssignment(db.Model):
     __tablename__ = 'job_assignments'
     id = db.Column(db.Integer, primary_key=True)
@@ -284,6 +348,13 @@ class Invoice(db.Model):
     lines = db.relationship('InvoiceLine', back_populates='invoice', cascade="all, delete-orphan")
 
     def to_dict(self):
+        lines = getattr(self, 'lines', []) or []
+        lines_dict = [ln.to_dict() for ln in lines]
+
+        # Calculate totals from time entries
+        total_hours = sum(float(ln.hours or 0) for ln in lines)
+        calculated_total = sum(float(ln.line_net or 0) for ln in lines)
+
         return {
             'id': self.id,
             'agent_id': self.agent_id,
@@ -298,7 +369,10 @@ class Invoice(db.Model):
             'jobs': [job.to_dict() for job in self.jobs] if self.jobs else [],
             'supplier_id': getattr(self, 'supplier_id', None),
             'vat_rate': float(self.vat_rate) if getattr(self, 'vat_rate', None) is not None else None,
-            'lines': [ln.to_dict() for ln in getattr(self, 'lines', [])] if getattr(self, 'lines', None) else []
+            'lines': lines_dict,
+            # Multi-day totals
+            'total_hours': total_hours,
+            'calculated_total': calculated_total
         }
 
 
@@ -325,11 +399,18 @@ class InvoiceLine(db.Model):
     __tablename__ = 'invoice_lines'
     id = db.Column(db.Integer, primary_key=True)
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoices.id'), nullable=False)
-    job_assignment_id = db.Column(db.Integer, db.ForeignKey('job_assignments.id'), nullable=False, unique=True)
+
+    # Multi-day support - changed from unique job_assignment_id to flexible structure
+    job_assignment_id = db.Column(db.Integer, db.ForeignKey('job_assignments.id'), nullable=True)  # Made nullable for backward compatibility
+    work_date = db.Column(db.Date, nullable=False)  # New: specific date for this time entry
+
     hours = db.Column(db.Numeric(6, 2), nullable=False)
-    rate_per_hour = db.Column(db.Numeric(10, 2), nullable=False)
-    headcount = db.Column(db.Integer, nullable=False)
-    line_total = db.Column(db.Numeric(12, 2), nullable=False)
+    rate_net = db.Column(db.Numeric(10, 2), nullable=False)  # Renamed from rate_per_hour for clarity
+    line_net = db.Column(db.Numeric(12, 2), nullable=False)  # Renamed from line_total for clarity
+    notes = db.Column(db.Text, nullable=True)  # New: optional notes per day
+
+    # Legacy fields for backward compatibility
+    headcount = db.Column(db.Integer, nullable=True, default=1)
 
     invoice = db.relationship('Invoice', back_populates='lines')
 
@@ -337,11 +418,16 @@ class InvoiceLine(db.Model):
         return {
             'id': self.id,
             'invoice_id': self.invoice_id,
-            'job_assignment_id': self.job_assignment_id,
+            'work_date': self.work_date.isoformat() if self.work_date else None,
             'hours': float(self.hours) if self.hours is not None else 0.0,
-            'rate_per_hour': float(self.rate_per_hour) if self.rate_per_hour is not None else 0.0,
-            'headcount': self.headcount,
-            'line_total': float(self.line_total) if self.line_total is not None else 0.0,
+            'rate_net': float(self.rate_net) if self.rate_net is not None else 0.0,
+            'line_net': float(self.line_net) if self.line_net is not None else 0.0,
+            'notes': self.notes,
+            # Legacy compatibility
+            'job_assignment_id': self.job_assignment_id,
+            'rate_per_hour': float(self.rate_net) if self.rate_net is not None else 0.0,  # Alias for backward compatibility
+            'headcount': self.headcount or 1,
+            'line_total': float(self.line_net) if self.line_net is not None else 0.0,  # Alias for backward compatibility
         }
 
 

@@ -34,7 +34,7 @@ const CreateInvoiceFromJobs = () => {
       if (newSelected[job.id]) {
         delete newSelected[job.id]; // Uncheck
       } else {
-        newSelected[job.id] = { hours: '', rate: job.hourly_rate || 0 }; // Check
+        newSelected[job.id] = { hours: '', rate: '' }; // Check - agent must input their own rate
       }
       return newSelected;
     });
@@ -46,6 +46,16 @@ const CreateInvoiceFromJobs = () => {
       setSelected(prev => ({
         ...prev,
         [jobId]: { ...prev[jobId], hours: hours }
+      }));
+    }
+  };
+
+  const handleRateChange = (jobId, rate) => {
+    // Allow only numbers and a single decimal point
+    if (/^\d*\.?\d*$/.test(rate)) {
+      setSelected(prev => ({
+        ...prev,
+        [jobId]: { ...prev[jobId], rate: rate }
       }));
     }
   };
@@ -65,7 +75,7 @@ const CreateInvoiceFromJobs = () => {
 
   const handleReviewInvoice = () => {
     const itemsToInvoice = Object.entries(selected)
-      .filter(([_, job]) => parseFloat(job.hours) > 0)
+      .filter(([_, job]) => parseFloat(job.hours) > 0 && parseFloat(job.rate) > 0)
       .map(([jobId, jobData]) => ({
         jobId: parseInt(jobId),
         hours: parseFloat(jobData.hours),
@@ -73,7 +83,7 @@ const CreateInvoiceFromJobs = () => {
       }));
 
     if (itemsToInvoice.length === 0) {
-      toast.error("No jobs selected", { description: "Please select at least one job and enter the hours worked." });
+      toast.error("No jobs selected", { description: "Please select at least one job and enter both hours worked and your rate." });
       return;
     }
     
@@ -131,9 +141,15 @@ const CreateInvoiceFromJobs = () => {
                   </div>
                 </div>
                 <div className="flex-grow flex items-center justify-end gap-4 w-full md:w-auto">
-                    <div className="text-right">
-                        <p className="text-sm font-medium text-v3-text-lightest">£{(job.hourly_rate || 0).toFixed(2)}</p>
-                        <p className="text-xs text-v3-text-muted">/ hour</p>
+                    <div className="w-24">
+                       <input
+                          type="text"
+                          placeholder="Rate (£/hr)"
+                          value={selected[job.id]?.rate || ''}
+                          onChange={(e) => handleRateChange(job.id, e.target.value)}
+                          disabled={!selected[job.id]}
+                          className="w-full text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange disabled:bg-v3-bg-card disabled:opacity-50"
+                        />
                     </div>
                     <div className="w-24">
                        <input

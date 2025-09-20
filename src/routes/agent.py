@@ -730,7 +730,7 @@ def get_agent_dashboard_data():
             job = Job.query.get(assignment.job_id)
             if job and job.status == 'open':
                 # Add assignment ID to job data so frontend can respond to it
-                job_dict = job.to_dict()
+                job_dict = job.to_dict_agent_safe()
                 job_dict['assignment_id'] = assignment.id
                 available_jobs.append(job_dict)
 
@@ -761,10 +761,10 @@ def get_agent_dashboard_data():
             'today_status': today_status,
             'available_jobs': available_jobs,
             'upcoming_shifts': [
-                dict(assign.job.to_dict(), assignment_id=assign.id) for assign in upcoming_assignments if assign.job
+                dict(assign.job.to_dict_agent_safe(), assignment_id=assign.id) for assign in upcoming_assignments if assign.job
             ],
-            'completed_jobs': [assign.job.to_dict() for assign in completed_assignments if assign.job],
-            'reports_to_file': [job.to_dict() for job in reports_to_file]
+            'completed_jobs': [assign.job.to_dict_agent_safe() for assign in completed_assignments if assign.job],
+            'reports_to_file': [job.to_dict_agent_safe() for job in reports_to_file]
         }
         
         return jsonify(dashboard_data), 200
@@ -881,7 +881,7 @@ def get_invoiceable_jobs():
 
         invoiceable_jobs = completed_jobs_query.filter(~Job.id.in_(invoiced_job_ids)).order_by(Job.arrival_time.desc()).all()
         
-        return jsonify([job.to_dict() for job in invoiceable_jobs]), 200
+        return jsonify([job.to_dict_agent_safe() for job in invoiceable_jobs]), 200
 
     except Exception as e:
         return jsonify({"error": "An internal error occurred", "details": str(e)}), 500
@@ -1039,14 +1039,16 @@ def create_invoice():
 
         data = request.get_json()
         job_items = data.get('items')
+        time_entries = data.get('time_entries')  # New multi-day structure
         # Accept agent_invoice_number from frontend (their personal invoice number)
         custom_invoice_number = data.get('agent_invoice_number') or data.get('invoice_number')
         # Optional supplier invoicing flow
         # Disallow client-provided supplier spoofing on this agent endpoint
         supplier_email = ''
 
-        if not job_items:
-            return jsonify({'error': 'No items provided for invoicing.'}), 400
+        # Support both old (job_items) and new (time_entries) formats
+        if not job_items and not time_entries:
+            return jsonify({'error': 'No items or time entries provided for invoicing.'}), 400
 
         # --- Branch: Supplier invoice vs Agent invoice ---
         is_supplier_invoice = False
@@ -1065,7 +1067,9 @@ def create_invoice():
         # --- Data Validation and Calculation ---
         total_amount = Decimal('0')
         jobs_to_invoice = []
+        time_entries_to_invoice = []
         supplier_assignment_lines = []
+
         if is_supplier_invoice:
             # items: { job_assignment_id, hours, rate_per_hour }
             from decimal import Decimal as D
@@ -1092,7 +1096,51 @@ def create_invoice():
                     'line_total': line_total,
                 })
                 total_amount += line_total
+        elif time_entries:
+            # New multi-day time entries format: { jobId, entries: [{ work_date, hours, rate_net, notes }] }
+            from decimal import Decimal as D
+            from datetime import datetime
+            for job_entry in time_entries:
+                job_id = job_entry.get('jobId')
+                entries = job_entry.get('entries', [])
+                if not job_id or not entries:
+                    return jsonify({'error': 'Each time entry must have jobId and entries'}), 400
+
+                job = Job.query.get(job_id)
+                if not job:
+                    return jsonify({'error': f"Job with ID {job_id} not found."}), 404
+
+                for entry in entries:
+                    work_date_str = entry.get('work_date')
+                    hours = D(str(entry.get('hours', '0')))
+                    rate_net = D(str(entry.get('rate_net', '0')))
+                    notes = entry.get('notes', '')
+
+                    if not work_date_str:
+                        return jsonify({'error': 'Each time entry must have work_date'}), 400
+                    if hours <= 0:
+                        return jsonify({'error': 'Hours must be > 0 for each time entry'}), 400
+                    if rate_net <= 0:
+                        return jsonify({'error': 'Rate must be > 0 for each time entry'}), 400
+
+                    try:
+                        work_date = datetime.strptime(work_date_str, '%Y-%m-%d').date()
+                    except ValueError:
+                        return jsonify({'error': f'Invalid work_date format: {work_date_str}. Use YYYY-MM-DD'}), 400
+
+                    line_net = (hours * rate_net).quantize(D('0.01'))
+                    total_amount += line_net
+
+                    time_entries_to_invoice.append({
+                        'job': job,
+                        'work_date': work_date,
+                        'hours': hours,
+                        'rate_net': rate_net,
+                        'line_net': line_net,
+                        'notes': notes
+                    })
         else:
+            # Legacy single-day job_items format
             for item in job_items:
                 job = Job.query.get(item['jobId'])
                 if not job:
@@ -1203,12 +1251,25 @@ def create_invoice():
                 db.session.add(InvoiceLine(
                     invoice_id=new_invoice.id,
                     job_assignment_id=ln['assignment'].id,
+                    work_date=datetime.utcnow().date(),  # Default work date for supplier invoices
                     hours=ln['hours'],
-                    rate_per_hour=ln['rate'],
-                    headcount=ln['headcount'],
-                    line_total=ln['line_total'],
+                    rate_net=ln['rate'],
+                    line_net=ln['line_total'],
+                    headcount=ln['headcount']
+                ))
+        elif time_entries_to_invoice:
+            # New multi-day time entries - create InvoiceLine entries
+            for entry in time_entries_to_invoice:
+                db.session.add(InvoiceLine(
+                    invoice_id=new_invoice.id,
+                    work_date=entry['work_date'],
+                    hours=entry['hours'],
+                    rate_net=entry['rate_net'],
+                    line_net=entry['line_net'],
+                    notes=entry['notes']
                 ))
         else:
+            # Legacy job_items format - keep InvoiceJob for backward compatibility
             for item in jobs_to_invoice:
                 job = item['job']
                 hours = item['hours']
@@ -1245,6 +1306,29 @@ def create_invoice():
             }
             # Temporarily pass grand_total to original function; it recomputes totals but we give exact lines
             pdf_result = generate_invoice_pdf(agent, jobs_pdf, float(grand_total), invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
+        elif time_entries_to_invoice:
+            # Format time entries for PDF generation
+            entries_pdf = []
+            for entry in time_entries_to_invoice:
+                # Build description: job_type + notes (if any)
+                job_type = getattr(entry['job'], 'job_type', None)
+                notes = entry.get('notes', '').strip()
+                description = job_type or 'Service'
+                if notes:
+                    description += f" - {notes}"
+
+                entries_pdf.append({
+                    'job': entry['job'],
+                    'date': entry['work_date'],  # PDF builder expects 'date'
+                    'work_date': entry['work_date'],  # Keep both for compatibility
+                    'hours': float(entry['hours']),
+                    'rate': float(entry['rate_net']),
+                    'amount': float(entry['line_net']),
+                    'job_type': getattr(entry['job'], 'job_type', None),
+                    'description': description,  # Combined job type and notes
+                    'notes': entry['notes']
+                })
+            pdf_result = generate_invoice_pdf(agent, entries_pdf, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
         else:
             pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
         
@@ -1534,7 +1618,7 @@ def get_invoice_details(invoice_id):
         
         return jsonify({
             'invoice': invoice.to_dict(),
-            'job': job.to_dict() if job else None,
+            'job': job.to_dict_agent_safe() if job else None,
             'invoice_job': invoice_job.to_dict()
         }), 200
         
