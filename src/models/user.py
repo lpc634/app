@@ -327,7 +327,7 @@ class Notification(db.Model):
 class Invoice(db.Model):
     __tablename__ = 'invoices'
     id = db.Column(db.Integer, primary_key=True)
-    agent_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    agent_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # Made nullable for legacy data compatibility
     invoice_number = db.Column(db.String(50), unique=True, nullable=False)
     agent_invoice_number = db.Column(db.Integer, nullable=True)
     issue_date = db.Column(db.Date, nullable=False)
