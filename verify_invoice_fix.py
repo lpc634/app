@@ -96,13 +96,17 @@ def main():
                 SELECT COUNT(*) as total_lines,
                        COUNT(work_date) as lines_with_date,
                        MIN(work_date) as earliest_date,
-                       MAX(work_date) as latest_date
+                       MAX(work_date) as latest_date,
+                       COUNT(CASE WHEN rate_net IS NOT NULL THEN 1 END) as new_rate_cols,
+                       COUNT(CASE WHEN rate_per_hour IS NOT NULL THEN 1 END) as legacy_rate_cols
                 FROM invoice_lines
             """)).fetchone()
 
             if result:
                 print(f"   DATA: Total lines: {result.total_lines}")
                 print(f"   DATA: Lines with work_date: {result.lines_with_date}")
+                print(f"   DATA: Lines with new rate columns: {result.new_rate_cols}")
+                print(f"   DATA: Lines with legacy rate columns: {result.legacy_rate_cols}")
                 if result.earliest_date and result.latest_date:
                     print(f"   DATA: Date range: {result.earliest_date} to {result.latest_date}")
 
