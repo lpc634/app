@@ -1756,13 +1756,12 @@ def get_agent_invoices():
         total_count = Invoice.query.filter_by(agent_id=agent_id).count()
         current_app.logger.info(f"Total invoices in DB for agent_id={agent_id}: {total_count}")
 
-        # Simple direct query - all invoices for this agent
+        # Simple direct query - REMOVED selectinload(Invoice.lines) which is causing the error
         invoices = (
             Invoice.query
             .filter_by(agent_id=agent_id)
             .options(
-                selectinload(Invoice.lines),
-                selectinload(Invoice.jobs)
+                selectinload(Invoice.jobs)  # Keep this, it should work
             )
             .order_by(Invoice.issue_date.desc())
             .limit(limit)
