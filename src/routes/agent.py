@@ -1763,13 +1763,25 @@ def get_agent_invoices():
         # Get limit
         limit = min(int(request.args.get("limit", 100)), 500)
 
-        # Simple direct query - all invoices for this agent
-        invoices = (
+        # Base query: invoices directly linked to this agent
+        base_query = (
             Invoice.query
             .filter_by(agent_id=agent_id)
+        )
+
+        # Fallback query: invoices inferred via job assignments when agent_id was not populated
+        assignment_join_query = (
+            Invoice.query
+            .join(InvoiceJob, InvoiceJob.invoice_id == Invoice.id)
+            .join(JobAssignment, JobAssignment.job_id == InvoiceJob.job_id)
+            .filter(JobAssignment.agent_id == agent_id)
+        )
+
+        invoices = (
+            base_query.union(assignment_join_query)
             .options(
                 selectinload(Invoice.lines),
-                selectinload(Invoice.jobs)
+                selectinload(Invoice.jobs).selectinload(InvoiceJob.job)
             )
             .order_by(Invoice.issue_date.desc())
             .limit(limit)
@@ -1782,9 +1794,17 @@ def get_agent_invoices():
             get_jwt_identity(), agent_id, len(invoices)
         )
 
+        # Deduplicate in case union produced overlap
+        seen_ids = set()
+        unique_invoices = []
+        for inv in invoices:
+            if inv.id not in seen_ids:
+                unique_invoices.append(inv)
+                seen_ids.add(inv.id)
+
         # Safely serialize each invoice
         serialized_invoices = []
-        for inv in invoices:
+        for inv in unique_invoices:
             try:
                 serialized_invoices.append(_serialize_invoice(inv))
             except Exception as e:
@@ -1811,9 +1831,9 @@ def invoices_summary():
         # Use same union logic as the list endpoint
         sub_a = select(Invoice.id).where(Invoice.agent_id == agent_id)
         sub_b = (
-            select(InvoiceLine.invoice_id)
-            .select_from(InvoiceLine)
-            .join(JobAssignment, JobAssignment.id == InvoiceLine.job_assignment_id)
+            select(InvoiceJob.invoice_id)
+            .select_from(InvoiceJob)
+            .join(JobAssignment, JobAssignment.job_id == InvoiceJob.job_id)
             .where(JobAssignment.agent_id == agent_id)
         )
         inv_ids_union = union_all(sub_a, sub_b).subquery()
