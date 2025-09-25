@@ -1763,25 +1763,14 @@ def get_agent_invoices():
         # Get limit
         limit = min(int(request.args.get("limit", 100)), 500)
 
-        # Base query: invoices directly linked to this agent
-        base_query = (
+        # SECURITY FIX: Only get invoices directly owned by this agent
+        # Remove the dangerous union query that included other agents' invoices
+        invoices = (
             Invoice.query
             .filter_by(agent_id=agent_id)
-        )
-
-        # Fallback query: invoices inferred via job assignments when agent_id was not populated
-        assignment_join_query = (
-            Invoice.query
-            .join(InvoiceJob, InvoiceJob.invoice_id == Invoice.id)
-            .join(JobAssignment, JobAssignment.job_id == InvoiceJob.job_id)
-            .filter(JobAssignment.agent_id == agent_id)
-        )
-
-        invoices = (
-            base_query.union(assignment_join_query)
             .options(
                 selectinload(Invoice.lines),
-                selectinload(Invoice.jobs).selectinload(InvoiceJob.job)
+                selectinload(Invoice.jobs)
             )
             .order_by(Invoice.issue_date.desc())
             .limit(limit)
@@ -1794,17 +1783,9 @@ def get_agent_invoices():
             get_jwt_identity(), agent_id, len(invoices)
         )
 
-        # Deduplicate in case union produced overlap
-        seen_ids = set()
-        unique_invoices = []
-        for inv in invoices:
-            if inv.id not in seen_ids:
-                unique_invoices.append(inv)
-                seen_ids.add(inv.id)
-
         # Safely serialize each invoice
         serialized_invoices = []
-        for inv in unique_invoices:
+        for inv in invoices:
             try:
                 serialized_invoices.append(_serialize_invoice(inv))
             except Exception as e:
@@ -1813,6 +1794,11 @@ def get_agent_invoices():
                 continue
 
         return jsonify(serialized_invoices), 200
+
+    except Exception as e:
+        current_app.logger.exception(f"Error fetching agent invoices: {e}")
+        # NEVER return 500 - always return empty array on error
+        return jsonify([]), 200
 
     except Exception as e:
         current_app.logger.exception(f"Error fetching agent invoices: {e}")
