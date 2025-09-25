@@ -1828,30 +1828,30 @@ def invoices_summary():
         if not agent_id:
             return jsonify({"total_invoiced":0,"total_paid":0,"amount_owed":0,"earned_since_first_invoice":0})
 
-        # Use same union logic as the list endpoint
-        sub_a = select(Invoice.id).where(Invoice.agent_id == agent_id)
-        sub_b = (
-            select(InvoiceJob.invoice_id)
-            .select_from(InvoiceJob)
-            .join(JobAssignment, JobAssignment.job_id == InvoiceJob.job_id)
-            .where(JobAssignment.agent_id == agent_id)
+        # SECURITY FIX: Use simple direct query instead of complex union
+        # Only get invoices that directly belong to this agent
+        invoices = Invoice.query.filter_by(agent_id=agent_id).all()
+
+        # Calculate totals from agent's own invoices only
+        total_invoiced = sum(
+            float(inv.total_amount or 0)
+            for inv in invoices
+            if inv.status in ["sent", "paid"]
         )
-        inv_ids_union = union_all(sub_a, sub_b).subquery()
-        inv_ids = select(db.func.distinct(inv_ids_union.c[0])).subquery()
 
-        base = db.session.query(Invoice).filter(Invoice.id.in_(select(inv_ids)))
-
-        total_invoiced = base.filter(Invoice.status.in_(["sent","paid"])) \
-                             .with_entities(db.func.coalesce(db.func.sum(Invoice.total_amount), 0)).scalar() or 0
-        total_paid     = base.filter(Invoice.status == "paid") \
-                             .with_entities(db.func.coalesce(db.func.sum(Invoice.total_amount), 0)).scalar() or 0
+        total_paid = sum(
+            float(inv.total_amount or 0)
+            for inv in invoices
+            if inv.status == "paid"
+        )
 
         return jsonify({
-            "total_invoiced": float(total_invoiced),
-            "total_paid": float(total_paid),
-            "amount_owed": float(total_invoiced - total_paid),
-            "earned_since_first_invoice": float(total_paid),
+            "total_invoiced": total_invoiced,
+            "total_paid": total_paid,
+            "amount_owed": total_invoiced - total_paid,
+            "earned_since_first_invoice": total_paid,
         })
+
     except Exception as e:
         current_app.logger.exception(f"invoices_summary failed: {e}")
         return jsonify({"total_invoiced":0,"total_paid":0,"amount_owed":0,"earned_since_first_invoice":0})
