@@ -1819,6 +1819,8 @@ def get_agent_invoices():
         # NEVER return 500 - always return empty array on error
         return jsonify([]), 200
 
+# SECURITY FIX: Replace this function in src/routes/agent.py
+
 @agent_bp.route('/agent/invoices/summary', methods=['GET'])
 @jwt_required()
 def invoices_summary():
@@ -1834,14 +1836,14 @@ def invoices_summary():
 
         # Calculate totals from agent's own invoices only
         total_invoiced = sum(
-            float(inv.total_amount or 0)
-            for inv in invoices
+            float(inv.total_amount or 0) 
+            for inv in invoices 
             if inv.status in ["sent", "paid"]
         )
-
+        
         total_paid = sum(
-            float(inv.total_amount or 0)
-            for inv in invoices
+            float(inv.total_amount or 0) 
+            for inv in invoices 
             if inv.status == "paid"
         )
 
