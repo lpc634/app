@@ -2903,8 +2903,8 @@ def finance_summary():
                 'gross': float(summary.get('expenses', {}).get('gross', 0.0) or 0.0),
             },
             'money_in': {
-                'net': float(summary.get('money_in', {}).get('net', response['revenue']['net'] if 'response' in locals() else 0.0)),
-                'gross': float(summary.get('money_in', {}).get('gross', response['revenue']['gross'] if 'response' in locals() else 0.0)),
+                'net': float(summary.get('money_in', {}).get('net', summary.get('revenue', {}).get('net', 0.0) or 0.0)),
+                'gross': float(summary.get('money_in', {}).get('gross', summary.get('revenue', {}).get('gross', 0.0) or 0.0)),
             },
             'money_out': {
                 'net': float(summary.get('money_out', {}).get('net', summary.get('agent_invoices', {}).get('net', 0.0) + summary.get('expenses', {}).get('net', 0.0))),
