@@ -723,6 +723,29 @@ class Expense(db.Model):
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'job': self.job.to_dict() if self.job else None,
-            'creator_name': f"{self.creator.first_name} {self.creator.last_name}" if self.creator else None
+            'job': self._get_job_info(),
+            'creator_name': self._get_creator_name()
         }
+
+    def _get_job_info(self):
+        """Safely get basic job information without circular references"""
+        try:
+            if self.job:
+                return {
+                    'id': self.job.id,
+                    'title': self.job.title,
+                    'job_type': self.job.job_type,
+                    'address': self.job.address
+                }
+            return None
+        except Exception:
+            return None
+
+    def _get_creator_name(self):
+        """Safely get creator name with error handling for deleted users"""
+        try:
+            if self.creator and hasattr(self.creator, 'first_name') and hasattr(self.creator, 'last_name'):
+                return f"{self.creator.first_name} {self.creator.last_name}"
+            return "Unknown User"
+        except Exception:
+            return "Unknown User"
