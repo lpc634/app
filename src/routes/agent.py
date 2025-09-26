@@ -1324,7 +1324,6 @@ def create_invoice():
                 entries_pdf.append({
                     'job': entry['job'],
                     'date': entry['work_date'],  # PDF builder expects 'date'
-                    'work_date': entry['work_date'],  # Keep both for compatibility
                     'hours': float(entry['hours']),
                     'rate': float(entry['rate_net']),
                     'amount': float(entry['line_net']),
@@ -1592,7 +1591,7 @@ def update_invoice(invoice_id):
 
                     jobs_data.append({
                         'job': job,
-                        'work_date': entry['work_date'],
+                        'date': entry['work_date'],
                         'hours': float(entry['hours']),
                         'rate': float(entry['rate_net']),
                         'amount': float(entry['line_net']),
