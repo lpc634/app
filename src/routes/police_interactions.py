@@ -138,7 +138,7 @@ def create_interaction():
     return jsonify(pi.to_dict()), 201
 
 
-@bp.route('/police-interactions/<int:pid>', methods=['PUT'])
+@bp.route('/police-interactions/<int:pid>', methods=['PUT', 'PATCH'])
 @jwt_required()
 def update_interaction(pid):
     user = _current_user()
@@ -168,6 +168,19 @@ def update_interaction(pid):
             {'shoulder_number': str(o.get('shoulder_number')), 'name': (o.get('name') or '').strip()} for o in data['officers']
         ]
 
+    # Optional: update job_id (with agent authorization check)
+    if 'job_id' in data:
+        try:
+            new_job_id = int(data.get('job_id')) if data.get('job_id') is not None else None
+        except Exception:
+            return jsonify({'error': 'job_id must be an integer or null'}), 400
+        if user.role == 'agent' and new_job_id is not None:
+            # Agent can only set to a job they are assigned to
+            has_assignment = JobAssignment.query.filter_by(agent_id=user.id, job_id=new_job_id).first() is not None
+            if not has_assignment:
+                return jsonify({'error': 'You are not assigned to the selected job'}), 403
+        pi.job_id = new_job_id
+
     db.session.commit()
     return jsonify(pi.to_dict())
 
@@ -176,12 +189,17 @@ def update_interaction(pid):
 @jwt_required()
 def delete_interaction(pid):
     user = _current_user()
-    if not user or user.role != 'admin':
-        return jsonify({'error': 'Admin only'}), 403
+    if not user:
+        return jsonify({'error': 'Unauthorized'}), 401
     pi = PoliceInteraction.query.get_or_404(pid)
+    # Permissions: admin can delete any; agent can delete only their own
+    if user.role == 'agent' and pi.created_by_user_id != user.id:
+        return jsonify({'error': 'You can only delete records you created'}), 403
+    if user.role not in ('admin', 'agent', 'manager'):
+        return jsonify({'error': 'Forbidden'}), 403
     db.session.delete(pi)
     db.session.commit()
-    return jsonify({'deleted': True})
+    return jsonify({'ok': True})
 
 
 @bp.route('/jobs/open-min', methods=['GET'])

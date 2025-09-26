@@ -14,6 +14,7 @@ export default function PoliceInteractionsPage() {
   const [openJobs, setOpenJobs] = useState([])
   const [loading, setLoading] = useState(false)
   const [openForm, setOpenForm] = useState(false)
+  const [editRow, setEditRow] = useState(null)
 
   const load = async () => {
     const params = new URLSearchParams()
@@ -160,7 +161,18 @@ export default function PoliceInteractionsPage() {
                   <td className="px-3 py-2">{i.created_by_name || `${i.created_by_role} #${i.created_by_user_id}`}</td>
                   <td className="px-3 py-2 text-right space-x-2">
                     {user?.role === 'admin' || canEdit(i) ? (
-                      <button className="button-refresh opacity-80 hover:opacity-100" title={user?.role==='admin' ? 'Edit' : 'Edit (only your own records)'} onClick={()=>setOpenForm(true)}>Edit</button>
+                      <>
+                        <button className="button-refresh opacity-80 hover:opacity-100" title={user?.role==='admin' ? 'Edit' : 'Edit (only your own records)'} onClick={()=>{ setEditRow(i); setOpenForm(true); }}>Edit</button>
+                        <button className="button-refresh opacity-80 hover:opacity-100 text-red-400" title={user?.role==='admin' ? 'Delete' : 'Delete (only your own records)'} onClick={async()=>{
+                          if (!confirm('Delete this interaction?')) return;
+                          try {
+                            await apiCall(`/police-interactions/${i.id}`, { method: 'DELETE' })
+                            setItems(prev => prev.filter(r => r.id !== i.id))
+                          } catch (e) {
+                            alert(e?.message || 'Delete failed')
+                          }
+                        }}>Delete</button>
+                      </>
                     ) : (
                       <span className="text-xs text-v3-text-muted" title="Only the creator or an admin can edit this record.">No edit</span>
                     )}
@@ -173,7 +185,20 @@ export default function PoliceInteractionsPage() {
       </div>
 
       {openForm && (
-        <PoliceInteractionForm onClose={()=>{ setOpenForm(false); load(); }} />
+        <PoliceInteractionForm
+          onClose={()=>{ setOpenForm(false); setEditRow(null); }}
+          mode={editRow ? 'edit' : 'create'}
+          initialValue={editRow}
+          onSaved={(obj)=>{
+            if (obj && obj.id) {
+              setItems(prev => {
+                const exists = prev.some(r => r.id === obj.id)
+                return exists ? prev.map(r => r.id === obj.id ? obj : r) : [obj, ...prev]
+              })
+            }
+            load()
+          }}
+        />
       )}
     </div>
   )

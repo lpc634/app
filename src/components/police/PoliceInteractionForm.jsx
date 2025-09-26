@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea.jsx'
 import { Button } from '@/components/ui/button.jsx'
 import { POLICE_FORCES, REASONS, OUTCOMES, HELP_RANGE } from '@/constants/policeOptions.js'
 
-export default function PoliceInteractionForm({ onClose }) {
+export default function PoliceInteractionForm({ onClose, mode = 'create', initialValue = null, onSaved }) {
   const { apiCall } = useAuth()
   const [openJobs, setOpenJobs] = useState([])
   const [form, setForm] = useState({
@@ -31,6 +31,22 @@ export default function PoliceInteractionForm({ onClose }) {
     })()
   }, [])
 
+  // Seed form when editing
+  useEffect(() => {
+    if (mode === 'edit' && initialValue) {
+      setForm({
+        job_id: initialValue.job_id ?? undefined,
+        job_address: initialValue.job_address || '',
+        force: initialValue.force || undefined,
+        officers: Array.isArray(initialValue.officers) && initialValue.officers.length > 0 ? initialValue.officers : [{ shoulder_number: '', name: '' }],
+        reason: initialValue.reason || undefined,
+        outcome: initialValue.outcome || undefined,
+        helpfulness: initialValue.helpfulness ?? undefined,
+        notes: initialValue.notes || ''
+      })
+    }
+  }, [mode, initialValue])
+
   const updateField = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
   const updateOfficer = (idx, k, v) => setForm(prev => ({ ...prev, officers: prev.officers.map((o,i)=> i===idx? { ...o, [k]: v }: o) }))
 
@@ -52,7 +68,13 @@ export default function PoliceInteractionForm({ onClose }) {
         job_id: form.job_id ? Number(form.job_id) : null,
         job_address: form.job_id ? (openJobs.find(j=>String(j.id)===String(form.job_id))?.address || form.job_address) : form.job_address
       }
-      await apiCall('/police-interactions', { method: 'POST', body: JSON.stringify(payload) })
+      if (mode === 'edit' && initialValue?.id) {
+        const updated = await apiCall(`/police-interactions/${initialValue.id}`, { method: 'PUT', body: JSON.stringify(payload) })
+        onSaved?.(updated)
+      } else {
+        const created = await apiCall('/police-interactions', { method: 'POST', body: JSON.stringify(payload) })
+        onSaved?.(created)
+      }
       onClose?.()
     } catch (e) {
       alert(e.message || 'Failed to save')
@@ -65,7 +87,7 @@ export default function PoliceInteractionForm({ onClose }) {
     <Dialog open onOpenChange={(v)=>{ if(!v) onClose?.() }}> 
       <DialogContent className="max-w-3xl rounded-2xl border-neutral-800 shadow-2xl backdrop-blur-sm">
         <DialogHeader>
-          <DialogTitle>New Police Interaction</DialogTitle>
+          <DialogTitle>{mode === 'edit' ? 'Edit Police Interaction' : 'New Police Interaction'}</DialogTitle>
           <DialogDescription>Record details of police involvement for a job.</DialogDescription>
         </DialogHeader>
 
@@ -174,7 +196,7 @@ export default function PoliceInteractionForm({ onClose }) {
 
           <div className="flex items-center justify-end gap-2">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={submit} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+            <Button onClick={submit} disabled={saving}>{saving ? 'Saving...' : (mode === 'edit' ? 'Save changes' : 'Create')}</Button>
           </div>
         </div>
       </DialogContent>
