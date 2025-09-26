@@ -683,13 +683,13 @@ def get_financial_summary_corrected(from_date=None, to_date=None):
             raise FinancialCalculationError("from_date cannot be later than to_date")
             
         # Revenue (includes VAT output)
-        revenue = calculate_revenue_for_period(from_date, to_date)
-        
+        revenue = calculate_revenue_for_period(from_date, to_date) or {'net': 0.0, 'vat': 0.0, 'gross': 0.0}
+
         # Agent invoices (supports VAT where applicable)
-        agent = calculate_agent_invoices_breakdown(from_date, to_date)
-        
+        agent = calculate_agent_invoices_breakdown(from_date, to_date) or {'net': 0.0, 'vat': 0.0, 'gross': 0.0}
+
         # Expenses (includes VAT input)
-        expenses = calculate_expenses_for_period(from_date, to_date)
+        expenses = calculate_expenses_for_period(from_date, to_date) or {'net': 0.0, 'vat': 0.0, 'gross': 0.0}
         
         # Calculate totals
         money_in_net = revenue['net']
