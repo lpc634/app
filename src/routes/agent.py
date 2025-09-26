@@ -1331,6 +1331,11 @@ def create_invoice():
                     'description': description,  # Combined job type and notes
                     'notes': entry['notes']
                 })
+            # Sort by work_date ASC for stable PDF ordering
+            try:
+                entries_pdf.sort(key=lambda x: (_coerce_date(x.get('date')) or date_cls.today(), x.get('job', object()).__hash__()))
+            except Exception:
+                pass
             pdf_result = generate_invoice_pdf(agent, entries_pdf, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
         else:
             pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
@@ -1622,6 +1627,11 @@ def update_invoice(invoice_id):
             # Get agent invoice number safely
             agent_inv_number = getattr(invoice, 'agent_invoice_number', None) if hasattr(invoice, 'agent_invoice_number') else None
             
+            # Sort by work_date ASC for stable PDF ordering
+            try:
+                jobs_data.sort(key=lambda x: (_coerce_date(x.get('date')) or date.today()))
+            except Exception:
+                pass
             pdf_result = generate_invoice_pdf(
                 user,
                 jobs_data,
@@ -2029,23 +2039,47 @@ def download_invoice_direct(invoice_id):
             if signed.get('success'):
                 return redirect(signed['download_url'])
 
-        invoice_jobs = InvoiceJob.query.filter_by(invoice_id=invoice.id).all()
-        if not invoice_jobs:
-            return jsonify({'error': 'No invoice jobs found for PDF'}), 404
+        # Prefer detailed per-day invoice lines when available
+        lines = (
+            InvoiceLine.query
+            .filter_by(invoice_id=invoice.id)
+            .order_by(InvoiceLine.work_date.asc(), InvoiceLine.id.asc())
+            .all()
+        )
 
         jobs_data = []
-        for ij in invoice_jobs:
-            job = ij.job
-            if not job:
-                continue
-            hours = float(ij.hours_worked or 0)
-            rate = float(ij.hourly_rate_at_invoice or job.hourly_rate or 0)
-            amount = hours * rate
-            jobs_data.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
-        if not jobs_data:
-            return jsonify({'error': 'No valid job data to render PDF'}), 500
+        if lines:
+            # Build one PDF row per work_date entry
+            # Fetch first linked job to provide job metadata for header/address
+            invoice_job = InvoiceJob.query.filter_by(invoice_id=invoice.id).first()
+            linked_job = invoice_job.job if invoice_job else None
+            for ln in lines:
+                jobs_data.append({
+                    'job': linked_job,
+                    'date': ln.work_date,
+                    'hours': float(ln.hours or 0),
+                    'rate': float((ln.rate_net if ln.rate_net is not None else ln.rate_per_hour) or 0),
+                    'amount': float((ln.line_net if ln.line_net is not None else ln.line_total) or 0),
+                    'job_type': getattr(linked_job, 'job_type', None),
+                })
+        else:
+            # Fallback to legacy InvoiceJob aggregation
+            invoice_jobs = InvoiceJob.query.filter_by(invoice_id=invoice.id).all()
+            if not invoice_jobs:
+                return jsonify({'error': 'No invoice jobs found for PDF'}), 404
+            for ij in invoice_jobs:
+                job = ij.job
+                if not job:
+                    continue
+                hours = float(ij.hours_worked or 0)
+                rate = float(ij.hourly_rate_at_invoice or job.hourly_rate or 0)
+                amount = hours * rate
+                jobs_data.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
+            if not jobs_data:
+                return jsonify({'error': 'No valid job data to render PDF'}), 500
 
-        total_amount_float = float(invoice.total_amount or 0)
+        # Let the PDF generator compute subtotal/VAT/total from the unaggregated rows
+        total_amount_float = None
         pdf_result = generate_invoice_pdf(
             agent,
             jobs_data,
