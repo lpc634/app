@@ -1436,21 +1436,25 @@ def create_invoice():
 @agent_bp.route('/agent/invoices/<int:invoice_id>', methods=['PUT'])
 @jwt_required()
 def update_invoice(invoice_id):
-    """Update a draft invoice with hours and rate, then finalize and send it."""
+    """Update a draft invoice with time entries or legacy hours/rate format, then finalize and send it."""
     try:
         current_user_id = int(get_jwt_identity())
         user = User.query.get(current_user_id)
         if not user or user.role != 'agent':
             return jsonify({'error': 'Access denied. Agent role required.'}), 403
-        
+
         data = request.get_json()
+
+        # Support both new time_entries format and legacy single-day format
+        time_entries = data.get('time_entries')
         hours_worked = data.get('hours_worked')
         hourly_rate = data.get('hourly_rate')
         first_hour_rate = data.get('first_hour_rate')
         agent_invoice_number_payload = data.get('agent_invoice_number') or data.get('invoice_number')
-        
-        if not hours_worked or not hourly_rate:
-            return jsonify({'error': 'Hours worked and hourly rate are required'}), 400
+
+        # Validate that we have either time_entries or legacy format
+        if not time_entries and (not hours_worked or not hourly_rate):
+            return jsonify({'error': 'Either time_entries or hours_worked/hourly_rate are required'}), 400
         
         # Find the invoice
         invoice = Invoice.query.get(invoice_id)
@@ -1465,23 +1469,90 @@ def update_invoice(invoice_id):
         if invoice.status != 'draft':
             return jsonify({'error': 'Only draft invoices can be updated'}), 400
         
-        # Update the invoice job with hours and rate
-        invoice_job = InvoiceJob.query.filter_by(invoice_id=invoice.id).first()
-        if not invoice_job:
-            return jsonify({'error': 'Invoice job not found'}), 404
+        # Handle time_entries format or legacy format
+        total_amount = Decimal('0')
+
+        if time_entries:
+            # New time_entries format - validate and process
+            time_entries_to_invoice = []
+
+            # Note: Frontend sends: time_entries: [{ work_date, hours, rate_net, notes }]
+            # Not the nested { jobId, entries } format used in create_invoice
+            for entry in time_entries:
+                work_date_str = entry.get('work_date')
+                hours = entry.get('hours')
+                rate_net = entry.get('rate_net')
+                notes = entry.get('notes', '')
+
+                # Validation - same as create_invoice
+                if not work_date_str:
+                    return jsonify({'error': 'Each time entry must have work_date'}), 400
+                if not hours or Decimal(str(hours)) <= 0:
+                    return jsonify({'error': 'Hours must be > 0 for each time entry'}), 400
+                if not rate_net or Decimal(str(rate_net)) <= 0:
+                    return jsonify({'error': 'Rate must be > 0 for each time entry'}), 400
+
+                try:
+                    work_date = datetime.strptime(work_date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    return jsonify({'error': f'Invalid work_date format: {work_date_str}. Use YYYY-MM-DD'}), 400
+
+                hours_decimal = Decimal(str(hours))
+                rate_decimal = Decimal(str(rate_net))
+                line_net = (hours_decimal * rate_decimal).quantize(Decimal('0.01'))
+                total_amount += line_net
+
+                time_entries_to_invoice.append({
+                    'work_date': work_date,
+                    'hours': hours_decimal,
+                    'rate_net': rate_decimal,
+                    'line_net': line_net,
+                    'notes': notes
+                })
+
+            # Get the associated job from the invoice
+            invoice_job = InvoiceJob.query.filter_by(invoice_id=invoice.id).first()
+            if not invoice_job:
+                return jsonify({'error': 'Invoice job not found'}), 404
+
+            # Delete existing InvoiceLines for this invoice
+            InvoiceLine.query.filter_by(invoice_id=invoice.id).delete()
+
+            # Create new InvoiceLines from time_entries
+            for entry in time_entries_to_invoice:
+                db.session.add(InvoiceLine(
+                    invoice_id=invoice.id,
+                    work_date=entry['work_date'],
+                    hours=entry['hours'],
+                    rate_net=entry['rate_net'],
+                    line_net=entry['line_net']
+                ))
+
+            # Update invoice_job with total hours and average rate
+            total_hours = sum(entry['hours'] for entry in time_entries_to_invoice)
+            avg_rate = total_amount / total_hours if total_hours > 0 else Decimal('0')
+            invoice_job.hours_worked = total_hours
+            invoice_job.hourly_rate_at_invoice = avg_rate
+
+        else:
+            # Legacy single-day format
+            invoice_job = InvoiceJob.query.filter_by(invoice_id=invoice.id).first()
+            if not invoice_job:
+                return jsonify({'error': 'Invoice job not found'}), 404
+
+            invoice_job.hours_worked = Decimal(str(hours_worked))
+            invoice_job.hourly_rate_at_invoice = Decimal(str(hourly_rate))
         
-        invoice_job.hours_worked = Decimal(str(hours_worked))
-        invoice_job.hourly_rate_at_invoice = Decimal(str(hourly_rate))
-        
-        # Calculate total amount (special first-hour logic only for Lpc634@gmail.com)
-        total_amount = Decimal(str(hours_worked)) * Decimal(str(hourly_rate))
-        try:
-            if (user.email or '').lower() == 'lpc634@gmail.com' and first_hour_rate is not None and Decimal(str(hours_worked)) > 0:
-                fh = Decimal(str(first_hour_rate))
-                remaining = max(Decimal('0'), Decimal(str(hours_worked)) - Decimal('1'))
-                total_amount = fh + remaining * Decimal(str(hourly_rate))
-        except InvalidOperation:
-            pass
+        # Calculate total amount for legacy format (special first-hour logic only for Lpc634@gmail.com)
+        if not time_entries:
+            total_amount = Decimal(str(hours_worked)) * Decimal(str(hourly_rate))
+            try:
+                if (user.email or '').lower() == 'lpc634@gmail.com' and first_hour_rate is not None and Decimal(str(hours_worked)) > 0:
+                    fh = Decimal(str(first_hour_rate))
+                    remaining = max(Decimal('0'), Decimal(str(hours_worked)) - Decimal('1'))
+                    total_amount = fh + remaining * Decimal(str(hourly_rate))
+            except InvalidOperation:
+                pass
         
         # Persist agent's own invoice number if provided and valid
         try:
@@ -1507,27 +1578,47 @@ def update_invoice(invoice_id):
         # Generate PDF with proper job data structure
         try:
             job = invoice_job.job
-            # If special agent used first-hour rate, include two line items for PDF clarity
             jobs_data = []
-            try:
-                is_special = (user.email or '').lower() == 'lpc634@gmail.com'
-                fh = data.get('first_hour_rate')
-                if is_special and fh is not None and float(hours_worked) > 0:
-                    first_amount = float(fh)
-                    remaining_hours = max(0.0, float(hours_worked) - 1.0)
-                    remaining_amount = remaining_hours * float(hourly_rate)
-                    jobs_data.append({'job': job, 'hours': 1.0, 'rate': float(fh), 'amount': first_amount})
-                    if remaining_hours > 0:
-                        jobs_data.append({'job': job, 'hours': remaining_hours, 'rate': float(hourly_rate), 'amount': remaining_amount})
-                else:
-                    jobs_data.append({'job': job, 'hours': float(hours_worked), 'rate': float(hourly_rate), 'amount': float(total_amount)})
-            except Exception:
-                jobs_data = [{
-                    'job': job,
-                    'hours': float(hours_worked),
-                    'rate': float(hourly_rate),
-                    'amount': float(total_amount)
-                }]
+
+            if time_entries:
+                # Format time entries for PDF generation (similar to create_invoice)
+                for entry in time_entries_to_invoice:
+                    # Build description: job_type + notes (if any)
+                    job_type = getattr(job, 'job_type', None)
+                    notes = entry.get('notes', '').strip()
+                    description = f"{job_type}" if job_type else "Service"
+                    if notes:
+                        description += f" - {notes}"
+
+                    jobs_data.append({
+                        'job': job,
+                        'work_date': entry['work_date'],
+                        'hours': float(entry['hours']),
+                        'rate': float(entry['rate_net']),
+                        'amount': float(entry['line_net']),
+                        'description': description
+                    })
+            else:
+                # Legacy format: handle special first-hour logic for specific agent
+                try:
+                    is_special = (user.email or '').lower() == 'lpc634@gmail.com'
+                    fh = data.get('first_hour_rate')
+                    if is_special and fh is not None and float(hours_worked) > 0:
+                        first_amount = float(fh)
+                        remaining_hours = max(0.0, float(hours_worked) - 1.0)
+                        remaining_amount = remaining_hours * float(hourly_rate)
+                        jobs_data.append({'job': job, 'hours': 1.0, 'rate': float(fh), 'amount': first_amount})
+                        if remaining_hours > 0:
+                            jobs_data.append({'job': job, 'hours': remaining_hours, 'rate': float(hourly_rate), 'amount': remaining_amount})
+                    else:
+                        jobs_data.append({'job': job, 'hours': float(hours_worked), 'rate': float(hourly_rate), 'amount': float(total_amount)})
+                except Exception:
+                    jobs_data = [{
+                        'job': job,
+                        'hours': float(hours_worked),
+                        'rate': float(hourly_rate),
+                        'amount': float(total_amount)
+                    }]
             
             # Get agent invoice number safely
             agent_inv_number = getattr(invoice, 'agent_invoice_number', None) if hasattr(invoice, 'agent_invoice_number') else None
