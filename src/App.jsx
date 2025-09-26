@@ -125,6 +125,7 @@ function App() {
             <Route path="/agent/invoices/review" element={<ReviewInvoicePage />} />
             <Route path="/agent/reports" element={<JobReports />} />
             <Route path="/agent/notifications" element={<NotificationsPage />} />
+            <Route path="/agent/police-interactions" element={<PoliceInteractionsPage />} />
             <Route path="/agent/profile" element={<AgentProfile />} />
           </Route>
           

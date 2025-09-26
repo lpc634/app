@@ -21,6 +21,7 @@ export default function PoliceInteractionsPage() {
     if (filters.outcome && filters.outcome !== ALL) params.append('outcome', filters.outcome)
     if (filters.job_address && filters.job_address !== ALL) params.append('job_address', filters.job_address)
     if (filters.helpfulness && filters.helpfulness !== ALL) params.append('helpfulness', String(filters.helpfulness))
+    if (user?.role === 'agent') params.append('scope', 'mine')
     setLoading(true)
     try {
       const res = await apiCall(`/police-interactions?${params.toString()}`)
@@ -33,7 +34,7 @@ export default function PoliceInteractionsPage() {
     ;(async ()=>{ try{ const jobs = await apiCall('/jobs/open-min'); setOpenJobs(jobs||[]) } catch(_){} })()
   }, [])
 
-  const canEdit = user?.role === 'admin'
+  const canEdit = user?.role === 'admin' ? () => true : (row) => row.created_by_user_id === user?.id
 
   function formatDate(iso) {
     if (!iso) return '—'
@@ -156,10 +157,14 @@ export default function PoliceInteractionsPage() {
                   <td className="px-3 py-2">{i.reason}</td>
                   <td className="px-3 py-2">{i.outcome}</td>
                   <td className="px-3 py-2">{i.helpfulness}</td>
-                  <td className="px-3 py-2">{i.created_by_role} #{i.created_by_user_id}</td>
-                  {canEdit && (
-                    <td className="px-3 py-2 text-right space-x-2" />
-                  )}
+                  <td className="px-3 py-2">{i.created_by_name || `${i.created_by_role} #${i.created_by_user_id}`}</td>
+                  <td className="px-3 py-2 text-right space-x-2">
+                    {user?.role === 'admin' || canEdit(i) ? (
+                      <button className="button-refresh opacity-80 hover:opacity-100" title={user?.role==='admin' ? 'Edit' : 'Edit (only your own records)'} onClick={()=>setOpenForm(true)}>Edit</button>
+                    ) : (
+                      <span className="text-xs text-v3-text-muted" title="Only the creator or an admin can edit this record.">No edit</span>
+                    )}
+                  </td>
                 </tr>
               ))
             )}

@@ -4,7 +4,7 @@ from sqlalchemy import and_, or_
 from datetime import datetime
 
 from src.extensions import db
-from src.models.user import User, Job
+from src.models.user import User, Job, JobAssignment
 from src.models.police_interaction import PoliceInteraction
 
 bp = Blueprint('police_interactions', __name__)
@@ -59,6 +59,17 @@ def list_interactions():
         except Exception:
             pass
 
+    # Agent scoping
+    scope = (request.args.get('scope') or '').strip().lower()
+    if user.role == 'agent' and scope == 'mine':
+        assigned_job_ids = [row.job_id for row in JobAssignment.query.with_entities(JobAssignment.job_id).filter(JobAssignment.agent_id == user.id).distinct().all()]
+        if assigned_job_ids:
+            q = q.filter(PoliceInteraction.job_id.in_(assigned_job_ids))
+        else:
+            # No assignments: return empty page
+            items = q.filter(False).paginate(page=1, per_page=1, error_out=False)
+            return jsonify({'items': [], 'page': 1, 'per_page': 1, 'total': 0})
+
     page = max(int(request.args.get('page', 1)), 1)
     per_page = min(max(int(request.args.get('per_page', 20)), 1), 100)
     items = q.order_by(PoliceInteraction.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
@@ -100,6 +111,16 @@ def create_interaction():
     if not isinstance(officers, list) or len(officers) == 0 or not (officers[0] or {}).get('shoulder_number'):
         return jsonify({'error': 'At least one officer with shoulder_number is required'}), 400
 
+    # If agent, enforce job assignment ownership when job_id provided
+    if user.role == 'agent' and job_id is not None:
+        try:
+            jid = int(job_id)
+            has_assignment = JobAssignment.query.filter_by(agent_id=user.id, job_id=jid).first() is not None
+        except Exception:
+            has_assignment = False
+        if not has_assignment:
+            return jsonify({'error': 'You are not assigned to this job'}), 403
+
     pi = PoliceInteraction(
         job_address=job_address,
         job_id=int(job_id) if job_id is not None else None,
@@ -121,10 +142,14 @@ def create_interaction():
 @jwt_required()
 def update_interaction(pid):
     user = _current_user()
-    if not user or user.role != 'admin':
-        return jsonify({'error': 'Admin only'}), 403
+    if not user:
+        return jsonify({'error': 'Unauthorized'}), 401
 
     pi = PoliceInteraction.query.get_or_404(pid)
+
+    # Permissions: admin can edit any; agent can edit only their own
+    if user.role == 'agent' and pi.created_by_user_id != user.id:
+        return jsonify({'error': 'You can only edit records you created'}), 403
     data = request.get_json(silent=True) or {}
 
     # Allow edits to main fields
@@ -162,8 +187,16 @@ def delete_interaction(pid):
 @bp.route('/jobs/open-min', methods=['GET'])
 @jwt_required()
 def open_jobs_min():
-    # Minimal list of open jobs for selector
-    jobs = Job.query.with_entities(Job.id, Job.address).filter(Job.status == 'open').order_by(Job.id.desc()).limit(200).all()
+    # Minimal list of open jobs for selector; agents only see their assigned jobs
+    user = _current_user()
+    if not user:
+        return jsonify({'error': 'Unauthorized'}), 401
+    base = Job.query.with_entities(Job.id, Job.address)
+    if user.role == 'agent':
+        base = base.join(JobAssignment, JobAssignment.job_id == Job.id).filter(JobAssignment.agent_id == user.id)
+    else:
+        base = base.filter(Job.status == 'open')
+    jobs = base.order_by(Job.id.desc()).limit(200).all()
     return jsonify([{'id': j.id, 'address': j.address} for j in jobs])
 
 

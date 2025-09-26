@@ -43,6 +43,15 @@ def upgrade():
             sa.Column('created_at', sa.DateTime(), server_default=sa.func.now(), nullable=False),
             sa.ForeignKeyConstraint(['created_by_user_id'], ['users.id']),
         )
+        # Indexes for performance
+        try:
+            op.create_index('ix_police_interactions_job_created_at', TABLE_NAME, ['job_id', 'created_at'])
+        except Exception:
+            pass
+        try:
+            op.create_index('ix_police_interactions_created_by', TABLE_NAME, ['created_by_user_id'])
+        except Exception:
+            pass
     else:
         # Table exists: ensure required columns are present with best-effort types
         if not _column_exists(conn, TABLE_NAME, 'job_address'):
@@ -78,6 +87,19 @@ def upgrade():
             op.add_column(TABLE_NAME, sa.Column('created_by_role', sa.String(length=20), nullable=False))
         if not _column_exists(conn, TABLE_NAME, 'created_at'):
             op.add_column(TABLE_NAME, sa.Column('created_at', sa.DateTime(), server_default=sa.func.now(), nullable=False))
+        # Ensure indexes exist
+        insp = sa.inspect(conn)
+        existing_indexes = {ix['name'] for ix in insp.get_indexes(TABLE_NAME)}
+        if 'ix_police_interactions_job_created_at' not in existing_indexes:
+            try:
+                op.create_index('ix_police_interactions_job_created_at', TABLE_NAME, ['job_id', 'created_at'])
+            except Exception:
+                pass
+        if 'ix_police_interactions_created_by' not in existing_indexes:
+            try:
+                op.create_index('ix_police_interactions_created_by', TABLE_NAME, ['created_by_user_id'])
+            except Exception:
+                pass
 
 
 def downgrade():

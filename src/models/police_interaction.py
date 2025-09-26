@@ -23,6 +23,14 @@ class PoliceInteraction(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     def to_dict(self):
+        from src.models.user import User
+        creator = User.query.get(self.created_by_user_id) if self.created_by_user_id else None
+        created_by_name = None
+        try:
+            if creator:
+                created_by_name = f"{(creator.first_name or '').strip()} {(creator.last_name or '').strip()}".strip() or creator.email
+        except Exception:
+            created_by_name = None
         return {
             'id': self.id,
             'job_address': self.job_address,
@@ -35,6 +43,7 @@ class PoliceInteraction(db.Model):
             'notes': self.notes,
             'created_by_user_id': self.created_by_user_id,
             'created_by_role': self.created_by_role,
+            'created_by_name': created_by_name,
             'created_at': (self.created_at.isoformat() if self.created_at else None),
         }
 
