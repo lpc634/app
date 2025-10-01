@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { Home, ClipboardList, Calendar, Bell, Power, User as UserIcon, FileText as InvoiceIcon, Menu, X, Search, Shield } from 'lucide-react';
+import { Home, ClipboardList, Calendar, Bell, Power, User as UserIcon, FileText as InvoiceIcon, Menu, X, Search, Shield, FileEdit } from 'lucide-react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetTrigger } from './ui/sheet';
@@ -15,6 +15,7 @@ const agentNavItems = [
   { name: 'My Invoices', path: '/agent/invoices', icon: InvoiceIcon },
   { name: 'Police Interactions', path: '/agent/police-interactions', icon: Shield },
   { name: 'Job Reports', path: '/agent/reports', icon: ClipboardList },
+  { name: 'V3 Job Reports', path: '/agent/v3-reports', icon: FileEdit, badge: 'NEW' },
   { name: 'Notifications', path: '/agent/notifications', icon: Bell },
   { name: 'My Profile', path: '/agent/profile', icon: UserIcon },
 ];
@@ -133,6 +134,11 @@ const AgentLayout = () => {
                   >
                     <item.icon size={20} className="flex-shrink-0" />
                     <span className="truncate">{item.name}</span>
+                    {item.badge && (
+                      <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-v3-orange text-white rounded-md flex-shrink-0">
+                        {item.badge}
+                      </span>
+                    )}
                   </NavLink>
                 );
               })}
@@ -186,6 +192,11 @@ const AgentLayout = () => {
             >
               <item.icon size={20} className="flex-shrink-0" />
               <span className="truncate">{item.name}</span>
+              {item.badge && (
+                <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-v3-orange text-white rounded-md flex-shrink-0">
+                  {item.badge}
+                </span>
+              )}
             </NavLink>
           ))}
         </div>

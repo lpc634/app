@@ -2537,7 +2537,194 @@ def send_test_telegram():
         current_app.logger.info(f"Test Telegram message sent to agent {agent.id}")
         
         return jsonify({'message': 'Test message sent successfully'})
-        
+
     except Exception as e:
         current_app.logger.error(f"Error sending test Telegram message: {str(e)}")
         return jsonify({'error': 'Failed to send test message'}), 500
+
+
+# ==========================================
+# V3 JOB REPORTS ENDPOINTS
+# ==========================================
+
+@agent_bp.route('/agent/v3-reports/submit', methods=['POST'])
+@jwt_required()
+def submit_v3_report():
+    """
+    Submit a V3 job report with custom form data.
+
+    Expected JSON body:
+    - job_id: int or 'MANUAL'
+    - form_type: str (e.g., 'traveller_eviction')
+    - report_data: dict (all form fields)
+    """
+    try:
+        from src.models.v3_report import V3JobReport
+
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied. Agent role required.'}), 403
+
+        data = request.get_json() or {}
+        job_id = data.get('job_id')
+        form_type = data.get('form_type')
+        report_data = data.get('report_data')
+
+        if not form_type:
+            return jsonify({'error': 'form_type is required'}), 400
+
+        if not report_data:
+            return jsonify({'error': 'report_data is required'}), 400
+
+        # Handle manual reports (not linked to a specific job)
+        if job_id == 'MANUAL':
+            # Create a placeholder job entry or skip job validation
+            # For now, we'll skip the job validation for manual entries
+            job = None
+        else:
+            if not job_id:
+                return jsonify({'error': 'job_id is required'}), 400
+
+            job = Job.query.get(int(job_id))
+            if not job:
+                return jsonify({'error': 'Job not found'}), 404
+
+            # Optionally verify agent assignment
+            assignment = JobAssignment.query.filter_by(
+                job_id=job.id,
+                agent_id=agent.id,
+                status='accepted'
+            ).first()
+
+            # Note: We're being lenient here - allowing reports even if not strictly assigned
+            # You can enforce this by uncommenting the following:
+            # if not assignment:
+            #     return jsonify({'error': 'You are not assigned to this job'}), 403
+
+        # Create the V3 report
+        v3_report = V3JobReport(
+            job_id=job.id if job else None,
+            agent_id=agent.id,
+            form_type=form_type,
+            status='submitted',
+            report_data=report_data,
+            photo_urls=[]  # Photos will be handled separately if needed
+        )
+
+        db.session.add(v3_report)
+
+        # Update job report status if it's a real job
+        if job and job_id != 'MANUAL':
+            # Mark the job report as submitted by updating JobAssignment or Job status
+            assignment = JobAssignment.query.filter_by(
+                job_id=job.id,
+                agent_id=agent.id
+            ).first()
+
+            if assignment:
+                # You might want to add a report_status field to JobAssignment
+                # For now, we'll just mark it as completed
+                pass
+
+        db.session.commit()
+
+        # Send notification to admin
+        agent_name = f"{agent.first_name} {agent.last_name}".strip()
+
+        # Map form types to readable names
+        form_type_names = {
+            'traveller_eviction': 'Traveller Eviction Report',
+            'traveller_serve': 'Traveller Serve Report',
+            'squatter_serve': 'Squatter Serve Report',
+        }
+
+        form_name = form_type_names.get(form_type, form_type.replace('_', ' ').title())
+
+        notification_parts = [
+            "📝 <b>V3 Job Report Submitted</b>",
+            "",
+            f"<b>Agent:</b> {agent_name}",
+            f"<b>Report Type:</b> {form_name}",
+        ]
+
+        if job and job_id != 'MANUAL':
+            location_text = _admin_location_from_job(job)
+            notification_parts.extend([
+                f"<b>Job:</b> #{job.id} — {job.title or job.job_type}",
+                f"<b>Location:</b> {location_text}",
+            ])
+        else:
+            notification_parts.append("<b>Type:</b> Manual Entry")
+
+        notification_parts.append(f"<b>Report ID:</b> #{v3_report.id}")
+
+        try:
+            _send_admin_group("\n".join(notification_parts))
+        except Exception as e:
+            current_app.logger.warning(f"Failed to send admin notification: {e}")
+
+        return jsonify({
+            'message': 'Report submitted successfully',
+            'report_id': v3_report.id
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error submitting V3 report: {str(e)}")
+        return jsonify({'error': 'Failed to submit report'}), 500
+
+
+@agent_bp.route('/agent/v3-reports', methods=['GET'])
+@jwt_required()
+def get_v3_reports():
+    """Get all V3 reports submitted by the current agent."""
+    try:
+        from src.models.v3_report import V3JobReport
+
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied'}), 403
+
+        reports = V3JobReport.query.filter_by(agent_id=agent.id).order_by(
+            V3JobReport.submitted_at.desc()
+        ).all()
+
+        return jsonify({
+            'reports': [report.to_dict() for report in reports]
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching V3 reports: {str(e)}")
+        return jsonify({'error': 'Failed to fetch reports'}), 500
+
+
+@agent_bp.route('/agent/v3-reports/<int:report_id>', methods=['GET'])
+@jwt_required()
+def get_v3_report(report_id):
+    """Get a specific V3 report by ID."""
+    try:
+        from src.models.v3_report import V3JobReport
+
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied'}), 403
+
+        report = V3JobReport.query.get(report_id)
+
+        if not report:
+            return jsonify({'error': 'Report not found'}), 404
+
+        if report.agent_id != agent.id:
+            return jsonify({'error': 'Access denied'}), 403
+
+        return jsonify(report.to_dict())
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching V3 report: {str(e)}")
+        return jsonify({'error': 'Failed to fetch report'}), 500

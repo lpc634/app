@@ -10,7 +10,8 @@ import AgentManagement from './Pages/AgentManagement';
 import AdminAgentInvoices from './Pages/AdminAgentInvoices';
 import AgentDashboard from './components/AgentDashboard';
 import AgentNotifications from './components/AgentNotifications';
-import JobReports from './Pages/JobReports'; 
+import JobReports from './Pages/JobReports';
+import V3JobReports from './Pages/V3JobReports';
 import DebugPage from './Pages/DebugPage';
 import JobDetails from './components/JobDetails';
 import AgentLayout from './components/AgentLayout';
@@ -124,6 +125,7 @@ function App() {
             <Route path="/agent/invoices/review/:invoiceId" element={<ReviewInvoicePage />} />
             <Route path="/agent/invoices/review" element={<ReviewInvoicePage />} />
             <Route path="/agent/reports" element={<JobReports />} />
+            <Route path="/agent/v3-reports" element={<V3JobReports />} />
             <Route path="/agent/notifications" element={<NotificationsPage />} />
             <Route path="/agent/police-interactions" element={<PoliceInteractionsPage />} />
             <Route path="/agent/profile" element={<AgentProfile />} />
