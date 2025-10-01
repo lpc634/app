@@ -340,33 +340,14 @@ const V3JobReports = () => {
             className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col safe-pt safe-pb"
           >
             <motion.div
-              className="bg-v3-bg-darkest mx-auto w-full max-w-4xl rounded-lg shadow-2xl m-4 flex flex-col h-full overflow-hidden"
+              className="bg-v3-bg-darkest mx-auto w-full max-w-7xl rounded-lg shadow-2xl m-4 flex flex-col overflow-hidden"
+              style={{ maxHeight: 'calc(100vh - 2rem)' }}
               initial={{ y: "100%" }}
               animate={{ y: 0, transition: { type: "spring", stiffness: 300, damping: 30 } }}
               exit={{ y: "100%" }}
             >
-              {/* Header */}
-              <div className="p-4 border-b border-v3-border flex-shrink-0 bg-v3-bg-darkest sticky top-0 z-10">
-                <div className="flex items-center justify-between">
-                  <div className='flex-1 min-w-0 pr-4'>
-                    <h2 className="text-lg font-bold text-v3-text-lightest truncate">
-                      {V3_FORM_TYPES[selectedFormType]?.name || 'Report Form'}
-                    </h2>
-                    <p className="text-sm text-v3-text-muted truncate">
-                      {selectedJob.address} {selectedJob.id !== 'MANUAL' && `(Job #${selectedJob.id})`}
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleCloseModal}
-                    className="p-3 rounded-full hover:bg-v3-bg-card tap-target flex-shrink-0 bg-red-600 text-white"
-                  >
-                    <X className="w-6 h-6"/>
-                  </button>
-                </div>
-              </div>
-
-              {/* Scrollable Form Content */}
-              <div className="overflow-y-auto flex-1 p-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {/* Scrollable Form Content - No separate header, form has its own styling */}
+              <div className="overflow-y-auto flex-1" style={{ WebkitOverflowScrolling: 'touch' }}>
                 <FormComponent
                   jobData={{
                     id: selectedJob.id,
