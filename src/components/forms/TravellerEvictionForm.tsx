@@ -836,13 +836,44 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
+                justifyContent: "space-between",
                 width: "100%",
+                position: "relative",
               }}
             >
-              <div className="h1" style={{ textAlign: "center" }}>
+              <div style={{ width: "40px" }} />
+              <div className="h1" style={{ textAlign: "center", flex: 1 }}>
                 Traveller Eviction Form
               </div>
+              <button
+                type="button"
+                onClick={onCancel}
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(239, 68, 68, 0.9)",
+                  border: "1px solid rgba(239, 68, 68, 0.5)",
+                  borderRadius: "10px",
+                  color: "white",
+                  cursor: "pointer",
+                  fontSize: "24px",
+                  fontWeight: "bold",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(239, 68, 68, 1)";
+                  e.currentTarget.style.transform = "scale(1.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.9)";
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              >
+                ×
+              </button>
             </div>
             <div className="progress-rail" style={{ marginTop: 10 }}>
               <div
