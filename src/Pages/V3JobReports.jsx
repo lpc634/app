@@ -98,7 +98,8 @@ const V3JobReports = () => {
   const handleCloseModal = () => {
     setShowFormModal(false);
     setSelectedJob(null);
-    setSelectedFormType('');
+    // Reset the dropdown to empty state
+    setTimeout(() => setSelectedFormType(''), 100);
   };
 
   const handleFormSubmit = async (formData) => {
@@ -219,30 +220,35 @@ const V3JobReports = () => {
                   Create New Report
                 </CardTitle>
                 <CardDescription>
-                  Manually create a report form not linked to a specific job.
+                  Select a form type to create a manual report not linked to a specific job.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col sm:flex-row gap-4">
+              <CardContent>
                 <select
                   value={selectedFormType}
-                  onChange={(e) => setSelectedFormType(e.target.value)}
-                  className="w-full sm:flex-1 p-3 bg-v3-bg-dark border border-v3-border rounded-md text-v3-text-lightest focus:border-v3-orange focus:outline-none"
+                  onChange={(e) => {
+                    const formType = e.target.value;
+                    if (formType) {
+                      const mockJob = {
+                        id: 'MANUAL',
+                        title: 'Manual Report Entry',
+                        address: 'Manual Entry',
+                        jobType: formType.replace(/_/g, ' '),
+                        agentName: `${user?.first_name} ${user?.last_name}`
+                      };
+                      setSelectedFormType(formType);
+                      handleSelectJob(mockJob);
+                    }
+                  }}
+                  className="w-full p-3 bg-v3-bg-dark border border-v3-border rounded-md text-v3-text-lightest focus:border-v3-orange focus:outline-none cursor-pointer"
                 >
-                  <option value="">-- Select a form type --</option>
+                  <option value="">-- Select a form type to begin --</option>
                   {Object.entries(V3_FORM_TYPES).map(([key, config]) => (
                     <option key={key} value={key}>
                       {config.name}
                     </option>
                   ))}
                 </select>
-                <Button
-                  onClick={handleManualFormCreate}
-                  className="bg-v3-orange hover:bg-v3-orange/90 whitespace-nowrap"
-                  disabled={!selectedFormType}
-                >
-                  <FileText size={16} className="mr-2" />
-                  Create Form
-                </Button>
               </CardContent>
             </Card>
 
