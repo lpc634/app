@@ -107,6 +107,7 @@ function App() {
           <Route path="/admin/documents" element={<ProtectedRoute allowedRoles={['admin']}><Layout><AdminDocumentReview /></Layout></ProtectedRoute>} />
           <Route path="/admin/agent-invoices" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><AdminAgentInvoices /></Layout></ProtectedRoute>} />
           <Route path="/admin/expenses" element={<ProtectedRoute allowedRoles={['admin']}><Layout><AdminExpenses /></Layout></ProtectedRoute>} />
+          <Route path="/admin/v3-reports" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><V3JobReports /></Layout></ProtectedRoute>} />
           <Route path="/debug" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><DebugPage /></Layout></ProtectedRoute>} />
           <Route path="/police-interactions" element={<ProtectedRoute allowedRoles={['admin', 'manager', 'agent']}><Layout><PoliceInteractionsPage /></Layout></ProtectedRoute>} />
           

@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "./useAuth.jsx";
 
 // --- 1. IMPORT THE SEARCH ICON ---
-import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search, FileText, DollarSign, BellOff, MessageCircle } from 'lucide-react';
+import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search, FileText, DollarSign, BellOff, MessageCircle, FileEdit } from 'lucide-react';
 import logo from './assets/new_logo.png';
 
 const navigation = [
@@ -17,6 +17,7 @@ const navigation = [
   { name: 'Document Review', href: '/admin/documents', icon: FileText, adminOnly: true },
   { name: 'Agent Invoices', href: '/admin/agent-invoices', icon: FileText, adminOnly: true },
   { name: 'Expenses', href: '/admin/expenses', icon: DollarSign, adminOnly: true },
+  { name: 'V3 Job Reports', href: '/admin/v3-reports', icon: FileEdit, badge: 'NEW' },
   { name: 'Communications', href: '/admin/communications/message-agents', icon: MessageCircle, adminOnly: true },
   { name: 'Police Interactions', href: '/police-interactions', icon: FileText },
 ];
@@ -51,6 +52,11 @@ function NavigationItems({ onItemClick = () => {} }) {
           >
             <Icon className="mr-3 h-5 w-5 flex-shrink-0" />
             <span className="truncate">{item.name}</span>
+            {item.badge && (
+              <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-orange-500 text-white rounded-md flex-shrink-0">
+                {item.badge}
+              </span>
+            )}
           </Link>
         );
       })}
