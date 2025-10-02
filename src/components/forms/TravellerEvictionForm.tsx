@@ -358,16 +358,61 @@ function CountSelect({
 
 /** ===== Main component ===== */
 export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmit, onCancel }) {
+  // Parse address from job data
+  const parseAddress = (fullAddress: string) => {
+    if (!fullAddress) return { line1: "", city: "", postcode: "" };
+
+    // Try to extract postcode (UK format)
+    const postcodeMatch = fullAddress.match(/[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}$/i);
+    const postcode = postcodeMatch ? postcodeMatch[0].trim() : "";
+
+    // Remove postcode from address
+    let remaining = postcode ? fullAddress.replace(postcode, "").trim() : fullAddress;
+
+    // Remove trailing comma
+    remaining = remaining.replace(/,\s*$/, "");
+
+    // Split by comma to get parts
+    const parts = remaining.split(",").map(p => p.trim()).filter(p => p);
+
+    // Last part before postcode is usually city
+    const city = parts.length > 1 ? parts[parts.length - 1] : "";
+
+    // Everything else is address line 1
+    const line1 = parts.length > 1 ? parts.slice(0, -1).join(", ") : parts[0] || "";
+
+    return { line1, city, postcode };
+  };
+
+  const parsedAddress = parseAddress(jobData?.address || "");
+
+  // Format date from job arrival_time
+  const getJobDate = () => {
+    if (jobData?.arrival_time) {
+      return new Date(jobData.arrival_time).toISOString().split('T')[0];
+    }
+    return new Date().toISOString().split('T')[0];
+  };
+
+  // Format time from job arrival_time
+  const getJobTime = () => {
+    if (jobData?.arrival_time) {
+      const date = new Date(jobData.arrival_time);
+      return date.toTimeString().slice(0, 5); // HH:MM format
+    }
+    return "";
+  };
+
   const form = useForm<ReportValues>({
     resolver: zodResolver(ReportSchema),
     defaultValues: {
       client: "",
-      address1: jobData?.address || "",
+      address1: parsedAddress.line1,
       address2: "",
-      city: "",
-      postal_zip: "",
-      date: new Date().toISOString().split('T')[0],
-      arrival_time: "",
+      city: parsedAddress.city,
+      postal_zip: parsedAddress.postcode,
+      date: getJobDate(),
+      arrival_time: getJobTime(),
       lead_agent: jobData?.agentName || "",
       a2: "",
       a3: "",
