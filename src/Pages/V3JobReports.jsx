@@ -30,6 +30,12 @@ const V3JobReports = () => {
   const [error, setError] = useState('');
 
   const fetchCompletedJobs = useCallback(async () => {
+    // Skip fetching jobs for admin/manager users - they only need manual form creation
+    if (user?.role === 'admin' || user?.role === 'manager') {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError('');
@@ -41,7 +47,7 @@ const V3JobReports = () => {
     } finally {
       setLoading(false);
     }
-  }, [apiCall]);
+  }, [apiCall, user]);
 
   useEffect(() => {
     fetchCompletedJobs();
@@ -252,86 +258,90 @@ const V3JobReports = () => {
               </CardContent>
             </Card>
 
-            {/* Pending Reports */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-v3-orange flex items-center gap-2">
-                <Edit size={20} />
-                Action Required: Reports to Submit
-              </h2>
-              {pendingReports.length > 0 ? (
-                pendingReports.map((job) => (
-                  <motion.div
-                    key={job.id}
-                    layoutId={`job-card-${job.id}`}
-                    onClick={() => handleSelectJob(job)}
-                    className="dashboard-card cursor-pointer hover:border-v3-orange transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-v3-text-lightest">{job.address}</h3>
-                        <p className="text-v3-text-muted text-sm">
-                          Job Type: {job.jobType || 'Not specified'}
-                        </p>
-                        <p className="text-v3-text-muted text-sm">
-                          Completed: {new Date(job.arrival_time).toLocaleDateString('en-GB', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-v3-orange">File Report</p>
-                      </div>
+            {/* Pending Reports - Only show for agents */}
+            {user?.role === 'agent' && (
+              <>
+                <div className="space-y-4">
+                  <h2 className="text-xl font-semibold text-v3-orange flex items-center gap-2">
+                    <Edit size={20} />
+                    Action Required: Reports to Submit
+                  </h2>
+                  {pendingReports.length > 0 ? (
+                    pendingReports.map((job) => (
+                      <motion.div
+                        key={job.id}
+                        layoutId={`job-card-${job.id}`}
+                        onClick={() => handleSelectJob(job)}
+                        className="dashboard-card cursor-pointer hover:border-v3-orange transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-v3-text-lightest">{job.address}</h3>
+                            <p className="text-v3-text-muted text-sm">
+                              Job Type: {job.jobType || 'Not specified'}
+                            </p>
+                            <p className="text-v3-text-muted text-sm">
+                              Completed: {new Date(job.arrival_time).toLocaleDateString('en-GB', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-v3-orange">File Report</p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <div className="dashboard-card text-center p-8">
+                      <CheckCircle className="mx-auto text-green-500 mb-4" size={48} />
+                      <h3 className="text-v3-text-lightest text-xl font-semibold">All Reports Submitted</h3>
+                      <p className="text-v3-text-muted mt-2">You're all caught up. Great work!</p>
                     </div>
-                  </motion.div>
-                ))
-              ) : (
-                <div className="dashboard-card text-center p-8">
-                  <CheckCircle className="mx-auto text-green-500 mb-4" size={48} />
-                  <h3 className="text-v3-text-lightest text-xl font-semibold">All Reports Submitted</h3>
-                  <p className="text-v3-text-muted mt-2">You're all caught up. Great work!</p>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Submitted Reports */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-v3-text-lightest flex items-center gap-2">
-                <History size={20} />
-                Recently Submitted
-              </h2>
-              {submittedReports.length > 0 ? (
-                submittedReports.map((job) => (
-                  <motion.div
-                    key={job.id}
-                    className="dashboard-card bg-v3-bg-dark"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-v3-text-light">{job.address}</h3>
-                        <p className="text-v3-text-muted text-sm">
-                          Job Type: {job.jobType || 'Not specified'}
-                        </p>
-                        <p className="text-v3-text-muted text-sm">
-                          Completed: {new Date(job.arrival_time).toLocaleDateString('en-GB', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
-                        </p>
-                      </div>
-                      <div className="text-right flex items-center gap-2 text-green-400">
-                        <CheckCircle size={16} />
-                        <span className="text-sm font-medium">Submitted</span>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))
-              ) : (
-                <p className="text-sm text-v3-text-muted px-4">No reports have been submitted yet.</p>
-              )}
-            </div>
+                {/* Submitted Reports */}
+                <div className="space-y-4">
+                  <h2 className="text-xl font-semibold text-v3-text-lightest flex items-center gap-2">
+                    <History size={20} />
+                    Recently Submitted
+                  </h2>
+                  {submittedReports.length > 0 ? (
+                    submittedReports.map((job) => (
+                      <motion.div
+                        key={job.id}
+                        className="dashboard-card bg-v3-bg-dark"
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-v3-text-light">{job.address}</h3>
+                            <p className="text-v3-text-muted text-sm">
+                              Job Type: {job.jobType || 'Not specified'}
+                            </p>
+                            <p className="text-v3-text-muted text-sm">
+                              Completed: {new Date(job.arrival_time).toLocaleDateString('en-GB', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                          <div className="text-right flex items-center gap-2 text-green-400">
+                            <CheckCircle size={16} />
+                            <span className="text-sm font-medium">Submitted</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-v3-text-muted px-4">No reports have been submitted yet.</p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </main>
