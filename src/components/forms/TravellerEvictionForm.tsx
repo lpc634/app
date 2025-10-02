@@ -797,167 +797,24 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
     if (!d7) clearDayAgents("day7");
   }, [d7]);
 
-  // UK-style placeholders with native picker on focus/click
-  const DateInput = (props) => {
-    const {
-      onChange,
-      name,
-      className,
-      onFocus,
-      onMouseDown,
-      onTouchStart,
-      ...rest
-    } = props || {};
-    const textRef = React.useRef(null);
-    const hiddenRef = React.useRef(null);
+  // Simple text inputs for date and time - manual entry
+  const DateInput = (props) => (
+    <input
+      {...props}
+      type="text"
+      placeholder="dd/mm/yyyy"
+      className={`v3-input ${props.className || ""}`}
+    />
+  );
 
-    const openPicker = () => {
-      const el = hiddenRef.current;
-      if (el && typeof el.showPicker === "function") {
-        try {
-          el.showPicker();
-        } catch {}
-      }
-    };
-
-    const handleHiddenChange = (e) => {
-      const val = e.target.value || "";
-      if (textRef.current) {
-        try {
-          textRef.current.value = val;
-        } catch {}
-      }
-      if (typeof onChange === "function") {
-        onChange({ target: { name, value: val } });
-      }
-    };
-
-    return (
-      <>
-        <input
-          ref={textRef}
-          {...rest}
-          name={name}
-          type="text"
-          inputMode="none"
-          placeholder="dd/mm/yyyy"
-          className={`v3-input ${className || ""}`}
-          onFocus={(e) => {
-            if (onFocus) onFocus(e);
-            openPicker();
-          }}
-          onMouseDown={(e) => {
-            if (onMouseDown) onMouseDown(e);
-            e.preventDefault();
-            e.currentTarget.focus();
-            openPicker();
-          }}
-          onTouchStart={(e) => {
-            if (onTouchStart) onTouchStart(e);
-            e.currentTarget.focus();
-            openPicker();
-          }}
-        />
-        <input
-          ref={hiddenRef}
-          type="date"
-          style={{
-            position: "fixed",
-            top: -1000,
-            left: -1000,
-            opacity: 0,
-            pointerEvents: "none",
-            width: 0,
-            height: 0,
-          }}
-          onChange={handleHiddenChange}
-          tabIndex={-1}
-          aria-hidden="true"
-        />
-      </>
-    );
-  };
-
-  const TimeInput = (props) => {
-    const {
-      onChange,
-      name,
-      className,
-      onFocus,
-      onMouseDown,
-      onTouchStart,
-      ...rest
-    } = props || {};
-    const textRef = React.useRef(null);
-    const hiddenRef = React.useRef(null);
-
-    const openPicker = () => {
-      const el = hiddenRef.current;
-      if (el && typeof el.showPicker === "function") {
-        try {
-          el.showPicker();
-        } catch {}
-      }
-    };
-
-    const handleHiddenChange = (e) => {
-      const val = e.target.value || "";
-      if (textRef.current) {
-        try {
-          textRef.current.value = val;
-        } catch {}
-      }
-      if (typeof onChange === "function") {
-        onChange({ target: { name, value: val } });
-      }
-    };
-
-    return (
-      <>
-        <input
-          ref={textRef}
-          {...rest}
-          name={name}
-          type="text"
-          inputMode="none"
-          placeholder="--:--"
-          className={`v3-input ${className || ""}`}
-          onFocus={(e) => {
-            if (onFocus) onFocus(e);
-            openPicker();
-          }}
-          onMouseDown={(e) => {
-            if (onMouseDown) onMouseDown(e);
-            e.preventDefault();
-            e.currentTarget.focus();
-            openPicker();
-          }}
-          onTouchStart={(e) => {
-            if (onTouchStart) onTouchStart(e);
-            e.currentTarget.focus();
-            openPicker();
-          }}
-        />
-        <input
-          ref={hiddenRef}
-          type="time"
-          step="60"
-          style={{
-            position: "fixed",
-            top: -1000,
-            left: -1000,
-            opacity: 0,
-            pointerEvents: "none",
-            width: 0,
-            height: 0,
-          }}
-          onChange={handleHiddenChange}
-          tabIndex={-1}
-          aria-hidden="true"
-        />
-      </>
-    );
-  };
+  const TimeInput = (props) => (
+    <input
+      {...props}
+      type="text"
+      placeholder="HH:MM"
+      className={`v3-input ${props.className || ""}`}
+    />
+  );
 
   return (
     <FormProvider {...form}>
