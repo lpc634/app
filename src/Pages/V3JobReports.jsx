@@ -55,15 +55,6 @@ const V3JobReports = () => {
   }, [fetchCompletedJobs]);
 
   useEffect(() => {
-    if (completedJobs.length > 0 && !selectedJob) {
-      const firstPendingJob = completedJobs.find(job => job.reportStatus === 'pending');
-      if (firstPendingJob) {
-        setSelectedJob(firstPendingJob);
-      }
-    }
-  }, [completedJobs]);
-
-  useEffect(() => {
     if (showFormModal) {
       document.body.classList.add('modal-open');
     } else {
@@ -276,6 +267,7 @@ const V3JobReports = () => {
                       Select Job
                     </label>
                     <select
+                      value={selectedJob && selectedJob.id !== 'MANUAL' ? selectedJob.id : ''}
                       onChange={(e) => {
                         const jobId = e.target.value;
                         if (jobId) {
@@ -283,6 +275,9 @@ const V3JobReports = () => {
                           if (job) {
                             handleSelectJob(job);
                           }
+                        } else {
+                          setSelectedJob(null);
+                          setSelectedFormType('');
                         }
                       }}
                       className="w-full p-3 bg-v3-bg-dark border border-v3-border rounded-md text-v3-text-lightest focus:border-v3-orange focus:outline-none cursor-pointer"

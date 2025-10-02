@@ -1445,22 +1445,21 @@ def get_agent_jobs():
 @jobs_bp.route('/agent/jobs/completed', methods=['GET'])
 @jwt_required()
 def get_completed_jobs():
-    """Get a list of completed jobs for the current agent to file reports."""
+    """Get a list of accepted jobs for the current agent to file reports."""
     try:
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id)
         if not user or user.role != 'agent':
             return jsonify({'error': 'Access denied. Agent role required.'}), 403
 
-        # Get completed assignments with pagination
+        # Get all accepted jobs (not just past ones - agents can submit reports anytime)
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
         per_page = min(per_page, 100)
-        
+
         query = db.session.query(Job).join(JobAssignment).filter(
             JobAssignment.agent_id == user.id,
-            JobAssignment.status == 'accepted',
-            Job.arrival_time < datetime.utcnow()
+            JobAssignment.status == 'accepted'
         ).order_by(Job.arrival_time.desc())
         
         paginated = query.paginate(page=page, per_page=per_page, error_out=False)
