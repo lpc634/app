@@ -819,7 +819,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
   const dateValue = watch("date");
 
   const DatePickerInput = () => (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', zIndex: 1 }}>
       <input
         type="text"
         value={dateValue ? new Date(dateValue).toLocaleDateString('en-GB') : ''}
@@ -831,16 +831,14 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
       />
       {showDatePicker && (
         <div style={{
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          marginTop: '8px',
-          zIndex: 50,
+          position: 'fixed',
+          transform: 'translateY(8px)',
+          zIndex: 9999,
           background: 'var(--v3-bg-card)',
-          border: '1px solid var(--v3-border)',
+          border: '1px solid var(--v3-orange)',
           borderRadius: '12px',
           padding: '12px',
-          boxShadow: '0 10px 28px rgba(0,0,0,.35)',
+          boxShadow: '0 10px 28px rgba(0,0,0,.65), 0 0 0 1px var(--v3-orange)',
         }}>
           <input
             type="date"
@@ -869,7 +867,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
     const [selectedMinute, setSelectedMinute] = useState(timeValue ? parseInt(timeValue.split(':')[1]) : 0);
 
     return (
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', zIndex: 1 }}>
         <input
           type="text"
           value={timeValue || ''}
@@ -881,16 +879,14 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
         />
         {showTimePicker && (
           <div style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            marginTop: '8px',
-            zIndex: 50,
+            position: 'fixed',
+            transform: 'translateY(8px)',
+            zIndex: 9999,
             background: 'var(--v3-bg-card)',
-            border: '1px solid var(--v3-border)',
+            border: '1px solid var(--v3-orange)',
             borderRadius: '12px',
             padding: '16px',
-            boxShadow: '0 10px 28px rgba(0,0,0,.35)',
+            boxShadow: '0 10px 28px rgba(0,0,0,.65), 0 0 0 1px var(--v3-orange)',
           }}>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -953,7 +949,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
     const [selectedMinute, setSelectedMinute] = useState(departureTimeValue ? parseInt(departureTimeValue.split(':')[1]) : 0);
 
     return (
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', zIndex: 1 }}>
         <input
           type="text"
           value={departureTimeValue || ''}
@@ -965,16 +961,14 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
         />
         {showDepartureTimePicker && (
           <div style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            marginTop: '8px',
-            zIndex: 50,
+            position: 'fixed',
+            transform: 'translateY(8px)',
+            zIndex: 9999,
             background: 'var(--v3-bg-card)',
-            border: '1px solid var(--v3-border)',
+            border: '1px solid var(--v3-orange)',
             borderRadius: '12px',
             padding: '16px',
-            boxShadow: '0 10px 28px rgba(0,0,0,.35)',
+            boxShadow: '0 10px 28px rgba(0,0,0,.65), 0 0 0 1px var(--v3-orange)',
           }}>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1030,7 +1024,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
   const completionDateValue = watch("completion_date");
 
   const CompletionDatePickerInput = () => (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', zIndex: 1 }}>
       <input
         type="text"
         value={completionDateValue ? new Date(completionDateValue).toLocaleDateString('en-GB') : ''}
@@ -1042,16 +1036,14 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
       />
       {showCompletionDatePicker && (
         <div style={{
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          marginTop: '8px',
-          zIndex: 50,
+          position: 'fixed',
+          transform: 'translateY(8px)',
+          zIndex: 9999,
           background: 'var(--v3-bg-card)',
-          border: '1px solid var(--v3-border)',
+          border: '1px solid var(--v3-orange)',
           borderRadius: '12px',
           padding: '12px',
-          boxShadow: '0 10px 28px rgba(0,0,0,.35)',
+          boxShadow: '0 10px 28px rgba(0,0,0,.65), 0 0 0 1px var(--v3-orange)',
         }}>
           <input
             type="date"
