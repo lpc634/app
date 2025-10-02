@@ -819,38 +819,56 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
   const dateValue = watch("date");
 
   const DatePickerInput = () => (
-    <div style={{ position: 'relative', zIndex: 1 }}>
+    <div style={{ position: 'relative' }}>
       <input
         type="text"
         value={dateValue ? new Date(dateValue).toLocaleDateString('en-GB') : ''}
-        onClick={() => setShowDatePicker(!showDatePicker)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowDatePicker(!showDatePicker);
+        }}
         readOnly
         placeholder="dd/mm/yyyy"
         className="v3-input"
         style={{ cursor: 'pointer' }}
       />
       {showDatePicker && (
-        <div style={{
-          position: 'fixed',
-          transform: 'translateY(8px)',
-          zIndex: 9999,
-          background: 'var(--v3-bg-card)',
-          border: '1px solid var(--v3-orange)',
-          borderRadius: '12px',
-          padding: '12px',
-          boxShadow: '0 10px 28px rgba(0,0,0,.65), 0 0 0 1px var(--v3-orange)',
-        }}>
-          <input
-            type="date"
-            value={dateValue || ''}
-            onChange={(e) => {
-              setValue('date', e.target.value);
-              setShowDatePicker(false);
+        <>
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 9998,
             }}
-            className="v3-input"
-            style={{ minWidth: '200px' }}
+            onClick={() => setShowDatePicker(false)}
           />
-        </div>
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            marginTop: '8px',
+            zIndex: 9999,
+            background: 'var(--v3-bg-card)',
+            border: '1px solid var(--v3-orange)',
+            borderRadius: '12px',
+            padding: '12px',
+            boxShadow: '0 10px 28px rgba(0,0,0,.65), 0 0 0 1px var(--v3-orange)',
+          }}>
+            <input
+              type="date"
+              value={dateValue || ''}
+              onChange={(e) => {
+                setValue('date', e.target.value);
+                setShowDatePicker(false);
+              }}
+              className="v3-input"
+              style={{ minWidth: '200px' }}
+            />
+          </div>
+        </>
       )}
     </div>
   );
@@ -867,71 +885,89 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
     const [selectedMinute, setSelectedMinute] = useState(timeValue ? parseInt(timeValue.split(':')[1]) : 0);
 
     return (
-      <div style={{ position: 'relative', zIndex: 1 }}>
+      <div style={{ position: 'relative' }}>
         <input
           type="text"
           value={timeValue || ''}
-          onClick={() => setShowTimePicker(!showTimePicker)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowTimePicker(!showTimePicker);
+          }}
           readOnly
           placeholder="HH:MM"
           className="v3-input"
           style={{ cursor: 'pointer' }}
         />
         {showTimePicker && (
-          <div style={{
-            position: 'fixed',
-            transform: 'translateY(8px)',
-            zIndex: 9999,
-            background: 'var(--v3-bg-card)',
-            border: '1px solid var(--v3-orange)',
-            borderRadius: '12px',
-            padding: '16px',
-            boxShadow: '0 10px 28px rgba(0,0,0,.65), 0 0 0 1px var(--v3-orange)',
-          }}>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ fontSize: '12px', color: 'var(--v3-text-muted)', textAlign: 'center' }}>Hour</div>
-                <select
-                  value={selectedHour}
-                  onChange={(e) => setSelectedHour(parseInt(e.target.value))}
-                  className="v3-input"
-                  style={{ width: '80px', height: '120px' }}
-                  size={5}
-                >
-                  {hours.map(h => (
-                    <option key={h} value={h}>{String(h).padStart(2, '0')}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ fontSize: '20px', color: 'var(--v3-text)' }}>:</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ fontSize: '12px', color: 'var(--v3-text-muted)', textAlign: 'center' }}>Minute</div>
-                <select
-                  value={selectedMinute}
-                  onChange={(e) => setSelectedMinute(parseInt(e.target.value))}
-                  className="v3-input"
-                  style={{ width: '80px', height: '120px' }}
-                  size={5}
-                >
-                  {minutes.map(m => (
-                    <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const time = `${String(selectedHour).padStart(2, '0')}:${String(selectedMinute).padStart(2, '0')}`;
-                setValue('arrival_time', time);
-                setShowTimePicker(false);
+          <>
+            <div
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 9998,
               }}
-              className="button-primary"
-              style={{ width: '100%', marginTop: '12px' }}
-            >
-              Set Time
-            </button>
-          </div>
+              onClick={() => setShowTimePicker(false)}
+            />
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              marginTop: '8px',
+              zIndex: 9999,
+              background: 'var(--v3-bg-card)',
+              border: '1px solid var(--v3-orange)',
+              borderRadius: '12px',
+              padding: '16px',
+              boxShadow: '0 10px 28px rgba(0,0,0,.65), 0 0 0 1px var(--v3-orange)',
+            }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--v3-text-muted)', textAlign: 'center' }}>Hour</div>
+                  <select
+                    value={selectedHour}
+                    onChange={(e) => setSelectedHour(parseInt(e.target.value))}
+                    className="v3-input"
+                    style={{ width: '80px', height: '120px' }}
+                    size={5}
+                  >
+                    {hours.map(h => (
+                      <option key={h} value={h}>{String(h).padStart(2, '0')}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ fontSize: '20px', color: 'var(--v3-text)' }}>:</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--v3-text-muted)', textAlign: 'center' }}>Minute</div>
+                  <select
+                    value={selectedMinute}
+                    onChange={(e) => setSelectedMinute(parseInt(e.target.value))}
+                    className="v3-input"
+                    style={{ width: '80px', height: '120px' }}
+                    size={5}
+                  >
+                    {minutes.map(m => (
+                      <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const time = `${String(selectedHour).padStart(2, '0')}:${String(selectedMinute).padStart(2, '0')}`;
+                  setValue('arrival_time', time);
+                  setShowTimePicker(false);
+                }}
+                className="button-primary"
+                style={{ width: '100%', marginTop: '12px' }}
+              >
+                Set Time
+              </button>
+            </div>
+          </>
         )}
       </div>
     );
@@ -949,71 +985,89 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
     const [selectedMinute, setSelectedMinute] = useState(departureTimeValue ? parseInt(departureTimeValue.split(':')[1]) : 0);
 
     return (
-      <div style={{ position: 'relative', zIndex: 1 }}>
+      <div style={{ position: 'relative' }}>
         <input
           type="text"
           value={departureTimeValue || ''}
-          onClick={() => setShowDepartureTimePicker(!showDepartureTimePicker)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowDepartureTimePicker(!showDepartureTimePicker);
+          }}
           readOnly
           placeholder="HH:MM"
           className="v3-input"
           style={{ cursor: 'pointer' }}
         />
         {showDepartureTimePicker && (
-          <div style={{
-            position: 'fixed',
-            transform: 'translateY(8px)',
-            zIndex: 9999,
-            background: 'var(--v3-bg-card)',
-            border: '1px solid var(--v3-orange)',
-            borderRadius: '12px',
-            padding: '16px',
-            boxShadow: '0 10px 28px rgba(0,0,0,.65), 0 0 0 1px var(--v3-orange)',
-          }}>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ fontSize: '12px', color: 'var(--v3-text-muted)', textAlign: 'center' }}>Hour</div>
-                <select
-                  value={selectedHour}
-                  onChange={(e) => setSelectedHour(parseInt(e.target.value))}
-                  className="v3-input"
-                  style={{ width: '80px', height: '120px' }}
-                  size={5}
-                >
-                  {hours.map(h => (
-                    <option key={h} value={h}>{String(h).padStart(2, '0')}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ fontSize: '20px', color: 'var(--v3-text)' }}>:</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ fontSize: '12px', color: 'var(--v3-text-muted)', textAlign: 'center' }}>Minute</div>
-                <select
-                  value={selectedMinute}
-                  onChange={(e) => setSelectedMinute(parseInt(e.target.value))}
-                  className="v3-input"
-                  style={{ width: '80px', height: '120px' }}
-                  size={5}
-                >
-                  {minutes.map(m => (
-                    <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const time = `${String(selectedHour).padStart(2, '0')}:${String(selectedMinute).padStart(2, '0')}`;
-                setValue('departure_time', time);
-                setShowDepartureTimePicker(false);
+          <>
+            <div
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 9998,
               }}
-              className="button-primary"
-              style={{ width: '100%', marginTop: '12px' }}
-            >
-              Set Time
-            </button>
-          </div>
+              onClick={() => setShowDepartureTimePicker(false)}
+            />
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              marginTop: '8px',
+              zIndex: 9999,
+              background: 'var(--v3-bg-card)',
+              border: '1px solid var(--v3-orange)',
+              borderRadius: '12px',
+              padding: '16px',
+              boxShadow: '0 10px 28px rgba(0,0,0,.65), 0 0 0 1px var(--v3-orange)',
+            }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--v3-text-muted)', textAlign: 'center' }}>Hour</div>
+                  <select
+                    value={selectedHour}
+                    onChange={(e) => setSelectedHour(parseInt(e.target.value))}
+                    className="v3-input"
+                    style={{ width: '80px', height: '120px' }}
+                    size={5}
+                  >
+                    {hours.map(h => (
+                      <option key={h} value={h}>{String(h).padStart(2, '0')}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ fontSize: '20px', color: 'var(--v3-text)' }}>:</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--v3-text-muted)', textAlign: 'center' }}>Minute</div>
+                  <select
+                    value={selectedMinute}
+                    onChange={(e) => setSelectedMinute(parseInt(e.target.value))}
+                    className="v3-input"
+                    style={{ width: '80px', height: '120px' }}
+                    size={5}
+                  >
+                    {minutes.map(m => (
+                      <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const time = `${String(selectedHour).padStart(2, '0')}:${String(selectedMinute).padStart(2, '0')}`;
+                  setValue('departure_time', time);
+                  setShowDepartureTimePicker(false);
+                }}
+                className="button-primary"
+                style={{ width: '100%', marginTop: '12px' }}
+              >
+                Set Time
+              </button>
+            </div>
+          </>
         )}
       </div>
     );
@@ -1024,38 +1078,56 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
   const completionDateValue = watch("completion_date");
 
   const CompletionDatePickerInput = () => (
-    <div style={{ position: 'relative', zIndex: 1 }}>
+    <div style={{ position: 'relative' }}>
       <input
         type="text"
         value={completionDateValue ? new Date(completionDateValue).toLocaleDateString('en-GB') : ''}
-        onClick={() => setShowCompletionDatePicker(!showCompletionDatePicker)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowCompletionDatePicker(!showCompletionDatePicker);
+        }}
         readOnly
         placeholder="dd/mm/yyyy"
         className="v3-input"
         style={{ cursor: 'pointer' }}
       />
       {showCompletionDatePicker && (
-        <div style={{
-          position: 'fixed',
-          transform: 'translateY(8px)',
-          zIndex: 9999,
-          background: 'var(--v3-bg-card)',
-          border: '1px solid var(--v3-orange)',
-          borderRadius: '12px',
-          padding: '12px',
-          boxShadow: '0 10px 28px rgba(0,0,0,.65), 0 0 0 1px var(--v3-orange)',
-        }}>
-          <input
-            type="date"
-            value={completionDateValue || ''}
-            onChange={(e) => {
-              setValue('completion_date', e.target.value);
-              setShowCompletionDatePicker(false);
+        <>
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 9998,
             }}
-            className="v3-input"
-            style={{ minWidth: '200px' }}
+            onClick={() => setShowCompletionDatePicker(false)}
           />
-        </div>
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            marginTop: '8px',
+            zIndex: 9999,
+            background: 'var(--v3-bg-card)',
+            border: '1px solid var(--v3-orange)',
+            borderRadius: '12px',
+            padding: '12px',
+            boxShadow: '0 10px 28px rgba(0,0,0,.65), 0 0 0 1px var(--v3-orange)',
+          }}>
+            <input
+              type="date"
+              value={completionDateValue || ''}
+              onChange={(e) => {
+                setValue('completion_date', e.target.value);
+                setShowCompletionDatePicker(false);
+              }}
+              className="v3-input"
+              style={{ minWidth: '200px' }}
+            />
+          </div>
+        </>
       )}
     </div>
   );
