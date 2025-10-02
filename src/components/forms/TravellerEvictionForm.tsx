@@ -358,69 +358,17 @@ function CountSelect({
 
 /** ===== Main component ===== */
 export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmit, onCancel }) {
-  // Parse address from job data
-  const parseAddress = (fullAddress: string) => {
-    if (!fullAddress) return { line1: "", city: "", postcode: "" };
-
-    // Try to extract postcode (UK format)
-    const postcodeMatch = fullAddress.match(/[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}$/i);
-    const postcode = postcodeMatch ? postcodeMatch[0].trim() : "";
-
-    // Remove postcode from address
-    let remaining = postcode ? fullAddress.replace(postcode, "").trim() : fullAddress;
-
-    // Remove trailing comma
-    remaining = remaining.replace(/,\s*$/, "");
-
-    // Split by comma to get parts
-    const parts = remaining.split(",").map(p => p.trim()).filter(p => p);
-
-    // For UK addresses: "Street Address, Town, County"
-    // We want: line1 = "Street Address", city = "Town, County"
-    if (parts.length >= 2) {
-      // First part is address line 1
-      const line1 = parts[0];
-      // Remaining parts make up the city (town + county)
-      const city = parts.slice(1).join(", ");
-      return { line1, city, postcode };
-    } else if (parts.length === 1) {
-      // Only one part, use it as address line 1
-      return { line1: parts[0], city: "", postcode };
-    }
-
-    return { line1: "", city: "", postcode };
-  };
-
-  const parsedAddress = parseAddress(jobData?.address || "");
-
-  // Format date from job arrival_time
-  const getJobDate = () => {
-    if (jobData?.arrival_time) {
-      return new Date(jobData.arrival_time).toISOString().split('T')[0];
-    }
-    return new Date().toISOString().split('T')[0];
-  };
-
-  // Format time from job arrival_time
-  const getJobTime = () => {
-    if (jobData?.arrival_time) {
-      const date = new Date(jobData.arrival_time);
-      return date.toTimeString().slice(0, 5); // HH:MM format
-    }
-    return "";
-  };
-
   const form = useForm<ReportValues>({
     resolver: zodResolver(ReportSchema),
     defaultValues: {
       client: "",
-      address1: parsedAddress.line1,
+      address1: "",
       address2: "",
-      city: parsedAddress.city,
-      postal_zip: parsedAddress.postcode,
-      date: getJobDate(),
-      arrival_time: getJobTime(),
-      lead_agent: jobData?.agentName || "",
+      city: "",
+      postal_zip: "",
+      date: new Date().toISOString().split('T')[0],
+      arrival_time: "",
+      lead_agent: "",
       a2: "",
       a3: "",
       a4: "",
