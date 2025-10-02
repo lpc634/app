@@ -934,66 +934,131 @@ export default function JobManagement() {
       {/* Job Details Modal */}
       {showJobDetailsModal && selectedJob && (
         <Dialog open={showJobDetailsModal} onOpenChange={setShowJobDetailsModal}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" style={{
-            backgroundColor: 'var(--v3-bg-card)',
-            border: '1px solid var(--v3-border)'
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0" style={{
+            backgroundColor: 'var(--v3-bg-darkest)',
+            border: '2px solid var(--v3-orange)',
+            borderRadius: '16px'
           }}>
-            <DialogHeader className="border-b" style={{ borderColor: 'var(--v3-border)', paddingBottom: '1rem' }}>
-              <DialogTitle style={{ color: 'var(--v3-text-lightest)', fontSize: '1.5rem', fontWeight: '600' }}>
-                Job Details
-              </DialogTitle>
-              <DialogDescription style={{ color: 'var(--v3-text-muted)', marginTop: '0.5rem' }}>
-                {selectedJob.address || 'Job Information'}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+            {/* Header with gradient background */}
+            <div style={{
+              background: 'linear-gradient(135deg, var(--v3-orange) 0%, var(--v3-orange-dark) 100%)',
+              padding: '1.5rem',
+              borderRadius: '14px 14px 0 0'
+            }}>
+              <DialogHeader>
+                <DialogTitle style={{ color: 'white', fontSize: '1.75rem', fontWeight: '700', marginBottom: '0.5rem' }}>
+                  {selectedJob.address}
+                </DialogTitle>
+                <DialogDescription style={{ color: 'rgba(255,255,255,0.9)', fontSize: '1rem' }}>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    {selectedJob.job_type} • Job #{selectedJob.id}
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
               {/* Left Sidebar - Job Information */}
               <div className="space-y-4">
-                <div className="dashboard-card p-4">
-                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--v3-orange)' }}>
-                    <MapPin className="h-4 w-4" />
+                <div className="dashboard-card p-5" style={{
+                  background: 'var(--v3-bg-card)',
+                  border: '1px solid var(--v3-border)',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}>
+                  <h3 className="text-sm font-bold mb-4 flex items-center gap-2 pb-3" style={{
+                    color: 'var(--v3-orange)',
+                    borderBottom: '2px solid var(--v3-orange)',
+                    letterSpacing: '0.05em'
+                  }}>
+                    <MapPin className="h-5 w-5" />
                     JOB INFORMATION
                   </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Address</p>
-                      <p className="font-medium mt-1" style={{ color: 'var(--v3-text-lightest)' }}>{selectedJob.address}</p>
+                  <div className="space-y-4">
+                    <div style={{
+                      padding: '12px',
+                      background: 'var(--v3-bg-dark)',
+                      borderRadius: '8px',
+                      borderLeft: '3px solid var(--v3-orange)'
+                    }}>
+                      <p className="text-xs uppercase tracking-wider font-semibold mb-1" style={{ color: 'var(--v3-orange)' }}>Type</p>
+                      <p className="font-semibold text-base" style={{ color: 'var(--v3-text-lightest)' }}>{selectedJob.job_type}</p>
                     </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Type</p>
-                      <p className="font-medium mt-1" style={{ color: 'var(--v3-text-lightest)' }}>{selectedJob.job_type}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Arrival Time</p>
-                      <p className="font-medium mt-1" style={{ color: 'var(--v3-text-lightest)' }}>
-                        {selectedJob.arrival_time ? new Date(selectedJob.arrival_time).toLocaleString() : 'Not set'}
+                    <div style={{
+                      padding: '12px',
+                      background: 'var(--v3-bg-dark)',
+                      borderRadius: '8px',
+                      borderLeft: '3px solid var(--v3-orange)'
+                    }}>
+                      <p className="text-xs uppercase tracking-wider font-semibold mb-1" style={{ color: 'var(--v3-orange)' }}>
+                        <Clock className="h-3 w-3 inline mr-1" />
+                        Arrival Time
+                      </p>
+                      <p className="font-semibold text-base" style={{ color: 'var(--v3-text-lightest)' }}>
+                        {selectedJob.arrival_time ? new Date(selectedJob.arrival_time).toLocaleString('en-GB', {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : 'Not set'}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Status</p>
-                      <Badge className="mt-1" style={{
-                        backgroundColor: selectedJob.status === 'completed' ? '#10b981' : 'var(--v3-orange)',
+                    <div style={{
+                      padding: '12px',
+                      background: 'var(--v3-bg-dark)',
+                      borderRadius: '8px',
+                      borderLeft: '3px solid var(--v3-orange)'
+                    }}>
+                      <p className="text-xs uppercase tracking-wider font-semibold mb-2" style={{ color: 'var(--v3-orange)' }}>Status</p>
+                      <Badge className="px-3 py-1 text-xs font-bold" style={{
+                        backgroundColor: selectedJob.status === 'completed' ? '#10b981' : selectedJob.status === 'assigned' ? '#3b82f6' : 'var(--v3-orange)',
                         color: 'white',
-                        border: 'none'
+                        border: 'none',
+                        borderRadius: '6px'
                       }}>
                         {selectedJob.status?.toUpperCase()}
                       </Badge>
                     </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Agents Required</p>
-                      <p className="font-medium mt-1" style={{ color: 'var(--v3-text-lightest)' }}>{selectedJob.agents_required}</p>
+                    <div style={{
+                      padding: '12px',
+                      background: 'var(--v3-bg-dark)',
+                      borderRadius: '8px',
+                      borderLeft: '3px solid var(--v3-orange)'
+                    }}>
+                      <p className="text-xs uppercase tracking-wider font-semibold mb-1" style={{ color: 'var(--v3-orange)' }}>
+                        <Users className="h-3 w-3 inline mr-1" />
+                        Agents Required
+                      </p>
+                      <p className="font-semibold text-base" style={{ color: 'var(--v3-text-lightest)' }}>{selectedJob.agents_required}</p>
                     </div>
                     {selectedJob.lead_agent_name && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Lead Agent</p>
-                        <p className="font-medium mt-1" style={{ color: 'var(--v3-text-lightest)' }}>{selectedJob.lead_agent_name}</p>
+                      <div style={{
+                        padding: '12px',
+                        background: 'var(--v3-bg-dark)',
+                        borderRadius: '8px',
+                        borderLeft: '3px solid #3b82f6'
+                      }}>
+                        <p className="text-xs uppercase tracking-wider font-semibold mb-1" style={{ color: '#60a5fa' }}>
+                          <Shield className="h-3 w-3 inline mr-1" />
+                          Lead Agent
+                        </p>
+                        <p className="font-semibold text-base" style={{ color: 'var(--v3-text-lightest)' }}>{selectedJob.lead_agent_name}</p>
                       </div>
                     )}
                     {selectedJob.instructions && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Instructions</p>
-                        <p className="text-sm mt-1" style={{ color: 'var(--v3-text-light)' }}>{selectedJob.instructions}</p>
+                      <div style={{
+                        padding: '14px',
+                        background: 'rgba(255, 106, 43, 0.1)',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255, 106, 43, 0.3)'
+                      }}>
+                        <p className="text-xs uppercase tracking-wider font-semibold mb-2 flex items-center gap-1" style={{ color: 'var(--v3-orange)' }}>
+                          <FileText className="h-3 w-3" />
+                          Instructions
+                        </p>
+                        <p className="text-sm leading-relaxed" style={{ color: 'var(--v3-text-light)', whiteSpace: 'pre-wrap' }}>{selectedJob.instructions}</p>
                       </div>
                     )}
                   </div>
@@ -1001,47 +1066,76 @@ export default function JobManagement() {
               </div>
 
               {/* Right Content - Agents and Invoices */}
-              <div className="md:col-span-2 space-y-4">
+              <div className="md:col-span-2 space-y-5">
                 {/* Assigned Agents Section */}
-                <div className="dashboard-card p-4">
-                  <h3 className="text-sm font-semibold mb-3 flex items-center justify-between" style={{ color: 'var(--v3-text-lightest)' }}>
-                    <span className="flex items-center gap-2">
-                      <Users className="h-4 w-4" style={{ color: 'var(--v3-orange)' }} />
+                <div className="dashboard-card p-5" style={{
+                  background: 'var(--v3-bg-card)',
+                  border: '1px solid var(--v3-border)',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}>
+                  <div className="flex items-center justify-between mb-4 pb-3" style={{
+                    borderBottom: '2px solid var(--v3-orange)'
+                  }}>
+                    <h3 className="text-sm font-bold flex items-center gap-2" style={{
+                      color: 'var(--v3-orange)',
+                      letterSpacing: '0.05em'
+                    }}>
+                      <Users className="h-5 w-5" />
                       ASSIGNED AGENTS
-                    </span>
-                    <span style={{ color: 'var(--v3-text-muted)', fontWeight: 'normal' }}>
-                      {confirmedAgentsCount} of {selectedJob.agents_required} confirmed
-                    </span>
-                  </h3>
+                    </h3>
+                    <div className="px-3 py-1 rounded-full text-xs font-bold" style={{
+                      background: confirmedAgentsCount === selectedJob.agents_required ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 106, 43, 0.2)',
+                      color: confirmedAgentsCount === selectedJob.agents_required ? '#10b981' : 'var(--v3-orange)',
+                      border: `1px solid ${confirmedAgentsCount === selectedJob.agents_required ? '#10b981' : 'var(--v3-orange)'}`
+                    }}>
+                      {confirmedAgentsCount} / {selectedJob.agents_required} CONFIRMED
+                    </div>
+                  </div>
                   {loadingDetails ? (
                     <div className="flex justify-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--v3-orange)' }} />
                     </div>
                   ) : jobAgents.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {jobAgents.map((agent) => (
                         <div
                           key={agent.id}
-                          className="p-3 rounded-lg"
+                          className="p-4 rounded-lg transition-all hover:shadow-md"
                           style={{
                             backgroundColor: 'var(--v3-bg-dark)',
-                            border: '1px solid var(--v3-border)'
+                            border: agent.status === 'accepted' ? '2px solid #10b981' : '1px solid var(--v3-border)',
+                            boxShadow: agent.status === 'accepted' ? '0 0 10px rgba(16, 185, 129, 0.2)' : 'none'
                           }}
                         >
                           <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium" style={{ color: 'var(--v3-text-lightest)' }}>
-                                {agent.first_name} {agent.last_name}
-                              </p>
-                              <p className="text-sm" style={{ color: 'var(--v3-text-muted)' }}>{agent.email}</p>
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white" style={{
+                                background: 'linear-gradient(135deg, var(--v3-orange), var(--v3-orange-dark))'
+                              }}>
+                                {agent.first_name?.[0]}{agent.last_name?.[0]}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-base" style={{ color: 'var(--v3-text-lightest)' }}>
+                                  {agent.first_name} {agent.last_name}
+                                </p>
+                                <p className="text-xs" style={{ color: 'var(--v3-text-muted)' }}>{agent.email}</p>
+                              </div>
                             </div>
                             <div className="flex items-center gap-2">
                               {agent.role === 'lead' && (
-                                <Badge style={{ backgroundColor: 'var(--v3-orange)', color: 'white', border: 'none' }}>
-                                  Lead
+                                <Badge className="px-2 py-1 text-xs font-bold" style={{
+                                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px'
+                                }}>
+                                  <Shield className="h-3 w-3 inline mr-1" />
+                                  LEAD
                                 </Badge>
                               )}
                               <Badge
+                                className="px-2 py-1 text-xs font-bold"
                                 style={{
                                   backgroundColor: agent.status === 'accepted'
                                     ? '#10b981'
@@ -1049,7 +1143,8 @@ export default function JobManagement() {
                                       ? 'var(--v3-orange)'
                                       : '#6b7280',
                                   color: 'white',
-                                  border: 'none'
+                                  border: 'none',
+                                  borderRadius: '6px'
                                 }}
                               >
                                 {agent.status?.toUpperCase() || 'UNKNOWN'}
@@ -1068,16 +1163,30 @@ export default function JobManagement() {
                 </div>
 
                 {/* Invoices Section */}
-                <div className="dashboard-card p-4">
-                  <h3 className="text-sm font-semibold mb-3 flex items-center justify-between" style={{ color: 'var(--v3-text-lightest)' }}>
-                    <span className="flex items-center gap-2">
-                      <Receipt className="h-4 w-4" style={{ color: 'var(--v3-orange)' }} />
+                <div className="dashboard-card p-5" style={{
+                  background: 'var(--v3-bg-card)',
+                  border: '1px solid var(--v3-border)',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}>
+                  <div className="flex items-center justify-between mb-4 pb-3" style={{
+                    borderBottom: '2px solid var(--v3-orange)'
+                  }}>
+                    <h3 className="text-sm font-bold flex items-center gap-2" style={{
+                      color: 'var(--v3-orange)',
+                      letterSpacing: '0.05em'
+                    }}>
+                      <Receipt className="h-5 w-5" />
                       INVOICES
-                    </span>
-                    <span style={{ color: 'var(--v3-text-muted)', fontWeight: 'normal' }}>
-                      {jobInvoices.length} submitted
-                    </span>
-                  </h3>
+                    </h3>
+                    <div className="px-3 py-1 rounded-full text-xs font-bold" style={{
+                      background: jobInvoices.length > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(107, 114, 128, 0.2)',
+                      color: jobInvoices.length > 0 ? '#10b981' : '#6b7280',
+                      border: `1px solid ${jobInvoices.length > 0 ? '#10b981' : '#6b7280'}`
+                    }}>
+                      {jobInvoices.length} SUBMITTED
+                    </div>
+                  </div>
                   {loadingDetails ? (
                     <div className="flex justify-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--v3-orange)' }} />
@@ -1153,15 +1262,31 @@ export default function JobManagement() {
                 </div>
               </div>
             </div>
-            <DialogFooter className="border-t mt-6 pt-4" style={{ borderColor: 'var(--v3-border)' }}>
+            <div className="border-t p-4" style={{
+              borderColor: 'var(--v3-border)',
+              background: 'var(--v3-bg-dark)'
+            }}>
               <Button
                 variant="outline"
-                style={{ borderColor: 'var(--v3-border)', color: 'var(--v3-text-light)' }}
+                className="w-full sm:w-auto px-6 py-2 font-semibold"
+                style={{
+                  borderColor: 'var(--v3-orange)',
+                  color: 'var(--v3-orange)',
+                  background: 'transparent'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--v3-orange)';
+                  e.currentTarget.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--v3-orange)';
+                }}
                 onClick={() => setShowJobDetailsModal(false)}
               >
                 Close
               </Button>
-            </DialogFooter>
+            </div>
           </DialogContent>
         </Dialog>
       )}
