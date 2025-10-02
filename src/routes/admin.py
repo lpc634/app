@@ -2967,3 +2967,50 @@ def set_notifications_setting():
 	Setting.set_bool('notifications_enabled', enabled)
 	current_app.logger.info(f"Admin set notifications_enabled={enabled}")
 	return jsonify({'enabled': enabled})
+
+
+# ==========================================
+# V3 JOB REPORTS ADMIN ENDPOINTS
+# ==========================================
+
+@admin_bp.route('/admin/jobs/<int:job_id>/v3-reports', methods=['GET'])
+@jwt_required()
+def get_job_v3_reports(job_id):
+	"""Get all V3 reports submitted for a specific job."""
+	user = require_admin()
+	if not user:
+		return jsonify({'error': 'Access denied. Admin role required.'}), 403
+
+	try:
+		from src.models.v3_report import V3JobReport
+
+		# Verify job exists
+		job = Job.query.get(job_id)
+		if not job:
+			return jsonify({'error': 'Job not found'}), 404
+
+		# Fetch all reports for this job
+		reports = V3JobReport.query.filter_by(job_id=job_id).order_by(
+			V3JobReport.submitted_at.desc()
+		).all()
+
+		# Enrich with agent information
+		reports_data = []
+		for report in reports:
+			report_dict = report.to_dict()
+
+			# Add agent name
+			agent = User.query.get(report.agent_id)
+			if agent:
+				report_dict['agent_name'] = f"{agent.first_name} {agent.last_name}".strip()
+				report_dict['agent_email'] = agent.email
+
+			reports_data.append(report_dict)
+
+		return jsonify({
+			'reports': reports_data
+		})
+
+	except Exception as e:
+		current_app.logger.error(f"Error fetching V3 reports for job {job_id}: {str(e)}")
+		return jsonify({'error': 'Failed to fetch reports'}), 500

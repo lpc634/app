@@ -65,6 +65,7 @@ export default function JobManagement() {
   const [showJobDetailsModal, setShowJobDetailsModal] = useState(false)
   const [jobAgents, setJobAgents] = useState([])
   const [jobInvoices, setJobInvoices] = useState([])
+  const [jobV3Reports, setJobV3Reports] = useState([])
   const [loadingDetails, setLoadingDetails] = useState(false)
   const { apiCall } = useAuth()
 
@@ -373,15 +374,23 @@ export default function JobManagement() {
         console.error('Failed to fetch job agents:', error)
         setJobAgents([])
       }
-      
-      // Fetch job invoices - this endpoint is confirmed working
+
+      // Fetch job invoices
       try {
         const invoicesResponse = await apiCall(`/admin/jobs/${jobId}/invoices`)
-        console.log('Invoices response:', invoicesResponse) // Debug log
         setJobInvoices(invoicesResponse.invoices || [])
       } catch (error) {
         console.error('Failed to fetch job invoices:', error)
         setJobInvoices([])
+      }
+
+      // Fetch V3 job reports
+      try {
+        const reportsResponse = await apiCall(`/admin/jobs/${jobId}/v3-reports`)
+        setJobV3Reports(reportsResponse.reports || [])
+      } catch (error) {
+        console.error('Failed to fetch V3 reports:', error)
+        setJobV3Reports([])
       }
     } catch (error) {
       toast.error('Failed to load job details')
@@ -1136,6 +1145,69 @@ export default function JobManagement() {
                       <div className="invoice-list-empty">
                         <Receipt className="h-12 w-12" style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
                         <p>No invoices submitted yet</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* V3 Reports - Right Column */}
+                <div className="job-modal__reports">
+                  <div className="job-modal__card">
+                    <h3 className="job-modal__card-title">
+                      <FileText />
+                      V3 Job Reports
+                      <span style={{ marginLeft: 'auto', fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--v3-text-muted)' }}>
+                        {jobV3Reports.length} submitted
+                      </span>
+                    </h3>
+                    {loadingDetails ? (
+                      <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 0' }}>
+                        <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--v3-orange)' }} />
+                      </div>
+                    ) : jobV3Reports.length > 0 ? (
+                      <div className="report-list">
+                        {jobV3Reports.map((report) => {
+                          const formTypeNames = {
+                            'traveller_eviction': 'Traveller Eviction Report',
+                            'traveller_serve': 'Traveller Serve Report',
+                            'squatter_serve': 'Squatter Serve Report',
+                          };
+                          const reportName = formTypeNames[report.form_type] || report.form_type.replace('_', ' ');
+
+                          return (
+                            <div key={report.id} className="report-item" onClick={() => toast.info('Report viewing coming soon')}>
+                              <div className="report-header">
+                                <span className="report-type">{reportName}</span>
+                                <span className="report-status">{report.status}</span>
+                              </div>
+                              <div className="report-details">
+                                <div>
+                                  <strong>Agent</strong>
+                                  <span>{report.agent_name || 'Unknown Agent'}</span>
+                                </div>
+                                <div>
+                                  <strong>Submitted</strong>
+                                  <span>{report.submitted_at ? new Date(report.submitted_at).toLocaleString() : 'Not set'}</span>
+                                </div>
+                                <div>
+                                  <strong>Report ID</strong>
+                                  <span>#{report.id}</span>
+                                </div>
+                                {report.reviewed_at && (
+                                  <div>
+                                    <strong>Reviewed</strong>
+                                    <span>{new Date(report.reviewed_at).toLocaleString()}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="report-list-empty">
+                        <FileText className="h-12 w-12" style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                        <p>No V3 reports submitted yet</p>
                       </div>
                     )}
                   </div>

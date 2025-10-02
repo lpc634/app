@@ -10,7 +10,7 @@ class V3JobReport(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     # Job and Agent References
-    job_id = db.Column(db.Integer, db.ForeignKey('jobs.id'), nullable=False)
+    job_id = db.Column(db.Integer, db.ForeignKey('jobs.id'), nullable=True)  # Nullable for manual reports
     agent_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     # Report Metadata
