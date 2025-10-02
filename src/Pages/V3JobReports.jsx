@@ -478,6 +478,7 @@ const V3JobReports = () => {
                     id: selectedJob.id,
                     title: selectedJob.title,
                     address: selectedJob.address,
+                    arrival_time: selectedJob.arrival_time,
                     agentName: `${user?.first_name} ${user?.last_name}`,
                     jobType: selectedJob.jobType
                   }}

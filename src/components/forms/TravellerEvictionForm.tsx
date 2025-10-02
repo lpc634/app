@@ -375,13 +375,20 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
     // Split by comma to get parts
     const parts = remaining.split(",").map(p => p.trim()).filter(p => p);
 
-    // Last part before postcode is usually city
-    const city = parts.length > 1 ? parts[parts.length - 1] : "";
+    // For UK addresses: "Street Address, Town, County"
+    // We want: line1 = "Street Address", city = "Town, County"
+    if (parts.length >= 2) {
+      // First part is address line 1
+      const line1 = parts[0];
+      // Remaining parts make up the city (town + county)
+      const city = parts.slice(1).join(", ");
+      return { line1, city, postcode };
+    } else if (parts.length === 1) {
+      // Only one part, use it as address line 1
+      return { line1: parts[0], city: "", postcode };
+    }
 
-    // Everything else is address line 1
-    const line1 = parts.length > 1 ? parts.slice(0, -1).join(", ") : parts[0] || "";
-
-    return { line1, city, postcode };
+    return { line1: "", city: "", postcode };
   };
 
   const parsedAddress = parseAddress(jobData?.address || "");
