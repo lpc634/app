@@ -340,7 +340,7 @@ function CountSelect({ name, label, required = false }) {
 }
 
 /** ===== Main component ===== */
-export default function App() {
+export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmit, onCancel }) {
   const form = useForm({
     resolver: zodResolver(ReportSchema),
     defaultValues: {
@@ -349,7 +349,7 @@ export default function App() {
       address2: "",
       city: "",
       postal_zip: "",
-      date: "",
+      date: new Date().toISOString().split('T')[0],
       arrival_time: "",
       lead_agent: "",
       a2: "",
@@ -580,9 +580,27 @@ export default function App() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     console.log("SUBMIT", data);
-    alert("Captured (prototype). See console for payload.");
+    try {
+      // Collect all photos from all photo states
+      const allPhotos: File[] = [];
+
+      // Collect from photosA through photosE
+      [photosA, photosB, photosC, photosD, photosE].forEach(photoArray => {
+        photoArray.forEach(photo => {
+          if (photo instanceof File) {
+            allPhotos.push(photo);
+          }
+        });
+      });
+
+      // Pass both form data and photos to parent
+      await parentOnSubmit({ formData: data, photos: allPhotos });
+    } catch (error) {
+      console.error("Form submission error:", error);
+      alert("Failed to submit report. Please try again.");
+    }
   };
 
   // toggles
@@ -954,13 +972,44 @@ export default function App() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
+                justifyContent: "space-between",
                 width: "100%",
+                position: "relative",
               }}
             >
-              <div className="h1" style={{ textAlign: "center" }}>
+              <div style={{ width: "40px" }} />
+              <div className="h1" style={{ textAlign: "center", flex: 1 }}>
                 Traveller Eviction Form
               </div>
+              <button
+                type="button"
+                onClick={onCancel}
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(239, 68, 68, 0.9)",
+                  border: "1px solid rgba(239, 68, 68, 0.5)",
+                  borderRadius: "10px",
+                  color: "white",
+                  cursor: "pointer",
+                  fontSize: "24px",
+                  fontWeight: "bold",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(239, 68, 68, 1)";
+                  e.currentTarget.style.transform = "scale(1.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.9)";
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              >
+                ×
+              </button>
             </div>
             <div className="progress-rail" style={{ marginTop: 10 }}>
               <div
@@ -3325,13 +3374,21 @@ export default function App() {
                 <DateInput {...register("completion_date")} />
               </div>
             </div>
-            <div style={{ paddingTop: 14 }}>
+            <div style={{ paddingTop: 14, display: 'flex', gap: 12 }}>
+              <button
+                className="btn-ghost"
+                onClick={onCancel}
+                type="button"
+              >
+                Cancel
+              </button>
               <button
                 className="button-primary"
                 onClick={handleSubmit(onSubmit)}
                 type="button"
+                style={{ flex: 1 }}
               >
-                Submit
+                Submit Report
               </button>
             </div>
           </section>
