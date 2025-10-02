@@ -245,6 +245,8 @@ const ReportSchema = z.object({
   completion_date: z.string().min(1),
 });
 
+type ReportValues = z.infer<typeof ReportSchema>;
+
 /** ===== Small reusable StarBorder ===== */
 function StarBorder({
   as: As = "div",
@@ -341,7 +343,7 @@ function CountSelect({ name, label, required = false }) {
 
 /** ===== Main component ===== */
 export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmit, onCancel }) {
-  const form = useForm({
+  const form = useForm<ReportValues>({
     resolver: zodResolver(ReportSchema),
     defaultValues: {
       client: "",
