@@ -89,7 +89,7 @@ const THEME_CSS = String.raw`
 
 /** ===== Schema ===== */
 const Hours = Array.from({ length: 18 }, (_, i) => 6 + i);
-const hourKey = (h: number) => `${String(h).padStart(2, "0")}:00`;
+const hourKey = (h) => `${String(h).padStart(2, "0")}:00`;
 
 const ReportSchema = z.object({
   client: z.string().min(1),
@@ -244,7 +244,6 @@ const ReportSchema = z.object({
   departure_time: z.string().min(1),
   completion_date: z.string().min(1),
 });
-type ReportValues = z.infer<typeof ReportSchema>;
 
 /** ===== Small reusable StarBorder ===== */
 function StarBorder({
@@ -256,14 +255,6 @@ function StarBorder({
   children,
   style,
   ...rest
-}: {
-  as?: any;
-  className?: string;
-  color?: string;
-  speed?: string;
-  thickness?: number;
-  children?: React.ReactNode;
-  style?: React.CSSProperties;
 }) {
   return (
     <As
@@ -291,9 +282,9 @@ function StarBorder({
 }
 
 /** ===== RHF helpers ===== */
-function YesNo({ name, label }: { name: keyof ReportValues; label: string }) {
-  const { setValue, watch } = useFormContext<ReportValues>();
-  const v = !!watch(name as string);
+function YesNo({ name, label }) {
+  const { setValue, watch } = useFormContext();
+  const v = !!watch(name);
   return (
     <div className="yn">
       <span className="h2" style={{ fontWeight: 600 }}>
@@ -302,18 +293,18 @@ function YesNo({ name, label }: { name: keyof ReportValues; label: string }) {
       <label aria-checked={String(v === true)}>
         <input
           type="radio"
-          name={name as string}
+          name={name}
           checked={v === true}
-          onChange={() => setValue(name, true as any, { shouldDirty: true })}
+          onChange={() => setValue(name, true, { shouldDirty: true })}
         />
         <span>Yes</span>
       </label>
       <label aria-checked={String(v === false)}>
         <input
           type="radio"
-          name={name as string}
+          name={name}
           checked={v === false}
-          onChange={() => setValue(name, false as any, { shouldDirty: true })}
+          onChange={() => setValue(name, false, { shouldDirty: true })}
         />
         <span>No</span>
       </label>
@@ -321,17 +312,9 @@ function YesNo({ name, label }: { name: keyof ReportValues; label: string }) {
   );
 }
 
-function CountSelect({
-  name,
-  label,
-  required = false,
-}: {
-  name: keyof ReportValues;
-  label: string;
-  required?: boolean;
-}) {
-  const { setValue, watch } = useFormContext<ReportValues>();
-  const v = (watch(name as string) as number | undefined) ?? 0;
+function CountSelect({ name, label, required = false }) {
+  const { setValue, watch } = useFormContext();
+  const v = watch(name) ?? 0;
   const opts = useMemo(() => Array.from({ length: 51 }, (_, i) => i), []);
   return (
     <div>
@@ -343,7 +326,7 @@ function CountSelect({
         className="v3-input"
         value={String(v)}
         onChange={(e) =>
-          setValue(name, Number(e.target.value) as any, { shouldDirty: true })
+          setValue(name, Number(e.target.value), { shouldDirty: true })
         }
       >
         {opts.map((n) => (
@@ -358,7 +341,7 @@ function CountSelect({
 
 /** ===== Main component ===== */
 export default function App() {
-  const form = useForm<ReportValues>({
+  const form = useForm({
     resolver: zodResolver(ReportSchema),
     defaultValues: {
       client: "",
@@ -597,7 +580,7 @@ export default function App() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const onSubmit = (data: ReportValues) => {
+  const onSubmit = (data) => {
     console.log("SUBMIT", data);
     alert("Captured (prototype). See console for payload.");
   };
@@ -678,9 +661,7 @@ export default function App() {
   }, [dogs, setValue]);
 
   // Helper functions for clearing day fields
-  const clearDayAgents = (
-    prefix: "day2" | "day3" | "day4" | "day5" | "day6" | "day7"
-  ) => {
+  const clearDayAgents = (prefix) => {
     const keys = [
       `${prefix}_lead_agent`,
       `${prefix}_a2`,
@@ -692,13 +673,13 @@ export default function App() {
       `${prefix}_a8`,
       `${prefix}_a9`,
       `${prefix}_a10`,
-    ] as const;
-    keys.forEach((k) => setValue(k as any, "", { shouldDirty: true }));
+    ];
+    keys.forEach((k) => setValue(k, "", { shouldDirty: true }));
   };
 
-  const forceOffDay = (prefix: "day3" | "day4" | "day5" | "day6" | "day7") => {
-    setValue(prefix as any, false, { shouldDirty: true });
-    setValue(`${prefix}_same_agents` as any, false, { shouldDirty: true });
+  const forceOffDay = (prefix) => {
+    setValue(prefix, false, { shouldDirty: true });
+    setValue(`${prefix}_same_agents`, false, { shouldDirty: true });
     clearDayAgents(prefix);
   };
 
@@ -796,25 +777,167 @@ export default function App() {
     if (!d7) clearDayAgents("day7");
   }, [d7]);
 
-  // UK-style placeholders
-  const DateInput = (props: React.ComponentProps<"input">) => (
-    <input
-      {...props}
-      type="text"
-      inputMode="numeric"
-      placeholder="dd/mm/yyyy"
-      className={`v3-input ${props.className || ""}`}
-    />
-  );
-  const TimeInput = (props: React.ComponentProps<"input">) => (
-    <input
-      {...props}
-      type="text"
-      inputMode="numeric"
-      placeholder="--:--"
-      className={`v3-input ${props.className || ""}`}
-    />
-  );
+  // UK-style placeholders with native picker on focus/click
+  const DateInput = (props) => {
+    const {
+      onChange,
+      name,
+      className,
+      onFocus,
+      onMouseDown,
+      onTouchStart,
+      ...rest
+    } = props || {};
+    const textRef = React.useRef(null);
+    const hiddenRef = React.useRef(null);
+
+    const openPicker = () => {
+      const el = hiddenRef.current;
+      if (el && typeof el.showPicker === "function") {
+        try {
+          el.showPicker();
+        } catch {}
+      }
+    };
+
+    const handleHiddenChange = (e) => {
+      const val = e.target.value || "";
+      if (textRef.current) {
+        try {
+          textRef.current.value = val;
+        } catch {}
+      }
+      if (typeof onChange === "function") {
+        onChange({ target: { name, value: val } });
+      }
+    };
+
+    return (
+      <>
+        <input
+          ref={textRef}
+          {...rest}
+          name={name}
+          type="text"
+          inputMode="none"
+          placeholder="dd/mm/yyyy"
+          className={`v3-input ${className || ""}`}
+          onFocus={(e) => {
+            if (onFocus) onFocus(e);
+            openPicker();
+          }}
+          onMouseDown={(e) => {
+            if (onMouseDown) onMouseDown(e);
+            e.preventDefault();
+            e.currentTarget.focus();
+            openPicker();
+          }}
+          onTouchStart={(e) => {
+            if (onTouchStart) onTouchStart(e);
+            e.currentTarget.focus();
+            openPicker();
+          }}
+        />
+        <input
+          ref={hiddenRef}
+          type="date"
+          style={{
+            position: "fixed",
+            top: -1000,
+            left: -1000,
+            opacity: 0,
+            pointerEvents: "none",
+            width: 0,
+            height: 0,
+          }}
+          onChange={handleHiddenChange}
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </>
+    );
+  };
+
+  const TimeInput = (props) => {
+    const {
+      onChange,
+      name,
+      className,
+      onFocus,
+      onMouseDown,
+      onTouchStart,
+      ...rest
+    } = props || {};
+    const textRef = React.useRef(null);
+    const hiddenRef = React.useRef(null);
+
+    const openPicker = () => {
+      const el = hiddenRef.current;
+      if (el && typeof el.showPicker === "function") {
+        try {
+          el.showPicker();
+        } catch {}
+      }
+    };
+
+    const handleHiddenChange = (e) => {
+      const val = e.target.value || "";
+      if (textRef.current) {
+        try {
+          textRef.current.value = val;
+        } catch {}
+      }
+      if (typeof onChange === "function") {
+        onChange({ target: { name, value: val } });
+      }
+    };
+
+    return (
+      <>
+        <input
+          ref={textRef}
+          {...rest}
+          name={name}
+          type="text"
+          inputMode="none"
+          placeholder="--:--"
+          className={`v3-input ${className || ""}`}
+          onFocus={(e) => {
+            if (onFocus) onFocus(e);
+            openPicker();
+          }}
+          onMouseDown={(e) => {
+            if (onMouseDown) onMouseDown(e);
+            e.preventDefault();
+            e.currentTarget.focus();
+            openPicker();
+          }}
+          onTouchStart={(e) => {
+            if (onTouchStart) onTouchStart(e);
+            e.currentTarget.focus();
+            openPicker();
+          }}
+        />
+        <input
+          ref={hiddenRef}
+          type="time"
+          step="60"
+          style={{
+            position: "fixed",
+            top: -1000,
+            left: -1000,
+            opacity: 0,
+            pointerEvents: "none",
+            width: 0,
+            height: 0,
+          }}
+          onChange={handleHiddenChange}
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </>
+    );
+  };
 
   return (
     <FormProvider {...form}>
@@ -942,7 +1065,7 @@ export default function App() {
                   </label>
                   <input
                     className="v3-input"
-                    {...(register as any)(n === 1 ? "lead_agent" : `a${n}`)}
+                    {...register(n === 1 ? "lead_agent" : `a${n}`)}
                   />
                 </div>
               ))}
@@ -1333,7 +1456,7 @@ export default function App() {
                   <textarea
                     className="v3-textarea"
                     rows={3}
-                    {...(register as any)(`timeline_day1.${hourKey(h)}`)}
+                    {...register(`timeline_day1.${hourKey(h)}`)}
                   />
                 </div>
               ))}
@@ -1387,11 +1510,9 @@ export default function App() {
                             className="v3-input"
                             value={watch("day2_lead_agent") || ""}
                             onChange={(e) =>
-                              setValue(
-                                "day2_lead_agent",
-                                e.target.value as any,
-                                { shouldDirty: true }
-                              )
+                              setValue("day2_lead_agent", e.target.value, {
+                                shouldDirty: true,
+                              })
                             }
                           />
                         </div>
@@ -1557,7 +1678,7 @@ export default function App() {
                         <textarea
                           className="v3-textarea"
                           rows={3}
-                          {...(register as any)(`timeline_day2.${hourKey(h)}`)}
+                          {...register(`timeline_day2.${hourKey(h)}`)}
                         />
                       </div>
                     ))}
@@ -1786,9 +1907,7 @@ export default function App() {
                           <textarea
                             className="v3-textarea"
                             rows={3}
-                            {...(register as any)(
-                              `timeline_day3.${hourKey(h)}`
-                            )}
+                            {...register(`timeline_day3.${hourKey(h)}`)}
                           />
                         </div>
                       ))}
@@ -2015,9 +2134,7 @@ export default function App() {
                           <textarea
                             className="v3-textarea"
                             rows={3}
-                            {...(register as any)(
-                              `timeline_day4.${hourKey(h)}`
-                            )}
+                            {...register(`timeline_day4.${hourKey(h)}`)}
                           />
                         </div>
                       ))}
@@ -2244,9 +2361,7 @@ export default function App() {
                           <textarea
                             className="v3-textarea"
                             rows={3}
-                            {...(register as any)(
-                              `timeline_day5.${hourKey(h)}`
-                            )}
+                            {...register(`timeline_day5.${hourKey(h)}`)}
                           />
                         </div>
                       ))}
@@ -2473,9 +2588,7 @@ export default function App() {
                           <textarea
                             className="v3-textarea"
                             rows={3}
-                            {...(register as any)(
-                              `timeline_day6.${hourKey(h)}`
-                            )}
+                            {...register(`timeline_day6.${hourKey(h)}`)}
                           />
                         </div>
                       ))}
@@ -2702,9 +2815,7 @@ export default function App() {
                           <textarea
                             className="v3-textarea"
                             rows={3}
-                            {...(register as any)(
-                              `timeline_day7.${hourKey(h)}`
-                            )}
+                            {...register(`timeline_day7.${hourKey(h)}`)}
                           />
                         </div>
                       ))}
