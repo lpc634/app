@@ -247,6 +247,14 @@ const ReportSchema = z.object({
 type ReportValues = z.infer<typeof ReportSchema>;
 
 /** ===== Small reusable StarBorder ===== */
+function CopyIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="currentColor" style={{ width: '16px', height: '16px' }}>
+      <path d="M16 1H4c-1.1 0-2 .9-2 2v12h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+    </svg>
+  );
+}
+
 function StarBorder({
   as: As = "div",
   className = "",
@@ -353,6 +361,146 @@ function CountSelect({
         ))}
       </select>
     </div>
+  );
+}
+
+/** ===== Schedule Box Component ===== */
+function ScheduleBox({ register, watch }: { register: any; watch: any }) {
+  const [copied, setCopied] = React.useState(false);
+
+  // Watch live values
+  const dateVal = watch("date") || "";
+  const arrivalVal = watch("arrival_time") || "";
+  const departureVal = watch("departure_time") || "";
+  const completionVal = watch("completion_date") || "";
+
+  // Build summary string
+  const scheduleStr =
+    `Date: ${dateVal || "-"} | ` +
+    `Arrival: ${arrivalVal || "-"} | ` +
+    `Departure: ${departureVal || "-"} | ` +
+    `Completion: ${completionVal || "-"}`;
+
+  return (
+    <section className="dashboard-card" style={{ padding: 0, overflow: "hidden" }}>
+      {/* Header with title + copy button */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 24px",
+          borderBottom: "1px solid var(--v3-border)",
+          background: "var(--v3-bg-card)",
+        }}
+      >
+        <div className="h2" style={{ margin: 0 }}>
+          Schedule
+        </div>
+        <button
+          type="button"
+          aria-label="Copy schedule"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            fontSize: "14px",
+            padding: "6px 12px",
+            background: "var(--v3-bg-dark)",
+            border: "1px solid var(--v3-border)",
+            borderRadius: "8px",
+            color: "var(--v3-text)",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+          }}
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(scheduleStr);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            } catch (err) {
+              console.error("Failed to copy:", err);
+            }
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--v3-bg)";
+            e.currentTarget.style.borderColor = "var(--v3-orange)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "var(--v3-bg-dark)";
+            e.currentTarget.style.borderColor = "var(--v3-border)";
+          }}
+        >
+          <CopyIcon />
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+
+      {/* Body with native pickers in a grid */}
+      <div
+        style={{
+          display: "grid",
+          gap: "16px",
+          padding: "24px",
+          gridTemplateColumns: "1fr",
+        }}
+        className="row-2"
+      >
+        {/* Date */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <label htmlFor="date" className="h2" style={{ fontWeight: 600 }}>
+            Date<span className="label-star">*</span>
+          </label>
+          <input
+            id="date"
+            type="date"
+            className="v3-input"
+            {...register("date")}
+          />
+        </div>
+
+        {/* Arrival Time */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <label htmlFor="arrival_time" className="h2" style={{ fontWeight: 600 }}>
+            Arrival Time<span className="label-star">*</span>
+          </label>
+          <input
+            id="arrival_time"
+            type="time"
+            step="60"
+            className="v3-input"
+            {...register("arrival_time")}
+          />
+        </div>
+
+        {/* Departure Time */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <label htmlFor="departure_time" className="h2" style={{ fontWeight: 600 }}>
+            Departure Time<span className="label-star">*</span>
+          </label>
+          <input
+            id="departure_time"
+            type="time"
+            step="60"
+            className="v3-input"
+            {...register("departure_time")}
+          />
+        </div>
+
+        {/* Completion Date */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <label htmlFor="completion_date" className="h2" style={{ fontWeight: 600 }}>
+            Completion Date<span className="label-star">*</span>
+          </label>
+          <input
+            id="completion_date"
+            type="date"
+            className="v3-input"
+            {...register("completion_date")}
+          />
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -932,40 +1080,11 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
                   </div>
                 </div>
               </div>
-              <div className="row row-2">
-                <div>
-                  <label
-                    className="h2"
-                    style={{ display: "block", marginBottom: 6 }}
-                  >
-                    Date:<span className="label-star">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="dd/mm/yyyy"
-                    className="v3-input"
-                    {...register("date")}
-                  />
-                </div>
-                <div>
-                  <label
-                    className="h2"
-                    style={{ display: "block", marginBottom: 6 }}
-                  >
-                    Arrival Time:<span className="label-star">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="HH:MM"
-                    className="v3-input"
-                    {...register("arrival_time")}
-                  />
-                </div>
-              </div>
             </div>
           </section>
+
+          {/* Schedule Section */}
+          <ScheduleBox register={register} watch={watch} />
 
           {/* Agents on Site */}
           <section className="dashboard-card" style={{ padding: 24 }}>
@@ -3236,38 +3355,6 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
               rows={5}
               {...register("additional_notes")}
             />
-            <div className="row row-2" style={{ marginTop: 12 }}>
-              <div>
-                <label
-                  className="h2"
-                  style={{ display: "block", marginBottom: 6 }}
-                >
-                  Departure Time:<span className="label-star">*</span>
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="HH:MM"
-                  className="v3-input"
-                  {...register("departure_time")}
-                />
-              </div>
-              <div>
-                <label
-                  className="h2"
-                  style={{ display: "block", marginBottom: 6 }}
-                >
-                  Completion Date:<span className="label-star">*</span>
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="dd/mm/yyyy"
-                  className="v3-input"
-                  {...register("completion_date")}
-                />
-              </div>
-            </div>
             <div style={{ paddingTop: 14, display: 'flex', gap: 12 }}>
               <button
                 className="btn-ghost"
