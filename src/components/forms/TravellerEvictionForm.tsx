@@ -456,10 +456,11 @@ function ScheduleBox({ register, watch }: { register: any; watch: any }) {
             Date<span className="label-star">*</span>
           </label>
           <input
+            {...register("date")}
             id="date"
             type="date"
             className="v3-input"
-            {...register("date")}
+            style={{ colorScheme: 'dark' }}
           />
         </div>
 
@@ -469,11 +470,12 @@ function ScheduleBox({ register, watch }: { register: any; watch: any }) {
             Arrival Time<span className="label-star">*</span>
           </label>
           <input
+            {...register("arrival_time")}
             id="arrival_time"
             type="time"
             step="60"
             className="v3-input"
-            {...register("arrival_time")}
+            style={{ colorScheme: 'dark' }}
           />
         </div>
 
@@ -483,11 +485,12 @@ function ScheduleBox({ register, watch }: { register: any; watch: any }) {
             Departure Time<span className="label-star">*</span>
           </label>
           <input
+            {...register("departure_time")}
             id="departure_time"
             type="time"
             step="60"
             className="v3-input"
-            {...register("departure_time")}
+            style={{ colorScheme: 'dark' }}
           />
         </div>
 
@@ -497,10 +500,11 @@ function ScheduleBox({ register, watch }: { register: any; watch: any }) {
             Completion Date<span className="label-star">*</span>
           </label>
           <input
+            {...register("completion_date")}
             id="completion_date"
             type="date"
             className="v3-input"
-            {...register("completion_date")}
+            style={{ colorScheme: 'dark' }}
           />
         </div>
       </div>
