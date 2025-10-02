@@ -583,7 +583,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
   }, []);
 
   const onSubmit = async (data) => {
-    console.log("SUBMIT", data);
+    console.log("SUBMIT CALLED", data);
     try {
       // Collect all photos from all photo states
       const allPhotos: File[] = [];
@@ -597,12 +597,20 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
         });
       });
 
+      console.log("Collected photos:", allPhotos.length);
+
       // Pass both form data and photos to parent
       await parentOnSubmit({ formData: data, photos: allPhotos });
+      console.log("Form submitted successfully");
     } catch (error) {
       console.error("Form submission error:", error);
       alert("Failed to submit report. Please try again.");
     }
+  };
+
+  const onError = (errors) => {
+    console.log("VALIDATION ERRORS:", errors);
+    alert("Please fill in all required fields");
   };
 
   // toggles
@@ -3243,7 +3251,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
               </button>
               <button
                 className="button-primary"
-                onClick={handleSubmit(onSubmit)}
+                onClick={handleSubmit(onSubmit, onError)}
                 type="button"
                 style={{ flex: 1 }}
               >
