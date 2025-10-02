@@ -108,15 +108,54 @@ const V3JobReports = () => {
     setTimeout(() => setSelectedFormType(''), 100);
   };
 
-  const handleFormSubmit = async (formData) => {
+  const handleFormSubmit = async (submissionData) => {
     try {
+      let photoUrls = [];
+
+      // Check if we have photos to upload
+      if (submissionData.photos && submissionData.photos.length > 0) {
+        toast.info('Uploading photos...', { description: `${submissionData.photos.length} photos found` });
+
+        // Create FormData for photo upload
+        const formData = new FormData();
+        submissionData.photos.forEach((photo) => {
+          formData.append('photos', photo);
+        });
+
+        // Upload photos to S3
+        try {
+          const uploadResponse = await fetch('/api/agent/v3-reports/upload-photos', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error('Photo upload failed');
+          }
+
+          const uploadData = await uploadResponse.json();
+          photoUrls = uploadData.photos || [];
+
+          toast.success(`${photoUrls.length} photos uploaded successfully`);
+        } catch (uploadErr) {
+          console.error('Photo upload error:', uploadErr);
+          toast.error('Failed to upload photos', {
+            description: 'Report will be submitted without photos'
+          });
+        }
+      }
+
       // Submit the form data to the backend
       const response = await apiCall('/agent/v3-reports/submit', {
         method: 'POST',
         body: JSON.stringify({
           job_id: selectedJob.id,
           form_type: selectedFormType,
-          report_data: formData
+          report_data: submissionData.formData || submissionData,
+          photo_urls: photoUrls
         })
       });
 

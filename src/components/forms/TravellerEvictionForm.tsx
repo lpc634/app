@@ -600,7 +600,20 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
   const onSubmit = async (data: ReportValues) => {
     console.log("SUBMIT", data);
     try {
-      await parentOnSubmit(data);
+      // Collect all photos from all photo states
+      const allPhotos: File[] = [];
+
+      // Collect from photosA through photosE
+      [photosA, photosB, photosC, photosD, photosE].forEach(photoArray => {
+        photoArray.forEach(photo => {
+          if (photo instanceof File) {
+            allPhotos.push(photo);
+          }
+        });
+      });
+
+      // Pass both form data and photos to parent
+      await parentOnSubmit({ formData: data, photos: allPhotos });
     } catch (error) {
       console.error("Form submission error:", error);
       alert("Failed to submit report. Please try again.");

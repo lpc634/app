@@ -11,11 +11,12 @@ import StickyActionBar from "@/components/layout/StickyActionBar.jsx";
 import ResponsiveList from "@/components/responsive/ResponsiveList.jsx";
 import LocationPicker from '@/components/LocationPicker.jsx';
 import AgentMultiSelect from '@/components/AgentMultiSelect.jsx';
+import ReportViewer from '@/components/modals/ReportViewer.jsx';
 import { usePageHeader } from "@/components/layout/PageHeaderContext.jsx";
 import { useAuth } from '../useAuth.jsx';
 import { extractUkPostcode } from '../utils/ukPostcode';
 import { JOB_TYPES } from '../constants/jobTypes.js';
-import { toast } from 'sonner'; 
+import { toast } from 'sonner';
 import {
   Plus,
   MapPin,
@@ -66,6 +67,8 @@ export default function JobManagement() {
   const [jobAgents, setJobAgents] = useState([])
   const [jobInvoices, setJobInvoices] = useState([])
   const [jobV3Reports, setJobV3Reports] = useState([])
+  const [selectedReport, setSelectedReport] = useState(null)
+  const [showReportViewer, setShowReportViewer] = useState(false)
   const [loadingDetails, setLoadingDetails] = useState(false)
   const { apiCall } = useAuth()
 
@@ -1175,7 +1178,10 @@ export default function JobManagement() {
                           const reportName = formTypeNames[report.form_type] || report.form_type.replace('_', ' ');
 
                           return (
-                            <div key={report.id} className="report-item" onClick={() => toast.info('Report viewing coming soon')}>
+                            <div key={report.id} className="report-item" onClick={() => {
+                              setSelectedReport(report);
+                              setShowReportViewer(true);
+                            }}>
                               <div className="report-header">
                                 <span className="report-type">{reportName}</span>
                                 <span className="report-status">{report.status}</span>
@@ -1244,6 +1250,16 @@ export default function JobManagement() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Report Viewer Modal */}
+      <ReportViewer
+        report={selectedReport}
+        isOpen={showReportViewer}
+        onClose={() => {
+          setShowReportViewer(false);
+          setSelectedReport(null);
+        }}
+      />
 
       <LocationPicker
         isOpen={mapOpen}
