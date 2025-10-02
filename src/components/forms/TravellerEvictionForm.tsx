@@ -27,6 +27,7 @@ const THEME_CSS = String.raw`
 .v3-input[type="time"]::-webkit-calendar-picker-indicator { cursor:pointer; filter:invert(1); opacity:0.7 }
 .v3-input[type="date"]::-webkit-calendar-picker-indicator:hover,
 .v3-input[type="time"]::-webkit-calendar-picker-indicator:hover { opacity:1 }
+.v3-input[type="date"], .v3-input[type="time"]{ -webkit-appearance:auto; appearance:auto }
 .v3-textarea{ width:100%; background:var(--v3-bg-dark); border:1px solid var(--v3-border); color:var(--v3-text); border-radius:10px; padding:10px 12px }
 .v3-textarea:focus{ outline:none; box-shadow:0 0 0 3px var(--v3-orange-glow); border-color:var(--v3-orange) }
 .button-primary{ background:linear-gradient(135deg,var(--v3-orange),var(--v3-orange-dark)); color:#fff; border:0; height:40px; padding:0 14px; border-radius:10px; cursor:pointer }
@@ -461,6 +462,10 @@ function ScheduleBox({ register, watch }: { register: any; watch: any }) {
             type="date"
             className="v3-input"
             style={{ colorScheme: 'dark' }}
+            onFocus={(e) => { const el = e.currentTarget; if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } }}
+            onMouseDown={(e) => { e.preventDefault(); const el = e.currentTarget; el.focus(); if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } }}
+            onTouchStart={(e) => { const el = e.currentTarget; el.focus(); if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } }}
+            inputMode="none"
           />
         </div>
 
@@ -476,6 +481,10 @@ function ScheduleBox({ register, watch }: { register: any; watch: any }) {
             step="60"
             className="v3-input"
             style={{ colorScheme: 'dark' }}
+            onFocus={(e) => { const el = e.currentTarget; if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } }}
+            onMouseDown={(e) => { e.preventDefault(); const el = e.currentTarget; el.focus(); if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } }}
+            onTouchStart={(e) => { const el = e.currentTarget; el.focus(); if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } }}
+            inputMode="none"
           />
         </div>
 
@@ -491,6 +500,10 @@ function ScheduleBox({ register, watch }: { register: any; watch: any }) {
             step="60"
             className="v3-input"
             style={{ colorScheme: 'dark' }}
+            onFocus={(e) => { const el = e.currentTarget; if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } }}
+            onMouseDown={(e) => { e.preventDefault(); const el = e.currentTarget; el.focus(); if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } }}
+            onTouchStart={(e) => { const el = e.currentTarget; el.focus(); if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } }}
+            inputMode="none"
           />
         </div>
 
@@ -505,6 +518,10 @@ function ScheduleBox({ register, watch }: { register: any; watch: any }) {
             type="date"
             className="v3-input"
             style={{ colorScheme: 'dark' }}
+            onFocus={(e) => { const el = e.currentTarget; if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } }}
+            onMouseDown={(e) => { e.preventDefault(); const el = e.currentTarget; el.focus(); if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } }}
+            onTouchStart={(e) => { const el = e.currentTarget; el.focus(); if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } }}
+            inputMode="none"
           />
         </div>
       </div>
