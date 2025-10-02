@@ -2547,6 +2547,78 @@ def send_test_telegram():
 # V3 JOB REPORTS ENDPOINTS
 # ==========================================
 
+@agent_bp.route('/agent/v3-reports/upload-photos', methods=['POST'])
+@jwt_required()
+def upload_v3_report_photos():
+    """
+    Upload photos for a V3 report to S3.
+    Accepts multiple files and returns array of S3 URLs.
+    """
+    try:
+        current_user_id = int(get_jwt_identity())
+        agent = User.query.get(current_user_id)
+
+        if not agent or agent.role != 'agent':
+            return jsonify({'error': 'Access denied. Agent role required.'}), 403
+
+        # Check if S3 is configured
+        if not s3_client.is_configured():
+            return jsonify({
+                'error': 'File upload service not available',
+                'details': 'S3 storage not configured'
+            }), 503
+
+        # Get all uploaded files
+        uploaded_files = request.files.getlist('photos')
+
+        if not uploaded_files:
+            return jsonify({'error': 'No photos provided'}), 400
+
+        photo_urls = []
+        errors = []
+
+        for file in uploaded_files:
+            if file.filename == '':
+                continue
+
+            if not allowed_file(file.filename):
+                errors.append(f"{file.filename}: Invalid file type")
+                continue
+
+            # Upload to S3 under v3-reports folder
+            upload_result = s3_client.upload_agent_document(
+                agent_id=agent.id,
+                file=file,
+                file_type='v3_report_photo'
+            )
+
+            if upload_result.get('success'):
+                # Generate S3 URL (you may need to adjust this based on your s3_client implementation)
+                file_key = upload_result.get('file_key')
+                if file_key:
+                    # Store the S3 key/URL
+                    photo_urls.append({
+                        'url': file_key,
+                        'filename': upload_result.get('original_filename'),
+                        'upload_date': upload_result.get('upload_date')
+                    })
+            else:
+                errors.append(f"{file.filename}: {upload_result.get('error', 'Upload failed')}")
+
+        if not photo_urls and errors:
+            return jsonify({'error': 'All uploads failed', 'details': errors}), 500
+
+        return jsonify({
+            'message': f'{len(photo_urls)} photos uploaded successfully',
+            'photos': photo_urls,
+            'errors': errors if errors else None
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error uploading V3 report photos: {str(e)}")
+        return jsonify({'error': 'Failed to upload photos'}), 500
+
+
 @agent_bp.route('/agent/v3-reports/submit', methods=['POST'])
 @jwt_required()
 def submit_v3_report():
@@ -2557,6 +2629,7 @@ def submit_v3_report():
     - job_id: int or 'MANUAL'
     - form_type: str (e.g., 'traveller_eviction')
     - report_data: dict (all form fields)
+    - photo_urls: list (optional, S3 URLs from upload-photos endpoint)
     """
     try:
         from src.models.v3_report import V3JobReport
@@ -2571,6 +2644,7 @@ def submit_v3_report():
         job_id = data.get('job_id')
         form_type = data.get('form_type')
         report_data = data.get('report_data')
+        photo_urls = data.get('photo_urls', [])
 
         if not form_type:
             return jsonify({'error': 'form_type is required'}), 400
@@ -2610,7 +2684,7 @@ def submit_v3_report():
             form_type=form_type,
             status='submitted',
             report_data=report_data,
-            photo_urls=[]  # Photos will be handled separately if needed
+            photo_urls=photo_urls  # Store uploaded photo URLs
         )
 
         db.session.add(v3_report)
