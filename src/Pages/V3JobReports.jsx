@@ -39,10 +39,11 @@ const V3JobReports = () => {
     try {
       setLoading(true);
       setError('');
+      // Fetch accepted jobs (both completed and active)
       const data = await apiCall('/agent/jobs/completed');
       setCompletedJobs(data.jobs || []);
     } catch (error) {
-      setError('Failed to load completed jobs.');
+      setError('Failed to load your jobs.');
       console.error(error);
     } finally {
       setLoading(false);
@@ -257,15 +258,89 @@ const V3JobReports = () => {
               </div>
             </div>
 
+            {/* Job Selection for Agents */}
+            {user?.role === 'agent' && completedJobs.length > 0 && (
+              <Card className="dashboard-card border-v3-orange/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Briefcase size={20} className="text-v3-orange" />
+                    Report for a Job
+                  </CardTitle>
+                  <CardDescription>
+                    Select one of your accepted jobs to create a report for it.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-v3-text-light mb-2">
+                      Select Job
+                    </label>
+                    <select
+                      onChange={(e) => {
+                        const jobId = e.target.value;
+                        if (jobId) {
+                          const job = completedJobs.find(j => j.id === parseInt(jobId));
+                          if (job) {
+                            handleSelectJob(job);
+                          }
+                        }
+                      }}
+                      className="w-full p-3 bg-v3-bg-dark border border-v3-border rounded-md text-v3-text-lightest focus:border-v3-orange focus:outline-none cursor-pointer"
+                    >
+                      <option value="">-- Select a job --</option>
+                      {completedJobs.map((job) => (
+                        <option key={job.id} value={job.id}>
+                          {job.address} - {job.jobType || job.job_type} ({new Date(job.arrival_time).toLocaleDateString()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {selectedJob && selectedJob.id !== 'MANUAL' && (
+                    <div className="p-4 bg-v3-bg-dark border border-v3-orange/30 rounded-lg">
+                      <h4 className="font-semibold text-v3-text-lightest mb-2">Selected Job:</h4>
+                      <p className="text-v3-text-light"><strong>Address:</strong> {selectedJob.address}</p>
+                      <p className="text-v3-text-light"><strong>Type:</strong> {selectedJob.jobType || selectedJob.job_type}</p>
+                      <p className="text-v3-text-light"><strong>Date:</strong> {new Date(selectedJob.arrival_time).toLocaleString()}</p>
+
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-v3-text-light mb-2">
+                          Select Form Type for this Job
+                        </label>
+                        <select
+                          value={selectedFormType}
+                          onChange={(e) => {
+                            const formType = e.target.value;
+                            if (formType) {
+                              setSelectedFormType(formType);
+                              setShowFormModal(true);
+                            }
+                          }}
+                          className="w-full p-3 bg-v3-bg-dark border border-v3-border rounded-md text-v3-text-lightest focus:border-v3-orange focus:outline-none cursor-pointer"
+                        >
+                          <option value="">-- Select a form type --</option>
+                          {Object.entries(V3_FORM_TYPES).map(([key, config]) => (
+                            <option key={key} value={key}>
+                              {config.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Manual Form Selection */}
-            <Card className="dashboard-card border-v3-orange/50">
+            <Card className="dashboard-card border-v3-border/30">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Plus size={20} className="text-v3-orange" />
-                  Create New Report
+                  <Plus size={20} className="text-v3-text-muted" />
+                  Create Manual Report
                 </CardTitle>
                 <CardDescription>
-                  Select a form type to create a manual report not linked to a specific job.
+                  Or create a standalone report not linked to a specific job.
                 </CardDescription>
               </CardHeader>
               <CardContent>
