@@ -357,7 +357,7 @@ function CountSelect({
 }
 
 /** ===== Main component ===== */
-export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmit, onCancel }) {
+export default function App() {
   const form = useForm<ReportValues>({
     resolver: zodResolver(ReportSchema),
     defaultValues: {
@@ -366,7 +366,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
       address2: "",
       city: "",
       postal_zip: "",
-      date: new Date().toISOString().split('T')[0],
+      date: "",
       arrival_time: "",
       lead_agent: "",
       a2: "",
@@ -597,27 +597,9 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const onSubmit = async (data: ReportValues) => {
+  const onSubmit = (data: ReportValues) => {
     console.log("SUBMIT", data);
-    try {
-      // Collect all photos from all photo states
-      const allPhotos: File[] = [];
-
-      // Collect from photosA through photosE
-      [photosA, photosB, photosC, photosD, photosE].forEach(photoArray => {
-        photoArray.forEach(photo => {
-          if (photo instanceof File) {
-            allPhotos.push(photo);
-          }
-        });
-      });
-
-      // Pass both form data and photos to parent
-      await parentOnSubmit({ formData: data, photos: allPhotos });
-    } catch (error) {
-      console.error("Form submission error:", error);
-      alert("Failed to submit report. Please try again.");
-    }
+    alert("Captured (prototype). See console for payload.");
   };
 
   // toggles
@@ -814,6 +796,25 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
     if (!d7) clearDayAgents("day7");
   }, [d7]);
 
+  // UK-style placeholders
+  const DateInput = (props: React.ComponentProps<"input">) => (
+    <input
+      {...props}
+      type="text"
+      inputMode="numeric"
+      placeholder="dd/mm/yyyy"
+      className={`v3-input ${props.className || ""}`}
+    />
+  );
+  const TimeInput = (props: React.ComponentProps<"input">) => (
+    <input
+      {...props}
+      type="text"
+      inputMode="numeric"
+      placeholder="--:--"
+      className={`v3-input ${props.className || ""}`}
+    />
+  );
 
   return (
     <FormProvider {...form}>
@@ -830,44 +831,13 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-between",
+                justifyContent: "center",
                 width: "100%",
-                position: "relative",
               }}
             >
-              <div style={{ width: "40px" }} />
-              <div className="h1" style={{ textAlign: "center", flex: 1 }}>
+              <div className="h1" style={{ textAlign: "center" }}>
                 Traveller Eviction Form
               </div>
-              <button
-                type="button"
-                onClick={onCancel}
-                style={{
-                  width: "40px",
-                  height: "40px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "rgba(239, 68, 68, 0.9)",
-                  border: "1px solid rgba(239, 68, 68, 0.5)",
-                  borderRadius: "10px",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: "24px",
-                  fontWeight: "bold",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(239, 68, 68, 1)";
-                  e.currentTarget.style.transform = "scale(1.05)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.9)";
-                  e.currentTarget.style.transform = "scale(1)";
-                }}
-              >
-                ×
-              </button>
             </div>
             <div className="progress-rail" style={{ marginTop: 10 }}>
               <div
@@ -940,13 +910,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
                   >
                     Date:<span className="label-star">*</span>
                   </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="dd/mm/yyyy"
-                    className="v3-input"
-                    {...register("date")}
-                  />
+                  <DateInput {...register("date")} />
                 </div>
                 <div>
                   <label
@@ -955,13 +919,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
                   >
                     Arrival Time:<span className="label-star">*</span>
                   </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="HH:MM"
-                    className="v3-input"
-                    {...register("arrival_time")}
-                  />
+                  <TimeInput {...register("arrival_time")} />
                 </div>
               </div>
             </div>
@@ -3244,13 +3202,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
                 >
                   Departure Time:<span className="label-star">*</span>
                 </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="HH:MM"
-                  className="v3-input"
-                  {...register("departure_time")}
-                />
+                <TimeInput {...register("departure_time")} />
               </div>
               <div>
                 <label
@@ -3259,30 +3211,16 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
                 >
                   Completion Date:<span className="label-star">*</span>
                 </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="dd/mm/yyyy"
-                  className="v3-input"
-                  {...register("completion_date")}
-                />
+                <DateInput {...register("completion_date")} />
               </div>
             </div>
-            <div style={{ paddingTop: 14, display: 'flex', gap: 12 }}>
-              <button
-                className="btn-ghost"
-                onClick={onCancel}
-                type="button"
-              >
-                Cancel
-              </button>
+            <div style={{ paddingTop: 14 }}>
               <button
                 className="button-primary"
                 onClick={handleSubmit(onSubmit)}
                 type="button"
-                style={{ flex: 1 }}
               >
-                Submit Report
+                Submit
               </button>
             </div>
           </section>
