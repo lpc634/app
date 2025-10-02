@@ -23,6 +23,10 @@ const THEME_CSS = String.raw`
 @media (min-width:780px){ .row-2{ grid-template-columns:1fr 1fr } .row-3{ grid-template-columns:repeat(3,1fr) } .row-4{ grid-template-columns:repeat(4,1fr) } }
 .v3-input{ width:100%; background:var(--v3-bg-dark); border:1px solid var(--v3-border); color:var(--v3-text); height:42px; border-radius:10px; padding:0 12px }
 .v3-input:focus{ outline:none; box-shadow:0 0 0 3px var(--v3-orange-glow); border-color:var(--v3-orange) }
+.v3-input[type="date"]::-webkit-calendar-picker-indicator,
+.v3-input[type="time"]::-webkit-calendar-picker-indicator { cursor:pointer; filter:invert(1); opacity:0.7 }
+.v3-input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.v3-input[type="time"]::-webkit-calendar-picker-indicator:hover { opacity:1 }
 .v3-textarea{ width:100%; background:var(--v3-bg-dark); border:1px solid var(--v3-border); color:var(--v3-text); border-radius:10px; padding:10px 12px }
 .v3-textarea:focus{ outline:none; box-shadow:0 0 0 3px var(--v3-orange-glow); border-color:var(--v3-orange) }
 .button-primary{ background:linear-gradient(135deg,var(--v3-orange),var(--v3-orange-dark)); color:#fff; border:0; height:40px; padding:0 14px; border-radius:10px; cursor:pointer }
