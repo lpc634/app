@@ -23,10 +23,6 @@ const THEME_CSS = String.raw`
 @media (min-width:780px){ .row-2{ grid-template-columns:1fr 1fr } .row-3{ grid-template-columns:repeat(3,1fr) } .row-4{ grid-template-columns:repeat(4,1fr) } }
 .v3-input{ width:100%; background:var(--v3-bg-dark); border:1px solid var(--v3-border); color:var(--v3-text); height:42px; border-radius:10px; padding:0 12px }
 .v3-input:focus{ outline:none; box-shadow:0 0 0 3px var(--v3-orange-glow); border-color:var(--v3-orange) }
-.v3-input[type="date"]::-webkit-calendar-picker-indicator,
-.v3-input[type="time"]::-webkit-calendar-picker-indicator { cursor:pointer; filter:invert(1); opacity:0.7 }
-.v3-input[type="date"]::-webkit-calendar-picker-indicator:hover,
-.v3-input[type="time"]::-webkit-calendar-picker-indicator:hover { opacity:1 }
 .v3-textarea{ width:100%; background:var(--v3-bg-dark); border:1px solid var(--v3-border); color:var(--v3-text); border-radius:10px; padding:10px 12px }
 .v3-textarea:focus{ outline:none; box-shadow:0 0 0 3px var(--v3-orange-glow); border-color:var(--v3-orange) }
 .button-primary{ background:linear-gradient(135deg,var(--v3-orange),var(--v3-orange-dark)); color:#fff; border:0; height:40px; padding:0 14px; border-radius:10px; cursor:pointer }
@@ -250,14 +246,6 @@ const ReportSchema = z.object({
 });
 
 /** ===== Small reusable StarBorder ===== */
-function CopyIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="currentColor" style={{ width: '16px', height: '16px' }}>
-      <path d="M16 1H4c-1.1 0-2 .9-2 2v12h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-    </svg>
-  );
-}
-
 function StarBorder({
   as: As = "div",
   className = "",
@@ -351,152 +339,8 @@ function CountSelect({ name, label, required = false }) {
   );
 }
 
-/** ===== Schedule Box Component ===== */
-function ScheduleBox({ register, watch }: { register: any; watch: any }) {
-  const [copied, setCopied] = React.useState(false);
-
-  // Watch live values
-  const dateVal = watch("date") || "";
-  const arrivalVal = watch("arrival_time") || "";
-  const departureVal = watch("departure_time") || "";
-  const completionVal = watch("completion_date") || "";
-
-  // Build summary string
-  const scheduleStr =
-    `Date: ${dateVal || "-"} | ` +
-    `Arrival: ${arrivalVal || "-"} | ` +
-    `Departure: ${departureVal || "-"} | ` +
-    `Completion: ${completionVal || "-"}`;
-
-  return (
-    <section className="dashboard-card" style={{ padding: 0, overflow: "hidden" }}>
-      {/* Header with title + copy button */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "12px 24px",
-          borderBottom: "1px solid var(--v3-border)",
-          background: "var(--v3-bg-card)",
-        }}
-      >
-        <div className="h2" style={{ margin: 0 }}>
-          Schedule
-        </div>
-        <button
-          type="button"
-          aria-label="Copy schedule"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-            fontSize: "14px",
-            padding: "6px 12px",
-            background: "var(--v3-bg-dark)",
-            border: "1px solid var(--v3-border)",
-            borderRadius: "8px",
-            color: "var(--v3-text)",
-            cursor: "pointer",
-            transition: "all 0.2s ease",
-          }}
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(scheduleStr);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            } catch (err) {
-              console.error("Failed to copy:", err);
-            }
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "var(--v3-bg)";
-            e.currentTarget.style.borderColor = "var(--v3-orange)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "var(--v3-bg-dark)";
-            e.currentTarget.style.borderColor = "var(--v3-border)";
-          }}
-        >
-          <CopyIcon />
-          {copied ? "Copied!" : "Copy"}
-        </button>
-      </div>
-
-      {/* Body with native pickers in a grid */}
-      <div
-        style={{
-          display: "grid",
-          gap: "16px",
-          padding: "24px",
-          gridTemplateColumns: "1fr",
-        }}
-        className="row-2"
-      >
-        {/* Date */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <label htmlFor="date" className="h2" style={{ fontWeight: 600 }}>
-            Date<span className="label-star">*</span>
-          </label>
-          <input
-            {...register("date")}
-            id="date"
-            type="date"
-            className="v3-input"
-            style={{ colorScheme: 'dark' }}
-          />
-        </div>
-
-        {/* Arrival Time */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <label htmlFor="arrival_time" className="h2" style={{ fontWeight: 600 }}>
-            Arrival Time<span className="label-star">*</span>
-          </label>
-          <input
-            {...register("arrival_time")}
-            id="arrival_time"
-            type="time"
-            step="60"
-            className="v3-input"
-            style={{ colorScheme: 'dark' }}
-          />
-        </div>
-
-        {/* Departure Time */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <label htmlFor="departure_time" className="h2" style={{ fontWeight: 600 }}>
-            Departure Time<span className="label-star">*</span>
-          </label>
-          <input
-            {...register("departure_time")}
-            id="departure_time"
-            type="time"
-            step="60"
-            className="v3-input"
-            style={{ colorScheme: 'dark' }}
-          />
-        </div>
-
-        {/* Completion Date */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <label htmlFor="completion_date" className="h2" style={{ fontWeight: 600 }}>
-            Completion Date<span className="label-star">*</span>
-          </label>
-          <input
-            {...register("completion_date")}
-            id="completion_date"
-            type="date"
-            className="v3-input"
-            style={{ colorScheme: 'dark' }}
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
 /** ===== Main component ===== */
-export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmit, onCancel }) {
+export default function App() {
   const form = useForm({
     resolver: zodResolver(ReportSchema),
     defaultValues: {
@@ -505,7 +349,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
       address2: "",
       city: "",
       postal_zip: "",
-      date: new Date().toISOString().split('T')[0],
+      date: "",
       arrival_time: "",
       lead_agent: "",
       a2: "",
@@ -736,27 +580,9 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const onSubmit = async (data) => {
+  const onSubmit = (data) => {
     console.log("SUBMIT", data);
-    try {
-      // Collect all photos from all photo states
-      const allPhotos: File[] = [];
-
-      // Collect from photosA through photosE
-      [photosA, photosB, photosC, photosD, photosE].forEach(photoArray => {
-        photoArray.forEach(photo => {
-          if (photo instanceof File) {
-            allPhotos.push(photo);
-          }
-        });
-      });
-
-      // Pass both form data and photos to parent
-      await parentOnSubmit({ formData: data, photos: allPhotos });
-    } catch (error) {
-      console.error("Form submission error:", error);
-      alert("Failed to submit report. Please try again.");
-    }
+    alert("Captured (prototype). See console for payload.");
   };
 
   // toggles
@@ -1128,44 +954,13 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-between",
+                justifyContent: "center",
                 width: "100%",
-                position: "relative",
               }}
             >
-              <div style={{ width: "40px" }} />
-              <div className="h1" style={{ textAlign: "center", flex: 1 }}>
+              <div className="h1" style={{ textAlign: "center" }}>
                 Traveller Eviction Form
               </div>
-              <button
-                type="button"
-                onClick={onCancel}
-                style={{
-                  width: "40px",
-                  height: "40px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "rgba(239, 68, 68, 0.9)",
-                  border: "1px solid rgba(239, 68, 68, 0.5)",
-                  borderRadius: "10px",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: "24px",
-                  fontWeight: "bold",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(239, 68, 68, 1)";
-                  e.currentTarget.style.transform = "scale(1.05)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.9)";
-                  e.currentTarget.style.transform = "scale(1)";
-                }}
-              >
-                ×
-              </button>
             </div>
             <div className="progress-rail" style={{ marginTop: 10 }}>
               <div
@@ -1238,13 +1033,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
                   >
                     Date:<span className="label-star">*</span>
                   </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="dd/mm/yyyy"
-                    className="v3-input"
-                    {...register("date")}
-                  />
+                  <DateInput {...register("date")} />
                 </div>
                 <div>
                   <label
@@ -1253,20 +1042,11 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
                   >
                     Arrival Time:<span className="label-star">*</span>
                   </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="HH:MM"
-                    className="v3-input"
-                    {...register("arrival_time")}
-                  />
+                  <TimeInput {...register("arrival_time")} />
                 </div>
               </div>
             </div>
           </section>
-
-          {/* Schedule Section */}
-          <ScheduleBox register={register} watch={watch} />
 
           {/* Agents on Site */}
           <section className="dashboard-card" style={{ padding: 24 }}>
@@ -3533,13 +3313,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
                 >
                   Departure Time:<span className="label-star">*</span>
                 </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="HH:MM"
-                  className="v3-input"
-                  {...register("departure_time")}
-                />
+                <TimeInput {...register("departure_time")} />
               </div>
               <div>
                 <label
@@ -3548,30 +3322,16 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
                 >
                   Completion Date:<span className="label-star">*</span>
                 </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="dd/mm/yyyy"
-                  className="v3-input"
-                  {...register("completion_date")}
-                />
+                <DateInput {...register("completion_date")} />
               </div>
             </div>
-            <div style={{ paddingTop: 14, display: 'flex', gap: 12 }}>
-              <button
-                className="btn-ghost"
-                onClick={onCancel}
-                type="button"
-              >
-                Cancel
-              </button>
+            <div style={{ paddingTop: 14 }}>
               <button
                 className="button-primary"
                 onClick={handleSubmit(onSubmit)}
                 type="button"
-                style={{ flex: 1 }}
               >
-                Submit Report
+                Submit
               </button>
             </div>
           </section>
