@@ -814,25 +814,132 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
     if (!d7) clearDayAgents("day7");
   }, [d7]);
 
-  // UK-style placeholders
-  const DateInput = (props: React.ComponentProps<"input">) => (
-    <input
-      {...props}
-      type="text"
-      inputMode="numeric"
-      placeholder="dd/mm/yyyy"
-      className={`v3-input ${props.className || ""}`}
-    />
+  // Date picker component
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const dateValue = watch("date");
+
+  const DatePickerInput = () => (
+    <div style={{ position: 'relative' }}>
+      <input
+        type="text"
+        value={dateValue ? new Date(dateValue).toLocaleDateString('en-GB') : ''}
+        onClick={() => setShowDatePicker(!showDatePicker)}
+        readOnly
+        placeholder="dd/mm/yyyy"
+        className="v3-input"
+        style={{ cursor: 'pointer' }}
+      />
+      {showDatePicker && (
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          marginTop: '8px',
+          zIndex: 50,
+          background: 'var(--v3-bg-card)',
+          border: '1px solid var(--v3-border)',
+          borderRadius: '12px',
+          padding: '12px',
+          boxShadow: '0 10px 28px rgba(0,0,0,.35)',
+        }}>
+          <input
+            type="date"
+            value={dateValue || ''}
+            onChange={(e) => {
+              setValue('date', e.target.value);
+              setShowDatePicker(false);
+            }}
+            className="v3-input"
+            style={{ minWidth: '200px' }}
+          />
+        </div>
+      )}
+    </div>
   );
-  const TimeInput = (props: React.ComponentProps<"input">) => (
-    <input
-      {...props}
-      type="text"
-      inputMode="numeric"
-      placeholder="--:--"
-      className={`v3-input ${props.className || ""}`}
-    />
-  );
+
+  // Time carousel component
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const timeValue = watch("arrival_time");
+
+  const TimeCarouselInput = () => {
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const minutes = Array.from({ length: 12 }, (_, i) => i * 5);
+
+    const [selectedHour, setSelectedHour] = useState(timeValue ? parseInt(timeValue.split(':')[0]) : 12);
+    const [selectedMinute, setSelectedMinute] = useState(timeValue ? parseInt(timeValue.split(':')[1]) : 0);
+
+    return (
+      <div style={{ position: 'relative' }}>
+        <input
+          type="text"
+          value={timeValue || ''}
+          onClick={() => setShowTimePicker(!showTimePicker)}
+          readOnly
+          placeholder="HH:MM"
+          className="v3-input"
+          style={{ cursor: 'pointer' }}
+        />
+        {showTimePicker && (
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            marginTop: '8px',
+            zIndex: 50,
+            background: 'var(--v3-bg-card)',
+            border: '1px solid var(--v3-border)',
+            borderRadius: '12px',
+            padding: '16px',
+            boxShadow: '0 10px 28px rgba(0,0,0,.35)',
+          }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--v3-text-muted)', textAlign: 'center' }}>Hour</div>
+                <select
+                  value={selectedHour}
+                  onChange={(e) => setSelectedHour(parseInt(e.target.value))}
+                  className="v3-input"
+                  style={{ width: '80px', height: '120px' }}
+                  size={5}
+                >
+                  {hours.map(h => (
+                    <option key={h} value={h}>{String(h).padStart(2, '0')}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ fontSize: '20px', color: 'var(--v3-text)' }}>:</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--v3-text-muted)', textAlign: 'center' }}>Minute</div>
+                <select
+                  value={selectedMinute}
+                  onChange={(e) => setSelectedMinute(parseInt(e.target.value))}
+                  className="v3-input"
+                  style={{ width: '80px', height: '120px' }}
+                  size={5}
+                >
+                  {minutes.map(m => (
+                    <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const time = `${String(selectedHour).padStart(2, '0')}:${String(selectedMinute).padStart(2, '0')}`;
+                setValue('arrival_time', time);
+                setShowTimePicker(false);
+              }}
+              className="button-primary"
+              style={{ width: '100%', marginTop: '12px' }}
+            >
+              Set Time
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <FormProvider {...form}>
@@ -959,7 +1066,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
                   >
                     Date:<span className="label-star">*</span>
                   </label>
-                  <DateInput {...register("date")} />
+                  <DatePickerInput />
                 </div>
                 <div>
                   <label
@@ -968,7 +1075,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
                   >
                     Arrival Time:<span className="label-star">*</span>
                   </label>
-                  <TimeInput {...register("arrival_time")} />
+                  <TimeCarouselInput />
                 </div>
               </div>
             </div>
