@@ -30,8 +30,11 @@ import {
   Briefcase,
   Receipt,
   Navigation,
-  ExternalLink
+  ExternalLink,
+  X,
+  FileText
 } from 'lucide-react';
+import '../styles/admin/jobs.css';
 
 const initialJobState = {
   title: '',
@@ -934,110 +937,110 @@ export default function JobManagement() {
       {/* Job Details Modal */}
       {showJobDetailsModal && selectedJob && (
         <Dialog open={showJobDetailsModal} onOpenChange={setShowJobDetailsModal}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" style={{
-            backgroundColor: 'var(--v3-bg-card)',
-            border: '1px solid var(--v3-border)'
-          }}>
-            <DialogHeader className="border-b" style={{ borderColor: 'var(--v3-border)', paddingBottom: '1rem' }}>
-              <DialogTitle style={{ color: 'var(--v3-text-lightest)', fontSize: '1.5rem', fontWeight: '600' }}>
-                Job Details
-              </DialogTitle>
-              <DialogDescription style={{ color: 'var(--v3-text-muted)', marginTop: '0.5rem' }}>
-                {selectedJob.address || 'Job Information'}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-              {/* Left Sidebar - Job Information */}
-              <div className="space-y-4">
-                <div className="dashboard-card p-4">
-                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--v3-orange)' }}>
-                    <MapPin className="h-4 w-4" />
-                    JOB INFORMATION
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Address</p>
-                      <p className="font-medium mt-1" style={{ color: 'var(--v3-text-lightest)' }}>{selectedJob.address}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Type</p>
-                      <p className="font-medium mt-1" style={{ color: 'var(--v3-text-lightest)' }}>{selectedJob.job_type}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Arrival Time</p>
-                      <p className="font-medium mt-1" style={{ color: 'var(--v3-text-lightest)' }}>
-                        {selectedJob.arrival_time ? new Date(selectedJob.arrival_time).toLocaleString() : 'Not set'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Status</p>
-                      <Badge className="mt-1" style={{
-                        backgroundColor: selectedJob.status === 'completed' ? '#10b981' : 'var(--v3-orange)',
-                        color: 'white',
-                        border: 'none'
-                      }}>
-                        {selectedJob.status?.toUpperCase()}
-                      </Badge>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Agents Required</p>
-                      <p className="font-medium mt-1" style={{ color: 'var(--v3-text-lightest)' }}>{selectedJob.agents_required}</p>
-                    </div>
-                    {selectedJob.lead_agent_name && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Lead Agent</p>
-                        <p className="font-medium mt-1" style={{ color: 'var(--v3-text-lightest)' }}>{selectedJob.lead_agent_name}</p>
+          <DialogContent className="job-modal p-0">
+            {/* Sticky Header */}
+            <div className="job-modal__header">
+              <div className="job-modal__header-content">
+                <h2 className="job-modal__title">Job Details</h2>
+                <p className="job-modal__subtitle">
+                  <MapPin />
+                  {selectedJob.address || 'Job Information'}
+                </p>
+              </div>
+              <button
+                className="job-modal__close-btn"
+                onClick={() => setShowJobDetailsModal(false)}
+                aria-label="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="job-modal__body">
+              <div className="job-modal__grid">
+                {/* Job Information - Left Column */}
+                <div className="job-modal__info">
+                  <div className="job-modal__card">
+                    <h3 className="job-modal__card-title">
+                      <MapPin />
+                      Job Information
+                    </h3>
+                    <div className="kv-grid">
+                      <div className="kv-row">
+                        <span className="kv-label">Address</span>
+                        <span className="kv-value">{selectedJob.address}</span>
                       </div>
-                    )}
-                    {selectedJob.instructions && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--v3-text-muted)' }}>Instructions</p>
-                        <p className="text-sm mt-1" style={{ color: 'var(--v3-text-light)' }}>{selectedJob.instructions}</p>
+                      <div className="kv-row">
+                        <span className="kv-label">Type</span>
+                        <span className="kv-value">{selectedJob.job_type}</span>
                       </div>
-                    )}
+                      <div className="kv-row">
+                        <span className="kv-label">Arrival Time</span>
+                        <span className="kv-value">
+                          {selectedJob.arrival_time ? new Date(selectedJob.arrival_time).toLocaleString() : 'Not set'}
+                        </span>
+                      </div>
+                      <div className="kv-row">
+                        <span className="kv-label">Status</span>
+                        <span className="kv-value">
+                          <Badge style={{
+                            backgroundColor: selectedJob.status === 'completed' ? '#10b981' : 'var(--v3-orange)',
+                            color: 'white',
+                            border: 'none'
+                          }}>
+                            {selectedJob.status?.toUpperCase()}
+                          </Badge>
+                        </span>
+                      </div>
+                      <div className="kv-row">
+                        <span className="kv-label">Agents Required</span>
+                        <span className="kv-value">{selectedJob.agents_required}</span>
+                      </div>
+                      {selectedJob.lead_agent_name && (
+                        <div className="kv-row">
+                          <span className="kv-label">Lead Agent</span>
+                          <span className="kv-value">{selectedJob.lead_agent_name}</span>
+                        </div>
+                      )}
+                      {selectedJob.instructions && (
+                        <div className="kv-row">
+                          <span className="kv-label">Instructions</span>
+                          <span className="kv-value">{selectedJob.instructions}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Right Content - Agents and Invoices */}
-              <div className="md:col-span-2 space-y-4">
-                {/* Assigned Agents Section */}
-                <div className="dashboard-card p-4">
-                  <h3 className="text-sm font-semibold mb-3 flex items-center justify-between" style={{ color: 'var(--v3-text-lightest)' }}>
-                    <span className="flex items-center gap-2">
-                      <Users className="h-4 w-4" style={{ color: 'var(--v3-orange)' }} />
-                      ASSIGNED AGENTS
-                    </span>
-                    <span style={{ color: 'var(--v3-text-muted)', fontWeight: 'normal' }}>
-                      {confirmedAgentsCount} of {selectedJob.agents_required} confirmed
-                    </span>
-                  </h3>
-                  {loadingDetails ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--v3-orange)' }} />
-                    </div>
-                  ) : jobAgents.length > 0 ? (
-                    <div className="space-y-2">
-                      {jobAgents.map((agent) => (
-                        <div
-                          key={agent.id}
-                          className="p-3 rounded-lg"
-                          style={{
-                            backgroundColor: 'var(--v3-bg-dark)',
-                            border: '1px solid var(--v3-border)'
-                          }}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium" style={{ color: 'var(--v3-text-lightest)' }}>
-                                {agent.first_name} {agent.last_name}
-                              </p>
-                              <p className="text-sm" style={{ color: 'var(--v3-text-muted)' }}>{agent.email}</p>
+                {/* Assigned Agents - Right Column Top */}
+                <div className="job-modal__agents">
+                  <div className="job-modal__card">
+                    <h3 className="job-modal__card-title">
+                      <Users />
+                      Assigned Agents
+                      <span style={{ marginLeft: 'auto', fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--v3-text-muted)' }}>
+                        {confirmedAgentsCount} of {selectedJob.agents_required} confirmed
+                      </span>
+                    </h3>
+                    {loadingDetails ? (
+                      <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 0' }}>
+                        <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--v3-orange)' }} />
+                      </div>
+                    ) : jobAgents.length > 0 ? (
+                      <div className="agent-list">
+                        {jobAgents.map((agent) => (
+                          <div key={agent.id} className="agent-item">
+                            <div className="agent-avatar">
+                              {agent.first_name?.[0]}{agent.last_name?.[0]}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="agent-info">
+                              <p className="agent-name">{agent.first_name} {agent.last_name}</p>
+                              <p className="agent-role">{agent.email}</p>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
                               {agent.role === 'lead' && (
-                                <Badge style={{ backgroundColor: 'var(--v3-orange)', color: 'white', border: 'none' }}>
+                                <Badge style={{ backgroundColor: 'var(--v3-orange)', color: 'white', border: 'none', fontSize: '0.7rem' }}>
                                   Lead
                                 </Badge>
                               )}
@@ -1049,119 +1052,123 @@ export default function JobManagement() {
                                       ? 'var(--v3-orange)'
                                       : '#6b7280',
                                   color: 'white',
-                                  border: 'none'
+                                  border: 'none',
+                                  fontSize: '0.7rem'
                                 }}
                               >
                                 {agent.status?.toUpperCase() || 'UNKNOWN'}
                               </Badge>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Users className="h-12 w-12 mx-auto mb-2" style={{ color: 'var(--v3-text-muted)' }} />
-                      <p style={{ color: 'var(--v3-text-muted)' }}>No agents assigned yet</p>
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="agent-list-empty">
+                        <Users className="h-12 w-12" style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                        <p>No agents assigned yet</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Invoices Section */}
-                <div className="dashboard-card p-4">
-                  <h3 className="text-sm font-semibold mb-3 flex items-center justify-between" style={{ color: 'var(--v3-text-lightest)' }}>
-                    <span className="flex items-center gap-2">
-                      <Receipt className="h-4 w-4" style={{ color: 'var(--v3-orange)' }} />
-                      INVOICES
-                    </span>
-                    <span style={{ color: 'var(--v3-text-muted)', fontWeight: 'normal' }}>
-                      {jobInvoices.length} submitted
-                    </span>
-                  </h3>
-                  {loadingDetails ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--v3-orange)' }} />
-                    </div>
-                  ) : jobInvoices.length > 0 ? (
-                    <div className="space-y-3">
-                      {jobInvoices.map((invoice) => (
-                        <div
-                          key={invoice.id}
-                          className="p-4 rounded-lg"
-                          style={{
-                            backgroundColor: 'var(--v3-bg-dark)',
-                            border: '1px solid var(--v3-border)'
-                          }}
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="font-semibold" style={{ color: 'var(--v3-text-lightest)' }}>
-                                  {invoice.invoice_number}
-                                </p>
-                                <Badge
-                                  style={{
-                                    backgroundColor: invoice.status === 'paid'
-                                      ? '#10b981'
-                                      : invoice.status === 'sent'
-                                        ? 'var(--v3-orange)'
-                                        : '#6b7280',
-                                    color: 'white',
-                                    border: 'none',
-                                    fontSize: '0.7rem'
+                {/* Invoices - Right Column Bottom */}
+                <div className="job-modal__invoices">
+                  <div className="job-modal__card">
+                    <h3 className="job-modal__card-title">
+                      <Receipt />
+                      Invoices
+                      <span style={{ marginLeft: 'auto', fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--v3-text-muted)' }}>
+                        {jobInvoices.length} submitted
+                      </span>
+                    </h3>
+                    {loadingDetails ? (
+                      <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 0' }}>
+                        <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--v3-orange)' }} />
+                      </div>
+                    ) : jobInvoices.length > 0 ? (
+                      <div className="invoice-list">
+                        {jobInvoices.map((invoice) => (
+                          <div key={invoice.id} className="invoice-item">
+                            <div className="invoice-header">
+                              <span className="invoice-number">{invoice.invoice_number}</span>
+                              <Badge
+                                className={`invoice-status ${invoice.status === 'paid' ? 'paid' : 'unpaid'}`}
+                              >
+                                {invoice.status?.toUpperCase()}
+                              </Badge>
+                            </div>
+                            <div className="invoice-details">
+                              <div>
+                                <strong>Agent</strong>
+                                <span>{invoice.agent_name || 'Unknown Agent'}</span>
+                              </div>
+                              <div>
+                                <strong>Issued</strong>
+                                <span>{invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : 'Not issued'}</span>
+                              </div>
+                              <div>
+                                <strong>Due Date</strong>
+                                <span>{invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'Not set'}</span>
+                              </div>
+                              <div className="invoice-amount">
+                                &pound;{invoice.total_amount || '0.00'}
+                              </div>
+                            </div>
+                            {invoice.status === 'sent' && (
+                              <div className="invoice-actions">
+                                <Button
+                                  size="sm"
+                                  className="button-refresh text-xs"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    toast.info('Mark as paid functionality coming soon')
                                   }}
                                 >
-                                  {invoice.status?.toUpperCase()}
-                                </Badge>
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Mark as Paid
+                                </Button>
                               </div>
-                              <p className="text-sm mt-1" style={{ color: 'var(--v3-text-muted)' }}>
-                                {invoice.agent_name || 'Unknown Agent'}
-                              </p>
-                            </div>
-                            <p className="font-bold text-lg" style={{ color: 'var(--v3-orange)' }}>
-                              &pound;{invoice.total_amount || '0.00'}
-                            </p>
+                            )}
                           </div>
-                          <div className="flex items-center justify-between text-xs mb-3" style={{ color: 'var(--v3-text-muted)' }}>
-                            <span>Issued: {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : 'Not issued'}</span>
-                            <span>Due: {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'Not set'}</span>
-                          </div>
-                          {invoice.status === 'sent' && (
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                className="button-refresh text-xs"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  toast.info('Mark as paid functionality coming soon')
-                                }}
-                              >
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Mark as Paid
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="invoice-list-empty">
+                        <Receipt className="h-12 w-12" style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                        <p>No invoices submitted yet</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Notes/Activity - Full Width Bottom */}
+                <div className="job-modal__notes">
+                  <div className="job-modal__card">
+                    <h3 className="job-modal__card-title">
+                      <FileText />
+                      Notes & Activity
+                    </h3>
+                    <div className="job-modal__notes-content">
+                      {selectedJob.notes || selectedJob.activity ? (
+                        <p>{selectedJob.notes || selectedJob.activity}</p>
+                      ) : (
+                        <p className="job-modal__notes-empty">No notes or activity recorded for this job.</p>
+                      )}
                     </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Receipt className="h-12 w-12 mx-auto mb-2" style={{ color: 'var(--v3-text-muted)' }} />
-                      <p style={{ color: 'var(--v3-text-muted)' }}>No invoices submitted yet</p>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
-            <DialogFooter className="border-t mt-6 pt-4" style={{ borderColor: 'var(--v3-border)' }}>
-              <Button
-                variant="outline"
-                style={{ borderColor: 'var(--v3-border)', color: 'var(--v3-text-light)' }}
+
+            {/* Compact Footer */}
+            <div className="job-modal__footer">
+              <button
+                className="job-modal__footer-btn"
                 onClick={() => setShowJobDetailsModal(false)}
               >
                 Close
-              </Button>
-            </DialogFooter>
+              </button>
+            </div>
           </DialogContent>
         </Dialog>
       )}
