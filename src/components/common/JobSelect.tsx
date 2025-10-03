@@ -1,7 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useController, Control } from "react-hook-form";
 import { useAuth } from "@/useAuth.jsx";
-import debounce from "lodash.debounce";
+
+function debounce<T extends (...args: any[]) => void>(fn: T, wait = 300) {
+  let t: ReturnType<typeof setTimeout> | undefined;
+  return (...args: Parameters<T>) => {
+    if (t) clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
 
 type Option = { value: string; label: string };
 
