@@ -3,14 +3,14 @@ import StickyActionBar from '@/components/layout/StickyActionBar.jsx';
 import { Button } from '@/components/ui/button';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../useAuth';
-import { 
-    Loader2, 
-    ServerCrash, 
-    ArrowLeft, 
-    MapPin, 
-    Clock, 
-    Calendar, 
-    Users, 
+import {
+    Loader2,
+    ServerCrash,
+    ArrowLeft,
+    MapPin,
+    Clock,
+    Calendar,
+    Users,
     Shield,
     Info,
     FileText,
@@ -20,7 +20,10 @@ import {
     Thermometer,
     ShirtIcon,
     Phone,
-    Mail
+    Mail,
+    Download,
+    Image as ImageIcon,
+    X
 } from 'lucide-react';
 
 // This helper function is unchanged
@@ -40,6 +43,10 @@ const JobDetails = () => {
     const [job, setJob] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [v3Reports, setV3Reports] = useState([]);
+    const [photos, setPhotos] = useState([]);
+    const [loadingPhotos, setLoadingPhotos] = useState(false);
+    const [selectedPhoto, setSelectedPhoto] = useState(null);
 
     useEffect(() => {
         const fetchJobDetails = async () => {
@@ -57,6 +64,43 @@ const JobDetails = () => {
 
         if (jobId) {
             fetchJobDetails();
+        }
+    }, [jobId, apiCall]);
+
+    // Fetch V3 reports and extract photos
+    useEffect(() => {
+        const fetchV3Reports = async () => {
+            try {
+                setLoadingPhotos(true);
+                const data = await apiCall(`/admin/jobs/${jobId}/v3-reports`);
+                setV3Reports(data.reports || []);
+
+                // Extract all photo URLs from all reports
+                const allPhotos = [];
+                (data.reports || []).forEach((report, reportIndex) => {
+                    if (report.photo_urls && Array.isArray(report.photo_urls)) {
+                        report.photo_urls.forEach((url, photoIndex) => {
+                            allPhotos.push({
+                                url: url,
+                                reportId: report.id,
+                                reportType: report.form_type,
+                                submittedBy: report.agent_name,
+                                submittedAt: report.submitted_at,
+                                index: allPhotos.length
+                            });
+                        });
+                    }
+                });
+                setPhotos(allPhotos);
+            } catch (err) {
+                console.error('Failed to load V3 reports:', err);
+            } finally {
+                setLoadingPhotos(false);
+            }
+        };
+
+        if (jobId) {
+            fetchV3Reports();
         }
     }, [jobId, apiCall]);
 
@@ -307,9 +351,136 @@ const JobDetails = () => {
                                 <p className="text-xs text-v3-text-muted mt-1">Use this ID for invoicing</p>
                             </div>
                         </div>
+
+                        {/* Photo Gallery from V3 Reports */}
+                        {photos.length > 0 && (
+                            <div className="agent-mobile-card">
+                                <div className="agent-mobile-card-content">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <ImageIcon className="text-v3-orange" size={20} />
+                                            <div>
+                                                <span className="text-sm font-semibold text-v3-text-lightest">Job Photos</span>
+                                                <p className="text-xs text-v3-text-muted">{photos.length} photo{photos.length !== 1 ? 's' : ''} from reports</p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            onClick={() => {
+                                                // Download all photos as zip
+                                                photos.forEach((photo, index) => {
+                                                    setTimeout(() => {
+                                                        const link = document.createElement('a');
+                                                        link.href = photo.url;
+                                                        link.download = `job-${jobId}-photo-${index + 1}.jpg`;
+                                                        link.target = '_blank';
+                                                        document.body.appendChild(link);
+                                                        link.click();
+                                                        document.body.removeChild(link);
+                                                    }, index * 500); // Stagger downloads to avoid browser blocking
+                                                });
+                                            }}
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-xs"
+                                        >
+                                            <Download size={14} className="mr-1" />
+                                            Download All
+                                        </Button>
+                                    </div>
+
+                                    {/* Photo Grid */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                        {photos.map((photo) => (
+                                            <div key={photo.index} className="relative group cursor-pointer">
+                                                <div
+                                                    onClick={() => setSelectedPhoto(photo)}
+                                                    className="aspect-square rounded-lg overflow-hidden bg-gray-800 border-2 border-gray-700 hover:border-v3-orange transition-colors"
+                                                >
+                                                    <img
+                                                        src={photo.url}
+                                                        alt={`Job photo ${photo.index + 1}`}
+                                                        className="w-full h-full object-cover"
+                                                        loading="lazy"
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const link = document.createElement('a');
+                                                        link.href = photo.url;
+                                                        link.download = `job-${jobId}-photo-${photo.index + 1}.jpg`;
+                                                        link.target = '_blank';
+                                                        document.body.appendChild(link);
+                                                        link.click();
+                                                        document.body.removeChild(link);
+                                                    }}
+                                                    className="absolute top-2 right-2 p-1.5 bg-black/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <Download size={14} className="text-white" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {loadingPhotos && (
+                            <div className="agent-mobile-card">
+                                <div className="agent-mobile-card-content flex items-center justify-center py-8">
+                                    <Loader2 className="animate-spin text-v3-orange" size={24} />
+                                    <span className="ml-2 text-v3-text-muted">Loading photos...</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
+
+            {/* Photo Lightbox Modal */}
+            {selectedPhoto && (
+                <div
+                    className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
+                    onClick={() => setSelectedPhoto(null)}
+                >
+                    <button
+                        onClick={() => setSelectedPhoto(null)}
+                        className="absolute top-4 right-4 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
+                    >
+                        <X size={24} className="text-white" />
+                    </button>
+
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const link = document.createElement('a');
+                            link.href = selectedPhoto.url;
+                            link.download = `job-${jobId}-photo-${selectedPhoto.index + 1}.jpg`;
+                            link.target = '_blank';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        }}
+                        className="absolute top-4 left-4 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors flex items-center gap-2 px-4"
+                    >
+                        <Download size={20} className="text-white" />
+                        <span className="text-white text-sm">Download</span>
+                    </button>
+
+                    <div className="max-w-6xl max-h-[90vh] w-full" onClick={(e) => e.stopPropagation()}>
+                        <img
+                            src={selectedPhoto.url}
+                            alt={`Job photo ${selectedPhoto.index + 1}`}
+                            className="w-full h-full object-contain rounded-lg"
+                        />
+                        <div className="mt-4 bg-black/50 rounded-lg p-4 text-white">
+                            <p className="text-sm"><strong>Submitted by:</strong> {selectedPhoto.submittedBy}</p>
+                            <p className="text-sm"><strong>Report Type:</strong> {selectedPhoto.reportType?.replace(/_/g, ' ')}</p>
+                            <p className="text-sm"><strong>Date:</strong> {new Date(selectedPhoto.submittedAt).toLocaleString()}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Sticky actions for mobile */}
             <StickyActionBar>
