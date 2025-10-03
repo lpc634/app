@@ -1612,8 +1612,8 @@ def search_jobs():
 
         # Base query
         q = Job.query
-        # Filter to only open jobs
-        q = q.filter(Job.status == 'open')
+        # Show all jobs that aren't completed (open, filled, allocated, etc.)
+        q = q.filter(Job.status.in_(['open', 'filled', 'allocated']))
         if search_filter is not None:
             q = q.filter(search_filter)
 
