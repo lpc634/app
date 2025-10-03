@@ -39,10 +39,25 @@ export function JobSelect({ control, name, label = "Job", placeholder = "Select 
           console.log("✅ Admin jobs response:", res);
           console.log("📊 Number of admin jobs:", res.items?.length);
           console.log("📋 Full items array:", res.items);
-          const mappedOptions = res.items.map((j: any) => ({
-            value: String(j.id),
-            label: j.reference || j.address || j.site_name || `Job #${j.id}`
-          }));
+          const mappedOptions = res.items.map((j: any) => {
+            // Build a clear label: "Reference - Address" or just address
+            let label = '';
+            if (j.reference && j.address) {
+              label = `${j.reference} - ${j.address}`;
+            } else if (j.address) {
+              label = j.address;
+            } else if (j.reference) {
+              label = j.reference;
+            } else if (j.site_name) {
+              label = j.site_name;
+            } else {
+              label = `Job #${j.id}`;
+            }
+            return {
+              value: String(j.id),
+              label: label
+            };
+          });
           console.log("🎯 Mapped options:", mappedOptions);
           setOptions(mappedOptions);
         }
