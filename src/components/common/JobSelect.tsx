@@ -24,7 +24,7 @@ type Props = {
 };
 
 export function JobSelect({ control, name, label = "Job", placeholder = "Search jobs…", disabled, defaultJob }: Props) {
-  const { apiCall } = useAuth();
+  const { apiCall, user } = useAuth();
   const { field, fieldState } = useController({ control, name, rules: { required: "Job is required" } });
   const [options, setOptions] = useState<Option[]>(defaultJob ? [{ value: defaultJob.id, label: defaultJob.label }] : []);
   const [loading, setLoading] = useState(false);
@@ -33,19 +33,29 @@ export function JobSelect({ control, name, label = "Job", placeholder = "Search 
   const fetchJobs = useMemo(() => debounce(async (q: string) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ q: q || "", limit: "20" });
-      const res = await apiCall(`/jobs/search?${params}`);
-      setOptions(res.items.map((j: any) => ({
-        value: j.id,
-        label: j.reference || j.address || j.site_name || `Job #${j.id}`
-      })));
+      if (user?.role === 'agent') {
+        // Agents use /agent/jobs/completed endpoint
+        const res = await apiCall(`/agent/jobs/completed`);
+        setOptions(res.jobs.map((j: any) => ({
+          value: String(j.id),
+          label: j.address || j.title || `Job #${j.id}`
+        })));
+      } else {
+        // Admins/managers use /jobs/search endpoint
+        const params = new URLSearchParams({ q: q || "", limit: "20" });
+        const res = await apiCall(`/jobs/search?${params}`);
+        setOptions(res.items.map((j: any) => ({
+          value: String(j.id),
+          label: j.reference || j.address || j.site_name || `Job #${j.id}`
+        })));
+      }
     } catch (error) {
       console.error("Failed to fetch jobs:", error);
       setOptions([]);
     } finally {
       setLoading(false);
     }
-  }, 300), [apiCall]);
+  }, 300), [apiCall, user?.role]);
 
   useEffect(() => {
     fetchJobs("");
