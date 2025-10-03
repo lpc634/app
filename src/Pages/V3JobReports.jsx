@@ -327,9 +327,7 @@ const V3JobReports = () => {
                       </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            )}
+
 
             {/* Start New Form */}
             <Card className="dashboard-card border-v3-border/30">
