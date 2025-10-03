@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from "sonner";
 import TravellerEvictionForm from '../components/forms/TravellerEvictionForm';
 import { AdminFormStartModal } from '../components/modals/AdminFormStartModal';
+import { useForm, FormProvider } from "react-hook-form";
+import { JobSelect } from "@/components/common/JobSelect";
 
 // Form types configuration - can be expanded as more forms are built
 const V3_FORM_TYPES = {
@@ -23,6 +25,8 @@ const V3_FORM_TYPES = {
 
 const V3JobReports = () => {
   const { user, apiCall } = useAuth();
+  const methods = useForm({ defaultValues: { job_id: "" } });
+  const watchedJobId = methods.watch("job_id");
   const [completedJobs, setCompletedJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [selectedFormType, setSelectedFormType] = useState('');
@@ -252,7 +256,7 @@ const V3JobReports = () => {
             </div>
 
             {/* Job Selection for Agents */}
-            {user?.role === 'agent' && completedJobs.length > 0 && (
+            {user?.role === 'agent' && (
               <Card className="dashboard-card border-v3-orange/50">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -260,38 +264,36 @@ const V3JobReports = () => {
                     Report for a Job
                   </CardTitle>
                   <CardDescription>
-                    Select one of your accepted jobs to create a report for it.
+                    Search and select one of your accepted jobs to create a report.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-v3-text-light mb-2">
-                      Select Job
-                    </label>
-                    <select
-                      value={selectedJob && selectedJob.id !== 'MANUAL' ? selectedJob.id : ''}
-                      onChange={(e) => {
-                        const jobId = e.target.value;
-                        if (jobId) {
-                          const job = completedJobs.find(j => j.id === parseInt(jobId));
-                          if (job) {
-                            handleSelectJob(job);
-                          }
-                        } else {
-                          setSelectedJob(null);
-                          setSelectedFormType('');
-                        }
-                      }}
-                      className="w-full p-3 bg-v3-bg-dark border border-v3-border rounded-md text-v3-text-lightest focus:border-v3-orange focus:outline-none cursor-pointer"
-                    >
-                      <option value="">-- Select a job --</option>
-                      {completedJobs.map((job) => (
-                        <option key={job.id} value={job.id}>
-                          {job.address} - {job.jobType || job.job_type} ({new Date(job.arrival_time).toLocaleDateString()})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <FormProvider {...methods}>
+                    <div className="space-y-2">
+                      <JobSelect
+                        control={methods.control}
+                        name="job_id"
+                        label="Select Job"
+                        placeholder="Search jobs…"
+                        disabled={false}
+                      />
+                    </div>
+                  </FormProvider>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* React to job selection */}
+            {watchedJobId && user?.role === 'agent' && (
+              (() => {
+                const job = completedJobs.find(j => String(j.id) === String(watchedJobId));
+                if (job && (!selectedJob || selectedJob.id !== job.id)) {
+                  // open modal for this job
+                  setTimeout(() => handleSelectJob(job), 0);
+                }
+                return null;
+              })()
+            )}
 
                   {selectedJob && selectedJob.id !== 'MANUAL' && (
                     <div className="p-4 bg-v3-bg-dark border border-v3-orange/30 rounded-lg">
