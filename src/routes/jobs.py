@@ -1612,8 +1612,8 @@ def search_jobs():
 
         # Base query
         q = Job.query
-        # Filter to only open jobs (exclude completed)
-        q = q.filter(Job.status != 'completed')
+        # Filter to only open jobs
+        q = q.filter(Job.status == 'open')
         if search_filter is not None:
             q = q.filter(search_filter)
 
@@ -1630,7 +1630,9 @@ def search_jobs():
 
         # Format results
         items = []
+        logger.info(f"DEBUG: Found {len(jobs)} jobs matching search criteria")
         for job in jobs:
+            logger.info(f"DEBUG: Job {job.id} - status: {job.status} - address: {getattr(job, 'address', 'N/A')}")
             items.append({
                 'id': job.id,
                 'reference': job.reference,
