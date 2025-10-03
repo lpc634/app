@@ -886,7 +886,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
             <div className="progress-rail" style={{ marginTop: 10 }}>
               <div
                 className="progress-bar"
-                style={{ width: `${Math.round(progress * 100)}%` }}
+                style={{ width: `${Math.max(0, Math.min(100, Math.round(progress * 100)))}%` }}
               />
             </div>
           </StarBorder>
