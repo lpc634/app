@@ -104,6 +104,8 @@ const V3JobReports = () => {
     setSelectedJob(null);
     // Reset the dropdown to empty state
     setTimeout(() => setSelectedFormType(''), 100);
+    // Clear the job selection to prevent reopening
+    methods.setValue('job_id', '');
   };
 
   const handleFormSubmit = async (submissionData) => {
