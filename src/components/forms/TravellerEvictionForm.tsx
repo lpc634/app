@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -571,20 +571,73 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
   }
 
   // scroll progress
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState(0);
+
+  function getScrollParent(el: Element | null): Element | null {
+    let node: any = el;
+    while (node && node !== document.body) {
+      const style = window.getComputedStyle(node);
+      const overflowY = style.overflowY;
+      const isScrollable =
+        (overflowY === "auto" || overflowY === "scroll") &&
+        node.scrollHeight > node.clientHeight;
+      if (isScrollable) return node;
+      node = node.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
   useEffect(() => {
-    const onScroll = () => {
-      const d = document.documentElement;
-      const scrollY = window.scrollY;
-      const scrollHeight = d.scrollHeight;
-      const innerHeight = window.innerHeight;
-      const newProgress = scrollY / (scrollHeight - innerHeight || 1);
-      console.log('Scroll:', { scrollY, scrollHeight, innerHeight, progress: newProgress });
-      setProgress(newProgress);
+    let frame = 0;
+    const rootEl = rootRef.current;
+    const scroller = getScrollParent(rootEl) as
+      | (Element & { scrollTop?: number; scrollHeight?: number; clientHeight?: number })
+      | null;
+
+    const compute = () => {
+      if (!scroller) {
+        // fallback safety
+        setProgress(0);
+        return;
+      }
+      const isDoc =
+        scroller === document.documentElement ||
+        scroller === document.body ||
+        scroller === document.scrollingElement;
+
+      const scrollTop = isDoc ? window.scrollY : (scroller as any).scrollTop || 0;
+      const total = isDoc
+        ? (document.documentElement.scrollHeight - window.innerHeight)
+        : ((scroller!.scrollHeight ?? 0) - (scroller!.clientHeight ?? 0));
+
+      const denom = total > 0 ? total : 1;
+      const p = Math.max(0, Math.min(1, scrollTop / denom));
+      setProgress(p);
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
+
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        compute();
+      });
+    };
+
+    const onResize = onScroll;
+
+    const target: any = scroller ?? window;
+    target.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+
+    // Initial calculation
+    compute();
+
+    return () => {
+      target.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, []);
 
   const onSubmit = async (data) => {
@@ -831,7 +884,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
 
   return (
     <FormProvider {...form}>
-      <div className="dark v3-root min-h-screen">
+      <div ref={rootRef} className="dark v3-root min-h-screen">
         <style>{THEME_CSS}</style>
 
         {/* Sticky header */}
