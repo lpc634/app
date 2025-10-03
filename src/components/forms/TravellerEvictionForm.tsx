@@ -884,6 +884,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
 
   return (
     <FormProvider {...form}>
+      <form onSubmit={handleSubmit(onSubmit, onError)}>
       <div ref={rootRef} className="dark v3-root min-h-screen">
         <style>{THEME_CSS}</style>
 
@@ -3309,8 +3310,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
               </button>
               <button
                 className="button-primary"
-                onClick={handleSubmit(onSubmit, onError)}
-                type="button"
+                type="submit"
                 style={{ flex: 1 }}
               >
                 Submit Report
@@ -3319,6 +3319,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
           </section>
         </div>
       </div>
+      </form>
     </FormProvider>
   );
 }
