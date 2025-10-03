@@ -1595,7 +1595,7 @@ def search_jobs():
             return jsonify({"error": "Access denied"}), 403
 
         query = request.args.get('q', '').strip()
-        limit = min(int(request.args.get('limit', 20)), 50)  # Max 50 results
+        limit = min(int(request.args.get('limit', 20)), 100)  # Max 100 results
         page = max(int(request.args.get('page', 1)), 1)
 
         # Build search query
@@ -1632,17 +1632,31 @@ def search_jobs():
         items = []
         logger.info(f"DEBUG: Found {len(jobs)} jobs matching search criteria")
         for job in jobs:
-            logger.info(f"DEBUG: Job {job.id} - status: {job.status} - address: {getattr(job, 'address', 'N/A')}")
-            items.append({
-                'id': job.id,
-                'reference': job.reference,
-                'address': _admin_location(job),
-                'site_name': getattr(job, 'site_name', None),
-                'town': getattr(job, 'town', None),
-                'city': getattr(job, 'city', None),
-                'postcode': getattr(job, 'postcode', None),
-                'created_at': job.created_at.isoformat() if job.created_at else None,
-            })
+            try:
+                logger.info(f"DEBUG: Job {job.id} - status: {job.status} - address: {getattr(job, 'address', 'N/A')}")
+                items.append({
+                    'id': job.id,
+                    'reference': job.reference,
+                    'address': _admin_location(job),
+                    'site_name': getattr(job, 'site_name', None),
+                    'town': getattr(job, 'town', None),
+                    'city': getattr(job, 'city', None),
+                    'postcode': getattr(job, 'postcode', None),
+                    'created_at': job.created_at.isoformat() if job.created_at else None,
+                })
+            except Exception as job_err:
+                logger.error(f"DEBUG: Error formatting job {job.id}: {job_err}")
+                # Add job with fallback values
+                items.append({
+                    'id': job.id,
+                    'reference': getattr(job, 'reference', f"Job {job.id}"),
+                    'address': getattr(job, 'address', 'N/A'),
+                    'site_name': getattr(job, 'site_name', None),
+                    'town': getattr(job, 'town', None),
+                    'city': getattr(job, 'city', None),
+                    'postcode': getattr(job, 'postcode', None),
+                    'created_at': job.created_at.isoformat() if job.created_at else None,
+                })
 
         return jsonify({
             'items': items,
