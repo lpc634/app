@@ -1577,3 +1577,77 @@ def debug_agent_availability(agent_id):
         
     except Exception as e:
         return jsonify({'error': f'Debug failed: {str(e)}'}), 500
+
+
+# === Job Search Endpoint for Admin Forms ===
+@jobs_bp.route('/search', methods=['GET'])
+@jwt_required()
+def search_jobs():
+    """Search jobs for admin form selection. Returns paginated results."""
+    try:
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
+        if not user:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        # Only admins can search jobs for forms (agents should use their assigned jobs)
+        if user.role != 'admin':
+            return jsonify({"error": "Access denied"}), 403
+
+        query = request.args.get('q', '').strip()
+        limit = min(int(request.args.get('limit', 20)), 50)  # Max 50 results
+        page = max(int(request.args.get('page', 1)), 1)
+
+        # Build search query
+        search_filter = None
+        if query:
+            search_terms = [f"%{term}%" for term in query.split() if term]
+            if search_terms:
+                search_conditions = []
+                # Search in reference, address, site_name, town, city, postcode
+                for field in ['reference', 'address', 'site_name', 'town', 'city', 'postcode']:
+                    for term in search_terms:
+                        search_conditions.append(getattr(Job, field).ilike(term))
+                search_filter = or_(*search_conditions)
+
+        # Base query
+        q = Job.query
+        if search_filter is not None:
+            q = q.filter(search_filter)
+
+        # Get total count for pagination
+        total = q.count()
+
+        # Apply pagination and ordering
+        jobs = (
+            q.order_by(Job.created_at.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+
+        # Format results
+        items = []
+        for job in jobs:
+            items.append({
+                'id': job.id,
+                'reference': job.reference,
+                'address': _admin_location(job),
+                'site_name': getattr(job, 'site_name', None),
+                'town': getattr(job, 'town', None),
+                'city': getattr(job, 'city', None),
+                'postcode': getattr(job, 'postcode', None),
+                'created_at': job.created_at.isoformat() if job.created_at else None,
+            })
+
+        return jsonify({
+            'items': items,
+            'total': total,
+            'page': page,
+            'limit': limit,
+            'has_more': (page * limit) < total
+        })
+
+    except Exception as e:
+        logger.error(f"Error searching jobs: {e}")
+        return jsonify({"error": "Internal server error"}), 500

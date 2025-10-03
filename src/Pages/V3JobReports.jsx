@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { toast } from "sonner";
 import TravellerEvictionForm from '../components/forms/TravellerEvictionForm';
+import { AdminFormStartModal } from '../components/modals/AdminFormStartModal';
 
 // Form types configuration - can be expanded as more forms are built
 const V3_FORM_TYPES = {
@@ -26,6 +27,7 @@ const V3JobReports = () => {
   const [selectedJob, setSelectedJob] = useState(null);
   const [selectedFormType, setSelectedFormType] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
+  const [showAdminStartModal, setShowAdminStartModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -327,43 +329,25 @@ const V3JobReports = () => {
               </Card>
             )}
 
-            {/* Manual Form Selection */}
+            {/* Start New Form */}
             <Card className="dashboard-card border-v3-border/30">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Plus size={20} className="text-v3-text-muted" />
-                  Create Manual Report
+                  Start New Form
                 </CardTitle>
                 <CardDescription>
-                  Or create a standalone report not linked to a specific job.
+                  Create a new form report linked to a specific job.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <select
-                  value={selectedFormType}
-                  onChange={(e) => {
-                    const formType = e.target.value;
-                    if (formType) {
-                      const mockJob = {
-                        id: 'MANUAL',
-                        title: 'Manual Report Entry',
-                        address: 'Manual Entry',
-                        jobType: formType.replace(/_/g, ' '),
-                        agentName: `${user?.first_name} ${user?.last_name}`
-                      };
-                      setSelectedFormType(formType);
-                      handleSelectJob(mockJob);
-                    }
-                  }}
-                  className="w-full p-3 bg-v3-bg-dark border border-v3-border rounded-md text-v3-text-lightest focus:border-v3-orange focus:outline-none cursor-pointer"
+                <Button
+                  onClick={() => setShowAdminStartModal(true)}
+                  className="w-full button-primary flex items-center gap-2"
                 >
-                  <option value="">-- Select a form type to begin --</option>
-                  {Object.entries(V3_FORM_TYPES).map(([key, config]) => (
-                    <option key={key} value={key}>
-                      {config.name}
-                    </option>
-                  ))}
-                </select>
+                  <FileText size={16} />
+                  Start Form
+                </Button>
               </CardContent>
             </Card>
 
@@ -490,6 +474,12 @@ const V3JobReports = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Admin Form Start Modal */}
+      <AdminFormStartModal
+        isOpen={showAdminStartModal}
+        onClose={() => setShowAdminStartModal(false)}
+      />
     </>
   );
 };
