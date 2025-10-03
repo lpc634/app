@@ -143,7 +143,7 @@ const ReportSchema = z.object({
   adult_females: z.coerce.number().optional(),
   children: z.coerce.number().optional(),
 
-  timeline_day1: z.record(z.string()),
+  timeline_day1: z.record(z.string().optional()),
   day2_enabled: z.boolean().default(false),
   day2_same_agents: z.boolean().default(false),
   day2_lead_agent: z.string().optional(),
@@ -157,7 +157,7 @@ const ReportSchema = z.object({
   day2_a9: z.string().optional(),
   day2_a10: z.string().optional(),
   day2_attending_agents: z.string().optional(),
-  timeline_day2: z.record(z.string()).optional(),
+  timeline_day2: z.record(z.string().optional()).optional(),
 
   day3: z.boolean().default(false),
   day3_same_agents: z.boolean().default(false),
@@ -171,7 +171,7 @@ const ReportSchema = z.object({
   day3_a8: z.string().optional(),
   day3_a9: z.string().optional(),
   day3_a10: z.string().optional(),
-  timeline_day3: z.record(z.string()).optional(),
+  timeline_day3: z.record(z.string().optional()).optional(),
 
   day4: z.boolean().default(false),
   day4_same_agents: z.boolean().default(false),
@@ -185,7 +185,7 @@ const ReportSchema = z.object({
   day4_a8: z.string().optional(),
   day4_a9: z.string().optional(),
   day4_a10: z.string().optional(),
-  timeline_day4: z.record(z.string()).optional(),
+  timeline_day4: z.record(z.string().optional()).optional(),
 
   day5: z.boolean().default(false),
   day5_same_agents: z.boolean().default(false),
@@ -199,7 +199,7 @@ const ReportSchema = z.object({
   day5_a8: z.string().optional(),
   day5_a9: z.string().optional(),
   day5_a10: z.string().optional(),
-  timeline_day5: z.record(z.string()).optional(),
+  timeline_day5: z.record(z.string().optional()).optional(),
 
   day6: z.boolean().default(false),
   day6_same_agents: z.boolean().default(false),
@@ -213,7 +213,7 @@ const ReportSchema = z.object({
   day6_a8: z.string().optional(),
   day6_a9: z.string().optional(),
   day6_a10: z.string().optional(),
-  timeline_day6: z.record(z.string()).optional(),
+  timeline_day6: z.record(z.string().optional()).optional(),
 
   day7: z.boolean().default(false),
   day7_same_agents: z.boolean().default(false),
@@ -227,7 +227,7 @@ const ReportSchema = z.object({
   day7_a8: z.string().optional(),
   day7_a9: z.string().optional(),
   day7_a10: z.string().optional(),
-  timeline_day7: z.record(z.string()).optional(),
+  timeline_day7: z.record(z.string().optional()).optional(),
 
   police_attendance: z.boolean().default(false),
   police_cad: z.string().optional(),
