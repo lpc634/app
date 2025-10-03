@@ -110,6 +110,9 @@ const V3JobReports = () => {
 
   const handleFormSubmit = async (submissionData) => {
     try {
+      console.log('📤 Form Submission Data:', submissionData);
+      console.log('📸 Photos to upload:', submissionData.photos);
+
       let photoUrls = [];
 
       // Check if we have photos to upload
