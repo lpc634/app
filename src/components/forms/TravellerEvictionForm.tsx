@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "framer-motion";
 
 /** ===== THEME (dark V3; no blue anywhere) ===== */
@@ -246,22 +247,6 @@ const ReportSchema = z.object({
 
 type ReportValues = z.infer<typeof ReportSchema>;
 
-// Local zod resolver to avoid version mismatch with @hookform/resolvers
-const createZodResolver = (schema: z.ZodTypeAny) => async (values: any) => {
-  const result = schema.safeParse(values);
-  if (result.success) {
-    return { values: result.data, errors: {} };
-  }
-  const fieldErrors: Record<string, any> = {};
-  for (const issue of result.error.issues) {
-    const path = issue.path.join(".");
-    // Only set first error per field
-    if (!fieldErrors[path]) {
-      fieldErrors[path] = { type: issue.code, message: issue.message };
-    }
-  }
-  return { values: {}, errors: fieldErrors };
-};
 
 /** ===== Small reusable StarBorder ===== */
 function StarBorder({
@@ -360,7 +345,7 @@ function CountSelect({ name, label, required = false }) {
 /** ===== Main component ===== */
 export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmit, onCancel }) {
   const form = useForm<ReportValues>({
-    resolver: createZodResolver(ReportSchema),
+    resolver: zodResolver(ReportSchema) as any,
     defaultValues: {
       client: "",
       address1: "",
