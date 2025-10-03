@@ -575,7 +575,12 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
   useEffect(() => {
     const onScroll = () => {
       const d = document.documentElement;
-      setProgress(window.scrollY / (d.scrollHeight - window.innerHeight || 1));
+      const scrollY = window.scrollY;
+      const scrollHeight = d.scrollHeight;
+      const innerHeight = window.innerHeight;
+      const newProgress = scrollY / (scrollHeight - innerHeight || 1);
+      console.log('Scroll:', { scrollY, scrollHeight, innerHeight, progress: newProgress });
+      setProgress(newProgress);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
