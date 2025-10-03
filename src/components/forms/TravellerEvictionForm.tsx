@@ -575,11 +575,25 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
   useEffect(() => {
     const onScroll = () => {
       const d = document.documentElement;
-      setProgress(window.scrollY / (d.scrollHeight - window.innerHeight || 1));
+      const scrollTop = window.scrollY || window.pageYOffset || d.scrollTop;
+      const scrollHeight = d.scrollHeight;
+      const clientHeight = window.innerHeight || d.clientHeight;
+      const scrollPercent = scrollTop / (scrollHeight - clientHeight || 1);
+      setProgress(scrollPercent);
     };
+
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+
+    // Initial calculation and recalculate after content loads
     onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
+    const timer = setTimeout(onScroll, 100);
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      clearTimeout(timer);
+    };
   }, []);
 
   const onSubmit = async (data) => {
