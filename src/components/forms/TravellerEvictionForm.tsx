@@ -246,33 +246,6 @@ const ReportSchema = z.object({
 
 type ReportValues = z.infer<typeof ReportSchema>;
 
-// Custom zod resolver compatible with Zod v4
-const zodResolver = (schema: z.ZodType<any, any, any>) => {
-  return async (values: any, _context: any, _options: any) => {
-    try {
-      const result = await schema.parseAsync(values);
-      return { values: result, errors: {} };
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return {
-          values: {},
-          errors: error.issues.reduce((acc: any, err: any) => {
-            const path = err.path.join('.');
-            if (!acc[path]) {
-              acc[path] = {
-                type: err.code,
-                message: err.message,
-              };
-            }
-            return acc;
-          }, {} as Record<string, any>),
-        };
-      }
-      throw error;
-    }
-  };
-};
-
 /** ===== Small reusable StarBorder ===== */
 function StarBorder({
   as: As = "div",
@@ -370,7 +343,7 @@ function CountSelect({ name, label, required = false }) {
 /** ===== Main component ===== */
 export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmit, onCancel }) {
   const form = useForm<ReportValues>({
-    resolver: zodResolver(ReportSchema),
+    // resolver: zodResolver(ReportSchema),
     defaultValues: {
       client: "",
       address1: "",
