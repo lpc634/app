@@ -2635,10 +2635,14 @@ def submit_v3_report():
         from src.models.v3_report import V3JobReport
 
         current_user_id = int(get_jwt_identity())
-        agent = User.query.get(current_user_id)
+        user = User.query.get(current_user_id)
 
-        if not agent or agent.role != 'agent':
-            return jsonify({'error': 'Access denied. Agent role required.'}), 403
+        if not user:
+            return jsonify({'error': 'User not found'}), 401
+
+        # Allow both agents and admins to submit reports
+        if user.role not in ['agent', 'admin', 'manager']:
+            return jsonify({'error': 'Access denied. Agent or admin role required.'}), 403
 
         data = request.get_json() or {}
         job_id = data.get('job_id')
@@ -2665,22 +2669,24 @@ def submit_v3_report():
             if not job:
                 return jsonify({'error': 'Job not found'}), 404
 
-            # Optionally verify agent assignment
-            assignment = JobAssignment.query.filter_by(
-                job_id=job.id,
-                agent_id=agent.id,
-                status='accepted'
-            ).first()
+            # For admins, skip assignment verification
+            # For agents, optionally verify assignment
+            if user.role == 'agent':
+                assignment = JobAssignment.query.filter_by(
+                    job_id=job.id,
+                    agent_id=user.id,
+                    status='accepted'
+                ).first()
 
-            # Note: We're being lenient here - allowing reports even if not strictly assigned
-            # You can enforce this by uncommenting the following:
-            # if not assignment:
-            #     return jsonify({'error': 'You are not assigned to this job'}), 403
+                # Note: We're being lenient here - allowing reports even if not strictly assigned
+                # You can enforce this by uncommenting the following:
+                # if not assignment:
+                #     return jsonify({'error': 'You are not assigned to this job'}), 403
 
         # Create the V3 report
         v3_report = V3JobReport(
             job_id=job.id if job else None,
-            agent_id=agent.id,
+            agent_id=user.id,  # This stores the user who submitted (agent or admin)
             form_type=form_type,
             status='submitted',
             report_data=report_data,
@@ -2689,12 +2695,12 @@ def submit_v3_report():
 
         db.session.add(v3_report)
 
-        # Update job report status if it's a real job
-        if job and job_id != 'MANUAL':
+        # Update job report status if it's a real job and submitted by agent
+        if job and job_id != 'MANUAL' and user.role == 'agent':
             # Mark the job report as submitted by updating JobAssignment or Job status
             assignment = JobAssignment.query.filter_by(
                 job_id=job.id,
-                agent_id=agent.id
+                agent_id=user.id
             ).first()
 
             if assignment:
@@ -2705,7 +2711,8 @@ def submit_v3_report():
         db.session.commit()
 
         # Send notification to admin
-        agent_name = f"{agent.first_name} {agent.last_name}".strip()
+        user_name = f"{user.first_name} {user.last_name}".strip()
+        user_role_label = "Admin" if user.role in ['admin', 'manager'] else "Agent"
 
         # Map form types to readable names
         form_type_names = {
@@ -2719,7 +2726,7 @@ def submit_v3_report():
         notification_parts = [
             "📝 <b>V3 Job Report Submitted</b>",
             "",
-            f"<b>Agent:</b> {agent_name}",
+            f"<b>Submitted by:</b> {user_name} ({user_role_label})",
             f"<b>Report Type:</b> {form_name}",
         ]
 
