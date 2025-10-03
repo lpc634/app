@@ -88,7 +88,7 @@ export function JobSelect({ control, name, label = "Job", placeholder = "Search 
         <SelectTrigger className="w-full">
           <SelectValue placeholder={loading ? "Loading…" : "Select a job"} />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="z-[9999]">
           {options.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               {option.label}
