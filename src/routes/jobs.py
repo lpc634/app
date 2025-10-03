@@ -1580,7 +1580,7 @@ def debug_agent_availability(agent_id):
 
 
 # === Job Search Endpoint for Admin Forms ===
-@jobs_bp.route('/search', methods=['GET'])
+@jobs_bp.route('/jobs/search', methods=['GET'])
 @jwt_required()
 def search_jobs():
     """Search jobs for admin form selection. Returns paginated results."""

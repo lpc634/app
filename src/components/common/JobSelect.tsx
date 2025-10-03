@@ -25,20 +25,29 @@ export function JobSelect({ control, name, label = "Job", placeholder = "Select 
       setLoading(true);
       try {
         if (user?.role === 'agent') {
+          console.log("🔍 Loading agent jobs...");
           const res = await apiCall(`/agent/jobs/completed`);
+          console.log("✅ Agent jobs response:", res);
+          console.log("📊 Number of agent jobs:", res.jobs?.length);
           setOptions(res.jobs.map((j: any) => ({
             value: String(j.id),
             label: j.address || j.title || `Job #${j.id}`
           })));
         } else {
+          console.log("🔍 Loading admin jobs from /jobs/search?limit=100");
           const res = await apiCall(`/jobs/search?limit=100`);
-          setOptions(res.items.map((j: any) => ({
+          console.log("✅ Admin jobs response:", res);
+          console.log("📊 Number of admin jobs:", res.items?.length);
+          console.log("📋 Full items array:", res.items);
+          const mappedOptions = res.items.map((j: any) => ({
             value: String(j.id),
             label: j.reference || j.address || j.site_name || `Job #${j.id}`
-          })));
+          }));
+          console.log("🎯 Mapped options:", mappedOptions);
+          setOptions(mappedOptions);
         }
       } catch (error) {
-        console.error("Failed to fetch jobs:", error);
+        console.error("❌ Failed to fetch jobs:", error);
         setOptions([]);
       } finally {
         setLoading(false);
