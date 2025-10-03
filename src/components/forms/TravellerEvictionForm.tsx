@@ -344,6 +344,7 @@ function CountSelect({ name, label, required = false }) {
 export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmit, onCancel }) {
   const form = useForm<ReportValues>({
     // resolver: zodResolver(ReportSchema),
+    mode: 'onSubmit', // Only validate on submit
     defaultValues: {
       client: "",
       address1: "",
@@ -499,7 +500,6 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
       departure_time: "",
       completion_date: "",
     },
-    mode: "onBlur",
   });
 
   const {

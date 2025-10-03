@@ -125,9 +125,13 @@ const V3JobReports = () => {
           formData.append('photos', photo);
         });
 
-        // Upload photos to S3
+        // Upload photos to S3 (use admin or agent endpoint based on role)
+        const uploadEndpoint = (user?.role === 'admin' || user?.role === 'manager')
+          ? '/admin/v3-reports/upload-photos'
+          : '/agent/v3-reports/upload-photos';
+
         try {
-          const uploadResponse = await fetch('/api/agent/v3-reports/upload-photos', {
+          const uploadResponse = await fetch(uploadEndpoint, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -151,8 +155,12 @@ const V3JobReports = () => {
         }
       }
 
-      // Submit the form data to the backend
-      const response = await apiCall('/agent/v3-reports/submit', {
+      // Submit the form data to the backend (use admin or agent endpoint based on role)
+      const submitEndpoint = (user?.role === 'admin' || user?.role === 'manager')
+        ? '/admin/v3-reports/submit'
+        : '/agent/v3-reports/submit';
+
+      const response = await apiCall(submitEndpoint, {
         method: 'POST',
         body: JSON.stringify({
           job_id: selectedJob.id,
