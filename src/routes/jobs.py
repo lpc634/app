@@ -1612,6 +1612,8 @@ def search_jobs():
 
         # Base query
         q = Job.query
+        # Filter to only open jobs (exclude completed)
+        q = q.filter(Job.status != 'completed')
         if search_filter is not None:
             q = q.filter(search_filter)
 
