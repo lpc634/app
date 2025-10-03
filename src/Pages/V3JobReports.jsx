@@ -283,7 +283,7 @@ const V3JobReports = () => {
               </Card>
             )}
 
-            {/* React to job selection */}
+            {/* React to job selection for agents */}
             {watchedJobId && user?.role === 'agent' && (
               (() => {
                 const job = completedJobs.find(j => String(j.id) === String(watchedJobId));
@@ -295,61 +295,61 @@ const V3JobReports = () => {
               })()
             )}
 
-                  {selectedJob && selectedJob.id !== 'MANUAL' && (
-                    <div className="p-4 bg-v3-bg-dark border border-v3-orange/30 rounded-lg">
-                      <h4 className="font-semibold text-v3-text-lightest mb-2">Selected Job:</h4>
-                      <p className="text-v3-text-light"><strong>Address:</strong> {selectedJob.address}</p>
-                      <p className="text-v3-text-light"><strong>Type:</strong> {selectedJob.jobType || selectedJob.job_type}</p>
-                      <p className="text-v3-text-light"><strong>Date:</strong> {new Date(selectedJob.arrival_time).toLocaleString()}</p>
+            {/* React to job selection for admins */}
+            {watchedJobId && (user?.role === 'admin' || user?.role === 'manager') && (
+              (() => {
+                // For admins, fetch job details and open form modal
+                const fetchJobAndOpenModal = async () => {
+                  try {
+                    const job = await apiCall(`/jobs/${watchedJobId}`);
+                    const formattedJob = {
+                      id: job.id,
+                      title: job.reference || job.address,
+                      address: job.address || job.site_name,
+                      jobType: job.job_type || 'Traveller Eviction',
+                      arrival_time: job.created_at,
+                      agentName: `${user?.first_name} ${user?.last_name}`
+                    };
+                    if (!selectedJob || selectedJob.id !== formattedJob.id) {
+                      setTimeout(() => handleSelectJob(formattedJob), 0);
+                    }
+                  } catch (error) {
+                    console.error('Failed to fetch job details:', error);
+                    toast.error('Failed to load job details');
+                  }
+                };
+                fetchJobAndOpenModal();
+                return null;
+              })()
+            )}
 
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-v3-text-light mb-2">
-                          Select Form Type for this Job
-                        </label>
-                        <select
-                          value={selectedFormType}
-                          onChange={(e) => {
-                            const formType = e.target.value;
-                            if (formType) {
-                              setSelectedFormType(formType);
-                              setShowFormModal(true);
-                            }
-                          }}
-                          className="w-full p-3 bg-v3-bg-dark border border-v3-border rounded-md text-v3-text-lightest focus:border-v3-orange focus:outline-none cursor-pointer"
-                        >
-                          <option value="">-- Select a form type --</option>
-                          {Object.entries(V3_FORM_TYPES).map(([key, config]) => (
-                            <option key={key} value={key}>
-                              {config.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+            {/* Job Selection for Admins */}
+            {(user?.role === 'admin' || user?.role === 'manager') && (
+              <Card className="dashboard-card border-v3-orange/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Briefcase size={20} className="text-v3-orange" />
+                    Report for a Job
+                  </CardTitle>
+                  <CardDescription>
+                    Search and select an open job to create a report.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormProvider {...methods}>
+                    <div className="space-y-2">
+                      <JobSelect
+                        control={methods.control}
+                        name="job_id"
+                        label="Select Job"
+                        placeholder="Search open jobs…"
+                        disabled={false}
+                      />
                     </div>
-                  )}
-
-
-            {/* Start New Form */}
-            <Card className="dashboard-card border-v3-border/30">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus size={20} className="text-v3-text-muted" />
-                  Start New Form
-                </CardTitle>
-                <CardDescription>
-                  Create a new form report linked to a specific job.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  onClick={() => setShowAdminStartModal(true)}
-                  className="w-full button-primary flex items-center gap-2"
-                >
-                  <FileText size={16} />
-                  Start Form
-                </Button>
-              </CardContent>
-            </Card>
+                  </FormProvider>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Pending Reports - Only show for agents */}
             {user?.role === 'agent' && (
