@@ -33,7 +33,9 @@ import {
   Navigation,
   ExternalLink,
   X,
-  FileText
+  FileText,
+  Image as ImageIcon,
+  Download
 } from 'lucide-react';
 import '../styles/admin/jobs.css';
 
@@ -67,6 +69,8 @@ export default function JobManagement() {
   const [jobAgents, setJobAgents] = useState([])
   const [jobInvoices, setJobInvoices] = useState([])
   const [jobV3Reports, setJobV3Reports] = useState([])
+  const [jobPhotos, setJobPhotos] = useState([])
+  const [selectedPhoto, setSelectedPhoto] = useState(null)
   const [selectedReport, setSelectedReport] = useState(null)
   const [showReportViewer, setShowReportViewer] = useState(false)
   const [loadingDetails, setLoadingDetails] = useState(false)
@@ -390,10 +394,30 @@ export default function JobManagement() {
       // Fetch V3 job reports
       try {
         const reportsResponse = await apiCall(`/admin/jobs/${jobId}/v3-reports`)
-        setJobV3Reports(reportsResponse.reports || [])
+        const reports = reportsResponse.reports || []
+        setJobV3Reports(reports)
+
+        // Extract all photos from all reports
+        const allPhotos = []
+        reports.forEach((report) => {
+          if (report.photo_urls && Array.isArray(report.photo_urls)) {
+            report.photo_urls.forEach((url) => {
+              allPhotos.push({
+                url: url,
+                reportId: report.id,
+                reportType: report.form_type,
+                submittedBy: report.agent_name,
+                submittedAt: report.submitted_at,
+                index: allPhotos.length
+              })
+            })
+          }
+        })
+        setJobPhotos(allPhotos)
       } catch (error) {
         console.error('Failed to fetch V3 reports:', error)
         setJobV3Reports([])
+        setJobPhotos([])
       }
     } catch (error) {
       toast.error('Failed to load job details')
@@ -1219,6 +1243,109 @@ export default function JobManagement() {
                   </div>
                 </div>
 
+                {/* Job Photos - Full Width */}
+                {jobPhotos.length > 0 && (
+                  <div className="job-modal__photos" style={{ gridColumn: '1 / -1' }}>
+                    <div className="job-modal__card">
+                      <h3 className="job-modal__card-title">
+                        <ImageIcon />
+                        Job Photos
+                        <span style={{ marginLeft: 'auto', fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--v3-text-muted)' }}>
+                          {jobPhotos.length} photo{jobPhotos.length !== 1 ? 's' : ''} from reports
+                        </span>
+                        <Button
+                          onClick={() => {
+                            jobPhotos.forEach((photo, index) => {
+                              setTimeout(() => {
+                                const link = document.createElement('a')
+                                link.href = photo.url
+                                link.download = `job-${selectedJob.id}-photo-${index + 1}.jpg`
+                                link.target = '_blank'
+                                document.body.appendChild(link)
+                                link.click()
+                                document.body.removeChild(link)
+                              }, index * 500)
+                            })
+                          }}
+                          size="sm"
+                          variant="outline"
+                          style={{ marginLeft: '1rem', fontSize: '0.75rem' }}
+                        >
+                          <Download size={14} style={{ marginRight: '0.25rem' }} />
+                          Download All
+                        </Button>
+                      </h3>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                        gap: '1rem',
+                        padding: '1rem 0'
+                      }}>
+                        {jobPhotos.map((photo) => (
+                          <div
+                            key={photo.index}
+                            style={{
+                              position: 'relative',
+                              cursor: 'pointer',
+                              borderRadius: '0.5rem',
+                              overflow: 'hidden',
+                              aspectRatio: '1',
+                              border: '2px solid var(--v3-border)',
+                              transition: 'border-color 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = 'var(--v3-orange)'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = 'var(--v3-border)'
+                            }}
+                            onClick={() => setSelectedPhoto(photo)}
+                          >
+                            <img
+                              src={photo.url}
+                              alt={`Job photo ${photo.index + 1}`}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                              }}
+                              loading="lazy"
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const link = document.createElement('a')
+                                link.href = photo.url
+                                link.download = `job-${selectedJob.id}-photo-${photo.index + 1}.jpg`
+                                link.target = '_blank'
+                                document.body.appendChild(link)
+                                link.click()
+                                document.body.removeChild(link)
+                              }}
+                              style={{
+                                position: 'absolute',
+                                top: '0.5rem',
+                                right: '0.5rem',
+                                padding: '0.375rem',
+                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                cursor: 'pointer',
+                                opacity: 0,
+                                transition: 'opacity 0.2s'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.opacity = '1' }}
+                              className="photo-download-btn"
+                            >
+                              <Download size={14} color="white" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Notes/Activity - Full Width Bottom */}
                 <div className="job-modal__notes">
                   <div className="job-modal__card">
@@ -1249,6 +1376,105 @@ export default function JobManagement() {
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Photo Lightbox Modal */}
+      {selectedPhoto && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.95)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <button
+            onClick={() => setSelectedPhoto(null)}
+            style={{
+              position: 'absolute',
+              top: '1rem',
+              right: '1rem',
+              padding: '0.5rem',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              border: 'none',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)' }}
+          >
+            <X size={24} color="white" />
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              const link = document.createElement('a')
+              link.href = selectedPhoto.url
+              link.download = `job-${selectedJob.id}-photo-${selectedPhoto.index + 1}.jpg`
+              link.target = '_blank'
+              document.body.appendChild(link)
+              link.click()
+              document.body.removeChild(link)
+            }}
+            style={{
+              position: 'absolute',
+              top: '1rem',
+              left: '1rem',
+              padding: '0.5rem 1rem',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: 'white',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)' }}
+          >
+            <Download size={20} />
+            <span style={{ fontSize: '0.875rem' }}>Download</span>
+          </button>
+
+          <div style={{ maxWidth: '90vw', maxHeight: '90vh' }} onClick={(e) => e.stopPropagation()}>
+            <img
+              src={selectedPhoto.url}
+              alt={`Job photo ${selectedPhoto.index + 1}`}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                borderRadius: '0.5rem'
+              }}
+            />
+            <div style={{
+              marginTop: '1rem',
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              borderRadius: '0.5rem',
+              padding: '1rem',
+              color: 'white'
+            }}>
+              <p style={{ fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                <strong>Submitted by:</strong> {selectedPhoto.submittedBy}
+              </p>
+              <p style={{ fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                <strong>Report Type:</strong> {selectedPhoto.reportType?.replace(/_/g, ' ')}
+              </p>
+              <p style={{ fontSize: '0.875rem' }}>
+                <strong>Date:</strong> {new Date(selectedPhoto.submittedAt).toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Report Viewer Modal */}
