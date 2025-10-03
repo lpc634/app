@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useForm, FormProvider } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, FileText } from "lucide-react";
@@ -16,6 +15,22 @@ const formStartSchema = z.object({
 
 type FormStartData = z.infer<typeof formStartSchema>;
 
+// Local zod resolver to avoid version mismatch with @hookform/resolvers
+const createZodResolver = (schema: z.ZodTypeAny) => async (values: any) => {
+  const result = schema.safeParse(values);
+  if (result.success) {
+    return { values: result.data, errors: {} };
+  }
+  const fieldErrors: Record<string, any> = {};
+  for (const issue of result.error.issues) {
+    const path = issue.path.join(".");
+    if (!fieldErrors[path]) {
+      fieldErrors[path] = { type: issue.code, message: issue.message };
+    }
+  }
+  return { values: {}, errors: fieldErrors };
+};
+
 interface AdminFormStartModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,7 +41,7 @@ export function AdminFormStartModal({ isOpen, onClose, defaultJob }: AdminFormSt
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const methods = useForm<FormStartData>({
-    resolver: zodResolver(formStartSchema),
+    resolver: createZodResolver(formStartSchema),
     defaultValues: {
       job_id: defaultJob?.id || "",
       template_id: "traveller_eviction", // Default form type
