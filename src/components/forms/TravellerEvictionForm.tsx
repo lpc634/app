@@ -666,8 +666,13 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
   };
 
   const onError = (errors) => {
-    console.log("VALIDATION ERRORS:", errors);
-    alert("Please fill in all required fields");
+    console.log("❌ VALIDATION ERRORS:", errors);
+    console.log("❌ Error count:", Object.keys(errors).length);
+    console.log("❌ First few errors:", Object.entries(errors).slice(0, 5));
+
+    // Show a more helpful error message
+    const errorFields = Object.keys(errors).slice(0, 3).join(', ');
+    alert(`Please fix validation errors in: ${errorFields}${Object.keys(errors).length > 3 ? '...' : ''}`);
   };
 
   // toggles
