@@ -1590,8 +1590,8 @@ def search_jobs():
         if not user:
             return jsonify({"error": "Unauthorized"}), 401
 
-        # Only admins can search jobs for forms (agents should use their assigned jobs)
-        if user.role != 'admin':
+        # Only admins and managers can search jobs for forms (agents should use their assigned jobs)
+        if user.role not in ['admin', 'manager']:
             return jsonify({"error": "Access denied"}), 403
 
         query = request.args.get('q', '').strip()
@@ -1653,5 +1653,7 @@ def search_jobs():
         })
 
     except Exception as e:
+        import traceback
         logger.error(f"Error searching jobs: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
