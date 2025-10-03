@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useController, Control } from "react-hook-form";
 import { useAuth } from "@/useAuth.jsx";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function debounce<T extends (...args: any[]) => void>(fn: T, wait = 300) {
   let t: ReturnType<typeof setTimeout> | undefined;
@@ -56,34 +58,34 @@ export function JobSelect({ control, name, label = "Job", placeholder = "Search 
   };
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2">
       <label className="text-sm font-medium text-v3-text">
         {label}<span className="text-red-500 ml-1">*</span>
       </label>
-      <input
+      <Input
         type="text"
-        className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-3 py-2 text-sm text-v3-text placeholder-v3-text-muted focus:outline-none focus:ring-2 focus:ring-v3-orange focus:border-v3-orange"
         placeholder={placeholder}
         value={query}
         onChange={handleSearchChange}
         disabled={disabled}
+        className="text-sm"
       />
-      <select
-        className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-3 py-2 text-sm text-v3-text focus:outline-none focus:ring-2 focus:ring-v3-orange focus:border-v3-orange"
+      <Select
         value={field.value || ""}
-        onChange={(e) => field.onChange(e.target.value)}
-        onBlur={field.onBlur}
+        onValueChange={(v) => field.onChange(v)}
         disabled={disabled || loading}
       >
-        <option value="" disabled>
-          {loading ? "Loading…" : "Select a job"}
-        </option>
-        {options.map(option => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder={loading ? "Loading…" : "Select a job"} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {fieldState.error && (
         <p className="text-xs text-red-500">{fieldState.error.message}</p>
       )}
