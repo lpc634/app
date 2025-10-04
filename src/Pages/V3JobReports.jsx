@@ -130,8 +130,12 @@ const V3JobReports = () => {
           ? '/admin/v3-reports/upload-photos'
           : '/agent/v3-reports/upload-photos';
 
+        const API_BASE_URL = import.meta.env.PROD
+          ? 'https://v3-app-49c3d1eff914.herokuapp.com/api'
+          : 'http://localhost:5001/api';
+
         try {
-          const uploadResponse = await fetch(uploadEndpoint, {
+          const uploadResponse = await fetch(`${API_BASE_URL}${uploadEndpoint}`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`
