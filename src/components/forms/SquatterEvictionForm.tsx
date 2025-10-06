@@ -115,12 +115,12 @@ const schema = z.object({
   day7_enabled: z.boolean().default(false),
 
   // Day agent parity toggles
-  day2_same_agents: z.boolean().default(false),
-  day3_same_agents: z.boolean().default(false),
-  day4_same_agents: z.boolean().default(false),
-  day5_same_agents: z.boolean().default(false),
-  day6_same_agents: z.boolean().default(false),
-  day7_same_agents: z.boolean().default(false),
+  day2_same_agents: z.boolean().default(true),
+  day3_same_agents: z.boolean().default(true),
+  day4_same_agents: z.boolean().default(true),
+  day5_same_agents: z.boolean().default(true),
+  day6_same_agents: z.boolean().default(true),
+  day7_same_agents: z.boolean().default(true),
 
   // Agent fields per additional day (optional)
   day2_lead_agent: z.string().optional(), day2_a2: z.string().optional(), day2_a3: z.string().optional(), day2_a4: z.string().optional(), day2_a5: z.string().optional(), day2_a6: z.string().optional(), day2_a7: z.string().optional(), day2_a8: z.string().optional(), day2_a9: z.string().optional(), day2_a10: z.string().optional(),
@@ -576,6 +576,7 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
           <section className="dashboard-card" style={{ padding: 24 }}>
             <div className="h2" style={{ marginBottom: 8 }}>Day 3?</div>
             <div style={{ marginBottom: 12 }}>
+              {/* Only render the Day 3 pill if Day 2 is enabled */}
               <YesNo name="day3_enabled" label="Yes/No" />
             </div>
             <AnimatePresence initial={false}>
