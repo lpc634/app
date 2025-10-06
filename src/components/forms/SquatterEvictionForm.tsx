@@ -26,18 +26,13 @@ const THEME_CSS = String.raw`
 .v3-textarea{ width:100%; background:var(--v3-bg-dark); border:1px solid var(--v3-border); color:var(--v3-text); border-radius:10px; padding:10px 12px }
 .v3-textarea:focus{ outline:none; box-shadow:0 0 0 3px var(--v3-orange-glow); border-color:var(--v3-orange) }
 /* StarBorder */
-.sb{ position:relative; border-radius:20px; padding:2px; isolation:isolate }
-.sb::before{ content:""; position:absolute; inset:0; border-radius:inherit; padding:2px; background:
-  radial-gradient(2px 2px at 15% 30%, rgba(255,106,43,.9), transparent 45%),
-  radial-gradient(1.5px 1.5px at 70% 60%, rgba(255,255,255,.85), transparent 45%),
-  radial-gradient(1.8px 1.8px at 40% 80%, rgba(255,106,43,.9), transparent 45%),
-  radial-gradient(1.2px 1.2px at 85% 20%, rgba(255,255,255,.85), transparent 45%),
-  linear-gradient(180deg, rgba(255,106,43,.6), rgba(255,106,43,.12));
-  background-size:200% 200%; animation: sb-move 8s linear infinite, sb-twinkle 2.2s ease-in-out infinite alternate;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude }
-.sb > .sb-inner{ border-radius:18px; background:rgba(17,17,20,.68); backdrop-filter:blur(8px); border:1px solid var(--v3-border); padding:12px }
-@keyframes sb-move{ 0%{ background-position:0% 0% } 100%{ background-position:200% 200% } }
-@keyframes sb-twinkle{ from{ opacity:.9 } to{ opacity:1 } }
+.star-border-container{ display:block; position:relative; border-radius:20px; overflow:hidden; width:100% }
+.border-gradient-bottom{ position:absolute; width:300%; height:50%; opacity:.7; bottom:-12px; right:-250%; border-radius:50%; animation:star-movement-bottom linear infinite alternate; z-index:0 }
+.border-gradient-top{ position:absolute; width:300%; height:50%; opacity:.7; top:-12px; left:-250%; border-radius:50%; animation:star-movement-top linear infinite alternate; z-index:0 }
+.inner-content{ position:relative; border:1px solid var(--v3-border); background:rgba(17,17,20,.6); backdrop-filter:blur(8px); color:var(--v3-text); font-size:16px; padding:12px 14px; border-radius:20px; z-index:1 }
+.star-border-container .inner-content{ box-shadow: inset 0 0 0 1px var(--v3-orange) }
+@keyframes star-movement-bottom{ 0%{transform:translate(0,0);opacity:1} 100%{transform:translate(-100%,0);opacity:0} }
+@keyframes star-movement-top{ 0%{transform:translate(0,0);opacity:1} 100%{transform:translate(100%,0);opacity:0} }
 /* Yes/No pills — orange dot only */
 .yn{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
 .yn label{ display:flex; align-items:center; gap:8px; padding:8px 12px; border:1px solid var(--v3-border); border-radius:10px; background:var(--v3-bg-card); cursor:pointer; transition: background-color 180ms ease }
@@ -123,6 +118,31 @@ const schema = z.object({
 });
 
 /** =====================
+ *  StarBorder Component
+ *  ===================== */
+function StarBorder({ color = "white", speed = "8s", thickness = 1, children }) {
+  return (
+    <div className="star-border-container" style={{ padding: `${thickness}px 0` }}>
+      <div
+        className="border-gradient-bottom"
+        style={{
+          background: `radial-gradient(circle, ${color}, transparent 10%)`,
+          animationDuration: speed,
+        }}
+      />
+      <div
+        className="border-gradient-top"
+        style={{
+          background: `radial-gradient(circle, ${color}, transparent 10%)`,
+          animationDuration: speed,
+        }}
+      />
+      <div className="inner-content">{children}</div>
+    </div>
+  );
+}
+
+/** =====================
  *  Small helpers
  *  ===================== */
 function Field({ label, required=false, children }){
@@ -175,22 +195,51 @@ function PhotoTile({ value, onChange }){
 /** =====================
  *  Main component
  *  ===================== */
-export default function SquatterEvictionForm(){
+export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit, onCancel }){
   const methods = useForm({ resolver: zodResolver(schema), defaultValues:{
     more_than_10:false, need_more_entries:false, need_more_photos:false,
     prior_notice_served:false, locked_in:false, property_damage:false, aggressive:false, dogs_on_site:false, police_attendance:false,
   }});
   const { register, handleSubmit, watch, setValue } = methods;
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Progress bar - find scrollable container
   const [progress, setProgress] = useState(0);
-  useEffect(()=>{
-    const onScroll = ()=>{
-      const d = document.documentElement; const total = (d.scrollHeight - window.innerHeight) || 1;
-      setProgress(Math.min(1, Math.max(0, window.scrollY/total)));
+  const formRef = React.useRef(null);
+
+  useEffect(() => {
+    // Find the scrollable parent container (the modal's overflow-y-auto div)
+    const findScrollableParent = (element) => {
+      if (!element) return null;
+      const parent = element.parentElement;
+      if (!parent) return null;
+
+      const hasOverflow = getComputedStyle(parent).overflowY;
+      if (hasOverflow === 'auto' || hasOverflow === 'scroll') {
+        return parent;
+      }
+      return findScrollableParent(parent);
     };
-    window.addEventListener('scroll', onScroll, { passive:true }); onScroll();
-    return ()=> window.removeEventListener('scroll', onScroll);
-  },[]);
+
+    const scrollContainer = findScrollableParent(formRef.current) || window;
+
+    const onScroll = () => {
+      if (scrollContainer === window) {
+        const d = document.documentElement;
+        setProgress(window.scrollY / (d.scrollHeight - window.innerHeight || 1));
+      } else {
+        // Calculate progress for container scroll
+        const scrollTop = scrollContainer.scrollTop;
+        const scrollHeight = scrollContainer.scrollHeight;
+        const clientHeight = scrollContainer.clientHeight;
+        setProgress(scrollTop / (scrollHeight - clientHeight || 1));
+      }
+    };
+
+    scrollContainer.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => scrollContainer.removeEventListener("scroll", onScroll);
+  }, []);
 
   // toggles
   const moreAgents = watch('more_than_10');
@@ -214,19 +263,63 @@ export default function SquatterEvictionForm(){
   return (
     <FormProvider {...methods}>
       <style>{THEME_CSS}</style>
-      <div className="dark v3-root">
+      <form ref={formRef} onSubmit={handleSubmit(onSubmit)} className="dark v3-root">
         {/* Sticky StarBorder header */}
-        <div className="page-shell" style={{ position:'sticky', top:0, zIndex:50, paddingBottom:12, backdropFilter:'blur(4px)' }}>
-          <div className="sb">
-            <div className="sb-inner">
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <div className="h1" style={{ textAlign:'center' }}>Squatter Eviction Form</div>
+        <div className="page-shell" style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 40,
+          paddingBottom: 14,
+          background: 'var(--v3-bg-darkest)',
+          backdropFilter: 'blur(8px)'
+        }}>
+          <StarBorder color="var(--v3-orange)" speed="8s" thickness={2}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%'
+            }}>
+              <div style={{ width: '40px' }} />
+              <div className="h1" style={{ textAlign: 'center', flex: 1 }}>
+                Squatter Eviction Form
               </div>
-              <div className="progress-rail" style={{ marginTop:10 }}>
-                <div className="progress-bar" style={{ width:`${Math.round(progress*100)}%` }} />
-              </div>
+              {onCancel && (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(239, 68, 68, 0.9)',
+                    border: '1px solid rgba(239, 68, 68, 0.5)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 1)';
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.9)';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                >
+                  ×
+                </button>
+              )}
             </div>
-          </div>
+            <div className="progress-rail" style={{ marginTop: 10 }}>
+              <div className="progress-bar" style={{ width: `${Math.round(progress * 100)}%` }} />
+            </div>
+          </StarBorder>
         </div>
 
         <div className="page-shell" style={{ display:'grid', gap:24 }}>
@@ -451,7 +544,7 @@ export default function SquatterEvictionForm(){
             </div>
           </section>
         </div>
-      </div>
+      </form>
     </FormProvider>
   );
 }
