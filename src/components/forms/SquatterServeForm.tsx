@@ -122,7 +122,6 @@ const schema = z.object({
   postcode: z.string().min(1),
   date: z.string().min(1),
   arrival_time: z.string().min(1),
-  what3words: z.string().min(1),
   lead_agent: z.string().min(1),
   agent2: z.string().optional(),
   property_condition: z.string().min(1),
@@ -252,7 +251,6 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
       postcode: "",
       date: new Date().toISOString().split('T')[0],
       arrival_time: jobData?.arrival_time ? new Date(jobData.arrival_time).toTimeString().slice(0, 5) : "",
-      what3words: "",
       lead_agent: jobData?.agentName || "",
       agent2: "",
       property_condition: "",
@@ -481,22 +479,6 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
                     Arrival Time:<span className="label-star">*</span>
                   </label>
                   <TimeInput {...register("arrival_time")} />
-                </div>
-              </div>
-              <div className="row row-2">
-                <div>
-                  <label
-                    className="h2"
-                    style={{ display: "block", marginBottom: 6 }}
-                  >
-                    What3Words location of entrance
-                    <span className="label-star">*</span>
-                  </label>
-                  <input
-                    className="v3-input"
-                    placeholder="///word.word.word"
-                    {...register("what3words")}
-                  />
                 </div>
               </div>
             </div>
