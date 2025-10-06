@@ -267,16 +267,42 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
   const { register, handleSubmit, watch, setValue } = methods;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // sticky header progress like prototype
+  // sticky header progress - uses ref to find scrollable container
   const [progress, setProgress] = useState(0);
+  const formRef = React.useRef(null);
+
   useEffect(() => {
-    const onScroll = () => {
-      const d = document.documentElement;
-      setProgress(window.scrollY / (d.scrollHeight - window.innerHeight || 1));
+    // Find the scrollable parent container (the modal's overflow-y-auto div)
+    const findScrollableParent = (element) => {
+      if (!element) return null;
+      const parent = element.parentElement;
+      if (!parent) return null;
+
+      const hasOverflow = getComputedStyle(parent).overflowY;
+      if (hasOverflow === 'auto' || hasOverflow === 'scroll') {
+        return parent;
+      }
+      return findScrollableParent(parent);
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
+
+    const scrollContainer = findScrollableParent(formRef.current) || window;
+
+    const onScroll = () => {
+      if (scrollContainer === window) {
+        const d = document.documentElement;
+        setProgress(window.scrollY / (d.scrollHeight - window.innerHeight || 1));
+      } else {
+        // Calculate progress for container scroll
+        const scrollTop = scrollContainer.scrollTop;
+        const scrollHeight = scrollContainer.scrollHeight;
+        const clientHeight = scrollContainer.clientHeight;
+        setProgress(scrollTop / (scrollHeight - clientHeight || 1));
+      }
+    };
+
+    scrollContainer.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => scrollContainer.removeEventListener("scroll", onScroll);
   }, []);
 
   // photos state
@@ -312,7 +338,7 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
   return (
     <FormProvider {...methods}>
       <style>{THEME_CSS}</style>
-      <form onSubmit={handleSubmit(onSubmit)} className="dark v3-root">
+      <form ref={formRef} onSubmit={handleSubmit(onSubmit)} className="dark v3-root">
         {/* Sticky header with progress */}
         <div
           className="page-shell"
