@@ -97,6 +97,23 @@ const schema = z.object({
   ev9_text: z.string().optional(), ev9_time: z.string().optional(),
   ev10_text: z.string().optional(), ev10_time: z.string().optional(),
 
+  // Hourly timeline fields (multi-day)
+  timeline_day1: z.record(z.string().optional()),
+  timeline_day2: z.record(z.string().optional()).optional(),
+  timeline_day3: z.record(z.string().optional()).optional(),
+  timeline_day4: z.record(z.string().optional()).optional(),
+  timeline_day5: z.record(z.string().optional()).optional(),
+  timeline_day6: z.record(z.string().optional()).optional(),
+  timeline_day7: z.record(z.string().optional()).optional(),
+
+  // Day toggles
+  day2_enabled: z.boolean().default(false),
+  day3_enabled: z.boolean().default(false),
+  day4_enabled: z.boolean().default(false),
+  day5_enabled: z.boolean().default(false),
+  day6_enabled: z.boolean().default(false),
+  day7_enabled: z.boolean().default(false),
+
   // Police
   police_attendance: z.boolean().default(false),
   cad_number: z.string().optional(),
@@ -106,7 +123,7 @@ const schema = z.object({
   // Photos
   photo_of_serve: z.any(),
   need_more_photos: z.boolean().default(false),
-  p2: z.any().optional(), p3: z.any().optional(), p4: z.any().optional(), p5: z.any().optional(), p6: z.any().optional(), p7: z.any().optional(), p8: z.any().optional(), p9: z.any().optional(), p10: z.any().optional(),
+  p2: z.any().optional(), p3: z.any().optional(), p4: z.any().optional(), p5: z.any().optional(), p6: z.any().optional(), p7: z.any().optional(), p8: z.any().optional(), p9: z.any().optional(), p10: z.any().optional(), p11: z.any().optional(), p12: z.any().optional(), p13: z.any().optional(),
 
   // Footer
   additional_notes: z.string().optional(),
@@ -254,11 +271,16 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
   const dogs = watch('dogs_on_site');
   const moreEntries = watch('need_more_entries');
   const day2 = watch('day2_enabled');
+  const day3 = watch('day3_enabled');
+  const day4 = watch('day4_enabled');
+  const day5 = watch('day5_enabled');
+  const day6 = watch('day6_enabled');
+  const day7 = watch('day7_enabled');
   const morePhotos = watch('need_more_photos');
   const police = watch('police_attendance');
 
   // photo previews state
-  const [photos, setPhotos] = useState({ p0:null, p2:null, p3:null, p4:null, p5:null, p6:null, p7:null, p8:null, p9:null, p10:null });
+  const [photos, setPhotos] = useState({ p0:null, p2:null, p3:null, p4:null, p5:null, p6:null, p7:null, p8:null, p9:null, p10:null, p11:null, p12:null, p13:null });
 
   const onSubmit = (values)=>{
     console.log('Squatter Eviction Form', values);
@@ -502,17 +524,111 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
             </div>
             <AnimatePresence initial={false}>
               {day2 && (
-                <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
-                  <div className="row row-2">
-                    {Hours.map((h) => (
-                      <div key={`d2-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
-                        <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>
-                          {hourKey(h)}
-                        </div>
-                        <TextArea rows={3} {...register(`timeline_day2.${hourKey(h)}`)} />
+                <motion.div className="row row-2" initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
+                  {Hours.map((h) => (
+                    <div key={`d2-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                      <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>
+                        {hourKey(h)}
                       </div>
-                    ))}
-                  </div>
+                      <TextArea rows={3} {...register(`timeline_day2.${hourKey(h)}`)} />
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
+
+          {/* Day 3..7 chained */}
+          <section className="dashboard-card" style={{ padding: 24 }}>
+            <div className="h2" style={{ marginBottom: 8 }}>Day 3?</div>
+            <div style={{ marginBottom: 12 }}>
+              <YesNo name="day3_enabled" label="Yes/No" />
+            </div>
+            <AnimatePresence initial={false}>
+              {day2 && day3 && (
+                <motion.div className="row row-2" initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
+                  {Hours.map((h) => (
+                    <div key={`d3-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                      <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
+                      <TextArea rows={3} {...register(`timeline_day3.${hourKey(h)}`)} />
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
+
+          <section className="dashboard-card" style={{ padding: 24 }}>
+            <div className="h2" style={{ marginBottom: 8 }}>Day 4?</div>
+            <div style={{ marginBottom: 12 }}>
+              <YesNo name="day4_enabled" label="Yes/No" />
+            </div>
+            <AnimatePresence initial={false}>
+              {day3 && day4 && (
+                <motion.div className="row row-2" initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
+                  {Hours.map((h) => (
+                    <div key={`d4-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                      <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
+                      <TextArea rows={3} {...register(`timeline_day4.${hourKey(h)}`)} />
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
+
+          <section className="dashboard-card" style={{ padding: 24 }}>
+            <div className="h2" style={{ marginBottom: 8 }}>Day 5?</div>
+            <div style={{ marginBottom: 12 }}>
+              <YesNo name="day5_enabled" label="Yes/No" />
+            </div>
+            <AnimatePresence initial={false}>
+              {day4 && day5 && (
+                <motion.div className="row row-2" initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
+                  {Hours.map((h) => (
+                    <div key={`d5-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                      <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
+                      <TextArea rows={3} {...register(`timeline_day5.${hourKey(h)}`)} />
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
+
+          <section className="dashboard-card" style={{ padding: 24 }}>
+            <div className="h2" style={{ marginBottom: 8 }}>Day 6?</div>
+            <div style={{ marginBottom: 12 }}>
+              <YesNo name="day6_enabled" label="Yes/No" />
+            </div>
+            <AnimatePresence initial={false}>
+              {day5 && day6 && (
+                <motion.div className="row row-2" initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
+                  {Hours.map((h) => (
+                    <div key={`d6-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                      <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
+                      <TextArea rows={3} {...register(`timeline_day6.${hourKey(h)}`)} />
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
+
+          <section className="dashboard-card" style={{ padding: 24 }}>
+            <div className="h2" style={{ marginBottom: 8 }}>Day 7?</div>
+            <div style={{ marginBottom: 12 }}>
+              <YesNo name="day7_enabled" label="Yes/No" />
+            </div>
+            <AnimatePresence initial={false}>
+              {day6 && day7 && (
+                <motion.div className="row row-2" initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
+                  {Hours.map((h) => (
+                    <div key={`d7-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                      <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
+                      <TextArea rows={3} {...register(`timeline_day7.${hourKey(h)}`)} />
+                    </div>
+                  ))}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -559,8 +675,13 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
                   <Field label="Photo:"><PhotoTile value={photos.p8} onChange={(f)=>setPhotos(p=>({ ...p, p8:f }))} /></Field>
                   <Field label="Photo:"><PhotoTile value={photos.p9} onChange={(f)=>setPhotos(p=>({ ...p, p9:f }))} /></Field>
                 </div>
-                <div className="row" style={{marginTop:12}}>
+                <div className="row row-2" style={{marginTop:12}}>
                   <Field label="Photo:"><PhotoTile value={photos.p10} onChange={(f)=>setPhotos(p=>({ ...p, p10:f }))} /></Field>
+                  <Field label="Photo:"><PhotoTile value={photos.p11} onChange={(f)=>setPhotos(p=>({ ...p, p11:f }))} /></Field>
+                </div>
+                <div className="row row-2" style={{marginTop:12}}>
+                  <Field label="Photo:"><PhotoTile value={photos.p12} onChange={(f)=>setPhotos(p=>({ ...p, p12:f }))} /></Field>
+                  <Field label="Photo:"><PhotoTile value={photos.p13} onChange={(f)=>setPhotos(p=>({ ...p, p13:f }))} /></Field>
                 </div>
               </motion.div>
             )}</AnimatePresence>
