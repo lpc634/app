@@ -114,6 +114,22 @@ const schema = z.object({
   day6_enabled: z.boolean().default(false),
   day7_enabled: z.boolean().default(false),
 
+  // Day agent parity toggles
+  day2_same_agents: z.boolean().default(false),
+  day3_same_agents: z.boolean().default(false),
+  day4_same_agents: z.boolean().default(false),
+  day5_same_agents: z.boolean().default(false),
+  day6_same_agents: z.boolean().default(false),
+  day7_same_agents: z.boolean().default(false),
+
+  // Agent fields per additional day (optional)
+  day2_lead_agent: z.string().optional(), day2_a2: z.string().optional(), day2_a3: z.string().optional(), day2_a4: z.string().optional(), day2_a5: z.string().optional(), day2_a6: z.string().optional(), day2_a7: z.string().optional(), day2_a8: z.string().optional(), day2_a9: z.string().optional(), day2_a10: z.string().optional(),
+  day3_lead_agent: z.string().optional(), day3_a2: z.string().optional(), day3_a3: z.string().optional(), day3_a4: z.string().optional(), day3_a5: z.string().optional(), day3_a6: z.string().optional(), day3_a7: z.string().optional(), day3_a8: z.string().optional(), day3_a9: z.string().optional(), day3_a10: z.string().optional(),
+  day4_lead_agent: z.string().optional(), day4_a2: z.string().optional(), day4_a3: z.string().optional(), day4_a4: z.string().optional(), day4_a5: z.string().optional(), day4_a6: z.string().optional(), day4_a7: z.string().optional(), day4_a8: z.string().optional(), day4_a9: z.string().optional(), day4_a10: z.string().optional(),
+  day5_lead_agent: z.string().optional(), day5_a2: z.string().optional(), day5_a3: z.string().optional(), day5_a4: z.string().optional(), day5_a5: z.string().optional(), day5_a6: z.string().optional(), day5_a7: z.string().optional(), day5_a8: z.string().optional(), day5_a9: z.string().optional(), day5_a10: z.string().optional(),
+  day6_lead_agent: z.string().optional(), day6_a2: z.string().optional(), day6_a3: z.string().optional(), day6_a4: z.string().optional(), day6_a5: z.string().optional(), day6_a6: z.string().optional(), day6_a7: z.string().optional(), day6_a8: z.string().optional(), day6_a9: z.string().optional(), day6_a10: z.string().optional(),
+  day7_lead_agent: z.string().optional(), day7_a2: z.string().optional(), day7_a3: z.string().optional(), day7_a4: z.string().optional(), day7_a5: z.string().optional(), day7_a6: z.string().optional(), day7_a7: z.string().optional(), day7_a8: z.string().optional(), day7_a9: z.string().optional(), day7_a10: z.string().optional(),
+
   // Police
   police_attendance: z.boolean().default(false),
   cad_number: z.string().optional(),
@@ -186,8 +202,8 @@ function YesNo({ name, label }){
     <div style={{ marginTop: 4 }}>
       <div className="h2" style={{ fontWeight:600, marginBottom:8 }}>{label}</div>
       <div className="yn" style={{ flexWrap: 'nowrap' }}>
-        <label><input type="radio" name={name} checked={v===true} onChange={()=>setValue(name,true,{shouldDirty:true})} /><span>Yes</span></label>
-        <label><input type="radio" name={name} checked={v===false} onChange={()=>setValue(name,false,{shouldDirty:true})} /><span>No</span></label>
+      <label><input type="radio" name={name} checked={v===true} onChange={()=>setValue(name,true,{shouldDirty:true})} /><span>Yes</span></label>
+      <label><input type="radio" name={name} checked={v===false} onChange={()=>setValue(name,false,{shouldDirty:true})} /><span>No</span></label>
       </div>
     </div>
   );
@@ -463,8 +479,8 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
                   <div className="photo-grid" style={{ gridTemplateColumns: '1fr' }}>
                     <PhotoTile value={photos.p2} onChange={(f)=>setPhotos(p=>({ ...p, p2:f }))} />
                   </div>
-                  <Field label="Property Damage Details:"><TextArea rows={3} {...register('damage_details')} /></Field>
-                </motion.div>
+                <Field label="Property Damage Details:"><TextArea rows={3} {...register('damage_details')} /></Field>
+              </motion.div>
               )}
             </AnimatePresence>
 
@@ -524,15 +540,32 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
             </div>
             <AnimatePresence initial={false}>
               {day2 && (
-                <motion.div className="row row-2" initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
-                  {Hours.map((h) => (
-                    <div key={`d2-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
-                      <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>
-                        {hourKey(h)}
-                      </div>
-                      <TextArea rows={3} {...register(`timeline_day2.${hourKey(h)}`)} />
+                <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
+                  <div style={{ marginBottom: 12 }}>
+                    <YesNo name="day2_same_agents" label="Are agents the same as Day 1?" />
+                  </div>
+                  {watch('day2_same_agents') === false && (
+                    <div className="row row-2" style={{ gap: 12, marginBottom: 12 }}>
+                      <Field label="1. Lead Agent"><TextInput value={watch('day2_lead_agent')||''} onChange={(e)=>setValue('day2_lead_agent', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="2. Agent"><TextInput value={watch('day2_a2')||''} onChange={(e)=>setValue('day2_a2', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="3. Agent"><TextInput value={watch('day2_a3')||''} onChange={(e)=>setValue('day2_a3', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="4. Agent"><TextInput value={watch('day2_a4')||''} onChange={(e)=>setValue('day2_a4', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="5. Agent"><TextInput value={watch('day2_a5')||''} onChange={(e)=>setValue('day2_a5', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="6. Agent"><TextInput value={watch('day2_a6')||''} onChange={(e)=>setValue('day2_a6', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="7. Agent"><TextInput value={watch('day2_a7')||''} onChange={(e)=>setValue('day2_a7', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="8. Agent"><TextInput value={watch('day2_a8')||''} onChange={(e)=>setValue('day2_a8', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="9. Agent"><TextInput value={watch('day2_a9')||''} onChange={(e)=>setValue('day2_a9', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="10. Agent"><TextInput value={watch('day2_a10')||''} onChange={(e)=>setValue('day2_a10', e.target.value, {shouldDirty:true})} /></Field>
                     </div>
-                  ))}
+                  )}
+                  <div className="row row-2">
+                    {Hours.map((h) => (
+                      <div key={`d2-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                        <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
+                        <TextArea rows={3} {...register(`timeline_day2.${hourKey(h)}`)} />
+                      </div>
+                    ))}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -546,13 +579,32 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
             </div>
             <AnimatePresence initial={false}>
               {day2 && day3 && (
-                <motion.div className="row row-2" initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
-                  {Hours.map((h) => (
-                    <div key={`d3-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
-                      <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
-                      <TextArea rows={3} {...register(`timeline_day3.${hourKey(h)}`)} />
+                <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
+                  <div style={{ marginBottom: 12 }}>
+                    <YesNo name="day3_same_agents" label="Are agents the same as Day 2?" />
+                  </div>
+                  {watch('day3_same_agents') === false && (
+                    <div className="row row-2" style={{ gap: 12, marginBottom: 12 }}>
+                      <Field label="1. Lead Agent"><TextInput value={watch('day3_lead_agent')||''} onChange={(e)=>setValue('day3_lead_agent', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="2. Agent"><TextInput value={watch('day3_a2')||''} onChange={(e)=>setValue('day3_a2', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="3. Agent"><TextInput value={watch('day3_a3')||''} onChange={(e)=>setValue('day3_a3', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="4. Agent"><TextInput value={watch('day3_a4')||''} onChange={(e)=>setValue('day3_a4', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="5. Agent"><TextInput value={watch('day3_a5')||''} onChange={(e)=>setValue('day3_a5', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="6. Agent"><TextInput value={watch('day3_a6')||''} onChange={(e)=>setValue('day3_a6', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="7. Agent"><TextInput value={watch('day3_a7')||''} onChange={(e)=>setValue('day3_a7', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="8. Agent"><TextInput value={watch('day3_a8')||''} onChange={(e)=>setValue('day3_a8', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="9. Agent"><TextInput value={watch('day3_a9')||''} onChange={(e)=>setValue('day3_a9', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="10. Agent"><TextInput value={watch('day3_a10')||''} onChange={(e)=>setValue('day3_a10', e.target.value, {shouldDirty:true})} /></Field>
                     </div>
-                  ))}
+                  )}
+                  <div className="row row-2">
+                    {Hours.map((h) => (
+                      <div key={`d3-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                        <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
+                        <TextArea rows={3} {...register(`timeline_day3.${hourKey(h)}`)} />
+                      </div>
+                    ))}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -565,13 +617,32 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
             </div>
             <AnimatePresence initial={false}>
               {day3 && day4 && (
-                <motion.div className="row row-2" initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
-                  {Hours.map((h) => (
-                    <div key={`d4-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
-                      <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
-                      <TextArea rows={3} {...register(`timeline_day4.${hourKey(h)}`)} />
+                <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
+                  <div style={{ marginBottom: 12 }}>
+                    <YesNo name="day4_same_agents" label="Are agents the same as Day 3?" />
+                  </div>
+                  {watch('day4_same_agents') === false && (
+                    <div className="row row-2" style={{ gap: 12, marginBottom: 12 }}>
+                      <Field label="1. Lead Agent"><TextInput value={watch('day4_lead_agent')||''} onChange={(e)=>setValue('day4_lead_agent', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="2. Agent"><TextInput value={watch('day4_a2')||''} onChange={(e)=>setValue('day4_a2', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="3. Agent"><TextInput value={watch('day4_a3')||''} onChange={(e)=>setValue('day4_a3', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="4. Agent"><TextInput value={watch('day4_a4')||''} onChange={(e)=>setValue('day4_a4', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="5. Agent"><TextInput value={watch('day4_a5')||''} onChange={(e)=>setValue('day4_a5', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="6. Agent"><TextInput value={watch('day4_a6')||''} onChange={(e)=>setValue('day4_a6', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="7. Agent"><TextInput value={watch('day4_a7')||''} onChange={(e)=>setValue('day4_a7', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="8. Agent"><TextInput value={watch('day4_a8')||''} onChange={(e)=>setValue('day4_a8', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="9. Agent"><TextInput value={watch('day4_a9')||''} onChange={(e)=>setValue('day4_a9', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="10. Agent"><TextInput value={watch('day4_a10')||''} onChange={(e)=>setValue('day4_a10', e.target.value, {shouldDirty:true})} /></Field>
                     </div>
-                  ))}
+                  )}
+                  <div className="row row-2">
+                    {Hours.map((h) => (
+                      <div key={`d4-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                        <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
+                        <TextArea rows={3} {...register(`timeline_day4.${hourKey(h)}`)} />
+                      </div>
+                    ))}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -584,13 +655,32 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
             </div>
             <AnimatePresence initial={false}>
               {day4 && day5 && (
-                <motion.div className="row row-2" initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
-                  {Hours.map((h) => (
-                    <div key={`d5-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
-                      <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
-                      <TextArea rows={3} {...register(`timeline_day5.${hourKey(h)}`)} />
+                <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
+                  <div style={{ marginBottom: 12 }}>
+                    <YesNo name="day5_same_agents" label="Are agents the same as Day 4?" />
+                  </div>
+                  {watch('day5_same_agents') === false && (
+                    <div className="row row-2" style={{ gap: 12, marginBottom: 12 }}>
+                      <Field label="1. Lead Agent"><TextInput value={watch('day5_lead_agent')||''} onChange={(e)=>setValue('day5_lead_agent', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="2. Agent"><TextInput value={watch('day5_a2')||''} onChange={(e)=>setValue('day5_a2', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="3. Agent"><TextInput value={watch('day5_a3')||''} onChange={(e)=>setValue('day5_a3', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="4. Agent"><TextInput value={watch('day5_a4')||''} onChange={(e)=>setValue('day5_a4', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="5. Agent"><TextInput value={watch('day5_a5')||''} onChange={(e)=>setValue('day5_a5', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="6. Agent"><TextInput value={watch('day5_a6')||''} onChange={(e)=>setValue('day5_a6', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="7. Agent"><TextInput value={watch('day5_a7')||''} onChange={(e)=>setValue('day5_a7', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="8. Agent"><TextInput value={watch('day5_a8')||''} onChange={(e)=>setValue('day5_a8', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="9. Agent"><TextInput value={watch('day5_a9')||''} onChange={(e)=>setValue('day5_a9', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="10. Agent"><TextInput value={watch('day5_a10')||''} onChange={(e)=>setValue('day5_a10', e.target.value, {shouldDirty:true})} /></Field>
                     </div>
-                  ))}
+                  )}
+                  <div className="row row-2">
+                    {Hours.map((h) => (
+                      <div key={`d5-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                        <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
+                        <TextArea rows={3} {...register(`timeline_day5.${hourKey(h)}`)} />
+                      </div>
+                    ))}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -603,13 +693,32 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
             </div>
             <AnimatePresence initial={false}>
               {day5 && day6 && (
-                <motion.div className="row row-2" initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
-                  {Hours.map((h) => (
-                    <div key={`d6-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
-                      <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
-                      <TextArea rows={3} {...register(`timeline_day6.${hourKey(h)}`)} />
+                <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
+                  <div style={{ marginBottom: 12 }}>
+                    <YesNo name="day6_same_agents" label="Are agents the same as Day 5?" />
+                  </div>
+                  {watch('day6_same_agents') === false && (
+                    <div className="row row-2" style={{ gap: 12, marginBottom: 12 }}>
+                      <Field label="1. Lead Agent"><TextInput value={watch('day6_lead_agent')||''} onChange={(e)=>setValue('day6_lead_agent', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="2. Agent"><TextInput value={watch('day6_a2')||''} onChange={(e)=>setValue('day6_a2', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="3. Agent"><TextInput value={watch('day6_a3')||''} onChange={(e)=>setValue('day6_a3', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="4. Agent"><TextInput value={watch('day6_a4')||''} onChange={(e)=>setValue('day6_a4', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="5. Agent"><TextInput value={watch('day6_a5')||''} onChange={(e)=>setValue('day6_a5', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="6. Agent"><TextInput value={watch('day6_a6')||''} onChange={(e)=>setValue('day6_a6', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="7. Agent"><TextInput value={watch('day6_a7')||''} onChange={(e)=>setValue('day6_a7', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="8. Agent"><TextInput value={watch('day6_a8')||''} onChange={(e)=>setValue('day6_a8', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="9. Agent"><TextInput value={watch('day6_a9')||''} onChange={(e)=>setValue('day6_a9', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="10. Agent"><TextInput value={watch('day6_a10')||''} onChange={(e)=>setValue('day6_a10', e.target.value, {shouldDirty:true})} /></Field>
                     </div>
-                  ))}
+                  )}
+                  <div className="row row-2">
+                    {Hours.map((h) => (
+                      <div key={`d6-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                        <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
+                        <TextArea rows={3} {...register(`timeline_day6.${hourKey(h)}`)} />
+              </div>
+            ))}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -622,14 +731,33 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
             </div>
             <AnimatePresence initial={false}>
               {day6 && day7 && (
-                <motion.div className="row row-2" initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
-                  {Hours.map((h) => (
-                    <div key={`d7-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
-                      <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
-                      <TextArea rows={3} {...register(`timeline_day7.${hourKey(h)}`)} />
+                <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
+                  <div style={{ marginBottom: 12 }}>
+                    <YesNo name="day7_same_agents" label="Are agents the same as Day 6?" />
+                  </div>
+                  {watch('day7_same_agents') === false && (
+                    <div className="row row-2" style={{ gap: 12, marginBottom: 12 }}>
+                      <Field label="1. Lead Agent"><TextInput value={watch('day7_lead_agent')||''} onChange={(e)=>setValue('day7_lead_agent', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="2. Agent"><TextInput value={watch('day7_a2')||''} onChange={(e)=>setValue('day7_a2', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="3. Agent"><TextInput value={watch('day7_a3')||''} onChange={(e)=>setValue('day7_a3', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="4. Agent"><TextInput value={watch('day7_a4')||''} onChange={(e)=>setValue('day7_a4', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="5. Agent"><TextInput value={watch('day7_a5')||''} onChange={(e)=>setValue('day7_a5', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="6. Agent"><TextInput value={watch('day7_a6')||''} onChange={(e)=>setValue('day7_a6', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="7. Agent"><TextInput value={watch('day7_a7')||''} onChange={(e)=>setValue('day7_a7', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="8. Agent"><TextInput value={watch('day7_a8')||''} onChange={(e)=>setValue('day7_a8', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="9. Agent"><TextInput value={watch('day7_a9')||''} onChange={(e)=>setValue('day7_a9', e.target.value, {shouldDirty:true})} /></Field>
+                      <Field label="10. Agent"><TextInput value={watch('day7_a10')||''} onChange={(e)=>setValue('day7_a10', e.target.value, {shouldDirty:true})} /></Field>
                     </div>
-                  ))}
-                </motion.div>
+                  )}
+                  <div className="row row-2">
+                    {Hours.map((h) => (
+                      <div key={`d7-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                        <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>{hourKey(h)}</div>
+                        <TextArea rows={3} {...register(`timeline_day7.${hourKey(h)}`)} />
+                  </div>
+                ))}
+                  </div>
+              </motion.div>
               )}
             </AnimatePresence>
           </section>
