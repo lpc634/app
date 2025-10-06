@@ -76,6 +76,24 @@ export default function JobManagement() {
   const [loadingDetails, setLoadingDetails] = useState(false)
   const { apiCall } = useAuth()
 
+  // Keyboard navigation for photo lightbox
+  useEffect(() => {
+    if (!selectedPhoto) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setSelectedPhoto(null);
+      } else if (e.key === 'ArrowLeft' && selectedPhoto.index > 0) {
+        setSelectedPhoto(jobPhotos[selectedPhoto.index - 1]);
+      } else if (e.key === 'ArrowRight' && selectedPhoto.index < jobPhotos.length - 1) {
+        setSelectedPhoto(jobPhotos[selectedPhoto.index + 1]);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedPhoto, jobPhotos]);
+
 
   const [newJob, setNewJob] = useState(() => ({ ...initialJobState }))
 
@@ -1386,95 +1404,198 @@ export default function JobManagement() {
         <div
           style={{
             position: 'fixed',
-            inset: 0,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.95)',
-            zIndex: 9999,
+            zIndex: 10000,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '1rem'
+            padding: '2rem'
           }}
           onClick={() => setSelectedPhoto(null)}
         >
+          {/* Close Button */}
           <button
             onClick={() => setSelectedPhoto(null)}
             style={{
               position: 'absolute',
-              top: '1rem',
-              right: '1rem',
-              padding: '0.5rem',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              border: 'none',
+              top: '1.5rem',
+              right: '1.5rem',
+              width: '3rem',
+              height: '3rem',
               borderRadius: '50%',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)' }}
-          >
-            <X size={24} color="white" />
-          </button>
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              const link = document.createElement('a')
-              link.href = selectedPhoto.url
-              link.download = `job-${selectedJob.id}-photo-${selectedPhoto.index + 1}.jpg`
-              link.target = '_blank'
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
-            }}
-            style={{
-              position: 'absolute',
-              top: '1rem',
-              left: '1rem',
-              padding: '0.5rem 1rem',
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              border: 'none',
-              borderRadius: '0.5rem',
+              border: '2px solid rgba(255, 255, 255, 0.3)',
+              color: 'white',
+              fontSize: '1.5rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
-              color: 'white',
-              transition: 'background-color 0.2s'
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+              zIndex: 10001
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--v3-orange)';
+              e.currentTarget.style.borderColor = 'var(--v3-orange)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            }}
           >
-            <Download size={20} />
-            <span style={{ fontSize: '0.875rem' }}>Download</span>
+            ×
           </button>
 
-          <div style={{ maxWidth: '90vw', maxHeight: '90vh' }} onClick={(e) => e.stopPropagation()}>
+          {/* Photo Counter */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '1.5rem',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              color: 'white',
+              fontSize: '1rem',
+              fontWeight: '600',
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              padding: '0.5rem 1rem',
+              borderRadius: '2rem',
+              zIndex: 10001
+            }}
+          >
+            {selectedPhoto.index + 1} / {jobPhotos.length}
+          </div>
+
+          {/* Previous Button */}
+          {selectedPhoto.index > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedPhoto(jobPhotos[selectedPhoto.index - 1]);
+              }}
+              style={{
+                position: 'absolute',
+                left: '2rem',
+                width: '3.5rem',
+                height: '3.5rem',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                border: '2px solid rgba(255, 255, 255, 0.3)',
+                color: 'white',
+                fontSize: '2rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s',
+                zIndex: 10001
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--v3-orange)';
+                e.currentTarget.style.borderColor = 'var(--v3-orange)';
+                e.currentTarget.style.transform = 'scale(1.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              ‹
+            </button>
+          )}
+
+          {/* Next Button */}
+          {selectedPhoto.index < jobPhotos.length - 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedPhoto(jobPhotos[selectedPhoto.index + 1]);
+              }}
+              style={{
+                position: 'absolute',
+                right: '2rem',
+                width: '3.5rem',
+                height: '3.5rem',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                border: '2px solid rgba(255, 255, 255, 0.3)',
+                color: 'white',
+                fontSize: '2rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s',
+                zIndex: 10001
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--v3-orange)';
+                e.currentTarget.style.borderColor = 'var(--v3-orange)';
+                e.currentTarget.style.transform = 'scale(1.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              ›
+            </button>
+          )}
+
+          {/* Main Content Container */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '1.5rem'
+            }}
+          >
+            {/* Image */}
             <img
               src={selectedPhoto.url}
               alt={`Job photo ${selectedPhoto.index + 1}`}
               style={{
-                width: '100%',
-                height: '100%',
+                maxWidth: '100%',
+                maxHeight: '70vh',
                 objectFit: 'contain',
-                borderRadius: '0.5rem'
+                borderRadius: '0.75rem',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)'
               }}
             />
+
+            {/* Metadata */}
             <div style={{
-              marginTop: '1rem',
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              borderRadius: '0.5rem',
-              padding: '1rem',
-              color: 'white'
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              borderRadius: '0.75rem',
+              padding: '1.25rem 2rem',
+              color: 'white',
+              display: 'flex',
+              gap: '2rem',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              border: '1px solid rgba(255, 107, 53, 0.3)'
             }}>
-              <p style={{ fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                <strong>Submitted by:</strong> {selectedPhoto.submittedBy}
-              </p>
-              <p style={{ fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                <strong>Report Type:</strong> {selectedPhoto.reportType?.replace(/_/g, ' ')}
-              </p>
-              <p style={{ fontSize: '0.875rem' }}>
-                <strong>Date:</strong> {new Date(selectedPhoto.submittedAt).toLocaleString()}
-              </p>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)', marginBottom: '0.25rem' }}>SUBMITTED BY</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: '600' }}>{selectedPhoto.submittedBy}</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)', marginBottom: '0.25rem' }}>REPORT TYPE</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: '600' }}>{selectedPhoto.reportType?.replace(/_/g, ' ').toUpperCase()}</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)', marginBottom: '0.25rem' }}>DATE</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: '600' }}>{new Date(selectedPhoto.submittedAt).toLocaleDateString()}</div>
+              </div>
             </div>
           </div>
         </div>
