@@ -4,8 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ClipboardList, Edit, CheckCircle, ServerCrash, RefreshCw, X, History, FileText, Plus, Briefcase } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { toast } from "sonner";
 import TravellerEvictionForm from '../components/forms/TravellerEvictionForm';
 import { AdminFormStartModal } from '../components/modals/AdminFormStartModal';
@@ -35,12 +33,12 @@ const FORM_REGISTRY = [
 
 const V3JobReports = () => {
   const { user, apiCall } = useAuth();
-  const methods = useForm({ defaultValues: { job_id: "" } });
+  const methods = useForm({ defaultValues: { job_id: "", form_type: "" } });
   const watchedJobId = methods.watch("job_id");
+  const watchedFormType = methods.watch("form_type");
   const [completedJobs, setCompletedJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [selectedFormSlug, setSelectedFormSlug] = useState('');
-  const [showFormPicker, setShowFormPicker] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
   const [showAdminStartModal, setShowAdminStartModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -95,43 +93,13 @@ const V3JobReports = () => {
     return { pendingReports: pending, submittedReports: submitted };
   }, [completedJobs]);
 
-  const handleSelectJob = (job) => {
-    setSelectedJob(job);
-    // Get last used form from localStorage
-    const lastUsedForm = localStorage.getItem('v3:lastReportForm');
-    // Pre-select the last used form if it's valid
-    if (lastUsedForm && FORM_REGISTRY.find(f => f.slug === lastUsedForm)) {
-      setSelectedFormSlug(lastUsedForm);
-    } else {
-      setSelectedFormSlug(''); // No pre-selection
-    }
-    // Open the form picker instead of directly opening a form
-    setShowFormPicker(true);
-  };
-
-  const handleCloseFormPicker = () => {
-    setShowFormPicker(false);
-    setSelectedFormSlug('');
-    // Don't clear selectedJob yet - user might want to pick again
-  };
-
-  const handleConfirmFormSelection = () => {
-    if (!selectedFormSlug || !selectedJob) return;
-
-    // Save the selected form to localStorage for next time
-    localStorage.setItem('v3:lastReportForm', selectedFormSlug);
-
-    // Close the picker and open the form modal
-    setShowFormPicker(false);
-    setShowFormModal(true);
-  };
-
   const handleCloseModal = () => {
     setShowFormModal(false);
     setSelectedJob(null);
     setSelectedFormSlug('');
-    // Clear the job selection to prevent reopening
+    // Clear both selections
     methods.setValue('job_id', '');
+    methods.setValue('form_type', '');
   };
 
   const handleFormSubmit = async (submissionData) => {
@@ -227,12 +195,6 @@ const V3JobReports = () => {
     return formEntry ? formEntry.component : null;
   };
 
-  // Get eligible forms for the selected job
-  const getEligibleForms = () => {
-    if (!selectedJob) return [];
-    return FORM_REGISTRY.filter(f => f.isEligible(selectedJob));
-  };
-
   if (loading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 space-y-4 animate-pulse">
@@ -297,42 +259,74 @@ const V3JobReports = () => {
                     Report for a Job
                   </CardTitle>
                   <CardDescription>
-                    Search and select one of your accepted jobs to create a report.
+                    Search and select one of your accepted jobs, then choose the report type.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <FormProvider {...methods}>
-                    <div className="space-y-2">
-                      <JobSelect
-                        control={methods.control}
-                        name="job_id"
-                        label="Select Job"
-                        placeholder="Search jobs…"
-                        disabled={false}
-                      />
+                    <div className="space-y-4">
+                      <div>
+                        <JobSelect
+                          control={methods.control}
+                          name="job_id"
+                          label="Select Job"
+                          placeholder="Search jobs…"
+                          disabled={false}
+                        />
+                      </div>
+
+                      {watchedJobId && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-v3-text-strong">
+                            Report Type <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            {...methods.register('form_type')}
+                            className="w-full h-10 px-3 rounded-md border border-v3-border bg-v3-bg-dark text-v3-text focus:outline-none focus:ring-2 focus:ring-v3-orange"
+                          >
+                            <option value="">Select a form type...</option>
+                            {FORM_REGISTRY.map(form => (
+                              <option key={form.slug} value={form.slug}>
+                                {form.label}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {watchedFormType && FORM_REGISTRY.find(f => f.slug === watchedFormType)?.description}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </FormProvider>
                 </CardContent>
               </Card>
             )}
 
-            {/* React to job selection for agents */}
-            {watchedJobId && user?.role === 'agent' && (
+            {/* React to job and form selection for agents */}
+            {watchedJobId && watchedFormType && user?.role === 'agent' && (
               (() => {
                 const job = completedJobs.find(j => String(j.id) === String(watchedJobId));
-                if (job && (!selectedJob || selectedJob.id !== job.id)) {
-                  // open modal for this job
-                  setTimeout(() => handleSelectJob(job), 0);
+                if (job && watchedFormType && (!showFormModal || selectedJob?.id !== job.id || selectedFormSlug !== watchedFormType)) {
+                  // Both job and form selected - open the form modal
+                  setTimeout(() => {
+                    setSelectedJob(job);
+                    setSelectedFormSlug(watchedFormType);
+                    setShowFormModal(true);
+                    // Save to localStorage
+                    localStorage.setItem('v3:lastReportForm', watchedFormType);
+                  }, 0);
                 }
                 return null;
               })()
             )}
 
-            {/* React to job selection for admins */}
-            {watchedJobId && (user?.role === 'admin' || user?.role === 'manager') && (
+            {/* React to job and form selection for admins */}
+            {watchedJobId && watchedFormType && (user?.role === 'admin' || user?.role === 'manager') && (
               (() => {
-                // For admins, fetch job details and open form modal
+                // For admins, fetch job details and open form modal when both are selected
                 const fetchJobAndOpenModal = async () => {
+                  if (!watchedFormType || showFormModal) return;
+
                   try {
                     const job = await apiCall(`/jobs/${watchedJobId}`);
                     const formattedJob = {
@@ -343,9 +337,12 @@ const V3JobReports = () => {
                       arrival_time: job.created_at,
                       agentName: `${user?.first_name} ${user?.last_name}`
                     };
-                    if (!selectedJob || selectedJob.id !== formattedJob.id) {
-                      setTimeout(() => handleSelectJob(formattedJob), 0);
-                    }
+
+                    setSelectedJob(formattedJob);
+                    setSelectedFormSlug(watchedFormType);
+                    setShowFormModal(true);
+                    // Save to localStorage
+                    localStorage.setItem('v3:lastReportForm', watchedFormType);
                   } catch (error) {
                     console.error('Failed to fetch job details:', error);
                     toast.error('Failed to load job details');
@@ -365,19 +362,43 @@ const V3JobReports = () => {
                     Report for a Job
                   </CardTitle>
                   <CardDescription>
-                    Search and select an open job to create a report.
+                    Search and select an open job, then choose the report type.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <FormProvider {...methods}>
-                    <div className="space-y-2">
-                      <JobSelect
-                        control={methods.control}
-                        name="job_id"
-                        label="Select Job"
-                        placeholder="Search open jobs…"
-                        disabled={false}
-                      />
+                    <div className="space-y-4">
+                      <div>
+                        <JobSelect
+                          control={methods.control}
+                          name="job_id"
+                          label="Select Job"
+                          placeholder="Search open jobs…"
+                          disabled={false}
+                        />
+                      </div>
+
+                      {watchedJobId && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-v3-text-strong">
+                            Report Type <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            {...methods.register('form_type')}
+                            className="w-full h-10 px-3 rounded-md border border-v3-border bg-v3-bg-dark text-v3-text focus:outline-none focus:ring-2 focus:ring-v3-orange"
+                          >
+                            <option value="">Select a form type...</option>
+                            {FORM_REGISTRY.map(form => (
+                              <option key={form.slug} value={form.slug}>
+                                {form.label}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {watchedFormType && FORM_REGISTRY.find(f => f.slug === watchedFormType)?.description}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </FormProvider>
                 </CardContent>
@@ -471,61 +492,6 @@ const V3JobReports = () => {
           </div>
         </div>
       </main>
-
-      {/* Form Picker Dialog */}
-      <Dialog open={showFormPicker} onOpenChange={setShowFormPicker}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Select Report Type</DialogTitle>
-            <DialogDescription>
-              Choose which form to file for {selectedJob?.title || selectedJob?.address || 'this job'}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-3 py-4">
-            {getEligibleForms().map((form) => (
-              <Label
-                key={form.slug}
-                htmlFor={form.slug}
-                className={`flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-all hover:border-v3-orange/50 ${
-                  selectedFormSlug === form.slug
-                    ? 'border-v3-orange bg-v3-orange/5'
-                    : 'border-v3-border'
-                }`}
-                onClick={() => setSelectedFormSlug(form.slug)}
-              >
-                <input
-                  type="radio"
-                  id={form.slug}
-                  name="form-selection"
-                  value={form.slug}
-                  checked={selectedFormSlug === form.slug}
-                  onChange={() => setSelectedFormSlug(form.slug)}
-                  className="mt-1"
-                  style={{ accentColor: 'var(--v3-orange)' }}
-                />
-                <div className="flex-1">
-                  <div className="font-semibold text-v3-text-strong">{form.label}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{form.description}</div>
-                </div>
-              </Label>
-            ))}
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={handleCloseFormPicker}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmFormSelection}
-              disabled={!selectedFormSlug}
-              className="bg-v3-orange hover:bg-v3-orange-dark"
-            >
-              Continue
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Form Modal */}
       <AnimatePresence>
