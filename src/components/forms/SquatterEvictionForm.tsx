@@ -572,6 +572,7 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
           </section>
 
           {/* Day 3..7 chained */}
+          {day2 && (
           <section className="dashboard-card" style={{ padding: 24 }}>
             <div className="h2" style={{ marginBottom: 8 }}>Day 3?</div>
             <div style={{ marginBottom: 12 }}>
@@ -609,7 +610,9 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
               )}
             </AnimatePresence>
           </section>
+          )}
 
+          {day3 && (
           <section className="dashboard-card" style={{ padding: 24 }}>
             <div className="h2" style={{ marginBottom: 8 }}>Day 4?</div>
             <div style={{ marginBottom: 12 }}>
@@ -647,7 +650,9 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
               )}
             </AnimatePresence>
           </section>
+          )}
 
+          {day4 && (
           <section className="dashboard-card" style={{ padding: 24 }}>
             <div className="h2" style={{ marginBottom: 8 }}>Day 5?</div>
             <div style={{ marginBottom: 12 }}>
@@ -685,7 +690,9 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
               )}
             </AnimatePresence>
           </section>
+          )}
 
+          {day5 && (
           <section className="dashboard-card" style={{ padding: 24 }}>
             <div className="h2" style={{ marginBottom: 8 }}>Day 6?</div>
             <div style={{ marginBottom: 12 }}>
@@ -723,7 +730,9 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
               )}
             </AnimatePresence>
           </section>
+          )}
 
+          {day6 && (
           <section className="dashboard-card" style={{ padding: 24 }}>
             <div className="h2" style={{ marginBottom: 8 }}>Day 7?</div>
             <div style={{ marginBottom: 12 }}>
@@ -761,6 +770,7 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
               )}
             </AnimatePresence>
           </section>
+          )}
 
           {/* Police Details */}
           <section className="dashboard-card">
