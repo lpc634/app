@@ -20,6 +20,14 @@ export default function ReportViewer({ report, isOpen, onClose }) {
   const photos = report.photo_urls || [];
   const reportData = report.report_data || {};
 
+  // Debug photos
+  console.log('📸 ReportViewer - photos:', photos);
+  photos.forEach((photo, i) => {
+    console.log(`  Photo ${i}:`, photo);
+    console.log(`    - Type:`, typeof photo);
+    console.log(`    - URL:`, photo?.url || photo);
+  });
+
   const handlePhotoClick = (index) => {
     setCurrentPhotoIndex(index);
     setShowPhotoGallery(true);
@@ -133,7 +141,11 @@ export default function ReportViewer({ report, isOpen, onClose }) {
                       <img
                         src={photo.url || photo}
                         alt={`Photo ${index + 1}`}
+                        onLoad={(e) => {
+                          console.log(`✅ Photo ${index + 1} loaded successfully:`, e.target.src);
+                        }}
                         onError={(e) => {
+                          console.log(`❌ Photo ${index + 1} failed to load:`, e.target.src);
                           e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23333" width="200" height="200"/%3E%3Ctext fill="%23666" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EImage not available%3C/text%3E%3C/svg%3E';
                         }}
                       />
