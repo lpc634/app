@@ -234,8 +234,9 @@ function PhotoTile({ value, onChange }){
 export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit, onCancel }){
   const methods = useForm({ resolver: zodResolver(schema), defaultValues:{
     more_than_10:false, need_more_entries:false, need_more_photos:false,
-    prior_notice_served:false, locked_in:false, property_damage:false, aggressive:false, dogs_on_site:false, police_attendance:false,
-    day2_enabled:false,
+    prior_notice_served:false, property_damage:false, aggressive:false, dogs_on_site:false, police_attendance:false,
+    day2_enabled:false, day3_enabled:false, day4_enabled:false, day5_enabled:false, day6_enabled:false, day7_enabled:false,
+    day2_same_agents:true, day3_same_agents:true, day4_same_agents:true, day5_same_agents:true, day6_same_agents:true, day7_same_agents:true,
   }});
   const { register, handleSubmit, watch, setValue } = methods;
   const [isSubmitting, setIsSubmitting] = useState(false);
