@@ -28,6 +28,9 @@ const THEME_CSS = String.raw`
 .v3-textarea{ width:100%; background:var(--v3-bg-dark); border:1px solid var(--v3-border); color:var(--v3-text); border-radius:10px; padding:10px 12px }
 .v3-textarea:focus{ outline:none; box-shadow:0 0 0 3px var(--v3-orange-glow); border-color:var(--v3-orange) }
 .button-primary{ background:linear-gradient(135deg,var(--v3-orange),var(--v3-orange-dark)); color:#fff; border:0; height:42px; padding:0 16px; border-radius:10px; cursor:pointer }
+.button-primary:disabled{ opacity:0.5; cursor:not-allowed }
+.btn-ghost{ height:42px; padding:0 16px; border-radius:10px; border:1px solid var(--v3-border); background:var(--v3-bg-card); color:var(--v3-text); cursor:pointer }
+.btn-ghost:disabled{ opacity:0.5; cursor:not-allowed }
 .progress-rail{ height:10px; border-radius:999px; background:#1d1f26; border:1px solid #2A2D36 }
 .progress-bar{ height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--v3-orange),var(--v3-orange-dark)) }
 .label-star{ color:#ff6868; margin-left:4px }
@@ -229,18 +232,40 @@ function PhotoTile({ value, onChange }) {
   );
 }
 
-export default function SquatterServeForm() {
+export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, onCancel }) {
   const methods = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
+      client: "",
+      address1: jobData?.address || "",
+      address2: "",
+      city: "",
+      postcode: "",
+      date: new Date().toISOString().split('T')[0],
+      arrival_time: jobData?.arrival_time ? new Date(jobData.arrival_time).toTimeString().slice(0, 5) : "",
+      what3words: "",
+      lead_agent: jobData?.agentName || "",
+      agent2: "",
+      property_condition: "",
       locked_in: false,
+      lock_type: "",
       property_damage: false,
+      damage_details: "",
       aggressive: false,
+      aggression_details: "",
       dogs_on_site: false,
+      num_males: 0,
+      num_females: 0,
+      num_children: 0,
       police_attendance: false,
+      police_notes: "",
+      additional_notes: "",
+      departure_time: "",
+      completion_date: new Date().toISOString().split('T')[0],
     },
   });
   const { register, handleSubmit, watch, setValue } = methods;
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // sticky header progress like prototype
   const [progress, setProgress] = useState(0);
@@ -262,15 +287,32 @@ export default function SquatterServeForm() {
   const aggressive = watch("aggressive");
   const police = watch("police_attendance");
 
-  const onSubmit = (values) => {
-    console.log("Squatter Serve Form", values);
-    alert("Submitted (demo) — check console payload.");
+  const onSubmit = async (values) => {
+    if (!parentOnSubmit) {
+      console.log("Squatter Serve Form", values);
+      alert("Submitted (demo) — check console payload.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      // Filter out null photos and pass to parent
+      const photoFiles = photos.filter(p => p !== null);
+      await parentOnSubmit({
+        formData: values,
+        photos: photoFiles,
+      });
+    } catch (error) {
+      console.error("Form submission error:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <FormProvider {...methods}>
       <style>{THEME_CSS}</style>
-      <div className="dark v3-root">
+      <form onSubmit={handleSubmit(onSubmit)} className="dark v3-root">
         {/* Sticky header with progress */}
         <div
           className="page-shell"
@@ -281,13 +323,45 @@ export default function SquatterServeForm() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
+                justifyContent: "space-between",
                 width: "100%",
               }}
             >
-              <div className="h1" style={{ textAlign: "center" }}>
+              <div style={{ width: "40px" }} />
+              <div className="h1" style={{ textAlign: "center", flex: 1 }}>
                 Squatter Serve Report Form
               </div>
+              {onCancel && (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "rgba(239, 68, 68, 0.9)",
+                    border: "1px solid rgba(239, 68, 68, 0.5)",
+                    borderRadius: "10px",
+                    color: "white",
+                    cursor: "pointer",
+                    fontSize: "24px",
+                    fontWeight: "bold",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(239, 68, 68, 1)";
+                    e.currentTarget.style.transform = "scale(1.05)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.9)";
+                    e.currentTarget.style.transform = "scale(1)";
+                  }}
+                >
+                  ×
+                </button>
+              )}
             </div>
             <div className="progress-rail" style={{ marginTop: 10 }}>
               <div
@@ -604,20 +678,31 @@ export default function SquatterServeForm() {
               style={{
                 paddingTop: 14,
                 display: "flex",
+                gap: 12,
                 justifyContent: "flex-end",
               }}
             >
+              {onCancel && (
+                <button
+                  className="btn-ghost"
+                  type="button"
+                  onClick={onCancel}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+              )}
               <button
                 className="button-primary"
-                type="button"
-                onClick={handleSubmit(onSubmit)}
+                type="submit"
+                disabled={isSubmitting}
               >
-                Submit
+                {isSubmitting ? "Submitting..." : "Submit Report"}
               </button>
             </div>
           </section>
         </div>
-      </div>
+      </form>
     </FormProvider>
   );
 }

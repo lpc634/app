@@ -1,27 +1,37 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useAuth } from "../useAuth";
 import { motion, AnimatePresence } from 'framer-motion';
 import { ClipboardList, Edit, CheckCircle, ServerCrash, RefreshCw, X, History, FileText, Plus, Briefcase } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { toast } from "sonner";
 import TravellerEvictionForm from '../components/forms/TravellerEvictionForm';
 import { AdminFormStartModal } from '../components/modals/AdminFormStartModal';
 import { useForm, FormProvider } from "react-hook-form";
 import { JobSelect } from "@/components/common/JobSelect";
 
-// Form types configuration - can be expanded as more forms are built
-const V3_FORM_TYPES = {
-  'traveller_eviction': {
-    id: 'traveller_eviction',
-    name: 'Traveller Eviction Report',
+// Lazy load SquatterServeForm for better performance
+const SquatterServeForm = lazy(() => import('../components/forms/SquatterServeForm'));
+
+// Form registry - centralized configuration for all available forms
+const FORM_REGISTRY = [
+  {
+    slug: 'traveller-eviction',
+    label: 'Traveller Eviction Form',
+    description: 'Full eviction report with timeline and evidence',
     component: TravellerEvictionForm,
-    description: 'Report for traveller eviction operations'
+    isEligible: (job) => true,
   },
-  // Add more forms here as they are built
-  // 'traveller_serve': { ... },
-  // 'squatter_serve': { ... },
-};
+  {
+    slug: 'squatter-serve',
+    label: 'Squatter Serve Report',
+    description: 'Use after serving the notice (photos, times, police, etc.)',
+    component: SquatterServeForm,
+    isEligible: (job) => true,
+  },
+];
 
 const V3JobReports = () => {
   const { user, apiCall } = useAuth();
@@ -29,7 +39,8 @@ const V3JobReports = () => {
   const watchedJobId = methods.watch("job_id");
   const [completedJobs, setCompletedJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
-  const [selectedFormType, setSelectedFormType] = useState('');
+  const [selectedFormSlug, setSelectedFormSlug] = useState('');
+  const [showFormPicker, setShowFormPicker] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
   const [showAdminStartModal, setShowAdminStartModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -86,24 +97,39 @@ const V3JobReports = () => {
 
   const handleSelectJob = (job) => {
     setSelectedJob(job);
-    // If this is a real job from the pending list, try to auto-select a form type
-    if (job.jobType) {
-      const jobTypeKey = job.jobType.toLowerCase().replace(/ /g, '_');
-      if (V3_FORM_TYPES[jobTypeKey]) {
-        setSelectedFormType(jobTypeKey);
-      } else {
-        // Default to first available form type if no match
-        setSelectedFormType(Object.keys(V3_FORM_TYPES)[0]);
-      }
+    // Get last used form from localStorage
+    const lastUsedForm = localStorage.getItem('v3:lastReportForm');
+    // Pre-select the last used form if it's valid
+    if (lastUsedForm && FORM_REGISTRY.find(f => f.slug === lastUsedForm)) {
+      setSelectedFormSlug(lastUsedForm);
+    } else {
+      setSelectedFormSlug(''); // No pre-selection
     }
+    // Open the form picker instead of directly opening a form
+    setShowFormPicker(true);
+  };
+
+  const handleCloseFormPicker = () => {
+    setShowFormPicker(false);
+    setSelectedFormSlug('');
+    // Don't clear selectedJob yet - user might want to pick again
+  };
+
+  const handleConfirmFormSelection = () => {
+    if (!selectedFormSlug || !selectedJob) return;
+
+    // Save the selected form to localStorage for next time
+    localStorage.setItem('v3:lastReportForm', selectedFormSlug);
+
+    // Close the picker and open the form modal
+    setShowFormPicker(false);
     setShowFormModal(true);
   };
 
   const handleCloseModal = () => {
     setShowFormModal(false);
     setSelectedJob(null);
-    // Reset the dropdown to empty state
-    setTimeout(() => setSelectedFormType(''), 100);
+    setSelectedFormSlug('');
     // Clear the job selection to prevent reopening
     methods.setValue('job_id', '');
   };
@@ -168,7 +194,7 @@ const V3JobReports = () => {
         method: 'POST',
         body: JSON.stringify({
           job_id: selectedJob.id,
-          form_type: selectedFormType,
+          form_type: selectedFormSlug,
           report_data: submissionData.formData || submissionData,
           photo_urls: photoUrls
         })
@@ -192,29 +218,19 @@ const V3JobReports = () => {
     }
   };
 
-  const handleManualFormCreate = () => {
-    if (!selectedFormType) {
-      toast.error('Please select a form type');
-      return;
-    }
-
-    const mockJob = {
-      id: 'MANUAL',
-      title: 'Manual Report Entry',
-      address: 'Manual Entry',
-      jobType: selectedFormType.replace(/_/g, ' '),
-      agentName: `${user?.first_name} ${user?.last_name}`
-    };
-
-    handleSelectJob(mockJob);
-  };
-
   // Get the current form component based on selection
   const getCurrentFormComponent = () => {
-    if (!selectedFormType || !V3_FORM_TYPES[selectedFormType]) {
+    if (!selectedFormSlug) {
       return null;
     }
-    return V3_FORM_TYPES[selectedFormType].component;
+    const formEntry = FORM_REGISTRY.find(f => f.slug === selectedFormSlug);
+    return formEntry ? formEntry.component : null;
+  };
+
+  // Get eligible forms for the selected job
+  const getEligibleForms = () => {
+    if (!selectedJob) return [];
+    return FORM_REGISTRY.filter(f => f.isEligible(selectedJob));
   };
 
   if (loading) {
@@ -456,6 +472,61 @@ const V3JobReports = () => {
         </div>
       </main>
 
+      {/* Form Picker Dialog */}
+      <Dialog open={showFormPicker} onOpenChange={setShowFormPicker}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Select Report Type</DialogTitle>
+            <DialogDescription>
+              Choose which form to file for {selectedJob?.title || selectedJob?.address || 'this job'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-3 py-4">
+            {getEligibleForms().map((form) => (
+              <Label
+                key={form.slug}
+                htmlFor={form.slug}
+                className={`flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-all hover:border-v3-orange/50 ${
+                  selectedFormSlug === form.slug
+                    ? 'border-v3-orange bg-v3-orange/5'
+                    : 'border-v3-border'
+                }`}
+                onClick={() => setSelectedFormSlug(form.slug)}
+              >
+                <input
+                  type="radio"
+                  id={form.slug}
+                  name="form-selection"
+                  value={form.slug}
+                  checked={selectedFormSlug === form.slug}
+                  onChange={() => setSelectedFormSlug(form.slug)}
+                  className="mt-1"
+                  style={{ accentColor: 'var(--v3-orange)' }}
+                />
+                <div className="flex-1">
+                  <div className="font-semibold text-v3-text-strong">{form.label}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{form.description}</div>
+                </div>
+              </Label>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={handleCloseFormPicker}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmFormSelection}
+              disabled={!selectedFormSlug}
+              className="bg-v3-orange hover:bg-v3-orange-dark"
+            >
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Form Modal */}
       <AnimatePresence>
         {showFormModal && selectedJob && FormComponent && (
@@ -474,18 +545,24 @@ const V3JobReports = () => {
             >
               {/* Scrollable Form Content - No separate header, form has its own styling */}
               <div className="overflow-y-auto flex-1" style={{ WebkitOverflowScrolling: 'touch' }}>
-                <FormComponent
-                  jobData={{
-                    id: selectedJob.id,
-                    title: selectedJob.title,
-                    address: selectedJob.address,
-                    arrival_time: selectedJob.arrival_time,
-                    agentName: `${user?.first_name} ${user?.last_name}`,
-                    jobType: selectedJob.jobType
-                  }}
-                  onSubmit={handleFormSubmit}
-                  onCancel={handleCloseModal}
-                />
+                <Suspense fallback={
+                  <div className="flex items-center justify-center h-full p-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-v3-orange"></div>
+                  </div>
+                }>
+                  <FormComponent
+                    jobData={{
+                      id: selectedJob.id,
+                      title: selectedJob.title,
+                      address: selectedJob.address,
+                      arrival_time: selectedJob.arrival_time,
+                      agentName: `${user?.first_name} ${user?.last_name}`,
+                      jobType: selectedJob.jobType
+                    }}
+                    onSubmit={handleFormSubmit}
+                    onCancel={handleCloseModal}
+                  />
+                </Suspense>
               </div>
             </motion.div>
           </motion.div>
