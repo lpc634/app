@@ -777,11 +777,17 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
           {/* Police Details */}
           <section className="dashboard-card">
             <div className="h2" style={{ marginBottom:12 }}>Police Details</div>
-            <div className="row row-3">
+            <div className="row">
               <YesNo name="police_attendance" label="Police attendance?" />
-              <Field label="CAD Number:"><TextInput {...register('cad_number')} /></Field>
-              <Field label="Police Force:"><TextInput {...register('police_force')} /></Field>
             </div>
+            <AnimatePresence>
+              {police && (
+                <motion.div className="row row-2" initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}}>
+                  <Field label="CAD Number:"><TextInput {...register('cad_number')} /></Field>
+                  <Field label="Police Force:"><TextInput {...register('police_force')} /></Field>
+                </motion.div>
+              )}
+            </AnimatePresence>
             <div className="row" style={{ marginTop:8 }}>
               <Field label="Additional Notes:"><TextArea rows={4} {...register('police_notes')} /></Field>
             </div>
