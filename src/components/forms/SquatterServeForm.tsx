@@ -314,8 +314,8 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
     return () => scrollContainer.removeEventListener("scroll", onScroll);
   }, []);
 
-  // photos state
-  const [photos, setPhotos] = useState([null, null, null, null, null, null]);
+  // photos state (6 general + 1 damage photo)
+  const [photos, setPhotos] = useState([null, null, null, null, null, null, null]);
 
   const lockedIn = watch("locked_in");
   const propertyDamage = watch("property_damage");
@@ -565,7 +565,20 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                 >
-                  <div>
+                  <div style={{ marginTop: 10 }}>
+                    <div className="h2" style={{ marginBottom: 6 }}>
+                      Pictures of Property Damage:<span className="label-star">*</span>
+                    </div>
+                    <div className="photo-grid" style={{ gridTemplateColumns: '1fr' }}>
+                      <PhotoTile
+                        value={photos[6]}
+                        onChange={(file) => {
+                          const next = [...photos];
+                          next[6] = file;
+                          setPhotos(next);
+                        }}
+                      />
+                    </div>
                     <div className="h2" style={{ margin: "10px 0 6px" }}>
                       Property Damage Details:
                     </div>
