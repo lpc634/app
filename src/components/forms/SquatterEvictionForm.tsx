@@ -169,10 +169,12 @@ function YesNo({ name, label }){
   const { setValue, watch } = useFormContext();
   const v = !!watch(name);
   return (
-    <div className="yn">
-      <span className="h2" style={{ fontWeight:600 }}>{label}</span>
-      <label><input type="radio" name={name} checked={v===true} onChange={()=>setValue(name,true,{shouldDirty:true})} /><span>Yes</span></label>
-      <label><input type="radio" name={name} checked={v===false} onChange={()=>setValue(name,false,{shouldDirty:true})} /><span>No</span></label>
+    <div style={{ marginTop: 4 }}>
+      <div className="h2" style={{ fontWeight:600, marginBottom:8 }}>{label}</div>
+      <div className="yn" style={{ flexWrap: 'nowrap' }}>
+        <label><input type="radio" name={name} checked={v===true} onChange={()=>setValue(name,true,{shouldDirty:true})} /><span>Yes</span></label>
+        <label><input type="radio" name={name} checked={v===false} onChange={()=>setValue(name,false,{shouldDirty:true})} /><span>No</span></label>
+      </div>
     </div>
   );
 }
