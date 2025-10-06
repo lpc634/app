@@ -317,14 +317,30 @@ class S3Client:
                 region_name=self.aws_region
             )
             
+            # Determine content type based on file extension
+            file_extension = file_key.lower().split('.')[-1]
+            content_type_map = {
+                'pdf': 'application/pdf',
+                'png': 'image/png',
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'gif': 'image/gif',
+                'webp': 'image/webp'
+            }
+            content_type = content_type_map.get(file_extension, 'application/octet-stream')
+
+            # For images, use inline display instead of attachment
+            is_image = content_type.startswith('image/')
+            content_disposition = f'inline; filename="{file_key.split("/")[-1]}"' if is_image else f'attachment; filename="{file_key.split("/")[-1]}"'
+
             # Generate the presigned URL
             response = fresh_s3_client.generate_presigned_url(
                 'get_object',
                 Params={
-                    'Bucket': self.bucket_name, 
+                    'Bucket': self.bucket_name,
                     'Key': file_key,
-                    'ResponseContentType': 'application/pdf',
-                    'ResponseContentDisposition': f'attachment; filename="{file_key.split("/")[-1]}"'
+                    'ResponseContentType': content_type,
+                    'ResponseContentDisposition': content_disposition
                 },
                 ExpiresIn=expiration
             )
