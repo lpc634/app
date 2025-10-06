@@ -137,6 +137,8 @@ const schema = z.object({
   num_females: z.coerce.number().min(0).default(0),
   num_children: z.coerce.number().min(0).default(0),
   police_attendance: z.boolean().default(false),
+  police_cad: z.string().optional(),
+  police_force: z.string().optional(),
   police_notes: z.string().optional(),
   additional_notes: z.string().optional(),
   departure_time: z.string().min(1),
@@ -269,6 +271,8 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
       num_females: 0,
       num_children: 0,
       police_attendance: false,
+      police_cad: "",
+      police_force: "",
       police_notes: "",
       additional_notes: "",
       departure_time: "",
@@ -674,14 +678,30 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                 >
-                  <div className="h2" style={{ margin: "10px 0 6px" }}>
-                    Additional Notes:
+                  <div className="row row-2" style={{ marginTop: 10 }}>
+                    <div>
+                      <div className="h2" style={{ marginBottom: 6 }}>
+                        CAD Number:
+                      </div>
+                      <input className="v3-input" {...register("police_cad")} />
+                    </div>
+                    <div>
+                      <div className="h2" style={{ marginBottom: 6 }}>
+                        Police Force:
+                      </div>
+                      <input className="v3-input" {...register("police_force")} />
+                    </div>
                   </div>
-                  <textarea
-                    className="v3-textarea"
-                    rows={4}
-                    {...register("police_notes")}
-                  />
+                  <div>
+                    <div className="h2" style={{ margin: "10px 0 6px" }}>
+                      Additional Notes:
+                    </div>
+                    <textarea
+                      className="v3-textarea"
+                      rows={4}
+                      {...register("police_notes")}
+                    />
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
