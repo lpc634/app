@@ -107,6 +107,48 @@ def list_agent_assignments(agent_id):
         logger.error(f"Error listing assignments for agent {agent_id}: {e}")
         return jsonify({'error': 'Failed to load assignments'}), 500
 
+# === List assignments for a job (admin only) ===
+@jobs_bp.route('/assignments/job/<int:job_id>', methods=['GET'])
+@jwt_required()
+def list_job_assignments(job_id):
+    """Get all assignments for a specific job (admin only)."""
+    try:
+        user = User.query.get(get_jwt_identity())
+        if not user:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        # Only admins can view all assignments for a job
+        if user.role != 'admin':
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get all assignments for this job
+        assignments = (
+            JobAssignment.query
+            .filter_by(job_id=job_id)
+            .options(joinedload(JobAssignment.agent))
+            .order_by(JobAssignment.created_at.desc())
+            .all()
+        )
+
+        result = []
+        for assignment in assignments:
+            item = assignment.to_dict(include_job_details=False)
+            # Add agent details
+            if assignment.agent:
+                item['agent'] = {
+                    'id': assignment.agent.id,
+                    'first_name': assignment.agent.first_name,
+                    'last_name': assignment.agent.last_name,
+                    'email': assignment.agent.email
+                }
+            result.append(item)
+
+        return jsonify({'assignments': result}), 200
+
+    except Exception as e:
+        logger.error(f"Error listing assignments for job {job_id}: {e}")
+        return jsonify({'error': 'Failed to load assignments'}), 500
+
 # === Agent respond to a job (accept/decline) ===
 @jobs_bp.route('/jobs/<int:job_id>/respond', methods=['POST'])
 @jwt_required()
