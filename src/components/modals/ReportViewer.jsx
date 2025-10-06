@@ -8,16 +8,6 @@ export default function ReportViewer({ report, isOpen, onClose }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showPhotoGallery, setShowPhotoGallery] = useState(false);
 
-  // Debug: Log the full report object to see what data we have
-  useEffect(() => {
-    if (report && isOpen) {
-      console.log('📋 Report Data:', report);
-      console.log('📸 Photo URLs:', report.photo_urls);
-      console.log('📸 Photo URLs (stringified):', JSON.stringify(report.photo_urls, null, 2));
-      console.log('📝 Report Data Object:', report.report_data);
-    }
-  }, [report, isOpen]);
-
   if (!report) return null;
 
   const formTypeNames = {
