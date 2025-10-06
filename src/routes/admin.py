@@ -2547,7 +2547,12 @@ def get_invoices_for_job(job_id):
                 invoice_dict['agent_name'] = 'Unknown Agent'
             
             # Check if PDF is available based on S3 config and non-draft status
-            invoice_dict['pdf_available'] = s3_client.is_configured() and inv.status != 'draft'
+            has_pdf = s3_client.is_configured() and inv.status != 'draft'
+            invoice_dict['pdf_available'] = has_pdf
+            
+            # Provide a one-click admin PDF endpoint when available
+            if has_pdf:
+                invoice_dict['pdf_url'] = f"/api/admin/invoices/{inv.id}/pdf"
             
             result.append(invoice_dict)
 

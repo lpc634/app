@@ -12,6 +12,7 @@ import ResponsiveList from "@/components/responsive/ResponsiveList.jsx";
 import LocationPicker from '@/components/LocationPicker.jsx';
 import AgentMultiSelect from '@/components/AgentMultiSelect.jsx';
 import ReportViewer from '@/components/modals/ReportViewer.jsx';
+import InvoicePdfViewer from '@/components/admin/invoices/InvoicePdfViewer.jsx';
 import { usePageHeader } from "@/components/layout/PageHeaderContext.jsx";
 import { useAuth } from '../useAuth.jsx';
 import { extractUkPostcode } from '../utils/ukPostcode';
@@ -73,6 +74,7 @@ export default function JobManagement() {
   const [selectedPhoto, setSelectedPhoto] = useState(null)
   const [selectedReport, setSelectedReport] = useState(null)
   const [showReportViewer, setShowReportViewer] = useState(false)
+  const [selectedInvoice, setSelectedInvoice] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
   const { apiCall } = useAuth()
 
@@ -1171,21 +1173,56 @@ export default function JobManagement() {
                                 &pound;{invoice.total_amount || '0.00'}
                               </div>
                             </div>
-                            {invoice.status === 'sent' && (
-                              <div className="invoice-actions">
-                                <Button
-                                  size="sm"
-                                  className="button-refresh text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    toast.info('Mark as paid functionality coming soon')
-                                  }}
-                                >
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Mark as Paid
-                                </Button>
-                              </div>
-                            )}
+                            <div className="invoice-actions flex gap-2 mt-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (!invoice.pdf_url) {
+                                    toast.error('No PDF available for this invoice.')
+                                    return
+                                  }
+                                  setSelectedInvoice(invoice)
+                                }}
+                              >
+                                View PDF
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="button-refresh text-xs"
+                                onClick={async (e) => {
+                                  e.stopPropagation()
+                                  try {
+                                    const desired = invoice.status === 'paid' ? 'unpaid' : 'paid'
+                                    // Prefer generic status endpoint if available
+                                    await apiCall(`/admin/invoices/${invoice.id}/status`, {
+                                      method: 'PUT',
+                                      body: JSON.stringify({ payment_status: desired })
+                                    })
+                                    toast.success(`Invoice ${invoice.invoice_number} marked as ${desired}`)
+                                    // Refresh invoices list
+                                    fetchJobDetails(selectedJob.id)
+                                  } catch (err) {
+                                    try {
+                                      if (invoice.status !== 'paid') {
+                                        await apiCall(`/admin/invoices/${invoice.id}/mark-paid`, { method: 'PUT' })
+                                        toast.success(`Invoice ${invoice.invoice_number} marked as paid`)
+                                        fetchJobDetails(selectedJob.id)
+                                      } else {
+                                        toast.error('Cannot mark as unpaid via fallback endpoint')
+                                      }
+                                    } catch (error) {
+                                      toast.error('Failed to update invoice status', { description: error.message })
+                                    }
+                                  }
+                                }}
+                              >
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                {invoice.status === 'paid' ? 'Mark as Unpaid' : 'Mark as Paid'}
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1608,6 +1645,37 @@ export default function JobManagement() {
         onClose={() => {
           setShowReportViewer(false);
           setSelectedReport(null);
+        }}
+      />
+
+      <InvoicePdfViewer
+        invoice={selectedInvoice}
+        onClose={() => setSelectedInvoice(null)}
+        onTogglePaid={async (inv) => {
+          try {
+            const desired = inv.status === 'paid' ? 'unpaid' : 'paid'
+            await apiCall(`/admin/invoices/${inv.id}/status`, {
+              method: 'PUT',
+              body: JSON.stringify({ payment_status: desired })
+            })
+            toast.success(`Invoice ${inv.invoice_number} marked as ${desired}`)
+            setSelectedInvoice({ ...inv, status: desired })
+            // Refresh invoices in modal
+            if (selectedJob) fetchJobDetails(selectedJob.id)
+          } catch (err) {
+            try {
+              if (inv.status !== 'paid') {
+                await apiCall(`/admin/invoices/${inv.id}/mark-paid`, { method: 'PUT' })
+                toast.success(`Invoice ${inv.invoice_number} marked as paid`)
+                setSelectedInvoice({ ...inv, status: 'paid' })
+                if (selectedJob) fetchJobDetails(selectedJob.id)
+              } else {
+                toast.error('Cannot mark as unpaid via fallback endpoint')
+              }
+            } catch (error) {
+              toast.error('Failed to update invoice status', { description: error.message })
+            }
+          }
         }}
       />
 
