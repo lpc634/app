@@ -161,6 +161,10 @@ const DateInput = (p)=> <input type="date" className="v3-input" {...p}/>;
 const TimeInput = (p)=> <input type="time" className="v3-input" {...p}/>;
 const SelectInput = (p)=> <select className="v3-input" {...p}/>;
 
+// Hourly timeline helpers (align with other forms)
+const Hours = Array.from({ length: 18 }, (_, i) => 6 + i);
+const hourKey = (h: number) => `${String(h).padStart(2, '0')}:00`;
+
 function YesNo({ name, label }){
   const { setValue, watch } = useFormContext();
   const v = !!watch(name);
@@ -199,6 +203,7 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
   const methods = useForm({ resolver: zodResolver(schema), defaultValues:{
     more_than_10:false, need_more_entries:false, need_more_photos:false,
     prior_notice_served:false, locked_in:false, property_damage:false, aggressive:false, dogs_on_site:false, police_attendance:false,
+    day2_enabled:false,
   }});
   const { register, handleSubmit, watch, setValue } = methods;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -249,6 +254,7 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
   const aggressive = watch('aggressive');
   const dogs = watch('dogs_on_site');
   const moreEntries = watch('need_more_entries');
+  const day2 = watch('day2_enabled');
   const morePhotos = watch('need_more_photos');
   const police = watch('police_attendance');
 
@@ -459,29 +465,44 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
             </div>
           </section>
 
-          {/* Eviction Timeline */}
-          <section className="dashboard-card">
-            <div className="h2" style={{ marginBottom:2 }}>Eviction Timeline</div>
-            <div className="sub" style={{ marginBottom:12 }}>Please use this section to keep a diary of what happened throughout the day.</div>
-            {Array.from({ length:5 }, (_,i)=> i+1).map(n => (
-              <div key={n} className="row row-2" style={{ marginTop:8 }}>
-                <Field label={`Update ${n}:`}><TextArea rows={3} {...register(`ev${n}_text`)} /></Field>
-                <Field label={`Time of Event`}><TimeInput {...register(`ev${n}_time`)} /></Field>
-              </div>
-            ))}
-            <div className="row" style={{ marginTop:8 }}>
-              <YesNo name="need_more_entries" label="Need more entries?" />
-            </div>
-            <AnimatePresence>{moreEntries && (
-              <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}}>
-                {Array.from({ length:5 }, (_,i)=> i+6).map(n => (
-                  <div key={n} className="row row-2" style={{ marginTop:8 }}>
-                    <Field label={`Update ${n}:`}><TextArea rows={3} {...register(`ev${n}_text`)} /></Field>
-                    <Field label={`Time of Event`}><TimeInput {...register(`ev${n}_time`)} /></Field>
+          {/* Eviction Timeline (hourly, aligned with other forms) */}
+          <section className="dashboard-card" style={{ padding: 24 }}>
+            <div className="h2">Eviction Timeline:</div>
+            <div className="sub" style={{ marginBottom: 12 }}>Please use this section to keep a diary of what happened throughout the day.</div>
+            <div className="row row-2">
+              {Hours.map((h) => (
+                <div key={`d1-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                  <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>
+                    {hourKey(h)}
                   </div>
-                ))}
-              </motion.div>
-            )}</AnimatePresence>
+                  <TextArea rows={3} {...register(`timeline_day1.${hourKey(h)}`)} />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Day 2? (optional) */}
+          <section className="dashboard-card" style={{ padding: 24 }}>
+            <div className="h2" style={{ marginBottom: 8 }}>Day 2?</div>
+            <div style={{ marginBottom: 12 }}>
+              <YesNo name="day2_enabled" label="Yes/No" />
+            </div>
+            <AnimatePresence initial={false}>
+              {day2 && (
+                <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
+                  <div className="row row-2">
+                    {Hours.map((h) => (
+                      <div key={`d2-${h}`} style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                        <div style={{ width:52, fontSize:12, color:'var(--v3-text-muted)', paddingTop:8 }}>
+                          {hourKey(h)}
+                        </div>
+                        <TextArea rows={3} {...register(`timeline_day2.${hourKey(h)}`)} />
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </section>
 
           {/* Police Details */}
