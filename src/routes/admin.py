@@ -3134,7 +3134,7 @@ def get_job_v3_reports(job_id):
 			V3JobReport.submitted_at.desc()
 		).all()
 
-		# Enrich with agent information
+		# Enrich with agent information and generate signed URLs for photos
 		reports_data = []
 		for report in reports:
 			report_dict = report.to_dict()
@@ -3144,6 +3144,27 @@ def get_job_v3_reports(job_id):
 			if agent:
 				report_dict['agent_name'] = f"{agent.first_name} {agent.last_name}".strip()
 				report_dict['agent_email'] = agent.email
+
+			# Convert S3 keys to signed URLs
+			if report_dict.get('photo_urls'):
+				signed_urls = []
+				for photo in report_dict['photo_urls']:
+					# photo might be a dict with 'url' key or just a string
+					s3_key = photo.get('url') if isinstance(photo, dict) else photo
+					if s3_key and s3_client.is_configured():
+						signed_url = s3_client.generate_presigned_url(s3_key, expiration=3600)
+						if signed_url:
+							if isinstance(photo, dict):
+								photo_copy = photo.copy()
+								photo_copy['url'] = signed_url
+								signed_urls.append(photo_copy)
+							else:
+								signed_urls.append({'url': signed_url})
+						else:
+							signed_urls.append(photo)
+					else:
+						signed_urls.append(photo)
+				report_dict['photo_urls'] = signed_urls
 
 			reports_data.append(report_dict)
 
