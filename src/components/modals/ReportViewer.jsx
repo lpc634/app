@@ -13,6 +13,7 @@ export default function ReportViewer({ report, isOpen, onClose }) {
     if (report && isOpen) {
       console.log('📋 Report Data:', report);
       console.log('📸 Photo URLs:', report.photo_urls);
+      console.log('📸 Photo URLs (stringified):', JSON.stringify(report.photo_urls, null, 2));
       console.log('📝 Report Data Object:', report.report_data);
     }
   }, [report, isOpen]);
