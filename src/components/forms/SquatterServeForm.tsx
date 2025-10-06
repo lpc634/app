@@ -54,6 +54,15 @@ const THEME_CSS = String.raw`
 .photo-remove{ position:absolute; top:6px; right:6px; padding:2px 8px; border-radius:8px; border:1px solid var(--v3-border); background:rgba(0,0,0,.55); color:var(--v3-text); line-height:1; cursor:pointer }
 .photo-remove:hover{ background:rgba(0,0,0,.75) }
 .photo-tile--empty{ width:100%; height:100%; display:grid; place-items:center; cursor:pointer; color:var(--v3-text-muted) }
+
+/* StarBorder */
+.star-border-container{ display:block; position:relative; border-radius:20px; overflow:hidden; width:100% }
+.border-gradient-bottom{ position:absolute; width:300%; height:50%; opacity:.7; bottom:-12px; right:-250%; border-radius:50%; animation:star-movement-bottom linear infinite alternate; z-index:0 }
+.border-gradient-top{ position:absolute; width:300%; height:50%; opacity:.7; top:-12px; left:-250%; border-radius:50%; animation:star-movement-top linear infinite alternate; z-index:0 }
+.inner-content{ position:relative; border:1px solid var(--v3-border); background:rgba(17,17,20,.6); backdrop-filter:blur(8px); color:var(--v3-text); font-size:16px; padding:12px 14px; border-radius:20px; z-index:1 }
+.star-border-container .inner-content{ box-shadow: inset 0 0 0 1px var(--v3-orange) }
+@keyframes star-movement-bottom{ 0%{transform:translate(0,0);opacity:1} 100%{transform:translate(-100%,0);opacity:0} }
+@keyframes star-movement-top{ 0%{transform:translate(0,0);opacity:1} 100%{transform:translate(100%,0);opacity:0} }
 `;
 
 /** ===== Sticky StarBorder used in prototype header ===== */
@@ -342,7 +351,14 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
         {/* Sticky header with progress */}
         <div
           className="page-shell"
-          style={{ position: "sticky", top: 0, zIndex: 40, paddingBottom: 14 }}
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 40,
+            paddingBottom: 14,
+            background: "var(--v3-bg-darkest)",
+            backdropFilter: "blur(8px)"
+          }}
         >
           <StarBorder color="var(--v3-orange)" speed="8s" thickness={2}>
             <div
