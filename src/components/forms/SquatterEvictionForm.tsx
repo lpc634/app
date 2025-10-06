@@ -73,9 +73,6 @@ const schema = z.object({
 
   // Property details
   prior_notice_served: z.boolean().default(false),
-  locked_in: z.boolean().default(false),
-  lock_type: z.string().optional(),
-  other_lock_details: z.string().optional(),
   property_condition: z.string().min(1, "Property condition is required"),
   property_damage: z.boolean().default(false),
   damage_details: z.string().optional(),
@@ -429,26 +426,7 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
               <div />
             </div>
 
-            {/* Locks: show extra fields only when Yes, stacked below pill */}
-            <div className="row">
-              <YesNo name="locked_in" label="Have the squatters locked themselves in?" />
-            </div>
-            <AnimatePresence>
-              {lockedIn && (
-                <motion.div className="row" initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}}>
-                  <Field label="Lock Type:">
-                    <SelectInput {...register('lock_type')}>
-                      <option value=""></option>
-                      <option>Padlock</option>
-                      <option>Deadbolt</option>
-                      <option>Chain</option>
-                      <option>Other</option>
-                    </SelectInput>
-                  </Field>
-                  <Field label="If Other Give Details:"><TextArea rows={3} {...register('other_lock_details')} /></Field>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* Removed 'locked themselves in' question per request */}
 
             {/* Damage: when Yes, require photo and show details; stacked below */}
             <div className="row">
