@@ -220,7 +220,7 @@ function PhotoTile({ value, onChange }) {
         />
       ) : (
         <div className="sub" style={{ textAlign: "center" }}>
-          Click to upload or drop
+          +
         </div>
       )}
       <input
@@ -250,13 +250,13 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
     resolver: zodResolver(schema),
     defaultValues: {
       client: "",
-      address1: jobData?.address || "",
+      address1: "",
       address2: "",
       city: "",
       postcode: "",
-      date: new Date().toISOString().split('T')[0],
-      arrival_time: jobData?.arrival_time ? new Date(jobData.arrival_time).toTimeString().slice(0, 5) : "",
-      lead_agent: jobData?.agentName || "",
+      date: "",
+      arrival_time: "",
+      lead_agent: "",
       agent2: "",
       property_condition: "",
       locked_in: false,
@@ -276,7 +276,7 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
       police_notes: "",
       additional_notes: "",
       departure_time: "",
-      completion_date: new Date().toISOString().split('T')[0],
+      completion_date: "",
     },
   });
   const { register, handleSubmit, watch, setValue } = methods;
@@ -447,23 +447,19 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
                 <div className="row">
                   <input
                     className="v3-input"
-                    placeholder="Address Line 1"
                     {...register("address1")}
                   />
                   <input
                     className="v3-input"
-                    placeholder="Address Line 2"
                     {...register("address2")}
                   />
                   <div className="row row-2">
                     <input
                       className="v3-input"
-                      placeholder="City"
                       {...register("city")}
                     />
                     <input
                       className="v3-input"
-                      placeholder="Postal / Zip Code"
                       {...register("postcode")}
                     />
                   </div>
@@ -635,7 +631,6 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
                     <textarea
                       className="v3-textarea"
                       rows={3}
-                      placeholder="Please describe the dogs (breed, size, behavior, etc.)"
                       {...register("dog_details")}
                     />
                   </div>
