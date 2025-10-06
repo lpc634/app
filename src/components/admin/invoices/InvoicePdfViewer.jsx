@@ -21,8 +21,10 @@ export default function InvoicePdfViewer({ invoice, onClose, onTogglePaid }) {
         if (invoice.pdf_url) {
           if (!cancelled) setEmbedUrl(invoice.pdf_url);
         } else {
-          const data = await apiCall(`/admin/invoices/${invoice.id}/pdf`);
-          if (!cancelled) setEmbedUrl(data?.pdf_url || null);
+          // Use unified invoices route (accepts id or ref) for a signed iframe URL
+          const idOrRef = invoice.idOrRef || invoice.invoice_number || invoice.id;
+          const data = await apiCall(`/invoices/${idOrRef}/pdf_url`);
+          if (!cancelled) setEmbedUrl(data?.url || null);
         }
       } catch (e) {
         if (!cancelled) setError(e?.message || 'Failed to load PDF');

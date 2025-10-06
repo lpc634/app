@@ -43,6 +43,7 @@ from src.routes.health import health_bp
 # REMOVED: from src.routes.utils import utils_bp
 from src.routes.admin import admin_bp
 from src.routes.vehicles import vehicles_bp
+from src.routes.invoices import invoices_bp
 from src.routes.telegram import telegram_bp, telegram_api_bp, agent_telegram_bp
 from src.routes.police_interactions import bp as police_bp
 from src.routes.forms import forms_bp
@@ -172,6 +173,7 @@ app.register_blueprint(health_bp, url_prefix='/api')
 app.register_blueprint(admin_bp, url_prefix='/api')
 # --- THIS LINE IS NOW UNCOMMENTED ---
 app.register_blueprint(vehicles_bp, url_prefix='/api')
+app.register_blueprint(invoices_bp, url_prefix='/api')
 app.register_blueprint(telegram_bp)
 app.register_blueprint(telegram_api_bp)
 app.register_blueprint(agent_telegram_bp)

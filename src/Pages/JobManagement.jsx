@@ -1181,10 +1181,11 @@ export default function JobManagement() {
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   if (!invoice.pdf_url) {
-                                    toast.error('No PDF available for this invoice.')
-                                    return
+                                    // Fall back to unified viewer using id or ref
+                                    setSelectedInvoice({ ...invoice, idOrRef: invoice.invoice_number || invoice.id })
+                                  } else {
+                                    setSelectedInvoice(invoice)
                                   }
-                                  setSelectedInvoice(invoice)
                                 }}
                               >
                                 View PDF
