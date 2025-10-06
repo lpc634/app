@@ -427,51 +427,67 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
               <div />
             </div>
 
-            {/* Optional: Locks (kept for completeness) */}
+            {/* Locks: show extra fields only when Yes */}
             <div className="row row-2">
               <YesNo name="locked_in" label="Have the squatters locked themselves in?" />
-              <div>
-                <Field label="Lock Type:">
-                  <SelectInput {...register('lock_type')}>
-                    <option value=""></option>
-                    <option>Padlock</option>
-                    <option>Deadbolt</option>
-                    <option>Chain</option>
-                    <option>Other</option>
-                  </SelectInput>
-                </Field>
-                <Field label="If Other Give Details:"><TextArea rows={3} {...register('other_lock_details')} /></Field>
-              </div>
+              <AnimatePresence>
+                {lockedIn && (
+                  <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}}>
+                    <Field label="Lock Type:">
+                      <SelectInput {...register('lock_type')}>
+                        <option value=""></option>
+                        <option>Padlock</option>
+                        <option>Deadbolt</option>
+                        <option>Chain</option>
+                        <option>Other</option>
+                      </SelectInput>
+                    </Field>
+                    <Field label="If Other Give Details:"><TextArea rows={3} {...register('other_lock_details')} /></Field>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Damage with photo upload on the right */}
+            {/* Damage: when Yes, require photo and show details */}
             <div className="row row-2">
               <YesNo name="property_damage" label="Property damage?" />
-              <div>
-                <div className="h2" style={{ marginBottom:6 }}>
-                  Pictures of property damage{propertyDamage ? <span className="label-star">*</span> : null}
-                </div>
-                <div className="photo-grid" style={{ gridTemplateColumns: '1fr' }}>
-                  <PhotoTile value={photos.p2} onChange={(f)=>setPhotos(p=>({ ...p, p2:f }))} />
-                </div>
-              </div>
+              <AnimatePresence>
+                {propertyDamage && (
+                  <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}}>
+                    <div className="h2" style={{ marginBottom:6 }}>
+                      Pictures of property damage<span className="label-star">*</span>
+                    </div>
+                    <div className="photo-grid" style={{ gridTemplateColumns: '1fr' }}>
+                      <PhotoTile value={photos.p2} onChange={(f)=>setPhotos(p=>({ ...p, p2:f }))} />
+                    </div>
+                    <Field label="Property Damage Details:"><TextArea rows={3} {...register('damage_details')} /></Field>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-            <AnimatePresence>{propertyDamage && (
-              <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}}>
-                <Field label="Property Damage Details:"><TextArea rows={3} {...register('damage_details')} /></Field>
-              </motion.div>
-            )}</AnimatePresence>
 
-            {/* Aggression with details on right */}
+            {/* Aggression: details only when Yes */}
             <div className="row row-2">
               <YesNo name="aggressive" label="Are the squatters aggressive?" />
-              <Field label="Aggression Details:"><TextArea rows={3} {...register('aggression_details')} /></Field>
+              <AnimatePresence>
+                {aggressive && (
+                  <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}}>
+                    <Field label="Aggression Details:"><TextArea rows={3} {...register('aggression_details')} /></Field>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Dogs with details on right */}
+            {/* Dogs: details only when Yes */}
             <div className="row row-2">
               <YesNo name="dogs_on_site" label="Are there dogs on site?" />
-              <Field label="Dog Details:"><TextArea rows={3} {...register('dog_details')} /></Field>
+              <AnimatePresence>
+                {dogs && (
+                  <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}}>
+                    <Field label="Dog Details:"><TextArea rows={3} {...register('dog_details')} /></Field>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Counts */}
