@@ -3147,12 +3147,15 @@ def get_job_v3_reports(job_id):
 
 			# Convert S3 keys to signed URLs
 			if report_dict.get('photo_urls'):
+				current_app.logger.info(f"📸 Raw photo_urls from DB: {report_dict['photo_urls']}")
 				signed_urls = []
 				for photo in report_dict['photo_urls']:
 					# photo might be a dict with 'url' key or just a string
 					s3_key = photo.get('url') if isinstance(photo, dict) else photo
+					current_app.logger.info(f"🔑 S3 key: {s3_key}")
 					if s3_key and s3_client.is_configured():
 						signed_url = s3_client.generate_presigned_url(s3_key, expiration=3600)
+						current_app.logger.info(f"✅ Generated signed URL: {signed_url[:100] if signed_url else 'None'}")
 						if signed_url:
 							if isinstance(photo, dict):
 								photo_copy = photo.copy()
@@ -3163,8 +3166,10 @@ def get_job_v3_reports(job_id):
 						else:
 							signed_urls.append(photo)
 					else:
+						current_app.logger.info(f"⚠️ S3 not configured or empty key")
 						signed_urls.append(photo)
 				report_dict['photo_urls'] = signed_urls
+				current_app.logger.info(f"📤 Final photo_urls being sent: {signed_urls}")
 
 			reports_data.append(report_dict)
 
