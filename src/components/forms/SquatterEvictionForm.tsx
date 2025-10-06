@@ -408,9 +408,26 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
           {/* Property Details */}
           <section className="dashboard-card">
             <div className="h2" style={{ marginBottom:12 }}>Property Details</div>
+
+            {/* Prior notice */}
             <div className="row">
               <YesNo name="prior_notice_served" label="Has the notice been served prior to your arrival?" />
             </div>
+
+            {/* Property condition */}
+            <div className="row row-2">
+              <Field label="Property Condition:" required>
+                <SelectInput {...register('property_condition')}>
+                  <option value=""></option>
+                  <option>Good</option>
+                  <option>Fair</option>
+                  <option>Poor</option>
+                </SelectInput>
+              </Field>
+              <div />
+            </div>
+
+            {/* Optional: Locks (kept for completeness) */}
             <div className="row row-2">
               <YesNo name="locked_in" label="Have the squatters locked themselves in?" />
               <div>
@@ -426,38 +443,38 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
                 <Field label="If Other Give Details:"><TextArea rows={3} {...register('other_lock_details')} /></Field>
               </div>
             </div>
-            <div className="row row-2">
-              <Field label="Property Condition:" required>
-                <SelectInput {...register('property_condition')}>
-                  <option value=""></option>
-                  <option>Good</option>
-                  <option>Fair</option>
-                  <option>Poor</option>
-                </SelectInput>
-              </Field>
-              <div />
-            </div>
+
+            {/* Damage with photo upload on the right */}
             <div className="row row-2">
               <YesNo name="property_damage" label="Property damage?" />
-              <Field label="Pictures of property damage">
-                <div className="photo-grid">
+              <div>
+                <div className="h2" style={{ marginBottom:6 }}>
+                  Pictures of property damage{propertyDamage ? <span className="label-star">*</span> : null}
+                </div>
+                <div className="photo-grid" style={{ gridTemplateColumns: '1fr' }}>
                   <PhotoTile value={photos.p2} onChange={(f)=>setPhotos(p=>({ ...p, p2:f }))} />
                 </div>
-              </Field>
+              </div>
             </div>
             <AnimatePresence>{propertyDamage && (
               <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}}>
                 <Field label="Property Damage Details:"><TextArea rows={3} {...register('damage_details')} /></Field>
               </motion.div>
             )}</AnimatePresence>
+
+            {/* Aggression with details on right */}
             <div className="row row-2">
               <YesNo name="aggressive" label="Are the squatters aggressive?" />
               <Field label="Aggression Details:"><TextArea rows={3} {...register('aggression_details')} /></Field>
             </div>
+
+            {/* Dogs with details on right */}
             <div className="row row-2">
               <YesNo name="dogs_on_site" label="Are there dogs on site?" />
               <Field label="Dog Details:"><TextArea rows={3} {...register('dog_details')} /></Field>
             </div>
+
+            {/* Counts */}
             <div className="row row-3">
               <Field label="Number of Adult Males:"><CountSelect name="num_males" /></Field>
               <Field label="Number of children:"><CountSelect name="num_children" /></Field>
