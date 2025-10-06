@@ -10,8 +10,9 @@ import { AdminFormStartModal } from '../components/modals/AdminFormStartModal';
 import { useForm, FormProvider } from "react-hook-form";
 import { JobSelect } from "@/components/common/JobSelect";
 
-// Lazy load SquatterServeForm for better performance
+// Lazy load forms for better performance
 const SquatterServeForm = lazy(() => import('../components/forms/SquatterServeForm'));
+const SquatterEvictionForm = lazy(() => import('../components/forms/SquatterEvictionForm'));
 
 // Form registry - centralized configuration for all available forms
 const FORM_REGISTRY = [
@@ -27,6 +28,13 @@ const FORM_REGISTRY = [
     label: 'Squatter Serve Report',
     description: 'Use after serving the notice (photos, times, police, etc.)',
     component: SquatterServeForm,
+    isEligible: (job) => true,
+  },
+  {
+    slug: 'squatter-eviction',
+    label: 'Squatter Eviction Form',
+    description: 'Full eviction report for squatter removal operations',
+    component: SquatterEvictionForm,
     isEligible: (job) => true,
   },
 ];
