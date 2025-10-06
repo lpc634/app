@@ -2550,9 +2550,21 @@ def get_invoices_for_job(job_id):
             has_pdf = s3_client.is_configured() and inv.status != 'draft'
             invoice_dict['pdf_available'] = has_pdf
             
-            # Provide a one-click admin PDF endpoint when available
+            # Provide a direct signed URL for inline iframe/download when available
             if has_pdf:
-                invoice_dict['pdf_url'] = f"/api/admin/invoices/{inv.id}/pdf"
+                try:
+                    s3_result = s3_client.generate_invoice_download_url(
+                        agent_id=inv.agent_id,
+                        invoice_number=inv.invoice_number,
+                        expiration=3600
+                    )
+                    if s3_result.get('success') and s3_result.get('download_url'):
+                        invoice_dict['pdf_url'] = s3_result['download_url']
+                    else:
+                        # Fallback: leave without pdf_url to avoid broken iframe
+                        invoice_dict['pdf_url'] = None
+                except Exception:
+                    invoice_dict['pdf_url'] = None
             
             result.append(invoice_dict)
 
