@@ -401,9 +401,12 @@ export default function JobManagement() {
         const allPhotos = []
         reports.forEach((report) => {
           if (report.photo_urls && Array.isArray(report.photo_urls)) {
-            report.photo_urls.forEach((url) => {
+            report.photo_urls.forEach((photoObj) => {
+              // Extract the actual URL string from the photo object
+              const photoUrl = typeof photoObj === 'string' ? photoObj : photoObj.url;
+
               allPhotos.push({
-                url: url,
+                url: photoUrl,
                 reportId: report.id,
                 reportType: report.form_type,
                 submittedBy: report.agent_name,
