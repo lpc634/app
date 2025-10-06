@@ -132,6 +132,7 @@ const schema = z.object({
   aggressive: z.boolean().default(false),
   aggression_details: z.string().optional(),
   dogs_on_site: z.boolean().default(false),
+  dog_details: z.string().optional(),
   num_males: z.coerce.number().min(0).default(0),
   num_females: z.coerce.number().min(0).default(0),
   num_children: z.coerce.number().min(0).default(0),
@@ -263,6 +264,7 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
       aggressive: false,
       aggression_details: "",
       dogs_on_site: false,
+      dog_details: "",
       num_males: 0,
       num_females: 0,
       num_children: 0,
@@ -615,6 +617,27 @@ export default function SquatterServeForm({ jobData, onSubmit: parentOnSubmit, o
             </AnimatePresence>
 
             <YesNo name="dogs_on_site" label="Are there dogs on site?" />
+            <AnimatePresence>
+              {watch("dogs_on_site") && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <div>
+                    <div className="h2" style={{ margin: "10px 0 6px" }}>
+                      Dog Details:
+                    </div>
+                    <textarea
+                      className="v3-textarea"
+                      rows={3}
+                      placeholder="Please describe the dogs (breed, size, behavior, etc.)"
+                      {...register("dog_details")}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <div className="row row-3" style={{ marginTop: 10 }}>
               <div>
