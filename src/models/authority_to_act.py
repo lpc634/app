@@ -24,7 +24,8 @@ class AuthorityToActToken(db.Model):
     property_address = db.Column(db.String(500), nullable=True)  # Optional pre-fill
 
     # Status tracking
-    status = db.Column(db.String(20), default='pending')  # pending, submitted, expired
+    status = db.Column(db.String(20), default='pending')  # pending, submitted, expired, permanent
+    is_read = db.Column(db.Boolean, default=False, nullable=False)  # Track if admin has viewed
 
     # Submission tracking
     submitted_at = db.Column(db.DateTime, nullable=True)

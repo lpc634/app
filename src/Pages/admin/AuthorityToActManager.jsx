@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Copy,
   CheckCircle2,
@@ -12,10 +13,9 @@ import {
   Search,
   FileText,
   Calendar,
-  User,
-  MapPin,
-  Mail,
-  Loader2
+  Loader2,
+  Circle,
+  CircleDot
 } from "lucide-react";
 import { useAuth } from "@/useAuth";
 import { toast } from "sonner";
@@ -28,6 +28,8 @@ export default function AuthorityToActManager() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [downloadingPdf, setDownloadingPdf] = useState(null);
+  const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -67,7 +69,33 @@ export default function AuthorityToActManager() {
     }
   };
 
-  const downloadPdf = async (submissionId) => {
+  const markAsRead = async (submissionId) => {
+    try {
+      await apiCall(`/admin/authority-to-act/submissions/${submissionId}/mark-read`, {
+        method: 'POST'
+      });
+
+      // Update local state
+      setSubmissions(prev => prev.map(sub =>
+        sub.id === submissionId ? { ...sub, is_read: true } : sub
+      ));
+    } catch (err) {
+      console.error("Failed to mark as read:", err);
+    }
+  };
+
+  const openSubmission = async (submission) => {
+    setSelectedSubmission(submission);
+    setShowDetailDialog(true);
+
+    // Mark as read if not already
+    if (!submission.is_read) {
+      await markAsRead(submission.id);
+    }
+  };
+
+  const downloadPdf = async (submissionId, e) => {
+    e.stopPropagation(); // Prevent row click
     try {
       setDownloadingPdf(submissionId);
 
@@ -110,11 +138,7 @@ export default function AuthorityToActManager() {
 
   const stats = {
     total: submissions.length,
-    thisWeek: submissions.filter(s => {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return new Date(s.submitted_at) > weekAgo;
-    }).length,
+    unread: submissions.filter(s => !s.is_read).length,
   };
 
   if (loading) {
@@ -154,13 +178,13 @@ export default function AuthorityToActManager() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Week</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Unread</CardTitle>
+            <CircleDot className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.thisWeek}</div>
+            <div className="text-2xl font-bold">{stats.unread}</div>
             <p className="text-xs text-muted-foreground">
-              Submissions in last 7 days
+              New submissions to review
             </p>
           </CardContent>
         </Card>
@@ -217,18 +241,18 @@ export default function AuthorityToActManager() {
         </CardContent>
       </Card>
 
-      {/* Submissions List */}
+      {/* Submissions Table */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Form Submissions</CardTitle>
-              <CardDescription>View and download all submitted forms</CardDescription>
+              <CardTitle>Entries ({filteredSubmissions.length})</CardTitle>
+              <CardDescription>Click on any row to view full details</CardDescription>
             </div>
             <div className="relative w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, email, or address..."
+                placeholder="Search submissions..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8"
@@ -248,72 +272,170 @@ export default function AuthorityToActManager() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredSubmissions.map((submission) => (
-                <Card key={submission.id} className="border-2">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-3 flex-1">
-                        {/* Client Name */}
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-semibold text-lg">
-                            {submission.client_name || "Unknown Client"}
-                          </span>
-                          <Badge variant="secondary" className="ml-2">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {new Date(submission.submitted_at).toLocaleDateString()}
-                          </Badge>
-                        </div>
-
-                        {/* Email */}
-                        {submission.client_email && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Mail className="h-4 w-4" />
-                            <span>{submission.client_email}</span>
-                          </div>
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-muted/50">
+                  <tr className="border-b">
+                    <th className="text-left p-3 font-medium text-sm w-8"></th>
+                    <th className="text-left p-3 font-medium text-sm">Status</th>
+                    <th className="text-left p-3 font-medium text-sm">Submitted</th>
+                    <th className="text-left p-3 font-medium text-sm">Name</th>
+                    <th className="text-left p-3 font-medium text-sm">Company</th>
+                    <th className="text-left p-3 font-medium text-sm">Email</th>
+                    <th className="text-left p-3 font-medium text-sm">Phone</th>
+                    <th className="text-left p-3 font-medium text-sm">Address</th>
+                    <th className="text-left p-3 font-medium text-sm w-32">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSubmissions.map((submission) => (
+                    <tr
+                      key={submission.id}
+                      onClick={() => openSubmission(submission)}
+                      className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
+                    >
+                      <td className="p-3">
+                        {!submission.is_read ? (
+                          <Circle className="h-4 w-4 fill-green-600 text-green-600" />
+                        ) : (
+                          <Circle className="h-4 w-4 text-transparent" />
                         )}
-
-                        {/* Property Address */}
-                        {submission.property_address && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <MapPin className="h-4 w-4" />
-                            <span>{submission.property_address}</span>
-                          </div>
-                        )}
-
-                        {/* Submission Time */}
-                        <div className="text-xs text-muted-foreground">
-                          Submitted {new Date(submission.submitted_at).toLocaleString()}
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex gap-2 ml-4">
+                      </td>
+                      <td className="p-3">
+                        <Badge variant="secondary">Submitted</Badge>
+                      </td>
+                      <td className="p-3 text-sm">
+                        {new Date(submission.submitted_at).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </td>
+                      <td className="p-3 text-sm font-medium">
+                        {submission.client_name || '-'}
+                      </td>
+                      <td className="p-3 text-sm">
+                        {submission.submission_data?.company || '-'}
+                      </td>
+                      <td className="p-3 text-sm text-blue-600">
+                        {submission.client_email || '-'}
+                      </td>
+                      <td className="p-3 text-sm">
+                        {submission.submission_data?.client_phone || '-'}
+                      </td>
+                      <td className="p-3 text-sm">
+                        {submission.property_address || '-'}
+                      </td>
+                      <td className="p-3">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => downloadPdf(submission.id)}
+                          onClick={(e) => downloadPdf(submission.id, e)}
                           disabled={downloadingPdf === submission.id}
                         >
                           {downloadingPdf === submission.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <>
-                              <Download className="h-4 w-4 mr-2" />
-                              Download PDF
-                            </>
+                            <Download className="h-4 w-4" />
                           )}
                         </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Detail Dialog */}
+      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Submission Details</DialogTitle>
+            <DialogDescription>
+              Submitted on {selectedSubmission?.submitted_at ? new Date(selectedSubmission.submitted_at).toLocaleString() : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedSubmission && (
+            <div className="space-y-6">
+              {/* Client Information */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Client Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Name</label>
+                    <p className="text-sm mt-1">{selectedSubmission.client_name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Email</label>
+                    <p className="text-sm mt-1">{selectedSubmission.client_email || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Phone</label>
+                    <p className="text-sm mt-1">{selectedSubmission.submission_data?.client_phone || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Company</label>
+                    <p className="text-sm mt-1">{selectedSubmission.submission_data?.company || 'N/A'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium text-muted-foreground">Property Address</label>
+                    <p className="text-sm mt-1">{selectedSubmission.property_address || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* All Form Data */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Form Details</h3>
+                <div className="border rounded-lg divide-y">
+                  {Object.entries(selectedSubmission.submission_data || {}).map(([key, value]) => {
+                    if (['client_name', 'client_email', 'client_phone', 'company', 'property_address'].includes(key)) {
+                      return null; // Already shown above
+                    }
+                    return (
+                      <div key={key} className="p-3 grid grid-cols-3 gap-4">
+                        <div className="font-medium text-sm text-muted-foreground">
+                          {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </div>
+                        <div className="col-span-2 text-sm">
+                          {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={(e) => {
+                    downloadPdf(selectedSubmission.id, { stopPropagation: () => {} });
+                  }}
+                  disabled={downloadingPdf === selectedSubmission.id}
+                >
+                  {downloadingPdf === selectedSubmission.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  Download PDF
+                </Button>
+                <Button onClick={() => setShowDetailDialog(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

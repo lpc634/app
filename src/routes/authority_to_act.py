@@ -93,13 +93,38 @@ def list_submissions():
                 'client_email': data.get('client_email'),
                 'property_address': data.get('property_address'),
                 'submitted_at': sub.submitted_at.isoformat() if sub.submitted_at else None,
-                'submission_data': data
+                'submission_data': data,
+                'is_read': sub.is_read
             })
 
         return jsonify({'submissions': result}), 200
 
     except Exception as e:
         logger.error(f"Error listing submissions: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@authority_bp.route('/admin/authority-to-act/submissions/<int:submission_id>/mark-read', methods=['POST'])
+@jwt_required()
+def mark_submission_read(submission_id):
+    """Mark a submission as read."""
+    try:
+        user = require_admin()
+        if not user:
+            return jsonify({"error": "Forbidden"}), 403
+
+        submission = AuthorityToActToken.query.get(submission_id)
+        if not submission or submission.status != 'submitted':
+            return jsonify({"error": "Submission not found"}), 404
+
+        submission.is_read = True
+        db.session.commit()
+
+        return jsonify({"message": "Marked as read"}), 200
+
+    except Exception as e:
+        logger.error(f"Error marking submission as read: {e}")
+        db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
 
 
