@@ -119,9 +119,15 @@ def send_form_link_email():
         msg.attach(MIMEText(email_body, 'plain'))
 
         # Send email
-        server = smtplib.SMTP(current_app.config['MAIL_SERVER'], current_app.config['MAIL_PORT'])
-        if current_app.config.get('MAIL_USE_TLS'):
-            server.starttls()
+        if current_app.config.get('MAIL_USE_SSL'):
+            # Use SMTP_SSL for port 465
+            server = smtplib.SMTP_SSL(current_app.config['MAIL_SERVER'], current_app.config['MAIL_PORT'])
+        else:
+            # Use SMTP with STARTTLS for port 587
+            server = smtplib.SMTP(current_app.config['MAIL_SERVER'], current_app.config['MAIL_PORT'])
+            if current_app.config.get('MAIL_USE_TLS'):
+                server.starttls()
+
         server.login(current_app.config['MAIL_USERNAME'], current_app.config['MAIL_PASSWORD'])
         server.send_message(msg)
         server.quit()
