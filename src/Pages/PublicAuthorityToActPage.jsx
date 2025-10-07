@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
+import ClientAuthorityToActSquatterEviction from "@/components/forms/ClientInstructionFormAuthorityToActSquatterEviction";
 
 export default function PublicAuthorityToActPage() {
   const { token } = useParams();
@@ -39,12 +40,20 @@ export default function PublicAuthorityToActPage() {
 
   const handleSubmit = async (submissionData) => {
     try {
+      // Add client_name, client_email, property_address to top level for backend filtering
+      const payload = {
+        ...submissionData,
+        client_name: `${submissionData.firstName} ${submissionData.lastName}`,
+        client_email: submissionData.email,
+        property_address: `${submissionData.siteAddress.line1}, ${submissionData.siteAddress.city}, ${submissionData.siteAddress.postcode}`,
+      };
+
       const response = await fetch(`/api/public/authority-to-act/${token}/submit`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(submissionData),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -52,6 +61,8 @@ export default function PublicAuthorityToActPage() {
       }
 
       setSubmitted(true);
+      // Scroll to top to show success message
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       alert("Error submitting form: " + err.message);
     }
@@ -108,50 +119,6 @@ export default function PublicAuthorityToActPage() {
     );
   }
 
-  // User will add their form component here
-  return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-4xl mx-auto py-8">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Authority to Act
-          </h1>
-          <p className="text-gray-600 mb-8">
-            Squatter Eviction Services - Client Instruction Form
-          </p>
-
-          {/* User will replace this placeholder with their actual form */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-            <p className="text-gray-500">
-              Form component will be added here by user
-            </p>
-            <p className="text-sm text-gray-400 mt-2">
-              File: ClientInstructionFormAuthorityToActSquatterEviction.tsx
-            </p>
-          </div>
-
-          {/* Example of how to use the form data and submit handler */}
-          {formData && (
-            <div className="mt-4 p-4 bg-gray-50 rounded text-sm">
-              <p className="font-medium mb-2">Pre-filled data (if any):</p>
-              <ul className="space-y-1 text-gray-600">
-                {formData.client_name && <li>Client: {formData.client_name}</li>}
-                {formData.client_email && <li>Email: {formData.client_email}</li>}
-                {formData.property_address && <li>Property: {formData.property_address}</li>}
-              </ul>
-            </div>
-          )}
-
-          <div className="mt-6">
-            <button
-              onClick={() => handleSubmit({ test: "data" })}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-            >
-              Test Submit (will be replaced by actual form)
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  // Render the actual form
+  return <ClientAuthorityToActSquatterEviction onSubmit={handleSubmit} />;
 }

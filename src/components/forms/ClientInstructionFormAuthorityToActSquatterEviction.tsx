@@ -267,7 +267,7 @@ function SignaturePad({ name }){
   );
 }
 
-export default function ClientAuthorityToActSquatterEviction(){
+export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onSubmit?: (values: any) => void | Promise<void> }){
   const methods = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -287,11 +287,11 @@ export default function ClientAuthorityToActSquatterEviction(){
   const photosAvailable = watch("photosAvailable");
   const sitePlanAvailable = watch("sitePlanAvailable");
 
-  const onSubmit = (values)=>{
-    // Normally send to API; for demo just log
+  const handleFormSubmit = onSubmit || ((values)=>{
+    // Fallback for demo/testing
     console.log("Client Instruction — Squatter Eviction", values);
     alert("Submitted (demo) — check console for JSON payload.");
-  };
+  });
 
   return (
     <FormProvider {...methods}>
@@ -458,7 +458,7 @@ export default function ClientAuthorityToActSquatterEviction(){
           </div>
           <div className="footer-actions">
             <button type="button" className="btn ghost" onClick={()=>window.history.back()}>Cancel</button>
-            <button type="button" className="btn primary" onClick={handleSubmit(onSubmit)}>Submit</button>
+            <button type="button" className="btn primary" onClick={handleSubmit(handleFormSubmit)}>Submit</button>
           </div>
         </section>
       </main>
