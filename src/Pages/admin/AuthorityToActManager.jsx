@@ -224,48 +224,52 @@ export default function AuthorityToActManager() {
           </div>
 
           {/* Permanent Link */}
-          {permanentLink && (
-            <>
-              <div className="flex gap-2">
-                <Input
-                  value={permanentLink}
-                  readOnly
-                  className="font-mono text-sm"
-                />
-                <Button
-                  onClick={copyToClipboard}
-                  variant={copiedLink ? "secondary" : "default"}
-                  className="shrink-0"
-                >
-                  {copiedLink ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy Link
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => window.open(permanentLink, "_blank")}
-                  className="shrink-0"
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open
-                </Button>
-              </div>
+          <div>
+            <label className="text-sm font-medium mb-2 block">Form Link</label>
+            <div className="flex gap-2">
+              <Input
+                value={permanentLink || "Loading..."}
+                readOnly
+                className="font-mono text-sm"
+                placeholder="Select a form type to generate link"
+              />
+              <Button
+                onClick={copyToClipboard}
+                variant={copiedLink ? "secondary" : "default"}
+                className="shrink-0"
+                disabled={!permanentLink}
+              >
+                {copiedLink ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Link
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => window.open(permanentLink, "_blank")}
+                className="shrink-0"
+                disabled={!permanentLink}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open
+              </Button>
+            </div>
+          </div>
 
-              <Alert>
-                <FileText className="h-4 w-4" />
-                <AlertDescription>
-                  This is a permanent link for {FORM_TYPES.find(t => t.value === selectedFormType)?.label}. It can be used multiple times and each submission will appear in the list below.
-                </AlertDescription>
-              </Alert>
-            </>
+          {permanentLink && (
+            <Alert>
+              <FileText className="h-4 w-4" />
+              <AlertDescription>
+                This is a permanent link for {FORM_TYPES.find(t => t.value === selectedFormType)?.label}. It can be used multiple times and each submission will appear in the list below.
+              </AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>
