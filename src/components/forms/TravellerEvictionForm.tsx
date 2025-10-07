@@ -867,12 +867,11 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
     if (!d7) clearDayAgents("day7");
   }, [d7]);
 
-  // Simple text inputs for date and time - manual entry
+  // HTML5 date and time inputs with proper selectors
   const DateInput = (props) => (
     <input
       {...props}
-      type="text"
-      placeholder="dd/mm/yyyy"
+      type="date"
       className={`v3-input ${props.className || ""}`}
     />
   );
@@ -880,8 +879,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
   const TimeInput = (props) => (
     <input
       {...props}
-      type="text"
-      placeholder="HH:MM"
+      type="time"
       className={`v3-input ${props.className || ""}`}
     />
   );
