@@ -45,7 +45,7 @@ class AuthorityToActToken(db.Model):
     @staticmethod
     def generate_token():
         """Generate a secure random token."""
-        return secrets.token_urlsafe(48)  # 48 bytes = 64 characters URL-safe
+        return secrets.token_urlsafe(12)  # 12 bytes = ~16 characters URL-safe
 
     def to_dict(self):
         """Convert token to dictionary for API responses."""
