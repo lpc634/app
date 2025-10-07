@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Copy,
   CheckCircle2,
@@ -20,10 +21,16 @@ import {
 import { useAuth } from "@/useAuth";
 import { toast } from "sonner";
 
+const FORM_TYPES = [
+  { value: "authority-to-act-squatter-eviction", label: "Authority to Act - Squatter Eviction" },
+  { value: "authority-to-act-traveller-eviction", label: "Authority to Act - Traveller Eviction" },
+];
+
 export default function AuthorityToActManager() {
   const { apiCall } = useAuth();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedFormType, setSelectedFormType] = useState(FORM_TYPES[0].value);
   const [permanentLink, setPermanentLink] = useState("");
   const [copiedLink, setCopiedLink] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,20 +40,20 @@ export default function AuthorityToActManager() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedFormType]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
 
-      // Fetch or create permanent link
-      const linkResponse = await apiCall('/admin/authority-to-act/permanent-link');
+      // Fetch or create permanent link for selected form type
+      const linkResponse = await apiCall(`/admin/authority-to-act/permanent-link?form_type=${selectedFormType}`);
       if (linkResponse?.url) {
         setPermanentLink(linkResponse.url);
       }
 
-      // Fetch all submissions
-      const submissionsResponse = await apiCall('/admin/authority-to-act/submissions');
+      // Fetch all submissions for selected form type
+      const submissionsResponse = await apiCall(`/admin/authority-to-act/submissions?form_type=${selectedFormType}`);
       if (submissionsResponse?.submissions) {
         setSubmissions(submissionsResponse.submissions);
       }
@@ -190,54 +197,76 @@ export default function AuthorityToActManager() {
         </Card>
       </div>
 
-      {/* Permanent Link Card */}
+      {/* Form Type Selection & Link Card */}
       <Card>
         <CardHeader>
           <CardTitle>Form Link</CardTitle>
           <CardDescription>
-            Share this permanent link with clients. The form is always accessible via this URL.
+            Select a form type and share the permanent link with clients
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              value={permanentLink}
-              readOnly
-              className="font-mono text-sm"
-            />
-            <Button
-              onClick={copyToClipboard}
-              variant={copiedLink ? "secondary" : "default"}
-              className="shrink-0"
-            >
-              {copiedLink ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy Link
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => window.open(permanentLink, "_blank")}
-              className="shrink-0"
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open
-            </Button>
+          {/* Form Type Dropdown */}
+          <div>
+            <label className="text-sm font-medium mb-2 block">Select Form Type</label>
+            <Select value={selectedFormType} onValueChange={setSelectedFormType}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select form type" />
+              </SelectTrigger>
+              <SelectContent>
+                {FORM_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <Alert>
-            <FileText className="h-4 w-4" />
-            <AlertDescription>
-              This is a permanent link that can be used multiple times. Each submission will appear in the list below.
-            </AlertDescription>
-          </Alert>
+          {/* Permanent Link */}
+          {permanentLink && (
+            <>
+              <div className="flex gap-2">
+                <Input
+                  value={permanentLink}
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <Button
+                  onClick={copyToClipboard}
+                  variant={copiedLink ? "secondary" : "default"}
+                  className="shrink-0"
+                >
+                  {copiedLink ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Link
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => window.open(permanentLink, "_blank")}
+                  className="shrink-0"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open
+                </Button>
+              </div>
+
+              <Alert>
+                <FileText className="h-4 w-4" />
+                <AlertDescription>
+                  This is a permanent link for {FORM_TYPES.find(t => t.value === selectedFormType)?.label}. It can be used multiple times and each submission will appear in the list below.
+                </AlertDescription>
+              </Alert>
+            </>
+          )}
         </CardContent>
       </Card>
 

@@ -12,6 +12,9 @@ class AuthorityToActToken(db.Model):
     # Unique token for accessing the form
     token = db.Column(db.String(64), unique=True, nullable=False, index=True)
 
+    # Form type identifier
+    form_type = db.Column(db.String(100), nullable=True)  # e.g., 'authority-to-act-squatter-eviction'
+
     # Job reference (optional - form can be standalone or linked to a job)
     job_id = db.Column(db.Integer, db.ForeignKey('jobs.id'), nullable=True)
 

@@ -37,9 +37,13 @@ def get_permanent_link():
         if not user:
             return jsonify({"error": "Forbidden"}), 403
 
-        # Look for existing permanent token
+        # Get form type from query params (default to squatter-eviction)
+        form_type = request.args.get('form_type', 'authority-to-act-squatter-eviction')
+
+        # Look for existing permanent token for this form type
         permanent_token = AuthorityToActToken.query.filter_by(
-            status='permanent'
+            status='permanent',
+            form_type=form_type
         ).first()
 
         if not permanent_token:
@@ -47,13 +51,14 @@ def get_permanent_link():
             token = AuthorityToActToken.generate_token()
             permanent_token = AuthorityToActToken(
                 token=token,
+                form_type=form_type,
                 created_by=user.id,
                 status='permanent',
                 expires_at=None  # Never expires
             )
             db.session.add(permanent_token)
             db.session.commit()
-            logger.info(f"Permanent Authority to Act link created by admin {user.id}")
+            logger.info(f"Permanent Authority to Act link created by admin {user.id} for form type {form_type}")
 
         # Generate public URL
         base_url = current_app.config.get('PUBLIC_BASE_URL', 'https://v3-app.herokuapp.com')
@@ -61,7 +66,8 @@ def get_permanent_link():
 
         return jsonify({
             'url': public_url,
-            'token': permanent_token.token
+            'token': permanent_token.token,
+            'form_type': form_type
         }), 200
 
     except Exception as e:
@@ -79,10 +85,15 @@ def list_submissions():
         if not user:
             return jsonify({"error": "Forbidden"}), 403
 
-        # Get all submissions (status='submitted')
-        submissions = AuthorityToActToken.query.filter_by(
-            status='submitted'
-        ).order_by(AuthorityToActToken.submitted_at.desc()).all()
+        # Get form type from query params
+        form_type = request.args.get('form_type')
+
+        # Get all submissions (status='submitted') filtered by form type
+        query = AuthorityToActToken.query.filter_by(status='submitted')
+        if form_type:
+            query = query.filter_by(form_type=form_type)
+
+        submissions = query.order_by(AuthorityToActToken.submitted_at.desc()).all()
 
         result = []
         for sub in submissions:
@@ -94,7 +105,8 @@ def list_submissions():
                 'property_address': data.get('property_address'),
                 'submitted_at': sub.submitted_at.isoformat() if sub.submitted_at else None,
                 'submission_data': data,
-                'is_read': sub.is_read
+                'is_read': sub.is_read,
+                'form_type': sub.form_type
             })
 
         return jsonify({'submissions': result}), 200
@@ -296,6 +308,7 @@ def submit_authority_form(token):
         # Create a new submission record
         submission = AuthorityToActToken(
             token=AuthorityToActToken.generate_token(),  # Generate unique token for this submission
+            form_type=permanent_token.form_type,  # Inherit form type from permanent token
             created_by=permanent_token.created_by,
             status='submitted',
             submitted_at=datetime.utcnow(),
