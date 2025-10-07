@@ -170,8 +170,9 @@ export default function AuthorityToActManager() {
       setEmailRecipient("");
       setEmailMessage("");
     } catch (err) {
-      toast.error("Failed to send email");
-      console.error(err);
+      const errorMessage = err?.message || "Failed to send email";
+      toast.error(errorMessage);
+      console.error("Email send error:", err);
     } finally {
       setSendingEmail(false);
     }

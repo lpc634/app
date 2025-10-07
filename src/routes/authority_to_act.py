@@ -89,6 +89,11 @@ def send_form_link_email():
         if not user:
             return jsonify({"error": "Forbidden"}), 403
 
+        # Check if email is configured
+        if not current_app.config.get('MAIL_SERVER') or not current_app.config.get('MAIL_USERNAME'):
+            logger.error("Email not configured - missing MAIL_SERVER or MAIL_USERNAME")
+            return jsonify({"error": "Email not configured on server"}), 500
+
         data = request.get_json()
         recipient_email = data.get('recipient_email')
         message_body = data.get('message_body', '')
@@ -124,9 +129,15 @@ def send_form_link_email():
         logger.info(f"Form link email sent to {recipient_email} by admin {user.id}")
         return jsonify({"message": "Email sent successfully"}), 200
 
+    except smtplib.SMTPAuthenticationError as e:
+        logger.error(f"SMTP authentication failed: {e}")
+        return jsonify({"error": "Email authentication failed. Check email credentials."}), 500
+    except smtplib.SMTPException as e:
+        logger.error(f"SMTP error: {e}")
+        return jsonify({"error": f"Email server error: {str(e)}"}), 500
     except Exception as e:
-        logger.error(f"Error sending form link email: {e}")
-        return jsonify({"error": "Failed to send email"}), 500
+        logger.error(f"Error sending form link email: {e}", exc_info=True)
+        return jsonify({"error": f"Failed to send email: {str(e)}"}), 500
 
 
 @authority_bp.route('/admin/authority-to-act/submissions', methods=['GET'])
