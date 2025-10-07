@@ -525,50 +525,53 @@ export default function AuthorityToActManager() {
 
       {/* Email Dialog */}
       <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg bg-card border-border">
           <DialogHeader>
-            <DialogTitle>Send Form Link via Email</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-foreground">Send Form Link via Email</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Send the {FORM_TYPES.find(t => t.value === selectedFormType)?.label} link to a client
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 mt-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Recipient Email</label>
+              <label className="text-sm font-medium mb-2 block text-foreground">Recipient Email</label>
               <Input
                 type="email"
                 placeholder="client@example.com"
                 value={emailRecipient}
                 onChange={(e) => setEmailRecipient(e.target.value)}
+                className="bg-background border-input text-foreground"
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">Message</label>
+              <label className="text-sm font-medium mb-2 block text-foreground">Message</label>
               <Textarea
                 placeholder="Enter your message to the client..."
                 value={emailMessage}
                 onChange={(e) => setEmailMessage(e.target.value)}
                 rows={6}
-                className="resize-none"
+                className="resize-none bg-background border-input text-foreground"
               />
               <p className="text-xs text-muted-foreground mt-2">
                 The form link will be automatically included in the email.
               </p>
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
+            <div className="flex justify-end gap-2 pt-4 border-t border-border">
               <Button
                 variant="outline"
                 onClick={() => setShowEmailDialog(false)}
                 disabled={sendingEmail}
+                className="border-border hover:bg-accent"
               >
                 Cancel
               </Button>
               <Button
                 onClick={sendEmail}
                 disabled={sendingEmail || !emailRecipient || !emailMessage}
+                className="bg-primary hover:bg-primary/90"
               >
                 {sendingEmail ? (
                   <>
