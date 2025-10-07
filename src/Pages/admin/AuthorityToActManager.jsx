@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Copy, CheckCircle2, ExternalLink, Clock, Mail, MapPin } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/useAuth";
 
 export default function AuthorityToActManager() {
   const { user } = useAuth();
