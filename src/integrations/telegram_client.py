@@ -150,6 +150,38 @@ def get_webhook_info() -> dict:
         current_app.logger.error(f"Telegram get webhook info error: {str(e)}")
         return {"status": "error", "message": str(e)}
 
+def send_telegram_notification(text: str, parse_mode: str | None = None) -> dict:
+    """
+    Send a notification to the admin Telegram group
+
+    Args:
+        text: Message text
+        parse_mode: Optional formatting mode (HTML, Markdown, etc.)
+
+    Returns:
+        dict: { ok: bool, result?: {...}, description?: str }
+    """
+    if not current_app.config["TELEGRAM_ENABLED"]:
+        return {"ok": False, "description": "telegram_disabled"}
+
+    chat_id = current_app.config.get("TELEGRAM_ADMIN_CHAT_ID")
+    thread_id = current_app.config.get("TELEGRAM_ADMIN_THREAD_ID")
+
+    if not chat_id:
+        current_app.logger.warning("TELEGRAM_ADMIN_CHAT_ID not configured - cannot send notification")
+        return {"ok": False, "description": "admin_chat_not_configured"}
+
+    # Convert thread_id to int if it exists and is not empty
+    message_thread_id = None
+    if thread_id:
+        try:
+            message_thread_id = int(thread_id)
+        except (ValueError, TypeError):
+            current_app.logger.warning(f"Invalid TELEGRAM_ADMIN_THREAD_ID: {thread_id}")
+
+    return send_message(chat_id, text, parse_mode=parse_mode, message_thread_id=message_thread_id)
+
+
 def ensure_webhook() -> dict:
     """Optionally set the Telegram webhook on startup based on app config.
 
@@ -159,7 +191,7 @@ def ensure_webhook() -> dict:
     try:
         if not current_app.config.get("TELEGRAM_ENABLED", False):
             return {"status": "skipped", "reason": "disabled"}
-        if not str(current_app.config.get("TELEGRAM_SET_WEBHOOK_ON_START", "false")).lower() in ("1", "true", "yes"): 
+        if not str(current_app.config.get("TELEGRAM_SET_WEBHOOK_ON_START", "false")).lower() in ("1", "true", "yes"):
             return {"status": "skipped", "reason": "flag off"}
 
         public_base_url = current_app.config.get("PUBLIC_BASE_URL") or current_app.config.get("LIVE_APP_URL")

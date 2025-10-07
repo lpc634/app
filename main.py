@@ -47,6 +47,7 @@ from src.routes.invoices import invoices_bp
 from src.routes.telegram import telegram_bp, telegram_api_bp, agent_telegram_bp
 from src.routes.police_interactions import bp as police_bp
 from src.routes.forms import forms_bp
+from src.routes.authority_to_act import authority_bp
 
 
 # --- Flask App Initialization ---
@@ -179,6 +180,7 @@ app.register_blueprint(telegram_api_bp)
 app.register_blueprint(agent_telegram_bp)
 app.register_blueprint(police_bp, url_prefix='/api')
 app.register_blueprint(forms_bp, url_prefix='/api')
+app.register_blueprint(authority_bp, url_prefix='/api')
 
 
 # --- Version tracking routes and headers ---

@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "./useAuth.jsx";
 
 // --- 1. IMPORT THE SEARCH ICON ---
-import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search, FileText, DollarSign, BellOff, MessageCircle, FileEdit } from 'lucide-react';
+import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search, FileText, DollarSign, BellOff, MessageCircle, FileEdit, FileSignature } from 'lucide-react';
 import logo from './assets/new_logo.png';
 
 const navigation = [
@@ -18,6 +18,7 @@ const navigation = [
   { name: 'Agent Invoices', href: '/admin/agent-invoices', icon: FileText, adminOnly: true },
   { name: 'Expenses', href: '/admin/expenses', icon: DollarSign, adminOnly: true },
   { name: 'V3 Job Reports', href: '/admin/v3-reports', icon: FileEdit, badge: 'NEW' },
+  { name: 'Authority to Act', href: '/admin/authority-to-act', icon: FileSignature, adminOnly: true },
   { name: 'Communications', href: '/admin/communications/message-agents', icon: MessageCircle, adminOnly: true },
   { name: 'Police Interactions', href: '/police-interactions', icon: FileText },
 ];

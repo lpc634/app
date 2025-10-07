@@ -24,6 +24,8 @@ import CreateMiscInvoice from './components/CreateMiscInvoice';
 import ReviewInvoicePage from './components/ReviewInvoicePage';
 import AdminMore from './Pages/admin/AdminMore.jsx';
 import MessageAgents from './Pages/admin/communications/MessageAgents.jsx';
+import AuthorityToActManager from './Pages/admin/AuthorityToActManager.jsx';
+import PublicAuthorityToActPage from './Pages/PublicAuthorityToActPage.jsx';
 import Analytics from './Pages/Analytics';
 import AvailabilityPage from './Pages/AvailabilityPage';
 import AdminDocumentReview from './components/AdminDocumentReview';
@@ -84,6 +86,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
           <Route path="/signup" element={<PublicRoute><SignUpPage /></PublicRoute>} />
+          <Route path="/public/authority-to-act/:token" element={<PublicAuthorityToActPage />} />
           
           {/* --- UPDATED: Root Route --- */}
           {/* This route now uses the RootRedirect component */}
@@ -97,6 +100,7 @@ function App() {
             <Route path="/admin/invoices" element={<AdminAgentInvoices />} />
             <Route path="/admin/more" element={<AdminMore />} />
             <Route path="/admin/communications/message-agents" element={<MessageAgents />} />
+            <Route path="/admin/authority-to-act" element={<AuthorityToActManager />} />
           </Route>
 
           {/* Legacy Admin Paths (back-compat) */}
