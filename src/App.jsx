@@ -86,7 +86,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
           <Route path="/signup" element={<PublicRoute><SignUpPage /></PublicRoute>} />
-          <Route path="/public/authority-to-act/:token" element={<PublicAuthorityToActPage />} />
+          <Route path="/form/:token" element={<PublicAuthorityToActPage />} />
           
           {/* --- UPDATED: Root Route --- */}
           {/* This route now uses the RootRedirect component */}

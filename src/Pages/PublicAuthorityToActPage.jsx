@@ -16,7 +16,7 @@ export default function PublicAuthorityToActPage() {
   const fetchFormData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/public/authority-to-act/${token}`);
+      const response = await fetch(`/api/form/${token}`);
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -48,7 +48,7 @@ export default function PublicAuthorityToActPage() {
         property_address: `${submissionData.siteAddress.line1}, ${submissionData.siteAddress.city}, ${submissionData.siteAddress.postcode}`,
       };
 
-      const response = await fetch(`/api/public/authority-to-act/${token}/submit`, {
+      const response = await fetch(`/api/form/${token}/submit`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -62,7 +62,7 @@ def get_permanent_link():
 
         # Generate public URL
         base_url = current_app.config.get('PUBLIC_BASE_URL', 'https://v3-app.herokuapp.com')
-        public_url = f"{base_url}/public/authority-to-act/{permanent_token.token}"
+        public_url = f"{base_url}/form/{permanent_token.token}"
 
         return jsonify({
             'url': public_url,
@@ -266,7 +266,7 @@ def download_submission_pdf(submission_id):
         return jsonify({"error": "Failed to generate PDF"}), 500
 
 
-@authority_bp.route('/public/authority-to-act/<token>', methods=['GET'])
+@authority_bp.route('/form/<token>', methods=['GET'])
 def get_authority_form_data(token):
     """Get form data for a specific token (public endpoint, no auth required)."""
     try:
@@ -290,7 +290,7 @@ def get_authority_form_data(token):
         return jsonify({"error": "Internal server error"}), 500
 
 
-@authority_bp.route('/public/authority-to-act/<token>/submit', methods=['POST'])
+@authority_bp.route('/form/<token>/submit', methods=['POST'])
 def submit_authority_form(token):
     """Submit Authority to Act form (public endpoint, no auth required)."""
     try:
