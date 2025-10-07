@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,7 +17,8 @@ import {
   Calendar,
   Loader2,
   Circle,
-  CircleDot
+  CircleDot,
+  Mail
 } from "lucide-react";
 import { useAuth } from "@/useAuth";
 import { toast } from "sonner";
@@ -37,6 +39,10 @@ export default function AuthorityToActManager() {
   const [downloadingPdf, setDownloadingPdf] = useState(null);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailRecipient, setEmailRecipient] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -130,6 +136,44 @@ export default function AuthorityToActManager() {
       console.error(err);
     } finally {
       setDownloadingPdf(null);
+    }
+  };
+
+  const openEmailDialog = () => {
+    setEmailRecipient("");
+    setEmailMessage("");
+    setShowEmailDialog(true);
+  };
+
+  const sendEmail = async () => {
+    if (!emailRecipient || !emailMessage) {
+      toast.error("Please enter recipient email and message");
+      return;
+    }
+
+    try {
+      setSendingEmail(true);
+      const formTypeLabel = FORM_TYPES.find(t => t.value === selectedFormType)?.label;
+
+      await apiCall('/admin/authority-to-act/send-email', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient_email: emailRecipient,
+          message_body: emailMessage,
+          form_link: permanentLink,
+          form_type_label: formTypeLabel
+        })
+      });
+
+      toast.success("Email sent successfully!");
+      setShowEmailDialog(false);
+      setEmailRecipient("");
+      setEmailMessage("");
+    } catch (err) {
+      toast.error("Failed to send email");
+      console.error(err);
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -259,6 +303,15 @@ export default function AuthorityToActManager() {
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Open
+              </Button>
+              <Button
+                variant="outline"
+                onClick={openEmailDialog}
+                className="shrink-0"
+                disabled={!permanentLink}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Send Email
               </Button>
             </div>
           </div>
@@ -467,6 +520,70 @@ export default function AuthorityToActManager() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Send Form Link via Email</DialogTitle>
+            <DialogDescription>
+              Send the {FORM_TYPES.find(t => t.value === selectedFormType)?.label} link to a client
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Recipient Email</label>
+              <Input
+                type="email"
+                placeholder="client@example.com"
+                value={emailRecipient}
+                onChange={(e) => setEmailRecipient(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Message</label>
+              <Textarea
+                placeholder="Enter your message to the client..."
+                value={emailMessage}
+                onChange={(e) => setEmailMessage(e.target.value)}
+                rows={6}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                The form link will be automatically included in the email.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setShowEmailDialog(false)}
+                disabled={sendingEmail}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={sendEmail}
+                disabled={sendingEmail || !emailRecipient || !emailMessage}
+              >
+                {sendingEmail ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send Email
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

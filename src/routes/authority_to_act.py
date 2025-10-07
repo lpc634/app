@@ -6,6 +6,10 @@ from src.extensions import db
 from datetime import datetime
 import logging
 import io
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.utils import formataddr
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
@@ -74,6 +78,55 @@ def get_permanent_link():
         logger.error(f"Error getting permanent link: {e}")
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+
+
+@authority_bp.route('/admin/authority-to-act/send-email', methods=['POST'])
+@jwt_required()
+def send_form_link_email():
+    """Send form link via email with custom message."""
+    try:
+        user = require_admin()
+        if not user:
+            return jsonify({"error": "Forbidden"}), 403
+
+        data = request.get_json()
+        recipient_email = data.get('recipient_email')
+        message_body = data.get('message_body', '')
+        form_link = data.get('form_link')
+        form_type_label = data.get('form_type_label')
+
+        if not recipient_email or not form_link or not form_type_label:
+            return jsonify({"error": "Missing required fields"}), 400
+
+        # Create email
+        msg = MIMEMultipart()
+        mail_sender = current_app.config.get('MAIL_DEFAULT_SENDER')
+        msg['From'] = formataddr(mail_sender) if isinstance(mail_sender, tuple) else mail_sender
+        msg['To'] = recipient_email
+        msg['Subject'] = form_type_label
+
+        # Build email body
+        email_body = f"{message_body}\n\n"
+        email_body += f"Please complete the form by clicking the link below:\n\n"
+        email_body += f"{form_link}\n\n"
+        email_body += f"Thank you,\nV3 Services"
+
+        msg.attach(MIMEText(email_body, 'plain'))
+
+        # Send email
+        server = smtplib.SMTP(current_app.config['MAIL_SERVER'], current_app.config['MAIL_PORT'])
+        if current_app.config.get('MAIL_USE_TLS'):
+            server.starttls()
+        server.login(current_app.config['MAIL_USERNAME'], current_app.config['MAIL_PASSWORD'])
+        server.send_message(msg)
+        server.quit()
+
+        logger.info(f"Form link email sent to {recipient_email} by admin {user.id}")
+        return jsonify({"message": "Email sent successfully"}), 200
+
+    except Exception as e:
+        logger.error(f"Error sending form link email: {e}")
+        return jsonify({"error": "Failed to send email"}), 500
 
 
 @authority_bp.route('/admin/authority-to-act/submissions', methods=['GET'])
