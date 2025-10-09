@@ -14,7 +14,7 @@ function getTotals(target: "doc" | "el", el?: HTMLElement | null) {
   }
 }
 
-export function useScrollProgress(scroller?: OptEl) {
+export function useScrollProgress(scroller?: OptEl, opts?: { forceElement?: boolean }) {
   const [p, setP] = useState(0);
   const raf = useRef(0);
   const elRef = useRef<HTMLElement | null>(null);
@@ -25,7 +25,7 @@ export function useScrollProgress(scroller?: OptEl) {
       const el = elRef.current;
       const elTotals = getTotals("el", el);
       const docTotals = getTotals("doc");
-      const useEl = !!el && elTotals.total > 0;
+      const useEl = !!el && (opts?.forceElement ? true : elTotals.total > 0);
       const { top, total } = useEl ? elTotals : docTotals;
       const denom = total > 0 ? total : 1;
       const next = Math.max(0, Math.min(1, top / denom));
@@ -43,12 +43,18 @@ export function useScrollProgress(scroller?: OptEl) {
       });
     };
 
-    // Bind to BOTH potential scrollers
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-
     const el = elRef.current;
-    el?.addEventListener?.("scroll", onScroll, { passive: true });
+    const forceEl = !!opts?.forceElement && !!el;
+
+    // Bind based on strategy: if forceElement and element exists, bind only to element; else bind to both
+    if (forceEl) {
+      el?.addEventListener?.("scroll", onScroll, { passive: true });
+      window.addEventListener("resize", onScroll);
+    } else {
+      window.addEventListener("scroll", onScroll, { passive: true });
+      window.addEventListener("resize", onScroll);
+      el?.addEventListener?.("scroll", onScroll, { passive: true });
+    }
 
     // Observe DOM mutations to keep totals fresh as content changes
     const mo = new MutationObserver(onScroll);
@@ -63,13 +69,18 @@ export function useScrollProgress(scroller?: OptEl) {
     compute();
 
     return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      el?.removeEventListener?.("scroll", onScroll);
+      if (forceEl) {
+        window.removeEventListener("resize", onScroll);
+        el?.removeEventListener?.("scroll", onScroll);
+      } else {
+        window.removeEventListener("scroll", onScroll);
+        window.removeEventListener("resize", onScroll);
+        el?.removeEventListener?.("scroll", onScroll);
+      }
       mo.disconnect();
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [compute, scroller]);
+  }, [compute, scroller, opts?.forceElement]);
 
   return p; // 0..1
 }

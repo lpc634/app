@@ -354,7 +354,7 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit, scrollC
   useEffect(() => {
     setScrollerEl((scrollContainer as HTMLElement | null) || rootRef.current);
   }, [scrollContainer]);
-  const progress = useScrollProgress(scrollerEl || null);
+  const progress = useScrollProgress(scrollerEl || null, { forceElement: true });
 
   const methods = useForm({
     resolver: zodResolver(schema),
