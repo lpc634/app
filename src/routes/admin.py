@@ -1473,30 +1473,46 @@ def update_invoice_payment_status(invoice_id):
         invoice = Invoice.query.get(invoice_id)
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404
-        
-        old_status = invoice.payment_status
-        invoice.payment_status = payment_status
-        invoice.admin_notes = admin_notes
-        
-        # If marking as paid, set payment date and admin
+        # Support deployments where only `status` column exists
+        current_payment_status = getattr(invoice, 'payment_status', None)
+        old_status = current_payment_status if current_payment_status is not None else getattr(invoice, 'status', None)
+
+        # Always keep base `status` in sync for UI
+        if hasattr(invoice, 'status'):
+            invoice.status = payment_status
+
+        # Update optional extended fields when present
+        if hasattr(invoice, 'payment_status'):
+            invoice.payment_status = payment_status
+        if hasattr(invoice, 'admin_notes'):
+            invoice.admin_notes = admin_notes
+
+        # If marking as paid, set payment date and admin when supported
         if payment_status == 'paid' and old_status != 'paid':
-            invoice.payment_date = datetime.utcnow()
-            invoice.paid_by_admin_id = current_user.id
-            
+            if hasattr(invoice, 'payment_date'):
+                invoice.payment_date = datetime.utcnow()
+            if hasattr(invoice, 'paid_by_admin_id'):
+                invoice.paid_by_admin_id = current_user.id
             # Send notification to agent
-            notification = Notification(
-                user_id=invoice.agent_id,
-                title=f"Invoice {invoice.invoice_number} Paid",
-                message=f"Your invoice for £{invoice.total_amount} has been marked as paid",
-                type="payment",
-                sent_at=datetime.utcnow()
-            )
-            db.session.add(notification)
-        
-        # If unmarking as paid, clear payment details
+            try:
+                notification = Notification(
+                    user_id=invoice.agent_id,
+                    title=f"Invoice {invoice.invoice_number} Paid",
+                    message=f"Your invoice for £{invoice.total_amount} has been marked as paid",
+                    type="payment",
+                    sent_at=datetime.utcnow()
+                )
+                db.session.add(notification)
+            except Exception:
+                # If Notification model/columns differ in some envs, avoid breaking the status update
+                pass
+
+        # If unmarking as paid, clear payment details when supported
         elif payment_status == 'unpaid' and old_status == 'paid':
-            invoice.payment_date = None
-            invoice.paid_by_admin_id = None
+            if hasattr(invoice, 'payment_date'):
+                invoice.payment_date = None
+            if hasattr(invoice, 'paid_by_admin_id'):
+                invoice.paid_by_admin_id = None
         
         db.session.commit()
         
