@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import LocationPicker from "@/components/LocationPicker";
 
 /** =============================================================
  *  Client Instruction Form: Authority To Act — Squatter Eviction
@@ -92,7 +93,9 @@ const schema = z.object({
 
   // Site details
   siteAddress: addrSchema,
-  what3words: z.string().optional(),
+  location_lat: z.number().optional(),
+  location_lng: z.number().optional(),
+  maps_link: z.string().optional(),
   propertyType: z.union([z.literal("open"), z.literal("commercial"), z.literal("retail"), z.literal("other")]),
   propertyTypeOther: z.string().optional(),
   premisesOccupied: z.boolean(),
@@ -268,11 +271,16 @@ function SignaturePad({ name }){
 }
 
 export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onSubmit?: (values: any) => void | Promise<void> }){
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+
   const methods = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
       clientAddress:{ country:"United Kingdom" },
       siteAddress:{ country:"United Kingdom" },
+      location_lat: undefined,
+      location_lng: undefined,
+      maps_link: "",
       propertyType:"open", premisesOccupied:false, sitePlanAvailable:false, photosAvailable:false,
       tents:0, vehicles:0, persons:0, dogsOnSite:false, livestockOnSite:false, changeUndertaking:true,
       haveSecurity:false, wantSecurityQuote:false, wantWasteQuote:false,
@@ -281,11 +289,37 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onS
       invoiceAddress:{ country:"United Kingdom" },
     }
   });
-  const { register, handleSubmit, watch, formState:{errors} } = methods;
+  const { register, handleSubmit, watch, setValue, formState:{errors} } = methods;
 
   const propertyType = watch("propertyType");
   const photosAvailable = watch("photosAvailable");
   const sitePlanAvailable = watch("sitePlanAvailable");
+  const siteAddress = watch("siteAddress");
+  const location_lat = watch("location_lat");
+  const location_lng = watch("location_lng");
+
+  // Helper function to build full address string for LocationPicker
+  const buildFullAddress = () => {
+    if (!siteAddress) return "";
+    const parts = [
+      siteAddress.line1,
+      siteAddress.line2,
+      siteAddress.city,
+      siteAddress.region,
+      siteAddress.postcode,
+      siteAddress.country
+    ].filter(Boolean);
+    return parts.join(", ");
+  };
+
+  const buildMapsLink = (lat, lng) => `https://www.google.com/maps?q=${lat},${lng}`;
+
+  const handleLocationConfirm = (location) => {
+    setValue("location_lat", location.lat, { shouldDirty: true });
+    setValue("location_lng", location.lng, { shouldDirty: true });
+    setValue("maps_link", location.maps_link, { shouldDirty: true });
+    setLocationPickerOpen(false);
+  };
 
   const handleFormSubmit = onSubmit || ((values)=>{
     // Fallback for demo/testing
@@ -318,8 +352,22 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onS
           <h2 className="section-title">Site Details</h2>
           <AddressFields path="siteAddress" />
           <div className="grid g-2" style={{marginTop:12}}>
-            <Field label="What3Words location of trespass entrance" hint="Format: ///word.word.word">
-              <input className="input" placeholder="///word.word.word" {...register("what3words")} />
+            <Field label="Location of site entrance" hint="Drop a pin on the map to mark the exact entrance location" error={undefined}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setLocationPickerOpen(true)}
+                style={{marginBottom: '8px', width: '100%'}}
+              >
+                {location_lat && location_lng ? 'Update Location' : 'Select Location on Map'}
+              </button>
+              {location_lat && location_lng && (
+                <div className="notice" style={{marginTop: '8px'}}>
+                  <div style={{fontSize: '0.85rem', color: 'var(--muted)'}}>
+                    📍 Location selected: {location_lat.toFixed(6)}, {location_lng.toFixed(6)}
+                  </div>
+                </div>
+              )}
             </Field>
             <div>
               <label className="form-label">Property Type (select one) <span className="req">*</span></label>
@@ -462,6 +510,27 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onS
           </div>
         </section>
       </main>
+
+      {/* Location Picker Modal */}
+      <LocationPicker
+        isOpen={locationPickerOpen}
+        onCancel={() => setLocationPickerOpen(false)}
+        address={buildFullAddress()}
+        postcode={siteAddress?.postcode || ''}
+        value={{
+          lat: location_lat,
+          lng: location_lng,
+          maps_link: watch("maps_link")
+        }}
+        onConfirm={handleLocationConfirm}
+        onChange={(location) => {
+          if (location) {
+            setValue("location_lat", location.lat, { shouldDirty: true });
+            setValue("location_lng", location.lng, { shouldDirty: true });
+            setValue("maps_link", location.maps_link, { shouldDirty: true });
+          }
+        }}
+      />
     </FormProvider>
   );
 }
