@@ -335,6 +335,8 @@ function SignaturePad({ name }){
 
 export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onSubmit?: (values: any) => void | Promise<void> }){
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [progress, setProgress] = useState(0);
 
   const methods = useForm({
     resolver: zodResolver(schema),
@@ -390,10 +392,83 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onS
     alert("Submitted (demo) — check console for JSON payload.");
   });
 
+  // Scroll progress tracking
+  function getScrollParent(el: Element | null): Element | null {
+    let node: any = el;
+    while (node && node !== document.body) {
+      const style = window.getComputedStyle(node);
+      const overflowY = style.overflowY;
+      const isScrollable =
+        (overflowY === "auto" || overflowY === "scroll") &&
+        node.scrollHeight > node.clientHeight;
+      if (isScrollable) return node;
+      node = node.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
+  useEffect(() => {
+    let frame = 0;
+    const rootEl = rootRef.current;
+    const scroller = getScrollParent(rootEl) as
+      | (Element & { scrollTop?: number; scrollHeight?: number; clientHeight?: number })
+      | null;
+
+    const compute = () => {
+      if (!scroller) {
+        setProgress(0);
+        return;
+      }
+      const isDoc =
+        scroller === document.documentElement ||
+        scroller === document.body ||
+        scroller === document.scrollingElement;
+
+      const scrollTop = isDoc ? window.scrollY : (scroller as any).scrollTop || 0;
+      const total = isDoc
+        ? (document.documentElement.scrollHeight - window.innerHeight)
+        : ((scroller!.scrollHeight ?? 0) - (scroller!.clientHeight ?? 0));
+
+      const denom = total > 0 ? total : 1;
+      const p = Math.max(0, Math.min(1, scrollTop / denom));
+      setProgress(p);
+    };
+
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(compute);
+    };
+
+    compute();
+    if (scroller) {
+      scroller.addEventListener("scroll", onScroll, { passive: true });
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", compute, { passive: true });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      if (scroller) {
+        scroller.removeEventListener("scroll", onScroll);
+      }
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", compute);
+    };
+  }, []);
+
   return (
     <FormProvider {...methods}>
       <style>{CSS}</style>
-      <div className="header"><div className="header-inner"><h1 className="h1">Client Instruction Form: Authority To Act — Squatter Eviction</h1><div className="subtle">Please complete all required fields. Fields marked with <span className="req">*</span> are mandatory.</div></div></div>
+      <div ref={rootRef}>
+        <div className="header">
+          <div className="header-inner">
+            <h1 className="h1">Client Instruction Form: Authority To Act — Squatter Eviction</h1>
+            <div className="subtle">Please complete all required fields. Fields marked with <span className="req">*</span> are mandatory.</div>
+          </div>
+          <div className="progress-rail" style={{margin:'0 auto',maxWidth:'1100px',padding:'0 18px 10px'}}>
+            <div className="progress-bar" style={{width:`${Math.max(0,Math.min(100,Math.round(progress*100)))}%`}} />
+          </div>
+        </div>
       <main className="page">
         {/* Client Details */}
         <section className="card">
@@ -594,6 +669,7 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onS
           }
         }}
       />
+      </div>
     </FormProvider>
   );
 }
