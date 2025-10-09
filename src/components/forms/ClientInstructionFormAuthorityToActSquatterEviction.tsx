@@ -129,6 +129,10 @@ small.error{display:block;color:var(--danger);margin-top:6px}
 
 .notice{padding:12px;border:1px solid var(--v3-border);border-radius:12px;background:rgba(255,106,43,.08)}
 
+/* Progress Bar */
+.progress-rail{height:10px;border-radius:999px;background:#1d1f26;border:1px solid #2A2D36}
+.progress-bar{height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--v3-orange),var(--v3-orange-dark))}
+
 /* Signature Pad */
 .sig-wrap{border:1px dashed var(--v3-border);border-radius:10px;background:var(--v3-bg-dark)}
 .sig-toolbar{display:flex;justify-content:space-between;gap:8px;padding:8px;border-bottom:1px solid var(--v3-border)}
