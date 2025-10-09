@@ -418,20 +418,25 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onS
       | (Element & { scrollTop?: number; scrollHeight?: number; clientHeight?: number })
       | null;
 
+    // IMPORTANT: decide once whether we're using the document scroller
+    const isDocScroller =
+      scroller === document.documentElement ||
+      scroller === document.body ||
+      scroller === document.scrollingElement;
+
     const compute = () => {
-      if (!scroller) {
+      if (!scroller && !isDocScroller) {
         setProgress(0);
         return;
       }
-      const isDoc =
-        scroller === document.documentElement ||
-        scroller === document.body ||
-        scroller === document.scrollingElement;
+      // For document scrolling, always read from window
+      const scrollTop = isDocScroller
+        ? window.scrollY
+        : ((scroller as any)?.scrollTop || 0);
 
-      const scrollTop = isDoc ? window.scrollY : (scroller as any).scrollTop || 0;
-      const total = isDoc
+      const total = isDocScroller
         ? (document.documentElement.scrollHeight - window.innerHeight)
-        : ((scroller!.scrollHeight ?? 0) - (scroller!.clientHeight ?? 0));
+        : (((scroller as any)?.scrollHeight ?? 0) - ((scroller as any)?.clientHeight ?? 0));
 
       const denom = total > 0 ? total : 1;
       const p = Math.max(0, Math.min(1, scrollTop / denom));
@@ -448,7 +453,8 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onS
 
     const onResize = onScroll;
 
-    const target: any = scroller ?? window;
+    // CRITICAL: bind to window if document is the scroller; otherwise bind to the element scroller
+    const target: any = isDocScroller ? window : (scroller ?? window);
     target.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onResize);
 
