@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useScrollProgress } from "@/hooks/useScrollProgress";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -338,10 +339,10 @@ function SignaturePad({ name }){
   );
 }
 
-export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onSubmit?: (values: any) => void | Promise<void> }){
+export default function ClientAuthorityToActSquatterEviction({ onSubmit, scrollContainer }: { onSubmit?: (values: any) => void | Promise<void>, scrollContainer?: HTMLElement | null }){
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const [progress, setProgress] = useState(0);
+  const progress = useScrollProgress(scrollContainer || null);
 
   const methods = useForm({
     resolver: zodResolver(schema),
@@ -412,66 +413,7 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onS
     return document.scrollingElement || document.documentElement;
   }
 
-  useEffect(() => {
-    let frame = 0;
-    const rootEl = rootRef.current;
-    const scroller = getScrollParent(rootEl) as
-      | (Element & { scrollTop?: number; scrollHeight?: number; clientHeight?: number })
-      | null;
-
-    // IMPORTANT: decide once whether we're using the document scroller
-    const isDocScroller =
-      scroller === document.documentElement ||
-      scroller === document.body ||
-      scroller === document.scrollingElement;
-
-    const compute = () => {
-      if (!scroller && !isDocScroller) {
-        setProgress(0);
-        return;
-      }
-      // For document scrolling, use the actual scrollingElement metrics to be robust across environments
-      if (isDocScroller) {
-        const docEl: any = document.scrollingElement || document.documentElement || document.body;
-        const docScrollTop = Number(docEl?.scrollTop || 0);
-        const docTotal = Number((docEl?.scrollHeight || 0) - (docEl?.clientHeight || 0));
-        const denom = docTotal > 0 ? docTotal : 1;
-        const p = Math.max(0, Math.min(1, docScrollTop / denom));
-        setProgress(p);
-        return;
-      }
-
-      const elScrollTop = Number(((scroller as any)?.scrollTop || 0));
-      const elTotal = Number(((scroller as any)?.scrollHeight || 0) - ((scroller as any)?.clientHeight || 0));
-      const denom = elTotal > 0 ? elTotal : 1;
-      const p = Math.max(0, Math.min(1, elScrollTop / denom));
-      setProgress(p);
-    };
-
-    const onScroll = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        compute();
-      });
-    };
-
-    const onResize = onScroll;
-
-    // CRITICAL: bind to window if document is the scroller; otherwise bind to the element scroller
-    const target: any = isDocScroller ? window : (scroller ?? window);
-    target.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onResize);
-
-    // Initial calculation
-    compute();
-
-    return () => {
-      target.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onResize);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, []);
+  // Progress now handled by useScrollProgress; no local effect required
 
   return (
     <FormProvider {...methods}>

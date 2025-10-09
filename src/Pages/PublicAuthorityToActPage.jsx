@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ClientAuthorityToActSquatterEviction from "@/components/forms/ClientInstructionFormAuthorityToActSquatterEviction";
 
 export default function PublicAuthorityToActPage() {
@@ -8,6 +8,7 @@ export default function PublicAuthorityToActPage() {
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  const scrollRef = useRef(null);
 
   useEffect(() => {
     fetchFormData();
@@ -119,6 +120,22 @@ export default function PublicAuthorityToActPage() {
     );
   }
 
-  // Render the actual form
-  return <ClientAuthorityToActSquatterEviction onSubmit={handleSubmit} />;
+  // Render the actual form in a controlled scroll container
+  return (
+    <div
+      id="form-scroll-root"
+      ref={scrollRef}
+      style={{
+        minHeight: "100vh",
+        overflowY: "auto",
+        display: "flex",
+        justifyContent: "center",
+      }}
+    >
+      <ClientAuthorityToActSquatterEviction
+        onSubmit={handleSubmit}
+        scrollContainer={scrollRef.current}
+      />
+    </div>
+  );
 }
