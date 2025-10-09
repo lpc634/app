@@ -74,7 +74,7 @@ body::before{
 }
 
 .page{max-width:1100px;margin:0 auto;padding:28px 18px 120px}
-.header{position:sticky;top:0;z-index:20;background:var(--v3-bg-darkest);border-bottom:1px solid var(--v3-border);backdrop-filter:saturate(180%) blur(6px)}
+.header{position:sticky;top:0;z-index:40;background:transparent;border-bottom:1px solid var(--v3-border);backdrop-filter:saturate(180%) blur(6px)}
 .header-inner{max-width:1100px;margin:0 auto;padding:12px 18px}
 .h1{margin:0;font-weight:800;font-size:1.8rem;color:var(--v3-text-strong)}
 .subtle{color:var(--v3-text-muted);font-size:.9rem}
@@ -139,6 +139,14 @@ small.error{display:block;color:var(--danger);margin-top:6px}
 .sig-wrap{border:1px dashed var(--v3-border);border-radius:10px;background:var(--v3-bg-dark)}
 .sig-toolbar{display:flex;justify-content:space-between;gap:8px;padding:8px;border-bottom:1px solid var(--v3-border)}
 .sig-canvas{width:100%;height:200px;display:block;background:var(--v3-bg-dark)}
+
+/* StarBorder (match Traveller form) */
+.star-border-container{ display:block; position:relative; border-radius:20px; overflow:hidden; width:100% }
+.border-gradient-bottom{ position:absolute; width:300%; height:50%; opacity:.7; bottom:-12px; right:-250%; border-radius:50%; animation:star-movement-bottom linear infinite alternate; z-index:0; pointer-events:none; will-change:transform, opacity }
+.border-gradient-top{ position:absolute; width:300%; height:50%; opacity:.7; top:-12px; left:-250%; border-radius:50%; animation:star-movement-top linear infinite alternate; z-index:0; pointer-events:none; will-change:transform, opacity }
+.inner-content{ position:relative; border:1px solid var(--v3-border); background:rgba(17,17,20,.6); backdrop-filter:blur(8px); color:var(--v3-text); font-size:16px; padding:12px 14px; border-radius:20px; z-index:1 }
+@keyframes star-movement-bottom{ 0%{transform:translate(0,0);opacity:1} 100%{transform:translate(-100%,0);opacity:0} }
+@keyframes star-movement-top{ 0%{transform:translate(0,0);opacity:1} 100%{transform:translate(100%,0);opacity:0} }
 `;
 
 /** Schema */
@@ -420,9 +428,13 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit, scrollC
       <style>{CSS}</style>
       <div ref={rootRef} style={{minHeight:'100vh'}}>
         <div className="header">
-          <div className="header-inner">
-            <h1 className="h1">Client Instruction Form: Authority To Act — Squatter Eviction</h1>
-            <div className="subtle">Please complete all required fields. Fields marked with <span className="req">*</span> are mandatory.</div>
+          <div className="star-border-container" style={{maxWidth:'1100px', margin:'0 auto', padding:'12px 18px'}}>
+            <div className="border-gradient-top"/>
+            <div className="inner-content">
+              <h1 className="h1">Client Instruction Form: Authority To Act — Squatter Eviction</h1>
+              <div className="subtle">Please complete all required fields. Fields marked with <span className="req">*</span> are mandatory.</div>
+            </div>
+            <div className="border-gradient-bottom"/>
           </div>
           <div className="progress-rail" style={{margin:'0 auto',maxWidth:'1100px',padding:'0 18px 10px'}}>
             <div className="progress-bar" style={{width:`${Math.max(0,Math.min(100,Math.round(progress*100)))}%`}} />
