@@ -74,7 +74,7 @@ body::before{
 }
 
 .page{max-width:1100px;margin:0 auto;padding:28px 18px 120px}
-.header{position:sticky;top:0;z-index:40;background:transparent;border-bottom:1px solid var(--v3-border);backdrop-filter:saturate(180%) blur(6px)}
+.header{position:sticky;top:0;z-index:1000;background:transparent;border-bottom:1px solid var(--v3-border);backdrop-filter:saturate(180%) blur(6px)}
 .header-inner{max-width:1100px;margin:0 auto;padding:12px 18px}
 .h1{margin:0;font-weight:800;font-size:1.8rem;color:var(--v3-text-strong)}
 .subtle{color:var(--v3-text-muted);font-size:.9rem}
@@ -426,7 +426,7 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit, scrollC
   return (
     <FormProvider {...methods}>
       <style>{CSS}</style>
-      <div ref={rootRef} style={{minHeight:'100vh'}}>
+      <div ref={rootRef} style={{minHeight:'100vh', position:'relative'}}>
         <div className="header">
           <div className="star-border-container" style={{maxWidth:'1100px', margin:'0 auto', padding:'12px 18px'}}>
             <div className="border-gradient-top"/>

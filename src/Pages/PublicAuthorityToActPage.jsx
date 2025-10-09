@@ -128,8 +128,7 @@ export default function PublicAuthorityToActPage() {
       style={{
         minHeight: "100vh",
         overflowY: "auto",
-        display: "flex",
-        justifyContent: "center",
+        position: "relative",
       }}
     >
       <ClientAuthorityToActSquatterEviction
