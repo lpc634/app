@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useScrollProgress } from "@/hooks/useScrollProgress";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { z } from "zod";
@@ -350,7 +350,11 @@ function SignaturePad({ name }){
 export default function ClientAuthorityToActSquatterEviction({ onSubmit, scrollContainer }: { onSubmit?: (values: any) => void | Promise<void>, scrollContainer?: HTMLElement | null }){
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const progress = useScrollProgress(rootRef.current || scrollContainer || null);
+  const [scrollerEl, setScrollerEl] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setScrollerEl((scrollContainer as HTMLElement | null) || rootRef.current);
+  }, [scrollContainer]);
+  const progress = useScrollProgress(scrollerEl || null);
 
   const methods = useForm({
     resolver: zodResolver(schema),
