@@ -24,8 +24,52 @@ const CSS = String.raw`
 .v3-root, .v3-root *, .v3-root *::before, .v3-root *::after { box-sizing: border-box }
 
 *{box-sizing:border-box}
-html,body,#root{height:100%;background:var(--v3-bg-darkest)}
-body{margin:0;background:var(--v3-bg-darkest);color:var(--v3-text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+html,body,#root{
+  height:100%;
+  background:
+    radial-gradient(circle at 20% 80%, rgba(255, 106, 43, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 106, 43, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(255, 106, 43, 0.05) 0%, transparent 50%),
+    linear-gradient(135deg, var(--v3-bg-darkest) 0%, #0A0A0B 50%, #050505 100%);
+  position:relative;
+  overflow-x:hidden;
+}
+body{
+  margin:0;
+  background:
+    radial-gradient(circle at 20% 80%, rgba(255, 106, 43, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 106, 43, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(255, 106, 43, 0.05) 0%, transparent 50%),
+    linear-gradient(135deg, var(--v3-bg-darkest) 0%, #0A0A0B 50%, #050505 100%);
+  color:var(--v3-text);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+body::before{
+  content:'';
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background-image:
+    radial-gradient(2px 2px at 20px 30px, rgba(255, 106, 43, 0.4), transparent),
+    radial-gradient(2px 2px at 40px 70px, rgba(255, 106, 43, 0.3), transparent),
+    radial-gradient(1px 1px at 90px 40px, rgba(255, 106, 43, 0.2), transparent),
+    radial-gradient(1px 1px at 130px 80px, rgba(255, 106, 43, 0.1), transparent);
+  background-repeat:repeat;
+  background-size:200px 200px, 300px 300px, 250px 250px, 350px 350px;
+  animation:gradient-shift 20s ease infinite;
+  opacity:0.1;
+  z-index:-2;
+  pointer-events:none;
+}
+@keyframes gradient-shift{
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
 
 .page{max-width:1100px;margin:0 auto;padding:28px 18px 120px}
 .header{position:sticky;top:0;z-index:20;background:var(--v3-bg-darkest);border-bottom:1px solid var(--v3-border);backdrop-filter:saturate(180%) blur(6px)}
