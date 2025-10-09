@@ -118,22 +118,28 @@ def send_form_link_email():
 
         msg.attach(MIMEText(email_body, 'plain'))
 
-        # Send email
+        # Send email with timeout
         use_ssl = str(current_app.config.get('MAIL_USE_SSL', '')).lower() == 'true'
         use_tls = str(current_app.config.get('MAIL_USE_TLS', '')).lower() == 'true'
+        mail_server = current_app.config['MAIL_SERVER']
+        mail_port = int(current_app.config['MAIL_PORT'])
+
+        logger.info(f"Attempting to connect to {mail_server}:{mail_port} (SSL={use_ssl}, TLS={use_tls})")
 
         if use_ssl:
             # Use SMTP_SSL for port 465
-            server = smtplib.SMTP_SSL(current_app.config['MAIL_SERVER'], int(current_app.config['MAIL_PORT']))
+            server = smtplib.SMTP_SSL(mail_server, mail_port, timeout=10)
         else:
             # Use SMTP with STARTTLS for port 587
-            server = smtplib.SMTP(current_app.config['MAIL_SERVER'], int(current_app.config['MAIL_PORT']))
+            server = smtplib.SMTP(mail_server, mail_port, timeout=10)
             if use_tls:
                 server.starttls()
 
         server.login(current_app.config['MAIL_USERNAME'], current_app.config['MAIL_PASSWORD'])
         server.send_message(msg)
         server.quit()
+
+        logger.info(f"Email sent successfully to {recipient_email}")
 
         logger.info(f"Form link email sent to {recipient_email} by admin {user.id}")
         return jsonify({"message": "Email sent successfully"}), 200
