@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useScrollProgress } from "@/hooks/useScrollProgress";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -350,11 +349,6 @@ function SignaturePad({ name }){
 export default function ClientAuthorityToActSquatterEviction({ onSubmit, scrollContainer }: { onSubmit?: (values: any) => void | Promise<void>, scrollContainer?: HTMLElement | null }){
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const [scrollerEl, setScrollerEl] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    setScrollerEl((scrollContainer as HTMLElement | null) || rootRef.current);
-  }, [scrollContainer]);
-  const progress = useScrollProgress(scrollerEl || null, { forceElement: true });
 
   const methods = useForm({
     resolver: zodResolver(schema),
@@ -440,9 +434,7 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit, scrollC
             </div>
             <div className="border-gradient-bottom"/>
           </div>
-          <div className="progress-rail" style={{margin:'0 auto',maxWidth:'1100px',padding:'0 18px 10px'}}>
-            <div className="progress-bar" style={{width:`${Math.max(0,Math.min(100,Math.round(progress*100)))}%`}} />
-          </div>
+          {/* progress bar removed per request */}
         </div>
       <main className="page">
         {/* Client Details */}
