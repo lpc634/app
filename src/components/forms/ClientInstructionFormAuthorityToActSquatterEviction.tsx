@@ -397,64 +397,29 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onS
   });
 
   // Scroll progress tracking
-  function getScrollParent(el: Element | null): Element | null {
-    let node: any = el;
-    while (node && node !== document.body) {
-      const style = window.getComputedStyle(node);
-      const overflowY = style.overflowY;
-      const isScrollable =
-        (overflowY === "auto" || overflowY === "scroll") &&
-        node.scrollHeight > node.clientHeight;
-      if (isScrollable) return node;
-      node = node.parentElement;
-    }
-    return document.scrollingElement || document.documentElement;
-  }
-
   useEffect(() => {
-    let frame = 0;
-    const rootEl = rootRef.current;
-    const scroller = getScrollParent(rootEl) as
-      | (Element & { scrollTop?: number; scrollHeight?: number; clientHeight?: number })
-      | null;
-
     const compute = () => {
-      if (!scroller) {
-        setProgress(0);
-        return;
-      }
-      const isDoc =
-        scroller === document.documentElement ||
-        scroller === document.body ||
-        scroller === document.scrollingElement;
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollHeight = document.documentElement.scrollHeight;
+      const clientHeight = document.documentElement.clientHeight;
 
-      const scrollTop = isDoc ? window.scrollY : (scroller as any).scrollTop || 0;
-      const total = isDoc
-        ? (document.documentElement.scrollHeight - window.innerHeight)
-        : ((scroller!.scrollHeight ?? 0) - (scroller!.clientHeight ?? 0));
+      const windowHeight = scrollHeight - clientHeight;
+      const scrolled = windowHeight > 0 ? scrollTop / windowHeight : 0;
 
-      const denom = total > 0 ? total : 1;
-      const p = Math.max(0, Math.min(1, scrollTop / denom));
-      setProgress(p);
+      setProgress(Math.max(0, Math.min(1, scrolled)));
     };
 
     const onScroll = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(compute);
+      requestAnimationFrame(compute);
     };
 
+    // Initial calculation
     compute();
-    if (scroller) {
-      scroller.addEventListener("scroll", onScroll, { passive: true });
-    }
+
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", compute, { passive: true });
 
     return () => {
-      cancelAnimationFrame(frame);
-      if (scroller) {
-        scroller.removeEventListener("scroll", onScroll);
-      }
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", compute);
     };
