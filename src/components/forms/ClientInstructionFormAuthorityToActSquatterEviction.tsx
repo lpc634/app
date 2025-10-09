@@ -397,31 +397,68 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onS
   });
 
   // Scroll progress tracking
+  function getScrollParent(el: Element | null): Element | null {
+    let node: any = el;
+    while (node && node !== document.body) {
+      const style = window.getComputedStyle(node);
+      const overflowY = style.overflowY;
+      const isScrollable =
+        (overflowY === "auto" || overflowY === "scroll") &&
+        node.scrollHeight > node.clientHeight;
+      if (isScrollable) return node;
+      node = node.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
   useEffect(() => {
+    let frame = 0;
+    const rootEl = rootRef.current;
+    const scroller = getScrollParent(rootEl) as
+      | (Element & { scrollTop?: number; scrollHeight?: number; clientHeight?: number })
+      | null;
+
     const compute = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const scrollHeight = document.documentElement.scrollHeight;
-      const clientHeight = document.documentElement.clientHeight;
+      if (!scroller) {
+        setProgress(0);
+        return;
+      }
+      const isDoc =
+        scroller === document.documentElement ||
+        scroller === document.body ||
+        scroller === document.scrollingElement;
 
-      const windowHeight = scrollHeight - clientHeight;
-      const scrolled = windowHeight > 0 ? scrollTop / windowHeight : 0;
+      const scrollTop = isDoc ? window.scrollY : (scroller as any).scrollTop || 0;
+      const total = isDoc
+        ? (document.documentElement.scrollHeight - window.innerHeight)
+        : ((scroller!.scrollHeight ?? 0) - (scroller!.clientHeight ?? 0));
 
-      setProgress(Math.max(0, Math.min(1, scrolled)));
+      const denom = total > 0 ? total : 1;
+      const p = Math.max(0, Math.min(1, scrollTop / denom));
+      setProgress(p);
     };
 
     const onScroll = () => {
-      requestAnimationFrame(compute);
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        compute();
+      });
     };
+
+    const onResize = onScroll;
+
+    const target: any = scroller ?? window;
+    target.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
 
     // Initial calculation
     compute();
 
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", compute, { passive: true });
-
     return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", compute);
+      target.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+      if (frame) cancelAnimationFrame(frame);
     };
   }, []);
 
