@@ -429,17 +429,21 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onS
         setProgress(0);
         return;
       }
-      // For document scrolling, always read from window
-      const scrollTop = isDocScroller
-        ? window.scrollY
-        : ((scroller as any)?.scrollTop || 0);
+      // For document scrolling, use the actual scrollingElement metrics to be robust across environments
+      if (isDocScroller) {
+        const docEl: any = document.scrollingElement || document.documentElement || document.body;
+        const docScrollTop = Number(docEl?.scrollTop || 0);
+        const docTotal = Number((docEl?.scrollHeight || 0) - (docEl?.clientHeight || 0));
+        const denom = docTotal > 0 ? docTotal : 1;
+        const p = Math.max(0, Math.min(1, docScrollTop / denom));
+        setProgress(p);
+        return;
+      }
 
-      const total = isDocScroller
-        ? (document.documentElement.scrollHeight - window.innerHeight)
-        : (((scroller as any)?.scrollHeight ?? 0) - ((scroller as any)?.clientHeight ?? 0));
-
-      const denom = total > 0 ? total : 1;
-      const p = Math.max(0, Math.min(1, scrollTop / denom));
+      const elScrollTop = Number(((scroller as any)?.scrollTop || 0));
+      const elTotal = Number(((scroller as any)?.scrollHeight || 0) - ((scroller as any)?.clientHeight || 0));
+      const denom = elTotal > 0 ? elTotal : 1;
+      const p = Math.max(0, Math.min(1, elScrollTop / denom));
       setProgress(p);
     };
 
