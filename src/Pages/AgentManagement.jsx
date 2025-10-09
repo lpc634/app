@@ -195,6 +195,33 @@ export default function AgentManagement() {
     }
   }
 
+  const handleMarkAsUnpaid = async (invoiceId) => {
+    try {
+      console.log('Marking invoice as unpaid:', invoiceId)
+
+      // Call the backend API to set status back to unpaid
+      await apiCall(`/admin/invoices/${invoiceId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ payment_status: 'unpaid' })
+      })
+
+      // Refresh agent details to show updated status
+      if (selectedAgentForDetails) {
+        await handleViewDetails(selectedAgentForDetails)
+      }
+
+      // If invoice details modal is open, refresh it too
+      if (selectedInvoiceDetails) {
+        await handleViewInvoiceDetails(selectedInvoiceDetails.id)
+      }
+
+      console.log('Invoice marked as unpaid successfully')
+    } catch (error) {
+      console.error('Failed to mark invoice as unpaid:', error)
+      setError('Failed to mark invoice as unpaid. Please try again.')
+    }
+  }
+
   if (loading && activeTab === 'agents') {
     return (
       <div className="space-y-6">
@@ -772,7 +799,18 @@ export default function AgentManagement() {
                                 </div>
                                 
                                 <div className="flex flex-col gap-2 ml-4">
-                                  {invoice.status !== 'paid' && (
+                                  {invoice.status === 'paid' ? (
+                                    <button 
+                                      className="button-refresh px-3 py-2 text-sm"
+                                      style={{
+                                        background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+                                        border: '1px solid #EF4444'
+                                      }}
+                                      onClick={() => handleMarkAsUnpaid(invoice.id)}
+                                    >
+                                      ↩ Mark as Unpaid
+                                    </button>
+                                  ) : (
                                     <button 
                                       className="button-refresh px-3 py-2 text-sm"
                                       style={{
@@ -1292,7 +1330,14 @@ export default function AgentManagement() {
             
             {/* Footer */}
             <div className="p-6 border-t border-gray-700 bg-gray-900 flex justify-end gap-3">
-              {selectedInvoiceDetails?.status !== 'paid' && (
+              {selectedInvoiceDetails?.status === 'paid' ? (
+                <button 
+                  onClick={() => handleMarkAsUnpaid(selectedInvoiceDetails.id)}
+                  className="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700"
+                >
+                  Mark as Unpaid
+                </button>
+              ) : (
                 <button 
                   onClick={() => handleMarkAsPaid(selectedInvoiceDetails.id)}
                   className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
