@@ -78,8 +78,8 @@ const THEME_CSS = String.raw`
 
 /* StarBorder */
 .star-border-container{ display:block; position:relative; border-radius:20px; overflow:hidden; width:100% }
-.border-gradient-bottom{ position:absolute; width:300%; height:50%; opacity:.7; bottom:-12px; right:-250%; border-radius:50%; animation:star-movement-bottom linear infinite alternate; z-index:0 }
-.border-gradient-top{ position:absolute; width:300%; height:50%; opacity:.7; top:-12px; left:-250%; border-radius:50%; animation:star-movement-top linear infinite alternate; z-index:0 }
+.border-gradient-bottom{ position:absolute; width:300%; height:50%; opacity:.7; bottom:-12px; right:-250%; border-radius:50%; animation:star-movement-bottom linear infinite alternate; z-index:0; pointer-events:none; will-change:transform, opacity }
+.border-gradient-top{ position:absolute; width:300%; height:50%; opacity:.7; top:-12px; left:-250%; border-radius:50%; animation:star-movement-top linear infinite alternate; z-index:0; pointer-events:none; will-change:transform, opacity }
 .inner-content{ position:relative; border:1px solid var(--v3-border); background:rgba(17,17,20,.6); backdrop-filter:blur(8px); color:var(--v3-text); font-size:16px; padding:12px 14px; border-radius:20px; z-index:1 }
 .star-border-container .inner-content{ box-shadow: inset 0 0 0 1px var(--v3-orange) }
 @keyframes star-movement-bottom{ 0%{transform:translate(0,0);opacity:1} 100%{transform:translate(-100%,0);opacity:0} }

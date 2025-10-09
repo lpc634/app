@@ -25,7 +25,8 @@ const CSS = String.raw`
 
 *{box-sizing:border-box}
 html,body,#root{
-  height:100%;
+  /* Allow the document to grow so (scrollHeight - clientHeight) > 0 */
+  min-height:100%;
   background:
     radial-gradient(circle at 20% 80%, rgba(255, 106, 43, 0.15) 0%, transparent 50%),
     radial-gradient(circle at 80% 20%, rgba(255, 106, 43, 0.1) 0%, transparent 50%),
