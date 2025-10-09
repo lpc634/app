@@ -465,7 +465,7 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit }: { onS
   return (
     <FormProvider {...methods}>
       <style>{CSS}</style>
-      <div ref={rootRef}>
+      <div ref={rootRef} style={{minHeight:'100vh'}}>
         <div className="header">
           <div className="header-inner">
             <h1 className="h1">Client Instruction Form: Authority To Act — Squatter Eviction</h1>
