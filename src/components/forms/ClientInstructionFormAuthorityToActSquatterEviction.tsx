@@ -430,7 +430,7 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit, scrollC
   return (
     <FormProvider {...methods}>
       <style>{CSS}</style>
-      <div ref={rootRef} style={{height:'100vh', overflowY:'auto', WebkitOverflowScrolling:'touch', position:'relative'}}>
+      <div ref={rootRef} style={{height:'100dvh', overflowY:'auto', WebkitOverflowScrolling:'touch', position:'relative'}}>
         <div className="header">
           <div className="star-border-container" style={{maxWidth:'1100px', margin:'0 auto', padding:'12px 18px'}}>
             <div className="border-gradient-top"/>
