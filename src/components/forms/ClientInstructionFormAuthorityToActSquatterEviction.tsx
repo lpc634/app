@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useScrollProgress } from "@/hooks/useScrollProgress";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { z } from "zod";
@@ -350,7 +350,7 @@ function SignaturePad({ name }){
 export default function ClientAuthorityToActSquatterEviction({ onSubmit, scrollContainer }: { onSubmit?: (values: any) => void | Promise<void>, scrollContainer?: HTMLElement | null }){
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const progress = useScrollProgress(scrollContainer || null);
+  const progress = useScrollProgress(rootRef.current || scrollContainer || null);
 
   const methods = useForm({
     resolver: zodResolver(schema),
@@ -426,7 +426,7 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit, scrollC
   return (
     <FormProvider {...methods}>
       <style>{CSS}</style>
-      <div ref={rootRef} style={{minHeight:'100vh', position:'relative'}}>
+      <div ref={rootRef} style={{height:'100vh', overflowY:'auto', WebkitOverflowScrolling:'touch', position:'relative'}}>
         <div className="header">
           <div className="star-border-container" style={{maxWidth:'1100px', margin:'0 auto', padding:'12px 18px'}}>
             <div className="border-gradient-top"/>
