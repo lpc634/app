@@ -49,9 +49,13 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
            value.includes('s3.amazonaws.com');
   };
 
-  // Helper to check if a field contains images
+  // Helper to check if a field contains images (but NOT signatures)
   const isImageField = (key: string, value: any) => {
     const lower = key.toLowerCase();
+    // Exclude signatures - they should stay in form details
+    if (lower.includes('signature')) {
+      return false;
+    }
     if (lower.includes('photo') || lower.includes('image') || lower.includes('picture')) {
       return true;
     }
