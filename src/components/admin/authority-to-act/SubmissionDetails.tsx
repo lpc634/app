@@ -51,6 +51,7 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
   );
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="!w-[95vw] !max-w-[95vw] md:!max-w-[95vw] !h-[98vh] !max-h-[98vh] overflow-hidden p-0 bg-[#0D0D0E]">
         {/* Print Styles */}
@@ -360,30 +361,31 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
           </div>
         </div>
       </DialogContent>
-
-      {/* Map Viewer */}
-      {hasLocation && (
-        <LocationPicker
-          isOpen={showMap}
-          onConfirm={() => setShowMap(false)}
-          onCancel={() => setShowMap(false)}
-          address={[
-            data.siteAddress?.line1,
-            data.siteAddress?.line2,
-            data.siteAddress?.city,
-            data.siteAddress?.region,
-            data.siteAddress?.postcode,
-            data.siteAddress?.country
-          ].filter(Boolean).join(', ')}
-          postcode={data.siteAddress?.postcode || ''}
-          value={{
-            lat: data.location_lat,
-            lng: data.location_lng,
-            maps_link: data.maps_link || `https://www.google.com/maps?q=${data.location_lat},${data.location_lng}`
-          }}
-          onChange={() => {}} // Read-only mode
-        />
-      )}
     </Dialog>
+
+    {/* Map Viewer - Outside Dialog to avoid z-index conflicts */}
+    {hasLocation && (
+      <LocationPicker
+        isOpen={showMap}
+        onConfirm={() => setShowMap(false)}
+        onCancel={() => setShowMap(false)}
+        address={[
+          data.siteAddress?.line1,
+          data.siteAddress?.line2,
+          data.siteAddress?.city,
+          data.siteAddress?.region,
+          data.siteAddress?.postcode,
+          data.siteAddress?.country
+        ].filter(Boolean).join(', ')}
+        postcode={data.siteAddress?.postcode || ''}
+        value={{
+          lat: data.location_lat,
+          lng: data.location_lng,
+          maps_link: data.maps_link || `https://www.google.com/maps?q=${data.location_lat},${data.location_lng}`
+        }}
+        onChange={() => {}} // Read-only mode
+      />
+    )}
+    </>
   );
 }
