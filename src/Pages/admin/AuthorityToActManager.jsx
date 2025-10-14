@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import SubmissionDetails from "@/components/admin/authority-to-act/SubmissionDetails";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Copy,
@@ -438,91 +439,19 @@ export default function AuthorityToActManager() {
         </CardContent>
       </Card>
 
-      {/* Detail Dialog */}
-      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Submission Details</DialogTitle>
-            <DialogDescription>
-              Submitted on {selectedSubmission?.submitted_at ? new Date(selectedSubmission.submitted_at).toLocaleString() : ''}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedSubmission && (
-            <div className="space-y-6">
-              {/* Client Information */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Client Information</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Name</label>
-                    <p className="text-sm mt-1">{selectedSubmission.client_name || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Email</label>
-                    <p className="text-sm mt-1">{selectedSubmission.client_email || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Phone</label>
-                    <p className="text-sm mt-1">{selectedSubmission.submission_data?.client_phone || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Company</label>
-                    <p className="text-sm mt-1">{selectedSubmission.submission_data?.company || 'N/A'}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-sm font-medium text-muted-foreground">Property Address</label>
-                    <p className="text-sm mt-1">{selectedSubmission.property_address || 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* All Form Data */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Form Details</h3>
-                <div className="border rounded-lg divide-y">
-                  {Object.entries(selectedSubmission.submission_data || {}).map(([key, value]) => {
-                    if (['client_name', 'client_email', 'client_phone', 'company', 'property_address'].includes(key)) {
-                      return null; // Already shown above
-                    }
-                    return (
-                      <div key={key} className="p-3 grid grid-cols-3 gap-4">
-                        <div className="font-medium text-sm text-muted-foreground">
-                          {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                        </div>
-                        <div className="col-span-2 text-sm">
-                          {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button
-                  variant="outline"
-                  onClick={(e) => {
-                    downloadPdf(selectedSubmission.id, { stopPropagation: () => {} });
-                  }}
-                  disabled={downloadingPdf === selectedSubmission.id}
-                >
-                  {downloadingPdf === selectedSubmission.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Download className="h-4 w-4 mr-2" />
-                  )}
-                  Download PDF
-                </Button>
-                <Button onClick={() => setShowDetailDialog(false)}>
-                  Close
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Detail Dialog (V3-styled) */}
+      <SubmissionDetails
+        submission={selectedSubmission}
+        open={showDetailDialog}
+        onClose={() => setShowDetailDialog(false)}
+        onMarkRead={async (id, next) => {
+          try {
+            await apiCall(`/admin/authority-to-act/submissions/${id}/${next ? 'mark-read' : 'mark-unread'}`, { method: 'POST' });
+            setSubmissions(prev => prev.map(s => s.id === id ? { ...s, is_read: !!next } : s));
+          } catch {}
+        }}
+        onPrint={() => window.print()}
+      />
 
       {/* Email Dialog */}
       <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
