@@ -12,7 +12,11 @@ export function formatAddress(val: any): React.ReactNode {
   try {
     const obj = typeof val === "string" ? JSON.parse(val) : val;
     if (!obj || typeof obj !== "object") return <span>{String(val || "-")}</span>;
-    const parts = [obj.line1, obj.line2, obj.city, obj.region, obj.postcode, obj.country].filter(Boolean);
+    const junk = /^(please select|select\.*|n\/a)$/i;
+    const parts = [obj.line1, obj.line2, obj.city, obj.region, obj.postcode, obj.country]
+      .filter(Boolean)
+      .map((p: string) => String(p).trim())
+      .filter((p: string) => p && p !== '-' && p.toLowerCase() !== 'undefined' && !junk.test(p));
     return (
       <div className="whitespace-pre-wrap leading-5">
         {parts.map((p: string, i: number) => (
