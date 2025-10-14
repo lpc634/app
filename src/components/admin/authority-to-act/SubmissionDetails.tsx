@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, Printer, Download } from "lucide-react";
+import { Printer, MapPin } from "lucide-react";
 import { prettifyKey } from "@/lib/authorityToAct/labelMap";
 import { formatAny, formatDateUK } from "@/lib/authorityToAct/formatters";
+import LocationPicker from "@/components/LocationPicker";
 
 type Props = {
   submission: any;
@@ -16,29 +17,13 @@ type Props = {
 export default function SubmissionDetails({ submission, open, onClose, onMarkRead, onPrint }: Props) {
   if (!submission) return null;
   const data = submission.submission_data || {};
-
-  const downloadJson = () => {
-    const blob = new Blob([JSON.stringify(submission, null, 2)], { type: "application/json"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `authority-to-act-${submission.id}.json`;
-    document.body.appendChild(a);
-    a.click();
-    URL.revokeObjectURL(url);
-    a.remove();
-  };
-
-  const copyLink = async () => {
-    const link = submission.public_url || window.location.origin + `/admin/authority-to-act/submissions/${submission.id}`;
-    try {
-      await navigator.clipboard.writeText(link);
-    } catch {}
-  };
+  const [showMap, setShowMap] = useState(false);
 
   const handlePrint = () => {
     window.print();
   };
+
+  const hasLocation = data.location_lat && data.location_lng;
 
   // Helper components matching the form structure
   const FormCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -178,14 +163,13 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
               </DialogDescription>
             </DialogHeader>
             <div className="flex items-center gap-2 flex-wrap mt-4">
-              <Button size="sm" variant="outline" onClick={copyLink} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
-                <Copy className="h-4 w-4 mr-2"/>Copy Link
-              </Button>
+              {hasLocation && (
+                <Button size="sm" variant="outline" onClick={() => setShowMap(true)} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
+                  <MapPin className="h-4 w-4 mr-2"/>View on Map
+                </Button>
+              )}
               <Button size="sm" variant="outline" onClick={handlePrint} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
                 <Printer className="h-4 w-4 mr-2"/>Print / Download PDF
-              </Button>
-              <Button size="sm" variant="outline" onClick={downloadJson} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
-                <Download className="h-4 w-4 mr-2"/>JSON
               </Button>
               {onMarkRead && (
                 <Button
@@ -376,6 +360,30 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
           </div>
         </div>
       </DialogContent>
+
+      {/* Map Viewer */}
+      {hasLocation && (
+        <LocationPicker
+          isOpen={showMap}
+          onConfirm={() => setShowMap(false)}
+          onCancel={() => setShowMap(false)}
+          address={[
+            data.siteAddress?.line1,
+            data.siteAddress?.line2,
+            data.siteAddress?.city,
+            data.siteAddress?.region,
+            data.siteAddress?.postcode,
+            data.siteAddress?.country
+          ].filter(Boolean).join(', ')}
+          postcode={data.siteAddress?.postcode || ''}
+          value={{
+            lat: data.location_lat,
+            lng: data.location_lng,
+            maps_link: data.maps_link || `https://www.google.com/maps?q=${data.location_lat},${data.location_lng}`
+          }}
+          onChange={() => {}} // Read-only mode
+        />
+      )}
     </Dialog>
   );
 }
