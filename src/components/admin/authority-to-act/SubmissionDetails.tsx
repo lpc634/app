@@ -41,7 +41,7 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-[98vw] max-w-none h-[95vh] max-h-[95vh] overflow-y-auto p-0 bg-[#0D0D0E]">
+      <DialogContent className="!w-[98vw] !max-w-[98vw] md:!max-w-[98vw] !h-[95vh] !max-h-[95vh] overflow-y-auto p-0 bg-[#0D0D0E]">
         {/* Sticky Header with Actions */}
         <div className="sticky top-0 z-10 border-b border-[#2A2A2E]" style={{background:'linear-gradient(135deg, #0D0D0E 0%, #121214 100%)'}}>
           <div className="px-6 pt-4">
