@@ -1,8 +1,9 @@
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, Printer, Download, ExternalLink } from "lucide-react";
-import { formatDateUK } from "@/lib/authorityToAct/formatters";
+import { Copy, Printer, Download } from "lucide-react";
+import { prettifyKey } from "@/lib/authorityToAct/labelMap";
+import { formatAny, formatDateUK } from "@/lib/authorityToAct/formatters";
 
 type Props = {
   submission: any;
@@ -14,9 +15,10 @@ type Props = {
 
 export default function SubmissionDetails({ submission, open, onClose, onMarkRead, onPrint }: Props) {
   if (!submission) return null;
+  const data = submission.submission_data || {};
 
   const downloadJson = () => {
-    const blob = new Blob([JSON.stringify(submission, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(submission, null, 2)], { type: "application/json"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -34,32 +36,29 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
     } catch {}
   };
 
-  // The URL to the actual submitted form
-  const formUrl = submission.public_url || `/form/authority-to-act/${submission.id}`;
+  // Get all fields
+  const allFields = Object.entries(data).filter(([key, value]) =>
+    value !== undefined && value !== null && value !== ""
+  );
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="!w-[95vw] !max-w-[95vw] md:!max-w-[95vw] !h-[98vh] !max-h-[98vh] overflow-hidden p-0 bg-[#0D0D0E]">
+      <DialogContent className="!w-[90vw] !max-w-[90vw] md:!max-w-[90vw] !h-[95vh] !max-h-[95vh] overflow-hidden p-0 bg-[#0D0D0E]">
         {/* Sticky Header */}
         <div className="sticky top-0 z-10 border-b border-[#2A2A2E]" style={{background:'linear-gradient(135deg, #0D0D0E 0%, #121214 100%)'}}>
-          <div className="px-6 pt-4">
+          <div className="px-6 pt-4 pb-4">
             <DialogHeader>
               <DialogTitle className="text-2xl font-bold text-white">Authority to Act — Submission</DialogTitle>
               <DialogDescription className="text-gray-400 text-base mt-1">
-                Submitted on {formatDateUK(submission.submitted_at)}
+                Submitted on {formatDateUK(submission.submitted_at)} by {submission.client_name || "Unknown"} ({submission.client_email || "No email"})
               </DialogDescription>
             </DialogHeader>
-          </div>
-          <div className="px-6 pb-4 pt-3 flex items-center justify-between gap-3 flex-wrap">
-            <div className="text-sm text-gray-300 font-medium">
-              {submission.client_name || "Unnamed"} • {submission.client_email || "No email"}
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap mt-4">
               <Button size="sm" variant="outline" onClick={copyLink} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
                 <Copy className="h-4 w-4 mr-2"/>Copy Link
               </Button>
-              <Button size="sm" variant="outline" onClick={() => window.open(formUrl, '_blank')} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
-                <ExternalLink className="h-4 w-4 mr-2"/>Open in New Tab
+              <Button size="sm" variant="outline" onClick={() => window.print()} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
+                <Printer className="h-4 w-4 mr-2"/>Print
               </Button>
               <Button size="sm" variant="outline" onClick={downloadJson} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
                 <Download className="h-4 w-4 mr-2"/>JSON
@@ -77,14 +76,20 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
           </div>
         </div>
 
-        {/* Show the actual form in an iframe */}
-        <div className="w-full h-full bg-[#0D0D0E]">
-          <iframe
-            src={formUrl}
-            className="w-full h-full border-none"
-            title="Submitted Form"
-            sandbox="allow-same-origin allow-scripts"
-          />
+        {/* Scrollable Content */}
+        <div className="overflow-y-auto h-full p-8 bg-gradient-to-b from-[#0D0D0E] to-[#1A1A1C]">
+          <div className="max-w-5xl mx-auto space-y-6">
+            {allFields.map(([key, value]) => (
+              <div key={key} className="bg-[#15161A] border border-[#2A2A2E] rounded-lg p-5 hover:border-[#FF6A2B]/50 transition-all">
+                <div className="text-sm font-bold uppercase tracking-wider text-[#FF6A2B] mb-3">
+                  {prettifyKey(key)}
+                </div>
+                <div className="text-lg text-white leading-relaxed">
+                  {formatAny(key, value)}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
