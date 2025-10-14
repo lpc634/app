@@ -1,9 +1,8 @@
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, Printer, Download } from "lucide-react";
-import { prettifyKey } from "@/lib/authorityToAct/labelMap";
-import { formatAny, formatDateUK } from "@/lib/authorityToAct/formatters";
+import { Copy, Printer, Download, ExternalLink } from "lucide-react";
+import { formatDateUK } from "@/lib/authorityToAct/formatters";
 
 type Props = {
   submission: any;
@@ -15,7 +14,6 @@ type Props = {
 
 export default function SubmissionDetails({ submission, open, onClose, onMarkRead, onPrint }: Props) {
   if (!submission) return null;
-  const data = submission.submission_data || {};
 
   const downloadJson = () => {
     const blob = new Blob([JSON.stringify(submission, null, 2)], { type: "application/json" });
@@ -36,14 +34,12 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
     } catch {}
   };
 
-  // Get all fields from the data
-  const allFields = Object.entries(data).filter(([key, value]) =>
-    value !== undefined && value !== null && value !== ""
-  );
+  // The URL to the actual submitted form
+  const formUrl = submission.public_url || `/form/authority-to-act/${submission.id}`;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="!w-[90vw] !max-w-[90vw] md:!max-w-[90vw] !h-[95vh] !max-h-[95vh] overflow-hidden p-0 bg-[#0D0D0E]">
+      <DialogContent className="!w-[95vw] !max-w-[95vw] md:!max-w-[95vw] !h-[98vh] !max-h-[98vh] overflow-hidden p-0 bg-[#0D0D0E]">
         {/* Sticky Header */}
         <div className="sticky top-0 z-10 border-b border-[#2A2A2E]" style={{background:'linear-gradient(135deg, #0D0D0E 0%, #121214 100%)'}}>
           <div className="px-6 pt-4">
@@ -62,8 +58,8 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
               <Button size="sm" variant="outline" onClick={copyLink} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
                 <Copy className="h-4 w-4 mr-2"/>Copy Link
               </Button>
-              <Button size="sm" variant="outline" onClick={() => (onPrint ? onPrint(submission) : window.print())} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
-                <Printer className="h-4 w-4 mr-2"/>Print
+              <Button size="sm" variant="outline" onClick={() => window.open(formUrl, '_blank')} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
+                <ExternalLink className="h-4 w-4 mr-2"/>Open in New Tab
               </Button>
               <Button size="sm" variant="outline" onClick={downloadJson} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
                 <Download className="h-4 w-4 mr-2"/>JSON
@@ -81,16 +77,14 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
           </div>
         </div>
 
-        {/* Scrollable Content - Simple field list */}
-        <div className="overflow-y-auto h-full p-6">
-          <div className="max-w-4xl mx-auto space-y-4">
-            {allFields.map(([key, value]) => (
-              <div key={key} className="border-b border-[#2A2A2E] pb-4">
-                <div className="text-sm font-semibold text-[#FF6A2B] mb-2">{prettifyKey(key)}</div>
-                <div className="text-base text-white pl-4">{formatAny(key, value)}</div>
-              </div>
-            ))}
-          </div>
+        {/* Show the actual form in an iframe */}
+        <div className="w-full h-full bg-[#0D0D0E]">
+          <iframe
+            src={formUrl}
+            className="w-full h-full border-none"
+            title="Submitted Form"
+            sandbox="allow-same-origin allow-scripts"
+          />
         </div>
       </DialogContent>
     </Dialog>
