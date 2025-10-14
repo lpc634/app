@@ -77,7 +77,7 @@ export function formatAny(key: string, value: any): React.ReactNode {
   if (lower.includes("signature") && typeof value === "string" && value.startsWith("data:image")) {
     return (
       <div className="border border-[#2A2A2E] rounded-md p-2 bg-white inline-block">
-        <img src={value} alt="Signature" className="max-w-[300px] max-h-[120px] object-contain" />
+        <img src={value} alt="Signature" className="max-w-[300px] max-h-[120px] object-contain" style={{filter: 'invert(1) brightness(0)'}} />
       </div>
     );
   }
