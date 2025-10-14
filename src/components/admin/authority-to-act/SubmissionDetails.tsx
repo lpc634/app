@@ -169,19 +169,119 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
               <div className="w-1 h-4 bg-[#FF6A2B] rounded-full"></div>
               Form Details
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-5">
-              {rows.map(([key, value]) => {
-                if (["client_name","client_email","client_phone","company","property_address","siteAddress","attachments"].includes(key)) return null;
-                // Skip image fields as they'll be shown in the Photos section
-                if (isImageField(key, value)) return null;
-                return (
-                  <div key={key} className="space-y-1.5 min-w-0">
-                    <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{prettifyKey(key)}</div>
-                    <div className="text-base text-gray-200 break-words leading-6 font-medium">{formatAny(key, value)}</div>
-                  </div>
-                );
-              })}
-            </div>
+
+            {(() => {
+              // Filter out fields we don't want to show here
+              const excludedFields = ["client_name","client_email","client_phone","company","property_address","siteAddress","attachments"];
+              const filteredRows = rows.filter(([key, value]) => {
+                if (excludedFields.includes(key)) return false;
+                if (isImageField(key, value)) return false;
+                return true;
+              });
+
+              // Organize fields into categories
+              const categories = {
+                accounts: [] as Array<[string, any]>,
+                authority: [] as Array<[string, any]>,
+                site: [] as Array<[string, any]>,
+                signatory: [] as Array<[string, any]>,
+                other: [] as Array<[string, any]>,
+              };
+
+              filteredRows.forEach(([key, value]) => {
+                const lower = key.toLowerCase();
+                if (lower.includes('account') || lower.includes('invoice') || lower.includes('vat') || lower.includes('po')) {
+                  categories.accounts.push([key, value]);
+                } else if (lower.includes('authority') || lower.includes('lease') || lower.includes('land') || lower.includes('management') || lower.includes('docs') || lower.includes('undertaking')) {
+                  categories.authority.push([key, value]);
+                } else if (lower.includes('property') || lower.includes('premises') || lower.includes('site') || lower.includes('trespass') || lower.includes('tent') || lower.includes('vehicle') || lower.includes('person') || lower.includes('dog') || lower.includes('livestock') || lower.includes('occupied')) {
+                  categories.site.push([key, value]);
+                } else if (lower.includes('sig') || lower.includes('signature')) {
+                  categories.signatory.push([key, value]);
+                } else {
+                  categories.other.push([key, value]);
+                }
+              });
+
+              return (
+                <div className="space-y-6">
+                  {/* Accounts & Billing */}
+                  {categories.accounts.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#FF6A2B] mb-3">Accounts & Billing</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-4">
+                        {categories.accounts.map(([key, value]) => (
+                          <div key={key} className="space-y-1.5 min-w-0">
+                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{prettifyKey(key)}</div>
+                            <div className="text-base text-gray-200 break-words leading-6 font-medium">{formatAny(key, value)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Authority & Documentation */}
+                  {categories.authority.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#FF6A2B] mb-3">Authority & Documentation</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-4">
+                        {categories.authority.map(([key, value]) => (
+                          <div key={key} className="space-y-1.5 min-w-0">
+                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{prettifyKey(key)}</div>
+                            <div className="text-base text-gray-200 break-words leading-6 font-medium">{formatAny(key, value)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Site Information */}
+                  {categories.site.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#FF6A2B] mb-3">Site Information</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-4">
+                        {categories.site.map(([key, value]) => (
+                          <div key={key} className="space-y-1.5 min-w-0">
+                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{prettifyKey(key)}</div>
+                            <div className="text-base text-gray-200 break-words leading-6 font-medium">{formatAny(key, value)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Signatory */}
+                  {categories.signatory.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#FF6A2B] mb-3">Signatory</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-4">
+                        {categories.signatory.map(([key, value]) => (
+                          <div key={key} className="space-y-1.5 min-w-0">
+                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{prettifyKey(key)}</div>
+                            <div className="text-base text-gray-200 break-words leading-6 font-medium">{formatAny(key, value)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Other Fields */}
+                  {categories.other.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#FF6A2B] mb-3">Additional Information</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-4">
+                        {categories.other.map(([key, value]) => (
+                          <div key={key} className="space-y-1.5 min-w-0">
+                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{prettifyKey(key)}</div>
+                            <div className="text-base text-gray-200 break-words leading-6 font-medium">{formatAny(key, value)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </section>
 
           {/* Photos Section */}
