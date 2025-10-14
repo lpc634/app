@@ -73,5 +73,3 @@ export function formatAny(key: string, value: any): React.ReactNode {
   }
   return <span>{String(value)}</span>;
 }
-
-
