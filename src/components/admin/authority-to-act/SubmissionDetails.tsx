@@ -18,6 +18,10 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
   if (!submission) return null;
   const data = submission.submission_data || {};
 
+  // Debug logging
+  console.log('Submission data:', data);
+  console.log('Attachments:', data.attachments);
+
   const downloadJson = () => {
     const blob = new Blob([JSON.stringify(submission, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -80,6 +84,9 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
       }
     }
   });
+
+  console.log('Photos found:', photos);
+  console.log('Photos length:', photos.length);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
