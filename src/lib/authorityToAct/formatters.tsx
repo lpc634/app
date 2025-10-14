@@ -72,6 +72,16 @@ export function formatAny(key: string, value: any): React.ReactNode {
   if (lower.includes("phone")) return formatPhone(value);
   if (lower.includes("address")) return formatAddress(value);
   if (lower.includes("date")) return <span>{formatDateUK(value)}</span>;
+
+  // Handle signature fields (base64 encoded images)
+  if (lower.includes("signature") && typeof value === "string" && value.startsWith("data:image")) {
+    return (
+      <div className="border border-[#2A2A2E] rounded-md p-2 bg-white inline-block">
+        <img src={value} alt="Signature" className="max-w-[300px] max-h-[120px] object-contain" />
+      </div>
+    );
+  }
+
   if (typeof value === "object") {
     try { return <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(value, null, 2)}</pre>; } catch {}
   }
