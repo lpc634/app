@@ -2,9 +2,15 @@ import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Printer, CheckCircle2, Circle, Download, FileText, Image as ImageIcon } from "lucide-react";
+import { Copy, Printer, CheckCircle2, Circle, Download, FileText, Image as ImageIcon, MapPin } from "lucide-react";
 import { prettifyKey } from "@/lib/authorityToAct/labelMap";
 import { formatAny, formatDateUK } from "@/lib/authorityToAct/formatters";
+
+const CARD_CLASS = "rounded-xl border border-[#2A2A2E] bg-[#15161A] p-6 shadow-lg";
+const SECTION_TITLE_CLASS = "text-lg font-bold text-white mb-4 pb-3 border-b border-[#2A2A2E]";
+const FIELD_CLASS = "space-y-2";
+const LABEL_CLASS = "text-xs font-semibold uppercase tracking-wider text-gray-400";
+const VALUE_CLASS = "text-base text-white font-medium";
 
 type Props = {
   submission: any;
@@ -129,166 +135,270 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
         </div>
 
         {/* Main Content */}
-        <div className="p-6 space-y-6">
-          {/* Top Row - Client Info & Property Address */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Client Information Card */}
-            <section className="rounded-lg border border-[#2A2A2E] p-5 bg-[#15161A] shadow-lg" style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
-              <h3 className="text-sm font-bold uppercase tracking-wider mb-4 pb-2 border-b border-[#2A2A2E] text-gray-200 flex items-center gap-2">
-                <div className="w-1 h-4 bg-[#FF6A2B] rounded-full"></div>
-                Client Information
-              </h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-[110px_1fr] gap-2 items-start">
-                  <div className="text-xs text-gray-500 uppercase tracking-wide pt-0.5">Name</div>
-                  <div className="font-semibold text-white text-base">{submission.client_name || '-'}</div>
-                </div>
-                <div className="grid grid-cols-[110px_1fr] gap-2 items-start">
-                  <div className="text-xs text-gray-500 uppercase tracking-wide pt-0.5">Email</div>
-                  <div className="font-medium text-blue-400 text-base">{submission.client_email || '-'}</div>
-                </div>
-                <div className="grid grid-cols-[110px_1fr] gap-2 items-start">
-                  <div className="text-xs text-gray-500 uppercase tracking-wide pt-0.5">Phone</div>
-                  <div className="font-medium text-gray-200 text-base">{data.client_phone || '-'}</div>
-                </div>
-                <div className="grid grid-cols-[110px_1fr] gap-2 items-start">
-                  <div className="text-xs text-gray-500 uppercase tracking-wide pt-0.5">Company</div>
-                  <div className="font-medium text-gray-200 text-base">{data.company || '-'}</div>
+        <div className="p-6 space-y-5">
+          {/* Client Details Card */}
+          <section className={CARD_CLASS} style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
+            <h2 className={SECTION_TITLE_CLASS}>Client Details</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>First Name</div>
+                <div className={VALUE_CLASS}>{data.firstName || data.client_name?.split(' ')[0] || '-'}</div>
+              </div>
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Last Name</div>
+                <div className={VALUE_CLASS}>{data.lastName || data.client_name?.split(' ').slice(1).join(' ') || '-'}</div>
+              </div>
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Company</div>
+                <div className={VALUE_CLASS}>{data.company || '-'}</div>
+              </div>
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Email</div>
+                <div className={VALUE_CLASS}>{formatAny('email', submission.client_email || data.email)}</div>
+              </div>
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Phone</div>
+                <div className={VALUE_CLASS}>{formatAny('phone', data.phone || data.client_phone)}</div>
+              </div>
+            </div>
+            <div className="mt-6 pt-6 border-t border-[#2A2A2E]">
+              <h3 className="text-sm font-semibold text-gray-400 mb-4">Client Address</h3>
+              <div className={VALUE_CLASS}>{formatAny('address', data.clientAddress)}</div>
+            </div>
+          </section>
+
+          {/* Site Details Card */}
+          <section className={CARD_CLASS} style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
+            <h2 className={SECTION_TITLE_CLASS}>Site Details</h2>
+            <div className={FIELD_CLASS + " mb-6"}>
+              <div className={LABEL_CLASS}>Site Address</div>
+              <div className={VALUE_CLASS}>{formatAny('address', submission.property_address || data.siteAddress)}</div>
+            </div>
+            {(data.location_lat && data.location_lng) && (
+              <div className={FIELD_CLASS + " mb-6"}>
+                <div className={LABEL_CLASS}>Location of Site Entrance</div>
+                <div className="flex items-center gap-2 mt-2">
+                  <MapPin className="h-4 w-4 text-[#FF6A2B]" />
+                  <a href={data.maps_link || `https://www.google.com/maps?q=${data.location_lat},${data.location_lng}`} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline text-sm">
+                    {data.location_lat.toFixed(6)}, {data.location_lng.toFixed(6)}
+                  </a>
                 </div>
               </div>
-            </section>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Property Type</div>
+                <div className={VALUE_CLASS}>{formatAny('propertyType', data.propertyType)}</div>
+              </div>
+              {data.propertyTypeOther && (
+                <div className={FIELD_CLASS}>
+                  <div className={LABEL_CLASS}>Property Type (Other)</div>
+                  <div className={VALUE_CLASS}>{data.propertyTypeOther}</div>
+                </div>
+              )}
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Premises Occupied?</div>
+                <div className={VALUE_CLASS}>{formatAny('premisesOccupied', data.premisesOccupied)}</div>
+              </div>
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Site Plan Available?</div>
+                <div className={VALUE_CLASS}>{formatAny('sitePlanAvailable', data.sitePlanAvailable)}</div>
+              </div>
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Photos Available?</div>
+                <div className={VALUE_CLASS}>{formatAny('photosAvailable', data.photosAvailable)}</div>
+              </div>
+            </div>
+            {data.trespassDescription && (
+              <div className={FIELD_CLASS + " mt-6"}>
+                <div className={LABEL_CLASS}>Description of Trespass</div>
+                <div className={VALUE_CLASS}>{data.trespassDescription}</div>
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Number of Tents/Shelters</div>
+                <div className={VALUE_CLASS}>{data.tents ?? '-'}</div>
+              </div>
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Number of Motor Vehicles</div>
+                <div className={VALUE_CLASS}>{data.vehicles ?? '-'}</div>
+              </div>
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Number of Persons</div>
+                <div className={VALUE_CLASS}>{data.persons ?? '-'}</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Dogs on Site?</div>
+                <div className={VALUE_CLASS}>{formatAny('dogsOnSite', data.dogsOnSite)}</div>
+              </div>
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Livestock on Site?</div>
+                <div className={VALUE_CLASS}>{formatAny('livestockOnSite', data.livestockOnSite)}</div>
+              </div>
+            </div>
+            {data.changeUndertaking !== undefined && (
+              <div className={FIELD_CLASS + " mt-6"}>
+                <div className={LABEL_CLASS}>Change Undertaking</div>
+                <div className={VALUE_CLASS}>{formatAny('changeUndertaking', data.changeUndertaking)}</div>
+              </div>
+            )}
+          </section>
 
-            {/* Property Address Card */}
-            <section className="rounded-lg border border-[#2A2A2E] p-5 bg-[#15161A] shadow-lg" style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
-              <h3 className="text-sm font-bold uppercase tracking-wider mb-4 pb-2 border-b border-[#2A2A2E] text-gray-200 flex items-center gap-2">
-                <div className="w-1 h-4 bg-[#FF6A2B] rounded-full"></div>
-                Property Address
-              </h3>
-              <div className="text-base text-gray-200 leading-7 font-medium whitespace-pre-line">
-                {formatAny('property_address', submission.property_address || data.siteAddress || data.property_address)}
+          {/* Site Security and Waste Removal Card */}
+          {(data.haveSecurity !== undefined || data.wantSecurityQuote !== undefined || data.wantWasteQuote !== undefined) && (
+            <section className={CARD_CLASS} style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
+              <h2 className={SECTION_TITLE_CLASS}>Site Security and Waste Removal</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {data.haveSecurity !== undefined && (
+                  <div className={FIELD_CLASS}>
+                    <div className={LABEL_CLASS}>Do you have security on site?</div>
+                    <div className={VALUE_CLASS}>{formatAny('haveSecurity', data.haveSecurity)}</div>
+                  </div>
+                )}
+                {data.wantSecurityQuote !== undefined && (
+                  <div className={FIELD_CLASS}>
+                    <div className={LABEL_CLASS}>Would you like a quote for security?</div>
+                    <div className={VALUE_CLASS}>{formatAny('wantSecurityQuote', data.wantSecurityQuote)}</div>
+                  </div>
+                )}
+                {data.wantWasteQuote !== undefined && (
+                  <div className={FIELD_CLASS}>
+                    <div className={LABEL_CLASS}>Would you like a quote for waste removal?</div>
+                    <div className={VALUE_CLASS}>{formatAny('wantWasteQuote', data.wantWasteQuote)}</div>
+                  </div>
+                )}
               </div>
             </section>
-          </div>
+          )}
 
-          {/* Form Details - Full Width */}
-          <section className="rounded-lg border border-[#2A2A2E] p-5 bg-[#15161A] shadow-lg" style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
-            <h3 className="text-sm font-bold uppercase tracking-wider mb-4 pb-2 border-b border-[#2A2A2E] text-gray-200 flex items-center gap-2">
-              <div className="w-1 h-4 bg-[#FF6A2B] rounded-full"></div>
-              Form Details
-            </h3>
-
-            {(() => {
-              // Filter out fields we don't want to show here
-              const excludedFields = ["client_name","client_email","client_phone","company","property_address","siteAddress","attachments"];
-              const filteredRows = rows.filter(([key, value]) => {
-                if (excludedFields.includes(key)) return false;
-                if (isImageField(key, value)) return false;
-                return true;
-              });
-
-              // Organize fields into categories
-              const categories = {
-                accounts: [] as Array<[string, any]>,
-                authority: [] as Array<[string, any]>,
-                site: [] as Array<[string, any]>,
-                signatory: [] as Array<[string, any]>,
-                other: [] as Array<[string, any]>,
-              };
-
-              filteredRows.forEach(([key, value]) => {
-                const lower = key.toLowerCase();
-                if (lower.includes('account') || lower.includes('invoice') || lower.includes('vat') || lower.includes('po')) {
-                  categories.accounts.push([key, value]);
-                } else if (lower.includes('authority') || lower.includes('lease') || lower.includes('land') || lower.includes('management') || lower.includes('docs') || lower.includes('undertaking')) {
-                  categories.authority.push([key, value]);
-                } else if (lower.includes('property') || lower.includes('premises') || lower.includes('site') || lower.includes('trespass') || lower.includes('tent') || lower.includes('vehicle') || lower.includes('person') || lower.includes('dog') || lower.includes('livestock') || lower.includes('occupied')) {
-                  categories.site.push([key, value]);
-                } else if (lower.includes('sig') || lower.includes('signature')) {
-                  categories.signatory.push([key, value]);
-                } else {
-                  categories.other.push([key, value]);
-                }
-              });
-
-              return (
-                <div className="space-y-8">
-                  {/* Accounts & Billing */}
-                  {categories.accounts.length > 0 && (
-                    <div className="border-l-2 border-[#FF6A2B] pl-4">
-                      <h4 className="text-sm font-bold uppercase tracking-wider text-[#FF6A2B] mb-4">Accounts & Billing</h4>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-4">
-                        {categories.accounts.map(([key, value]) => (
-                          <div key={key} className="flex items-start gap-4 py-2 border-b border-[#2A2A2E]/50">
-                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium w-[140px] flex-shrink-0 pt-1">{prettifyKey(key)}</div>
-                            <div className="text-base text-white break-words leading-6 font-medium flex-1">{formatAny(key, value)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Authority & Documentation */}
-                  {categories.authority.length > 0 && (
-                    <div className="border-l-2 border-[#FF6A2B] pl-4">
-                      <h4 className="text-sm font-bold uppercase tracking-wider text-[#FF6A2B] mb-4">Authority & Documentation</h4>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-4">
-                        {categories.authority.map(([key, value]) => (
-                          <div key={key} className="flex items-start gap-4 py-2 border-b border-[#2A2A2E]/50">
-                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium w-[140px] flex-shrink-0 pt-1">{prettifyKey(key)}</div>
-                            <div className="text-base text-white break-words leading-6 font-medium flex-1">{formatAny(key, value)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Site Information */}
-                  {categories.site.length > 0 && (
-                    <div className="border-l-2 border-[#FF6A2B] pl-4">
-                      <h4 className="text-sm font-bold uppercase tracking-wider text-[#FF6A2B] mb-4">Site Information</h4>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-4">
-                        {categories.site.map(([key, value]) => (
-                          <div key={key} className="flex items-start gap-4 py-2 border-b border-[#2A2A2E]/50">
-                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium w-[140px] flex-shrink-0 pt-1">{prettifyKey(key)}</div>
-                            <div className="text-base text-white break-words leading-6 font-medium flex-1">{formatAny(key, value)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Signatory */}
-                  {categories.signatory.length > 0 && (
-                    <div className="border-l-2 border-[#FF6A2B] pl-4">
-                      <h4 className="text-sm font-bold uppercase tracking-wider text-[#FF6A2B] mb-4">Signatory</h4>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-4">
-                        {categories.signatory.map(([key, value]) => (
-                          <div key={key} className="flex items-start gap-4 py-2 border-b border-[#2A2A2E]/50">
-                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium w-[140px] flex-shrink-0 pt-1">{prettifyKey(key)}</div>
-                            <div className="text-base text-white break-words leading-6 font-medium flex-1">{formatAny(key, value)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Other Fields */}
-                  {categories.other.length > 0 && (
-                    <div className="border-l-2 border-[#FF6A2B] pl-4">
-                      <h4 className="text-sm font-bold uppercase tracking-wider text-[#FF6A2B] mb-4">Additional Information</h4>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-4">
-                        {categories.other.map(([key, value]) => (
-                          <div key={key} className="flex items-start gap-4 py-2 border-b border-[#2A2A2E]/50">
-                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium w-[140px] flex-shrink-0 pt-1">{prettifyKey(key)}</div>
-                            <div className="text-base text-white break-words leading-6 font-medium flex-1">{formatAny(key, value)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+          {/* Ownership / Authority Declaration Card */}
+          <section className={CARD_CLASS} style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
+            <h2 className={SECTION_TITLE_CLASS}>Ownership / Authority Declaration</h2>
+            <div className={FIELD_CLASS + " mb-6"}>
+              <div className={LABEL_CLASS}>Authority Role</div>
+              <div className={VALUE_CLASS}>{formatAny('authorityRole', data.authorityRole)}</div>
+            </div>
+            <div className="mb-6">
+              <div className={LABEL_CLASS + " mb-3"}>Supporting Documentation</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {data.docsLandRegistry !== undefined && (
+                  <div className="flex items-center gap-2">
+                    <span className={VALUE_CLASS}>{formatAny('docsLandRegistry', data.docsLandRegistry)}</span>
+                    <span className="text-gray-400 text-sm">Land Registry</span>
+                  </div>
+                )}
+                {data.docsLease !== undefined && (
+                  <div className="flex items-center gap-2">
+                    <span className={VALUE_CLASS}>{formatAny('docsLease', data.docsLease)}</span>
+                    <span className="text-gray-400 text-sm">Lease Agreement</span>
+                  </div>
+                )}
+                {data.docsManagement !== undefined && (
+                  <div className="flex items-center gap-2">
+                    <span className={VALUE_CLASS}>{formatAny('docsManagement', data.docsManagement)}</span>
+                    <span className="text-gray-400 text-sm">Management Contract</span>
+                  </div>
+                )}
+                {data.docsOther !== undefined && (
+                  <div className="flex items-center gap-2">
+                    <span className={VALUE_CLASS}>{formatAny('docsOther', data.docsOther)}</span>
+                    <span className="text-gray-400 text-sm">Other</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className={FIELD_CLASS + " mb-6"}>
+              <div className={LABEL_CLASS}>Accept Terms & Conditions</div>
+              <div className={VALUE_CLASS}>{formatAny('acceptTerms', data.acceptTerms)}</div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              {data.sigTitle && (
+                <div className={FIELD_CLASS}>
+                  <div className={LABEL_CLASS}>Title</div>
+                  <div className={VALUE_CLASS}>{data.sigTitle}</div>
                 </div>
-              );
-            })()}
+              )}
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>First Name</div>
+                <div className={VALUE_CLASS}>{data.sigFirst || '-'}</div>
+              </div>
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Last Name</div>
+                <div className={VALUE_CLASS}>{data.sigLast || '-'}</div>
+              </div>
+            </div>
+            {data.signatureDataUrl && (
+              <div className={FIELD_CLASS + " mb-6"}>
+                <div className={LABEL_CLASS}>Signature</div>
+                <div className="mt-2">{formatAny('signature', data.signatureDataUrl)}</div>
+              </div>
+            )}
+            {data.signatureDate && (
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Date of Signature</div>
+                <div className={VALUE_CLASS}>{formatAny('date', data.signatureDate)}</div>
+              </div>
+            )}
+          </section>
+
+          {/* Invoicing Details Card */}
+          <section className={CARD_CLASS} style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
+            <h2 className={SECTION_TITLE_CLASS}>Invoicing Details</h2>
+            <div className={FIELD_CLASS + " mb-6"}>
+              <div className={LABEL_CLASS}>Company / Name (For Invoicing)</div>
+              <div className={VALUE_CLASS}>{data.invoiceCompany || '-'}</div>
+            </div>
+            <div className="mb-6">
+              <div className={LABEL_CLASS + " mb-3"}>Invoice Address</div>
+              <div className={VALUE_CLASS}>{formatAny('address', data.invoiceAddress)}</div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {data.accountsTitle && (
+                <div className={FIELD_CLASS}>
+                  <div className={LABEL_CLASS}>Accounts Contact Title</div>
+                  <div className={VALUE_CLASS}>{data.accountsTitle}</div>
+                </div>
+              )}
+              {data.accountsFirst && (
+                <div className={FIELD_CLASS}>
+                  <div className={LABEL_CLASS}>Accounts Contact First Name</div>
+                  <div className={VALUE_CLASS}>{data.accountsFirst}</div>
+                </div>
+              )}
+              {data.accountsLast && (
+                <div className={FIELD_CLASS}>
+                  <div className={LABEL_CLASS}>Accounts Contact Last Name</div>
+                  <div className={VALUE_CLASS}>{data.accountsLast}</div>
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Accounts Email Address</div>
+                <div className={VALUE_CLASS}>{formatAny('email', data.accountsEmail)}</div>
+              </div>
+              <div className={FIELD_CLASS}>
+                <div className={LABEL_CLASS}>Accounts Contact Number</div>
+                <div className={VALUE_CLASS}>{formatAny('phone', data.accountsPhone)}</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              {data.vatNumber && (
+                <div className={FIELD_CLASS}>
+                  <div className={LABEL_CLASS}>VAT Registration Number</div>
+                  <div className={VALUE_CLASS}>{data.vatNumber}</div>
+                </div>
+              )}
+              {data.poNumber && (
+                <div className={FIELD_CLASS}>
+                  <div className={LABEL_CLASS}>Purchase Order Number</div>
+                  <div className={VALUE_CLASS}>{data.poNumber}</div>
+                </div>
+              )}
+            </div>
           </section>
 
           {/* Photos Section */}
