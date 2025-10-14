@@ -204,16 +204,16 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
               });
 
               return (
-                <div className="space-y-6">
+                <div className="space-y-8">
                   {/* Accounts & Billing */}
                   {categories.accounts.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#FF6A2B] mb-3">Accounts & Billing</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-4">
+                    <div className="border-l-2 border-[#FF6A2B] pl-4">
+                      <h4 className="text-sm font-bold uppercase tracking-wider text-[#FF6A2B] mb-4">Accounts & Billing</h4>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-4">
                         {categories.accounts.map(([key, value]) => (
-                          <div key={key} className="space-y-1.5 min-w-0">
-                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{prettifyKey(key)}</div>
-                            <div className="text-base text-gray-200 break-words leading-6 font-medium">{formatAny(key, value)}</div>
+                          <div key={key} className="flex items-start gap-4 py-2 border-b border-[#2A2A2E]/50">
+                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium w-[140px] flex-shrink-0 pt-1">{prettifyKey(key)}</div>
+                            <div className="text-base text-white break-words leading-6 font-medium flex-1">{formatAny(key, value)}</div>
                           </div>
                         ))}
                       </div>
@@ -222,13 +222,13 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
 
                   {/* Authority & Documentation */}
                   {categories.authority.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#FF6A2B] mb-3">Authority & Documentation</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-4">
+                    <div className="border-l-2 border-[#FF6A2B] pl-4">
+                      <h4 className="text-sm font-bold uppercase tracking-wider text-[#FF6A2B] mb-4">Authority & Documentation</h4>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-4">
                         {categories.authority.map(([key, value]) => (
-                          <div key={key} className="space-y-1.5 min-w-0">
-                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{prettifyKey(key)}</div>
-                            <div className="text-base text-gray-200 break-words leading-6 font-medium">{formatAny(key, value)}</div>
+                          <div key={key} className="flex items-start gap-4 py-2 border-b border-[#2A2A2E]/50">
+                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium w-[140px] flex-shrink-0 pt-1">{prettifyKey(key)}</div>
+                            <div className="text-base text-white break-words leading-6 font-medium flex-1">{formatAny(key, value)}</div>
                           </div>
                         ))}
                       </div>
@@ -237,13 +237,13 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
 
                   {/* Site Information */}
                   {categories.site.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#FF6A2B] mb-3">Site Information</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-4">
+                    <div className="border-l-2 border-[#FF6A2B] pl-4">
+                      <h4 className="text-sm font-bold uppercase tracking-wider text-[#FF6A2B] mb-4">Site Information</h4>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-4">
                         {categories.site.map(([key, value]) => (
-                          <div key={key} className="space-y-1.5 min-w-0">
-                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{prettifyKey(key)}</div>
-                            <div className="text-base text-gray-200 break-words leading-6 font-medium">{formatAny(key, value)}</div>
+                          <div key={key} className="flex items-start gap-4 py-2 border-b border-[#2A2A2E]/50">
+                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium w-[140px] flex-shrink-0 pt-1">{prettifyKey(key)}</div>
+                            <div className="text-base text-white break-words leading-6 font-medium flex-1">{formatAny(key, value)}</div>
                           </div>
                         ))}
                       </div>
@@ -252,13 +252,13 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
 
                   {/* Signatory */}
                   {categories.signatory.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#FF6A2B] mb-3">Signatory</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-4">
+                    <div className="border-l-2 border-[#FF6A2B] pl-4">
+                      <h4 className="text-sm font-bold uppercase tracking-wider text-[#FF6A2B] mb-4">Signatory</h4>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-4">
                         {categories.signatory.map(([key, value]) => (
-                          <div key={key} className="space-y-1.5 min-w-0">
-                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{prettifyKey(key)}</div>
-                            <div className="text-base text-gray-200 break-words leading-6 font-medium">{formatAny(key, value)}</div>
+                          <div key={key} className="flex items-start gap-4 py-2 border-b border-[#2A2A2E]/50">
+                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium w-[140px] flex-shrink-0 pt-1">{prettifyKey(key)}</div>
+                            <div className="text-base text-white break-words leading-6 font-medium flex-1">{formatAny(key, value)}</div>
                           </div>
                         ))}
                       </div>
@@ -267,13 +267,13 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
 
                   {/* Other Fields */}
                   {categories.other.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#FF6A2B] mb-3">Additional Information</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-4">
+                    <div className="border-l-2 border-[#FF6A2B] pl-4">
+                      <h4 className="text-sm font-bold uppercase tracking-wider text-[#FF6A2B] mb-4">Additional Information</h4>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-4">
                         {categories.other.map(([key, value]) => (
-                          <div key={key} className="space-y-1.5 min-w-0">
-                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{prettifyKey(key)}</div>
-                            <div className="text-base text-gray-200 break-words leading-6 font-medium">{formatAny(key, value)}</div>
+                          <div key={key} className="flex items-start gap-4 py-2 border-b border-[#2A2A2E]/50">
+                            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium w-[140px] flex-shrink-0 pt-1">{prettifyKey(key)}</div>
+                            <div className="text-base text-white break-words leading-6 font-medium flex-1">{formatAny(key, value)}</div>
                           </div>
                         ))}
                       </div>
@@ -286,69 +286,85 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
 
           {/* Photos Section */}
           {photos.length > 0 && (
-            <section className="rounded-lg border border-[#2A2A2E] p-5 bg-[#15161A] shadow-lg" style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
-              <h3 className="text-sm font-bold uppercase tracking-wider mb-4 pb-2 border-b border-[#2A2A2E] text-gray-200 flex items-center gap-2">
-                <div className="w-1 h-4 bg-[#FF6A2B] rounded-full"></div>
-                Photos ({photos.length})
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <section className="rounded-lg border border-[#2A2A2E] p-6 bg-[#15161A] shadow-lg" style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
+              <div className="flex items-center gap-3 mb-5 pb-3 border-b border-[#2A2A2E]">
+                <ImageIcon className="h-5 w-5 text-[#FF6A2B]" />
+                <h3 className="text-base font-bold uppercase tracking-wider text-gray-200">
+                  Photos
+                </h3>
+                <span className="text-sm text-gray-400">({photos.length})</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {photos.map((photo) => (
-                  <div key={photo.key} className="space-y-2">
+                  <div key={photo.key} className="group">
                     <a href={photo.url} target="_blank" rel="noreferrer" className="block">
-                      <div className="border border-[#2A2A2E] rounded-lg overflow-hidden bg-white hover:border-[#FF6A2B] transition-all">
+                      <div className="border-2 border-[#2A2A2E] rounded-lg overflow-hidden bg-white hover:border-[#FF6A2B] transition-all shadow-md hover:shadow-xl">
                         <img
                           src={photo.url}
                           alt={photo.label}
-                          className="w-full h-48 object-cover"
+                          className="w-full h-40 object-cover"
                         />
                       </div>
+                      <div className="text-xs text-gray-400 text-center mt-2 group-hover:text-[#FF6A2B] transition-colors truncate px-1">
+                        {photo.label}
+                      </div>
                     </a>
-                    <div className="text-xs text-gray-400 text-center">{photo.label}</div>
                   </div>
                 ))}
               </div>
             </section>
           )}
 
-          {/* Attachments */}
+          {/* Files & Attachments Section */}
           {Array.isArray(data.attachments) && data.attachments.length > 0 && (
-            <section className="rounded-lg border border-[#2A2A2E] p-5 bg-[#15161A] shadow-lg" style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
-              <h3 className="text-sm font-bold uppercase tracking-wider mb-4 pb-2 border-b border-[#2A2A2E] text-gray-200 flex items-center gap-2">
-                <div className="w-1 h-4 bg-[#FF6A2B] rounded-full"></div>
-                Files & Attachments ({data.attachments.length})
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <section className="rounded-lg border border-[#2A2A2E] p-6 bg-[#15161A] shadow-lg" style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
+              <div className="flex items-center gap-3 mb-5 pb-3 border-b border-[#2A2A2E]">
+                <FileText className="h-5 w-5 text-[#FF6A2B]" />
+                <h3 className="text-base font-bold uppercase tracking-wider text-gray-200">
+                  Files & Attachments
+                </h3>
+                <span className="text-sm text-gray-400">({data.attachments.length})</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {data.attachments.map((f: any, i: number) => {
                   const url = f?.url || f;
-                  const name = f?.name || `File ${i+1}`;
+                  const name = f?.name || f?.filename || `File ${i+1}`;
                   const isImageFile = typeof url === 'string' && isImage(url);
 
                   return (
-                    <a
-                      key={i}
-                      href={url || '#'}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block group"
-                    >
-                      {isImageFile ? (
-                        <div className="space-y-2">
-                          <div className="border border-[#2A2A2E] rounded-lg overflow-hidden bg-white hover:border-[#FF6A2B] transition-all">
-                            <img
-                              src={url}
-                              alt={name}
-                              className="w-full h-48 object-cover"
-                            />
-                          </div>
-                          <div className="text-xs text-gray-400 text-center truncate px-1">{name}</div>
-                        </div>
-                      ) : (
-                        <div className="border border-[#2A2A2E] rounded-lg p-4 bg-[#1C1C1E] hover:bg-[#252528] hover:border-[#FF6A2B] transition-all h-48 flex flex-col items-center justify-center gap-3">
-                          <FileText className="h-12 w-12 text-gray-400 group-hover:text-[#FF6A2B] transition-colors" />
-                          <div className="text-xs text-gray-400 text-center break-words px-2 line-clamp-3">{name}</div>
-                        </div>
-                      )}
-                    </a>
+                    <div key={i} className="group">
+                      <a
+                        href={url || '#'}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block"
+                      >
+                        {isImageFile ? (
+                          <>
+                            <div className="border-2 border-[#2A2A2E] rounded-lg overflow-hidden bg-white hover:border-[#FF6A2B] transition-all shadow-md hover:shadow-xl">
+                              <img
+                                src={url}
+                                alt={name}
+                                className="w-full h-40 object-cover"
+                              />
+                            </div>
+                            <div className="text-xs text-gray-400 text-center mt-2 group-hover:text-[#FF6A2B] transition-colors truncate px-1">
+                              {name}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="border-2 border-[#2A2A2E] rounded-lg p-4 bg-[#1C1C1E] hover:bg-[#252528] hover:border-[#FF6A2B] transition-all h-40 flex flex-col items-center justify-center gap-3 shadow-md hover:shadow-xl">
+                              <FileText className="h-10 w-10 text-gray-400 group-hover:text-[#FF6A2B] transition-colors" />
+                              <Download className="h-4 w-4 text-gray-500 group-hover:text-[#FF6A2B] transition-colors" />
+                            </div>
+                            <div className="text-xs text-gray-400 text-center mt-2 group-hover:text-[#FF6A2B] transition-colors truncate px-1">
+                              {name}
+                            </div>
+                          </>
+                        )}
+                      </a>
+                    </div>
                   );
                 })}
               </div>
