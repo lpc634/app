@@ -2,7 +2,7 @@ import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Printer, CheckCircle2, Circle, Download } from "lucide-react";
+import { Copy, Printer, CheckCircle2, Circle, Download, FileText, Image as ImageIcon } from "lucide-react";
 import { prettifyKey } from "@/lib/authorityToAct/labelMap";
 import { formatAny, formatDateUK } from "@/lib/authorityToAct/formatters";
 
@@ -38,6 +38,44 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
   };
 
   const rows = Object.entries(data).filter(([k, v]) => v !== undefined && v !== null && v !== "");
+
+  // Helper to check if a value is an image URL or base64
+  const isImage = (value: any) => {
+    if (typeof value !== 'string') return false;
+    return value.startsWith('data:image/') ||
+           value.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) ||
+           value.includes('/uploads/') ||
+           value.includes('cloudinary') ||
+           value.includes('s3.amazonaws.com');
+  };
+
+  // Helper to check if a field contains images
+  const isImageField = (key: string, value: any) => {
+    const lower = key.toLowerCase();
+    if (lower.includes('photo') || lower.includes('image') || lower.includes('picture')) {
+      return true;
+    }
+    if (Array.isArray(value)) {
+      return value.some(v => typeof v === 'string' && isImage(v));
+    }
+    return isImage(value);
+  };
+
+  // Collect all photos/images from the data
+  const photos: Array<{key: string, url: string, label: string}> = [];
+  rows.forEach(([key, value]) => {
+    if (isImageField(key, value)) {
+      if (Array.isArray(value)) {
+        value.forEach((url, idx) => {
+          if (typeof url === 'string' && isImage(url)) {
+            photos.push({ key: `${key}_${idx}`, url, label: `${prettifyKey(key)} ${idx + 1}` });
+          }
+        });
+      } else if (typeof value === 'string' && isImage(value)) {
+        photos.push({ key, url: value, label: prettifyKey(key) });
+      }
+    }
+  });
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -129,7 +167,9 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-5">
               {rows.map(([key, value]) => {
-                if (["client_name","client_email","client_phone","company","property_address","siteAddress"].includes(key)) return null;
+                if (["client_name","client_email","client_phone","company","property_address","siteAddress","attachments"].includes(key)) return null;
+                // Skip image fields as they'll be shown in the Photos section
+                if (isImageField(key, value)) return null;
                 return (
                   <div key={key} className="space-y-1.5 min-w-0">
                     <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{prettifyKey(key)}</div>
@@ -140,25 +180,73 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
             </div>
           </section>
 
+          {/* Photos Section */}
+          {photos.length > 0 && (
+            <section className="rounded-lg border border-[#2A2A2E] p-5 bg-[#15161A] shadow-lg" style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
+              <h3 className="text-sm font-bold uppercase tracking-wider mb-4 pb-2 border-b border-[#2A2A2E] text-gray-200 flex items-center gap-2">
+                <div className="w-1 h-4 bg-[#FF6A2B] rounded-full"></div>
+                Photos ({photos.length})
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {photos.map((photo) => (
+                  <div key={photo.key} className="space-y-2">
+                    <a href={photo.url} target="_blank" rel="noreferrer" className="block">
+                      <div className="border border-[#2A2A2E] rounded-lg overflow-hidden bg-white hover:border-[#FF6A2B] transition-all">
+                        <img
+                          src={photo.url}
+                          alt={photo.label}
+                          className="w-full h-48 object-cover"
+                        />
+                      </div>
+                    </a>
+                    <div className="text-xs text-gray-400 text-center">{photo.label}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Attachments */}
           {Array.isArray(data.attachments) && data.attachments.length > 0 && (
             <section className="rounded-lg border border-[#2A2A2E] p-5 bg-[#15161A] shadow-lg" style={{boxShadow:'inset 0 0 0 1px rgba(255, 106, 43, 0.15)'}}>
               <h3 className="text-sm font-bold uppercase tracking-wider mb-4 pb-2 border-b border-[#2A2A2E] text-gray-200 flex items-center gap-2">
                 <div className="w-1 h-4 bg-[#FF6A2B] rounded-full"></div>
-                Attachments
+                Files & Attachments ({data.attachments.length})
               </h3>
-              <div className="flex flex-wrap gap-3">
-                {data.attachments.map((f: any, i: number) => (
-                  <a
-                    key={i}
-                    href={f?.url || '#'}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-4 py-2 rounded-md border border-[#2A2A2E] bg-[#1C1C1E] hover:bg-[#252528] hover:border-[#FF6A2B] transition-all text-gray-200 text-sm font-medium"
-                  >
-                    {f?.name || f?.url || `File ${i+1}`}
-                  </a>
-                ))}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {data.attachments.map((f: any, i: number) => {
+                  const url = f?.url || f;
+                  const name = f?.name || `File ${i+1}`;
+                  const isImageFile = typeof url === 'string' && isImage(url);
+
+                  return (
+                    <a
+                      key={i}
+                      href={url || '#'}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block group"
+                    >
+                      {isImageFile ? (
+                        <div className="space-y-2">
+                          <div className="border border-[#2A2A2E] rounded-lg overflow-hidden bg-white hover:border-[#FF6A2B] transition-all">
+                            <img
+                              src={url}
+                              alt={name}
+                              className="w-full h-48 object-cover"
+                            />
+                          </div>
+                          <div className="text-xs text-gray-400 text-center truncate px-1">{name}</div>
+                        </div>
+                      ) : (
+                        <div className="border border-[#2A2A2E] rounded-lg p-4 bg-[#1C1C1E] hover:bg-[#252528] hover:border-[#FF6A2B] transition-all h-48 flex flex-col items-center justify-center gap-3">
+                          <FileText className="h-12 w-12 text-gray-400 group-hover:text-[#FF6A2B] transition-colors" />
+                          <div className="text-xs text-gray-400 text-center break-words px-2 line-clamp-3">{name}</div>
+                        </div>
+                      )}
+                    </a>
+                  );
+                })}
               </div>
             </section>
           )}
