@@ -1,10 +1,9 @@
-import React, { useState } from "react";
+import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, MapPin } from "lucide-react";
 import { prettifyKey } from "@/lib/authorityToAct/labelMap";
 import { formatAny, formatDateUK } from "@/lib/authorityToAct/formatters";
-import LocationPicker from "@/components/LocationPicker";
 
 type Props = {
   submission: any;
@@ -17,10 +16,16 @@ type Props = {
 export default function SubmissionDetails({ submission, open, onClose, onMarkRead, onPrint }: Props) {
   if (!submission) return null;
   const data = submission.submission_data || {};
-  const [showMap, setShowMap] = useState(false);
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleViewMap = () => {
+    if (data.location_lat && data.location_lng) {
+      const mapsUrl = `https://www.google.com/maps?q=${data.location_lat},${data.location_lng}`;
+      window.open(mapsUrl, '_blank');
+    }
   };
 
   const hasLocation = data.location_lat && data.location_lng;
@@ -51,7 +56,6 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
   );
 
   return (
-    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="!w-[95vw] !max-w-[95vw] md:!max-w-[95vw] !h-[98vh] !max-h-[98vh] overflow-hidden p-0 bg-[#0D0D0E]">
         {/* Print Styles */}
@@ -165,7 +169,7 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
             </DialogHeader>
             <div className="flex items-center gap-2 flex-wrap mt-4">
               {hasLocation && (
-                <Button size="sm" variant="outline" onClick={() => setShowMap(true)} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
+                <Button size="sm" variant="outline" onClick={handleViewMap} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
                   <MapPin className="h-4 w-4 mr-2"/>View on Map
                 </Button>
               )}
@@ -362,30 +366,5 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
         </div>
       </DialogContent>
     </Dialog>
-
-    {/* Map Viewer - Outside Dialog to avoid z-index conflicts */}
-    {hasLocation && (
-      <LocationPicker
-        isOpen={showMap}
-        onConfirm={() => setShowMap(false)}
-        onCancel={() => setShowMap(false)}
-        address={[
-          data.siteAddress?.line1,
-          data.siteAddress?.line2,
-          data.siteAddress?.city,
-          data.siteAddress?.region,
-          data.siteAddress?.postcode,
-          data.siteAddress?.country
-        ].filter(Boolean).join(', ')}
-        postcode={data.siteAddress?.postcode || ''}
-        value={{
-          lat: data.location_lat,
-          lng: data.location_lng,
-          maps_link: data.maps_link || `https://www.google.com/maps?q=${data.location_lat},${data.location_lng}`
-        }}
-        onChange={() => {}} // Read-only mode
-      />
-    )}
-    </>
   );
 }
