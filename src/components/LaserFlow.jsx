@@ -113,7 +113,7 @@ uniform float uFade;
         return powr*min(1.0,r);
     }
     float tri01(float x){float f=fract(x);return 1.0-abs(f*2.0-1.0);}
-    float tauWf(float t,float tmin,float tmax){float a=smoothstep(tmin,tmin+EDGE_SOFT,t),b=1.0-smoothstep(tmax-EDGE_SOFT,tmax,t);return max(0.0,a*b);}
+    float tauWf(float t,float tmin,float tmax){float a=smoothstep(tmin,tmin+EDGE_SOFT,t),b=1.0-smoothstep(tmax-EDGE_SOFT,tmax,t);return max(0.0,a*b);} 
     float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+34.123);return fract(p.x*p.y);}
     float vnoise(vec2 p){
         vec2 i=floor(p),f=fract(p);
@@ -317,7 +317,10 @@ export const LaserFlow = ({
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
+    geometry.setAttribute(
+      'position',
+      new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3)
+    );
 
     const uniforms = {
       iTime: { value: 0 },
@@ -386,12 +389,9 @@ export const LaserFlow = ({
     const ro = new ResizeObserver(scheduleResize);
     ro.observe(mount);
 
-    const io = new IntersectionObserver(
-      entries => {
-        inViewRef.current = entries[0]?.isIntersecting ?? true;
-      },
-      { root: null, threshold: 0 }
-    );
+    const io = new IntersectionObserver(entries => {
+      inViewRef.current = entries[0]?.isIntersecting ?? true;
+    }, { root: null, threshold: 0 });
     io.observe(mount);
 
     const onVis = () => {
@@ -560,7 +560,12 @@ export const LaserFlow = ({
     color
   ]);
 
-  return <div ref={mountRef} className={`laser-flow-container ${className || ''}`} style={style} />;
+  return (
+    <div
+      ref={mountRef}
+      className={`laser-flow-container ${className || ''}`}
+      style={style} />
+  );
 };
 
 export default LaserFlow;
