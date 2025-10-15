@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '../components/ui/alert'
 import { Loader2, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom'; // 1. Import Link
 import logo from '../assets/new_logo.png';
+import LaserFlow from '../components/LaserFlow';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -29,7 +30,30 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-v3-bg-darkest">
-      <div className="dashboard-card w-full max-w-md">
+      {/* Laser Flow Frame Effect */}
+      <div
+        style={{
+          height: '600px',
+          width: '600px',
+          position: 'absolute',
+          overflow: 'hidden',
+          pointerEvents: 'none',
+          zIndex: 0
+        }}
+      >
+        <LaserFlow
+          horizontalBeamOffset={0.0}
+          verticalBeamOffset={0.0}
+          color="#FF6A2B"
+          verticalSizing={1.8}
+          horizontalSizing={1.8}
+          fogIntensity={0.6}
+          wispDensity={1.5}
+          flowSpeed={0.4}
+        />
+      </div>
+
+      <div className="dashboard-card w-full max-w-md relative z-10">
         <img src={logo} alt="Company Name Logo" className="mx-auto mb-8 h-16 w-auto" />
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-v3-text-lightest">V3 Services Portal</CardTitle>
@@ -44,7 +68,7 @@ export default function LoginPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="email" className="text-v3-text-light">Email</Label>
               <Input
@@ -54,7 +78,7 @@ export default function LoginPage() {
                 className="bg-v3-bg-dark border-v3-border text-v3-text-lightest focus:ring-v3-orange"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password" className="text-v3-text-light">Password</Label>
               <Input
@@ -64,12 +88,12 @@ export default function LoginPage() {
                 className="bg-v3-bg-dark border-v3-border text-v3-text-lightest focus:ring-v3-orange"
               />
             </div>
-            
+
             <Button type="submit" className="w-full button-refresh" disabled={loading}>
               {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in...</> : 'Sign In'}
             </Button>
           </form>
-          
+
           {/* 2. Add the link to the Sign Up page */}
           <div className="mt-6 text-sm text-center">
             <Link to="/signup" className="font-medium text-v3-orange hover:text-v3-orange-dark">
