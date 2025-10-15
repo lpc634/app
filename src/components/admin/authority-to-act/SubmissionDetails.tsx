@@ -32,6 +32,9 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
 
   // Get attachments from submission data
   const attachments = data.attachments || [];
+  console.log('SubmissionDetails - attachments:', attachments);
+  console.log('SubmissionDetails - full data:', data);
+
   const photos = attachments.filter((file: any) => {
     const name = file.name || '';
     return /\.(jpg|jpeg|png|gif|webp)$/i.test(name);
@@ -44,6 +47,8 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
   const hasLocation = data.location_lat && data.location_lng;
   const hasPhotos = photos.length > 0;
   const hasFiles = files.length > 0;
+
+  console.log('SubmissionDetails - photos:', photos.length, 'files:', files.length);
 
   const downloadFile = (file: any, index: number) => {
     const blob = new Blob([file.data], { type: file.type || 'application/octet-stream' });
@@ -201,16 +206,24 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
                   <MapPin className="h-4 w-4 mr-2"/>View on Map
                 </Button>
               )}
-              {hasPhotos && (
-                <Button size="sm" variant="outline" onClick={() => setShowPhotos(true)} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
-                  <Image className="h-4 w-4 mr-2"/>Photos ({photos.length})
-                </Button>
-              )}
-              {hasFiles && (
-                <Button size="sm" variant="outline" onClick={() => setShowFiles(true)} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
-                  <FileText className="h-4 w-4 mr-2"/>Files ({files.length})
-                </Button>
-              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowPhotos(true)}
+                className="border-[#2A2A2E] hover:bg-[#1C1C1E]"
+                disabled={!hasPhotos}
+              >
+                <Image className="h-4 w-4 mr-2"/>Photos ({photos.length})
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowFiles(true)}
+                className="border-[#2A2A2E] hover:bg-[#1C1C1E]"
+                disabled={!hasFiles}
+              >
+                <FileText className="h-4 w-4 mr-2"/>Files ({files.length})
+              </Button>
               <Button size="sm" variant="outline" onClick={handlePrint} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
                 <Printer className="h-4 w-4 mr-2"/>Print / Download PDF
               </Button>
