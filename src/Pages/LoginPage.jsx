@@ -53,20 +53,20 @@ export default function LoginPage() {
       }}>
         <LaserFlow
           horizontalBeamOffset={0.5}
-          verticalBeamOffset={0.0}
+          verticalBeamOffset={0.4}
           color="#FF6A2B"
-          horizontalSizing={0.3}
-          verticalSizing={1.5}
-          wispDensity={1}
+          horizontalSizing={0.2}
+          verticalSizing={1.2}
+          wispDensity={2}
           wispSpeed={15}
-          wispIntensity={5}
+          wispIntensity={8}
           flowSpeed={0.35}
           flowStrength={0.25}
-          fogIntensity={0.45}
+          fogIntensity={0.6}
           fogScale={0.3}
           fogFallSpeed={0.6}
-          decay={1.1}
-          falloffStart={1.2}
+          decay={0.8}
+          falloffStart={0.9}
         />
       </div>
 
