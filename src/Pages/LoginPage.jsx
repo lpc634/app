@@ -29,33 +29,39 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative" style={{ backgroundColor: '#060010', overflow: 'hidden' }}>
-      {/* Laser Flow Frame Effect - Full screen behind card */}
+    <div
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{
+        backgroundColor: '#060010',
+        overflow: 'hidden'
+      }}
+    >
+      {/* Laser Flow Box Effect - Wraps around card */}
       <div
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
+          position: 'absolute',
+          width: '100%',
+          maxWidth: '600px',
+          height: '700px',
           pointerEvents: 'none',
           zIndex: 1
         }}
       >
         <LaserFlow
-          horizontalBeamOffset={0.0}
-          verticalBeamOffset={-0.5}
+          horizontalBeamOffset={0.1}
+          verticalBeamOffset={0.0}
           color="#FF6A2B"
-          verticalSizing={6.0}
+          verticalSizing={2.0}
           horizontalSizing={0.5}
-          fogIntensity={1.0}
-          wispDensity={2.5}
-          flowSpeed={0.6}
-          wispSpeed={20.0}
-          wispIntensity={10.0}
-          fogScale={0.15}
-          decay={2.0}
-          falloffStart={2.0}
+          fogIntensity={0.45}
+          wispDensity={1}
+          flowSpeed={0.35}
+          wispSpeed={15.0}
+          wispIntensity={5.0}
+          fogScale={0.3}
+          decay={1.1}
+          falloffStart={1.2}
+          fogFallSpeed={0.6}
         />
       </div>
 
