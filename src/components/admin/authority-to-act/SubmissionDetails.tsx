@@ -83,6 +83,7 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
   );
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="!w-[95vw] !max-w-[95vw] md:!max-w-[95vw] !h-[98vh] !max-h-[98vh] overflow-hidden p-0 bg-[#0D0D0E]">
         {/* Print Styles */}
@@ -490,5 +491,6 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
