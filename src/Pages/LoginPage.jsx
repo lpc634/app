@@ -44,20 +44,40 @@ export default function LoginPage() {
       >
         <LaserFlow
           horizontalBeamOffset={0.0}
-          verticalBeamOffset={0.15}
+          verticalBeamOffset={-0.3}
           color="#FF6A2B"
-          verticalSizing={3.0}
-          horizontalSizing={2.0}
-          fogIntensity={0.7}
-          wispDensity={1.5}
-          flowSpeed={0.4}
-          wispSpeed={15.0}
-          wispIntensity={6.0}
-          fogScale={0.25}
+          verticalSizing={4.0}
+          horizontalSizing={3.5}
+          fogIntensity={0.9}
+          wispDensity={2.0}
+          flowSpeed={0.5}
+          wispSpeed={18.0}
+          wispIntensity={8.0}
+          fogScale={0.2}
+          decay={1.5}
+          falloffStart={1.5}
         />
       </div>
 
-      <div className="dashboard-card w-full max-w-md relative" style={{ zIndex: 10 }}>
+      <div
+        className="dashboard-card w-full max-w-md relative"
+        style={{
+          zIndex: 10,
+          border: '2px solid #FF6A2B',
+          boxShadow: '0 0 30px rgba(255, 106, 43, 0.6), 0 0 60px rgba(255, 106, 43, 0.3), inset 0 0 20px rgba(255, 106, 43, 0.1)',
+          animation: 'glowPulse 2s ease-in-out infinite'
+        }}
+      >
+        <style>{`
+          @keyframes glowPulse {
+            0%, 100% {
+              box-shadow: 0 0 30px rgba(255, 106, 43, 0.6), 0 0 60px rgba(255, 106, 43, 0.3), inset 0 0 20px rgba(255, 106, 43, 0.1);
+            }
+            50% {
+              box-shadow: 0 0 40px rgba(255, 106, 43, 0.8), 0 0 80px rgba(255, 106, 43, 0.5), inset 0 0 30px rgba(255, 106, 43, 0.2);
+            }
+          }
+        `}</style>
         <img src={logo} alt="Company Name Logo" className="mx-auto mb-8 h-16 w-auto" />
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-v3-text-lightest">V3 Services Portal</CardTitle>
