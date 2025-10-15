@@ -41,21 +41,22 @@ export default function LoginPage() {
         backgroundColor: '#060010'
       }}
     >
-      {/* Laser container sized to card area */}
+      {/* Laser container - FULLSCREEN to allow beam from top */}
       <div style={{
-        position: 'absolute',
-        width: '86%',
-        maxWidth: '600px',
-        height: '80%',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
         pointerEvents: 'none',
-        overflow: 'hidden'
+        zIndex: 1
       }}>
         <LaserFlow
-          horizontalBeamOffset={0.1}
+          horizontalBeamOffset={0.5}
           verticalBeamOffset={0.0}
           color="#FF6A2B"
-          horizontalSizing={0.5}
-          verticalSizing={2.0}
+          horizontalSizing={0.3}
+          verticalSizing={1.5}
           wispDensity={1}
           wispSpeed={15}
           wispIntensity={5}
@@ -73,7 +74,7 @@ export default function LoginPage() {
         className="dashboard-card w-full max-w-md"
         style={{
           position: 'relative',
-          zIndex: 6,
+          zIndex: 10,
           border: '2px solid #FF6A2B',
           borderRadius: '20px',
           boxShadow: '0 0 30px rgba(255, 106, 43, 0.6), 0 0 60px rgba(255, 106, 43, 0.3), inset 0 0 20px rgba(255, 106, 43, 0.1)'
