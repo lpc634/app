@@ -30,18 +30,32 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4"
       style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem',
         position: 'relative',
         overflow: 'hidden',
         backgroundColor: '#060010'
       }}
     >
-      <LaserFlow
-        horizontalBeamOffset={0.1}
-        verticalBeamOffset={0.0}
-        color="#FF6A2B"
-      />
+      {/* Full viewport laser container */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        pointerEvents: 'none'
+      }}>
+        <LaserFlow
+          horizontalBeamOffset={0.1}
+          verticalBeamOffset={0.0}
+          color="#FF6A2B"
+        />
+      </div>
 
       <div
         className="dashboard-card w-full max-w-md"
