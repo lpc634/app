@@ -30,62 +30,29 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 relative"
+      className="min-h-screen flex items-center justify-center p-4"
       style={{
-        backgroundColor: '#060010',
-        overflow: 'hidden'
+        position: 'relative',
+        overflow: 'hidden',
+        backgroundColor: '#060010'
       }}
     >
-      {/* Laser Flow Box Effect - Wraps around card */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '800px',
-          height: '900px',
-          pointerEvents: 'none',
-          zIndex: 1
-        }}
-      >
-        <LaserFlow
-          horizontalBeamOffset={0.1}
-          verticalBeamOffset={0.0}
-          color="#FF6A2B"
-          verticalSizing={2.0}
-          horizontalSizing={0.5}
-          fogIntensity={0.45}
-          wispDensity={1}
-          flowSpeed={0.35}
-          wispSpeed={15.0}
-          wispIntensity={5.0}
-          fogScale={0.3}
-          decay={1.1}
-          falloffStart={1.2}
-          fogFallSpeed={0.6}
-        />
-      </div>
+      <LaserFlow
+        horizontalBeamOffset={0.1}
+        verticalBeamOffset={0.0}
+        color="#FF6A2B"
+      />
 
       <div
-        className="dashboard-card w-full max-w-md relative"
+        className="dashboard-card w-full max-w-md"
         style={{
-          zIndex: 10,
+          position: 'relative',
+          zIndex: 6,
           border: '2px solid #FF6A2B',
-          boxShadow: '0 0 30px rgba(255, 106, 43, 0.6), 0 0 60px rgba(255, 106, 43, 0.3), inset 0 0 20px rgba(255, 106, 43, 0.1)',
-          animation: 'glowPulse 2s ease-in-out infinite'
+          borderRadius: '20px',
+          boxShadow: '0 0 30px rgba(255, 106, 43, 0.6), 0 0 60px rgba(255, 106, 43, 0.3), inset 0 0 20px rgba(255, 106, 43, 0.1)'
         }}
       >
-        <style>{`
-          @keyframes glowPulse {
-            0%, 100% {
-              box-shadow: 0 0 30px rgba(255, 106, 43, 0.6), 0 0 60px rgba(255, 106, 43, 0.3), inset 0 0 20px rgba(255, 106, 43, 0.1);
-            }
-            50% {
-              box-shadow: 0 0 40px rgba(255, 106, 43, 0.8), 0 0 80px rgba(255, 106, 43, 0.5), inset 0 0 30px rgba(255, 106, 43, 0.2);
-            }
-          }
-        `}</style>
         <img src={logo} alt="Company Name Logo" className="mx-auto mb-8 h-16 w-auto" />
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-v3-text-lightest">V3 Services Portal</CardTitle>
