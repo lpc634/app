@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Printer, MapPin, Image, FileText, Download } from "lucide-react";
+import { Printer, MapPin, Image, FileText, Download, X } from "lucide-react";
 import { prettifyKey } from "@/lib/authorityToAct/labelMap";
 import { formatAny, formatDateUK } from "@/lib/authorityToAct/formatters";
 
@@ -193,14 +193,37 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
 
         {/* Sticky Header - Hidden on print */}
         <div className="print-hide sticky top-0 z-10 border-b border-[#2A2A2E]" style={{background:'linear-gradient(135deg, #0D0D0E 0%, #121214 100%)'}}>
-          <div className="px-6 pt-4 pb-4">
-            <DialogHeader>
+          <div className="px-6 pt-4 pb-4 relative">
+            {/* Close Button - Top Left */}
+            <button
+              onClick={onClose}
+              className="absolute left-4 top-4 w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 hover:scale-110"
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--v3-border, #2A2A2E)',
+                color: 'var(--v3-text-muted, #9CA3AF)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--v3-orange, #FF6A2B)';
+                e.currentTarget.style.borderColor = 'var(--v3-orange, #FF6A2B)';
+                e.currentTarget.style.color = 'white';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.borderColor = 'var(--v3-border, #2A2A2E)';
+                e.currentTarget.style.color = 'var(--v3-text-muted, #9CA3AF)';
+              }}
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <DialogHeader className="ml-14">
               <DialogTitle className="text-2xl font-bold text-white">Client Instruction Form: Authority To Act — Squatter Eviction</DialogTitle>
               <DialogDescription className="text-gray-400 text-base mt-1">
                 Submitted on {formatDateUK(submission.submitted_at)} by {submission.client_name || data.firstName + ' ' + data.lastName || "Unknown"}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex items-center gap-2 flex-wrap mt-4">
+            <div className="flex items-center gap-2 flex-wrap mt-4 ml-14">
               {hasLocation && (
                 <Button size="sm" variant="outline" onClick={handleViewMap} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
                   <MapPin className="h-4 w-4 mr-2"/>View on Map
