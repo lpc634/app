@@ -41,19 +41,22 @@ export default function LoginPage() {
         backgroundColor: '#060010'
       }}
     >
-      {/* Full viewport laser container */}
+      {/* Laser container sized to card area */}
       <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        pointerEvents: 'none'
+        position: 'absolute',
+        width: '86%',
+        maxWidth: '600px',
+        height: '80%',
+        pointerEvents: 'none',
+        overflow: 'hidden'
       }}>
         <LaserFlow
           horizontalBeamOffset={0.1}
           verticalBeamOffset={0.0}
           color="#FF6A2B"
+          verticalSizing={2}
+          horizontalSizing={0.5}
+          wispDensity={1}
         />
       </div>
 
