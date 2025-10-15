@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Printer, MapPin } from "lucide-react";
+import { Printer, MapPin, Image, FileText, Download } from "lucide-react";
 import { prettifyKey } from "@/lib/authorityToAct/labelMap";
 import { formatAny, formatDateUK } from "@/lib/authorityToAct/formatters";
 
@@ -16,6 +16,8 @@ type Props = {
 export default function SubmissionDetails({ submission, open, onClose, onMarkRead, onPrint }: Props) {
   if (!submission) return null;
   const data = submission.submission_data || {};
+  const [showPhotos, setShowPhotos] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
 
   const handlePrint = () => {
     window.print();
@@ -28,7 +30,32 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
     }
   };
 
+  // Get attachments from submission data
+  const attachments = data.attachments || [];
+  const photos = attachments.filter((file: any) => {
+    const name = file.name || '';
+    return /\.(jpg|jpeg|png|gif|webp)$/i.test(name);
+  });
+  const files = attachments.filter((file: any) => {
+    const name = file.name || '';
+    return !/\.(jpg|jpeg|png|gif|webp)$/i.test(name);
+  });
+
   const hasLocation = data.location_lat && data.location_lng;
+  const hasPhotos = photos.length > 0;
+  const hasFiles = files.length > 0;
+
+  const downloadFile = (file: any, index: number) => {
+    const blob = new Blob([file.data], { type: file.type || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name || `attachment-${index + 1}`;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(url);
+    a.remove();
+  };
 
   // Helper components matching the form structure
   const FormCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -171,6 +198,16 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
               {hasLocation && (
                 <Button size="sm" variant="outline" onClick={handleViewMap} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
                   <MapPin className="h-4 w-4 mr-2"/>View on Map
+                </Button>
+              )}
+              {hasPhotos && (
+                <Button size="sm" variant="outline" onClick={() => setShowPhotos(true)} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
+                  <Image className="h-4 w-4 mr-2"/>Photos ({photos.length})
+                </Button>
+              )}
+              {hasFiles && (
+                <Button size="sm" variant="outline" onClick={() => setShowFiles(true)} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
+                  <FileText className="h-4 w-4 mr-2"/>Files ({files.length})
                 </Button>
               )}
               <Button size="sm" variant="outline" onClick={handlePrint} className="border-[#2A2A2E] hover:bg-[#1C1C1E]">
@@ -362,6 +399,93 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
           {/* Footer */}
           <div style={{textAlign: 'center', padding: '20px', color: '#9CA3AF', fontSize: '0.85rem'}}>
             V3 Services Limited · Registered in England No. 10653477 · Registered Office: 117 Dartford Road, Dartford DA1 3EN · VAT No. 269833460 · ICO: ZA485365
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Photos Modal */}
+    <Dialog open={showPhotos} onOpenChange={setShowPhotos}>
+      <DialogContent className="!w-[90vw] !max-w-[1200px] !h-[90vh] overflow-hidden p-0 bg-[#0D0D0E]">
+        <div className="border-b border-[#2A2A2E] p-6" style={{background:'linear-gradient(135deg, #0D0D0E 0%, #121214 100%)'}}>
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white">Photos ({photos.length})</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Photos submitted with the Authority to Act form
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+        <div className="overflow-y-auto h-full p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {photos.map((photo: any, index: number) => (
+              <div key={index} className="border border-[#2A2A2E] rounded-lg overflow-hidden bg-[#15161A]">
+                <div className="aspect-video bg-[#0D0D0E] flex items-center justify-center p-4">
+                  <img
+                    src={photo.dataUrl || URL.createObjectURL(new Blob([photo.data]))}
+                    alt={photo.name}
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+                <div className="p-4 flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-medium truncate">{photo.name}</p>
+                    <p className="text-gray-400 text-sm">{(photo.size / 1024).toFixed(1)} KB</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => downloadFile(photo, index)}
+                    className="ml-4 border-[#2A2A2E] hover:bg-[#1C1C1E]"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Files Modal */}
+    <Dialog open={showFiles} onOpenChange={setShowFiles}>
+      <DialogContent className="!w-[90vw] !max-w-[800px] !h-[90vh] overflow-hidden p-0 bg-[#0D0D0E]">
+        <div className="border-b border-[#2A2A2E] p-6" style={{background:'linear-gradient(135deg, #0D0D0E 0%, #121214 100%)'}}>
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white">Files ({files.length})</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Documents submitted with the Authority to Act form
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+        <div className="overflow-y-auto h-full p-6">
+          <div className="space-y-3">
+            {files.map((file: any, index: number) => (
+              <div
+                key={index}
+                className="border border-[#2A2A2E] rounded-lg p-4 bg-[#15161A] flex items-center justify-between hover:bg-[#1C1C1E] transition-colors"
+              >
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="w-12 h-12 rounded-lg bg-[#FF6A2B] bg-opacity-10 flex items-center justify-center flex-shrink-0">
+                    <FileText className="h-6 w-6 text-[#FF6A2B]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-medium truncate">{file.name}</p>
+                    <p className="text-gray-400 text-sm">
+                      {(file.size / 1024).toFixed(1)} KB · {file.type || 'Unknown type'}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => downloadFile(file, index)}
+                  className="ml-4 bg-[#FF6A2B] hover:bg-[#FF7D42] text-white"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+            ))}
           </div>
         </div>
       </DialogContent>
