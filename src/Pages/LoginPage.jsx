@@ -29,31 +29,34 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-v3-bg-darkest">
-      {/* Laser Flow Frame Effect */}
+    <div className="min-h-screen flex items-center justify-center p-4 bg-v3-bg-darkest relative">
+      {/* Laser Flow Frame Effect - Behind card */}
       <div
         style={{
-          height: '600px',
-          width: '600px',
-          position: 'absolute',
-          overflow: 'hidden',
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          height: '800px',
+          width: '800px',
           pointerEvents: 'none',
-          zIndex: 0
+          zIndex: 1
         }}
       >
         <LaserFlow
           horizontalBeamOffset={0.0}
           verticalBeamOffset={0.0}
           color="#FF6A2B"
-          verticalSizing={1.8}
-          horizontalSizing={1.8}
-          fogIntensity={0.6}
-          wispDensity={1.5}
-          flowSpeed={0.4}
+          verticalSizing={2.5}
+          horizontalSizing={2.5}
+          fogIntensity={0.8}
+          wispDensity={1.8}
+          flowSpeed={0.35}
+          wispSpeed={12.0}
         />
       </div>
 
-      <div className="dashboard-card w-full max-w-md relative z-10">
+      <div className="dashboard-card w-full max-w-md relative" style={{ zIndex: 10 }}>
         <img src={logo} alt="Company Name Logo" className="mx-auto mb-8 h-16 w-auto" />
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-v3-text-lightest">V3 Services Portal</CardTitle>
