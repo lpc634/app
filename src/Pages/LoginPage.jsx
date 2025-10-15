@@ -40,9 +40,11 @@ export default function LoginPage() {
       <div
         style={{
           position: 'absolute',
-          width: '100%',
-          maxWidth: '600px',
-          height: '700px',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '800px',
+          height: '900px',
           pointerEvents: 'none',
           zIndex: 1
         }}
