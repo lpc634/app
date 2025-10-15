@@ -54,9 +54,18 @@ export default function LoginPage() {
           horizontalBeamOffset={0.1}
           verticalBeamOffset={0.0}
           color="#FF6A2B"
-          verticalSizing={2}
           horizontalSizing={0.5}
+          verticalSizing={2.0}
           wispDensity={1}
+          wispSpeed={15}
+          wispIntensity={5}
+          flowSpeed={0.35}
+          flowStrength={0.25}
+          fogIntensity={0.45}
+          fogScale={0.3}
+          fogFallSpeed={0.6}
+          decay={1.1}
+          falloffStart={1.2}
         />
       </div>
 
