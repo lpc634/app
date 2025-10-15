@@ -6,9 +6,8 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Alert, AlertDescription } from '../components/ui/alert'
 import { Loader2, Shield } from 'lucide-react';
-import { Link } from 'react-router-dom'; // 1. Import Link
+import { Link } from 'react-router-dom';
 import logo from '../assets/new_logo.png';
-import LaserFlow from '../components/LaserFlow';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -29,57 +28,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-        position: 'relative',
-        overflow: 'hidden',
-        backgroundColor: '#060010'
-      }}
-    >
-      {/* Laser container - FULLSCREEN to allow beam from top */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        pointerEvents: 'none',
-        zIndex: 1
-      }}>
-        <LaserFlow
-          horizontalBeamOffset={0.5}
-          verticalBeamOffset={-0.15}
-          color="#FF6A2B"
-          horizontalSizing={0.35}
-          verticalSizing={1.8}
-          wispDensity={1.5}
-          wispSpeed={15}
-          wispIntensity={6}
-          flowSpeed={0.35}
-          flowStrength={0.25}
-          fogIntensity={0.5}
-          fogScale={0.3}
-          fogFallSpeed={0.6}
-          decay={1.0}
-          falloffStart={1.1}
-        />
-      </div>
-
-      <div
-        className="dashboard-card w-full max-w-md"
-        style={{
-          position: 'relative',
-          zIndex: 10,
-          border: '2px solid #FF6A2B',
-          borderRadius: '20px',
-          boxShadow: '0 0 30px rgba(255, 106, 43, 0.6), 0 0 60px rgba(255, 106, 43, 0.3), inset 0 0 20px rgba(255, 106, 43, 0.1)'
-        }}
-      >
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="dashboard-card w-full max-w-md">
         <img src={logo} alt="Company Name Logo" className="mx-auto mb-8 h-16 w-auto" />
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-v3-text-lightest">V3 Services Portal</CardTitle>
