@@ -19,7 +19,7 @@ export default function LoginPage() {
 
   const containerRef = useRef(null);
   const cardRef = useRef(null);
-  const [beam, setBeam] = useState({ x: 0.1, y: 0.5 });
+  const [beam, setBeam] = useState({ x: 0.12, y: 0.5 }); // sensible defaults until first measure
 
   useEffect(() => {
     const updateBeam = () => {
@@ -30,10 +30,15 @@ export default function LoginPage() {
       const k = card.getBoundingClientRect();
       const cw = Math.max(1, c.width);
       const ch = Math.max(1, c.height);
+      // Aim at LEFT edge (x) and vertical CENTER (y) of the card
       const leftEdgeX = k.left - c.left;
-      const centerY = (k.top - c.top) + (k.height / 2);
-      const xFrac = Math.min(0.99, Math.max(0.0, leftEdgeX / cw));
-      const yFrac = Math.min(0.99, Math.max(0.0, centerY / ch));
+      const centerYTopOrigin = (k.top - c.top) + (k.height / 2);
+      // Shader uses bottom-left origin → invert Y
+      const centerYBottomOrigin = ch - centerYTopOrigin;
+      // Convert to [0..1] fractions with safe margins so the beam doesn't clip
+      const clamp01 = (v) => Math.min(0.98, Math.max(0.02, v));
+      const xFrac = clamp01(leftEdgeX / cw);
+      const yFrac = clamp01(centerYBottomOrigin / ch);
       setBeam({ x: xFrac, y: yFrac });
     };
     updateBeam();
@@ -70,16 +75,16 @@ export default function LoginPage() {
           color="#f97316"
           horizontalBeamOffset={beam.x}
           verticalBeamOffset={beam.y}
-          flowSpeed={0.35}
-          fogIntensity={0.40}
+          flowSpeed={0.38}
+          fogIntensity={0.32}
           fogScale={0.30}
           wispDensity={1.0}
           wispSpeed={15.0}
           wispIntensity={5.0}
-          flowStrength={0.25}
-          verticalSizing={2.0}
-          horizontalSizing={0.55}
-          decay={1.1}
+          flowStrength={0.30}
+          verticalSizing={1.85}
+          horizontalSizing={0.48}
+          decay={1.05}
           falloffStart={1.2}
           fogFallSpeed={0.6}
           mouseSmoothTime={0.0}
@@ -96,7 +101,7 @@ export default function LoginPage() {
       <div className="relative min-h-screen flex items-center justify-center p-4">
         <Card
           ref={cardRef}
-          className="w-full max-w-md bg-v3-bg-dark/80 backdrop-blur rounded-2xl border border-[rgba(255,122,26,0.35)] shadow-[0_0_0_1px_rgba(255,122,26,0.25),0_0_40px_rgba(255,122,26,0.18)]"
+          className="w-full max-w-md bg-v3-bg-dark/80 backdrop-blur rounded-2xl border border-[rgba(255,122,26,0.45)] shadow-[0_0_0_1px_rgba(255,122,26,0.35),0_0_48px_rgba(255,122,26,0.24)]"
         >
           <img src={logo} alt="Company Name Logo" className="mx-auto mt-8 mb-4 h-16 w-auto" />
           <CardHeader className="text-center pt-0">
