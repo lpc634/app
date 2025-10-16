@@ -19,8 +19,9 @@ export default function LoginPage() {
 
   const containerRef = useRef(null);
   const cardRef = useRef(null);
-  const [beam, setBeam] = useState({ x: 0.15, y: 0.85 }); // defaults until measure (bottom-origin for y)
-  const [impact, setImpact] = useState({ xPx: 0, yPx: 0 }); // for impact glow element
+  const [beam, setBeam] = useState({ x: 0.15, y: 0.15 }); // sensible defaults until first measure
+  const [impact, setImpact] = useState({ xPx: 0, yPx: 0 }); // px impact for optional glow/marker
+  const SHOW_LASER_DEBUG = true; // set false after you verify alignment
 
   useEffect(() => {
     const updateBeam = () => {
@@ -32,16 +33,16 @@ export default function LoginPage() {
       const cw = Math.max(1, c.width);
       const ch = Math.max(1, c.height);
       // === Aim at TOP EDGE near LEFT CORNER (inside radius) ===
-      const insetX = 8;  // px inside left radius
+      const insetX = 8;  // px inside left rounded corner
       const insetY = 4;  // px inside top border
       const targetX = (k.left - c.left) + insetX;
       const targetY = (k.top  - c.top)  + insetY;
       const clamp01 = (v) => Math.min(0.98, Math.max(0.02, v));
       const xFrac = clamp01(targetX / cw);
-      // Shader uses bottom-left origin → invert Y
-      const yFrac = clamp01(1 - (targetY / ch));
+      // TOP-ORIGIN mapping for this shader build (no inversion)
+      const yFrac = clamp01(targetY / ch);
       setBeam({ x: xFrac, y: yFrac });
-      // For impact glow element position (absolute px from container)
+      // Save px position for debug dot / impact glow
       setImpact({ xPx: targetX, yPx: (k.top - c.top) });
     };
     updateBeam();
@@ -79,10 +80,10 @@ export default function LoginPage() {
           horizontalBeamOffset={beam.x}
           verticalBeamOffset={beam.y}
           horizontalSizing={0.5}
-          verticalSizing={2.0}
+          verticalSizing={2}
           wispDensity={1}
-          wispSpeed={15.0}
-          wispIntensity={5.0}
+          wispSpeed={15}
+          wispIntensity={5}
           flowSpeed={0.35}
           flowStrength={0.25}
           fogIntensity={0.45}
@@ -100,19 +101,22 @@ export default function LoginPage() {
         <div className="hidden [@media_(prefers-reduced-motion:reduce)]:block absolute inset-0 bg-[radial-gradient(1200px_600px_at_10%_40%,rgba(249,115,22,0.22),transparent_60%)]" />
       </div>
 
-      {/* Impact glow aligned to strike (non-interactive) */}
-      <div
-        className="pointer-events-none absolute"
-        style={{
-          left: `${impact.xPx - 24}px`,
-          top: `${impact.yPx - 10}px`,
-          width: '160px',
-          height: '60px',
-          filter: 'blur(14px)',
-          background:
-            'radial-gradient(80px 30px at 24px 10px, rgba(255,122,26,0.45), rgba(255,122,26,0.18) 60%, transparent 70%)'
-        }}
-      />
+      {/* Debug: marker shows the exact strike point (turn off after verifying) */}
+      {SHOW_LASER_DEBUG && (
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            left: `${impact.xPx - 3}px`,
+            top: `${impact.yPx - 3}px`,
+            width: '6px',
+            height: '6px',
+            borderRadius: '999px',
+            background: '#ff7a1a',
+            boxShadow: '0 0 16px rgba(255,122,26,0.8)'
+          }}
+          aria-hidden="true"
+        />
+      )}
 
       {/* Login card (interactive) */}
       <div className="relative min-h-screen flex items-center justify-center p-4">
