@@ -19,7 +19,8 @@ export default function LoginPage() {
 
   const containerRef = useRef(null);
   const cardRef = useRef(null);
-  const [beam, setBeam] = useState({ x: 0.12, y: 0.5 }); // sensible defaults until first measure
+  const [beam, setBeam] = useState({ x: 0.15, y: 0.85 }); // defaults until measure (bottom-origin for y)
+  const [impact, setImpact] = useState({ xPx: 0, yPx: 0 }); // for impact glow element
 
   useEffect(() => {
     const updateBeam = () => {
@@ -30,16 +31,18 @@ export default function LoginPage() {
       const k = card.getBoundingClientRect();
       const cw = Math.max(1, c.width);
       const ch = Math.max(1, c.height);
-      // Aim at LEFT edge (x) and vertical CENTER (y) of the card
-      const leftEdgeX = k.left - c.left;
-      const centerYTopOrigin = (k.top - c.top) + (k.height / 2);
-      // Shader uses bottom-left origin → invert Y
-      const centerYBottomOrigin = ch - centerYTopOrigin;
-      // Convert to [0..1] fractions with safe margins so the beam doesn't clip
+      // === Aim at TOP EDGE near LEFT CORNER (inside radius) ===
+      const insetX = 8;  // px inside left radius
+      const insetY = 4;  // px inside top border
+      const targetX = (k.left - c.left) + insetX;
+      const targetY = (k.top  - c.top)  + insetY;
       const clamp01 = (v) => Math.min(0.98, Math.max(0.02, v));
-      const xFrac = clamp01(leftEdgeX / cw);
-      const yFrac = clamp01(centerYBottomOrigin / ch);
+      const xFrac = clamp01(targetX / cw);
+      // Shader uses bottom-left origin → invert Y
+      const yFrac = clamp01(1 - (targetY / ch));
       setBeam({ x: xFrac, y: yFrac });
+      // For impact glow element position (absolute px from container)
+      setImpact({ xPx: targetX, yPx: (k.top - c.top) });
     };
     updateBeam();
     const ro1 = new ResizeObserver(updateBeam);
@@ -75,20 +78,20 @@ export default function LoginPage() {
           color="#f97316"
           horizontalBeamOffset={beam.x}
           verticalBeamOffset={beam.y}
-          flowSpeed={0.38}
-          fogIntensity={0.32}
-          fogScale={0.30}
-          wispDensity={1.0}
+          horizontalSizing={0.5}
+          verticalSizing={2.0}
+          wispDensity={1}
           wispSpeed={15.0}
           wispIntensity={5.0}
-          flowStrength={0.30}
-          verticalSizing={1.85}
-          horizontalSizing={0.48}
-          decay={1.05}
-          falloffStart={1.2}
+          flowSpeed={0.35}
+          flowStrength={0.25}
+          fogIntensity={0.45}
+          fogScale={0.3}
           fogFallSpeed={0.6}
-          mouseSmoothTime={0.0}
           mouseTiltStrength={0.01}
+          mouseSmoothTime={0.0}
+          decay={1.1}
+          falloffStart={1.2}
         />
       </div>
 
@@ -97,11 +100,25 @@ export default function LoginPage() {
         <div className="hidden [@media_(prefers-reduced-motion:reduce)]:block absolute inset-0 bg-[radial-gradient(1200px_600px_at_10%_40%,rgba(249,115,22,0.22),transparent_60%)]" />
       </div>
 
+      {/* Impact glow aligned to strike (non-interactive) */}
+      <div
+        className="pointer-events-none absolute"
+        style={{
+          left: `${impact.xPx - 24}px`,
+          top: `${impact.yPx - 10}px`,
+          width: '160px',
+          height: '60px',
+          filter: 'blur(14px)',
+          background:
+            'radial-gradient(80px 30px at 24px 10px, rgba(255,122,26,0.45), rgba(255,122,26,0.18) 60%, transparent 70%)'
+        }}
+      />
+
       {/* Login card (interactive) */}
       <div className="relative min-h-screen flex items-center justify-center p-4">
         <Card
           ref={cardRef}
-          className="w-full max-w-md bg-v3-bg-dark/80 backdrop-blur rounded-2xl border border-[rgba(255,122,26,0.45)] shadow-[0_0_0_1px_rgba(255,122,26,0.35),0_0_48px_rgba(255,122,26,0.24)]"
+          className="w-full max-w-md bg-v3-bg-dark/80 backdrop-blur rounded-2xl border border-[rgba(255,122,26,0.55)] shadow-[0_0_0_1px_rgba(255,122,26,0.45),0_0_56px_rgba(255,122,26,0.28)]"
         >
           <img src={logo} alt="Company Name Logo" className="mx-auto mt-8 mb-4 h-16 w-auto" />
           <CardHeader className="text-center pt-0">
