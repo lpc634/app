@@ -19,31 +19,52 @@ export default function LoginPage() {
 
   const containerRef = useRef(null);
   const cardRef = useRef(null);
-  const [beam, setBeam] = useState({ x: 0.15, y: 0.15 }); // sensible defaults until first measure
-  const [impact, setImpact] = useState({ xPx: 0, yPx: 0 }); // px impact for optional glow/marker
-  const SHOW_LASER_DEBUG = true; // set false after you verify alignment
+
+  // --- Laser strike controls ---
+  const STRIKE_ANCHOR = 'topLeft'; // <- change to: 'topLeft' | 'leftMid' | 'topRight' | 'rightMid' | 'center'
+  const SHOW_LASER_DEBUG = false;  // set true to show the tiny orange dot at the strike
+  const INSET = 8;                 // px inset from edges to avoid clipping rounded corners
+
+  const [beam, setBeam] = useState({ x: 0.15, y: 0.15 }); // fractions [0..1]
+  const [impact, setImpact] = useState({ xPx: 0, yPx: 0 });// px for marker
 
   useEffect(() => {
+    const clamp01 = (v) => Math.min(0.98, Math.max(0.02, v));
+
+    const getStrikeFractions = (containerRect, cardRect, anchor) => {
+      const cw = Math.max(1, containerRect.width);
+      const ch = Math.max(1, containerRect.height);
+      const left   = cardRect.left - containerRect.left;
+      const right  = cardRect.right - containerRect.left;
+      const top    = cardRect.top - containerRect.top;
+      const bottom = cardRect.bottom - containerRect.top;
+      const midX   = left + cardRect.width  / 2;
+      const midY   = top  + cardRect.height / 2;
+
+      let xPx = midX, yPx = midY; // default center
+      switch (anchor) {
+        case 'topLeft':  xPx = left  + INSET; yPx = top    + INSET; break;
+        case 'leftMid':  xPx = left  + INSET; yPx = midY;          break;
+        case 'topRight': xPx = right - INSET; yPx = top    + INSET; break;
+        case 'rightMid': xPx = right - INSET; yPx = midY;          break;
+        case 'center':   default:               xPx = midX; yPx = midY; break;
+      }
+
+      // LaserFlow expects top-origin fractions (0 top → 1 bottom) in this build.
+      const xFrac = clamp01(xPx / cw);
+      const yFrac = clamp01(yPx / ch);
+      return { xFrac, yFrac, xPx, yPx };
+    };
+
     const updateBeam = () => {
       const container = containerRef.current;
       const card = cardRef.current;
       if (!container || !card) return;
       const c = container.getBoundingClientRect();
       const k = card.getBoundingClientRect();
-      const cw = Math.max(1, c.width);
-      const ch = Math.max(1, c.height);
-      // === Aim at TOP EDGE near LEFT CORNER (inside radius) ===
-      const insetX = 8;  // px inside left rounded corner
-      const insetY = 4;  // px inside top border
-      const targetX = (k.left - c.left) + insetX;
-      const targetY = (k.top  - c.top)  + insetY;
-      const clamp01 = (v) => Math.min(0.98, Math.max(0.02, v));
-      const xFrac = clamp01(targetX / cw);
-      // TOP-ORIGIN mapping for this shader build (no inversion)
-      const yFrac = clamp01(targetY / ch);
+      const { xFrac, yFrac, xPx, yPx } = getStrikeFractions(c, k, STRIKE_ANCHOR);
       setBeam({ x: xFrac, y: yFrac });
-      // Save px position for debug dot / impact glow
-      setImpact({ xPx: targetX, yPx: (k.top - c.top) });
+      setImpact({ xPx, yPx: yPx });
     };
     updateBeam();
     const ro1 = new ResizeObserver(updateBeam);
