@@ -329,9 +329,9 @@ class S3Client:
             }
             content_type = content_type_map.get(file_extension, 'application/octet-stream')
 
-            # For images, use inline display instead of attachment
-            is_image = content_type.startswith('image/')
-            content_disposition = f'inline; filename="{file_key.split("/")[-1]}"' if is_image else f'attachment; filename="{file_key.split("/")[-1]}"'
+            # For images and PDFs, use inline display instead of attachment
+            is_inline = content_type.startswith('image/') or content_type == 'application/pdf'
+            content_disposition = f'inline; filename="{file_key.split("/")[-1]}"' if is_inline else f'attachment; filename="{file_key.split("/")[-1]}"'
 
             # Generate the presigned URL
             response = fresh_s3_client.generate_presigned_url(
