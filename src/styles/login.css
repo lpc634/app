@@ -1,0 +1,117 @@
+/* --- Root wrapper --- */
+.v3-aurora-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* --- Base subtle gradient layer --- */
+.v3-aurora-layer {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(1200px 600px at 10% 30%, rgba(249, 115, 22, 0.18), transparent 60%),
+    radial-gradient(900px 500px at 85% 25%, rgba(255, 180, 80, 0.12), transparent 60%),
+    radial-gradient(800px 800px at 50% 110%, rgba(255, 255, 255, 0.05), transparent 70%);
+  filter: saturate(120%) brightness(110%);
+  animation: v3-slow-pan 32s ease-in-out infinite alternate;
+}
+
+/* --- Animated blobs (conic gradients for aurora-like motion) --- */
+.v3-aurora-blob {
+  position: absolute;
+  width: 120vw;
+  height: 120vh;
+  top: -10vh;
+  left: -10vw;
+  mix-blend-mode: screen;
+  opacity: 0.45;
+  background:
+    conic-gradient(from 0deg at 60% 40%,
+      rgba(255, 122, 26, 0.35),
+      rgba(255, 215, 160, 0.2),
+      rgba(255, 122, 26, 0.08),
+      transparent 70%);
+  filter: blur(60px);
+}
+
+.v3-aurora-blob-a { animation: v3-blob-a 28s ease-in-out infinite; }
+.v3-aurora-blob-b { animation: v3-blob-b 36s ease-in-out infinite; opacity: 0.35; }
+.v3-aurora-blob-c { animation: v3-blob-c 44s ease-in-out infinite; opacity: 0.28; }
+
+/* --- Grain overlay for texture --- */
+.v3-grain {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.05'/></svg>");
+  background-size: 200px 200px;
+  mix-blend-mode: overlay;
+  opacity: 0.6;
+}
+
+/* --- Particles canvas --- */
+.v3-sparkles {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: screen;
+  opacity: 0.85;
+}
+
+/* --- Keyframes --- */
+@keyframes v3-slow-pan {
+  0% { transform: translate3d(0,0,0) scale(1.02); }
+  100% { transform: translate3d(-2%, -1%, 0) scale(1.04); }
+}
+
+@keyframes v3-blob-a {
+  0% { transform: translate3d(-4%, -2%, 0) rotate(0deg) scale(1.0); }
+  100% { transform: translate3d(3%, 2%, 0) rotate(20deg) scale(1.05); }
+}
+@keyframes v3-blob-b {
+  0% { transform: translate3d(6%, -3%, 0) rotate(-10deg) scale(1.0); }
+  100% { transform: translate3d(-4%, 3%, 0) rotate(15deg) scale(1.07); }
+}
+@keyframes v3-blob-c {
+  0% { transform: translate3d(-2%, 4%, 0) rotate(5deg) scale(1.0); }
+  100% { transform: translate3d(4%, -2%, 0) rotate(-10deg) scale(1.06); }
+}
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  .v3-aurora-layer,
+  .v3-aurora-blob-a,
+  .v3-aurora-blob-b,
+  .v3-aurora-blob-c { animation: none; }
+}
+
+/* --- Electric glass card --- */
+.v3-electric-card {
+  border: 1px solid rgba(255, 122, 26, 0.5);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(15, 15, 18, 0.70), rgba(15, 15, 18, 0.55));
+  box-shadow:
+    0 0 0 1px rgba(255, 122, 26, 0.35),
+    0 10px 30px rgba(0, 0, 0, 0.45),
+    0 0 64px rgba(255, 122, 26, 0.22);
+  backdrop-filter: blur(8px);
+}
+
+/* Inputs/buttons look good on dark glass */
+.v3-input {
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: white;
+  padding: 0 12px;
+}
+.v3-button {
+  height: 46px;
+  border-radius: 10px;
+  font-weight: 700;
+  background: linear-gradient(180deg, rgba(255,122,26,0.95), rgba(255,122,26,0.85));
+  border: 1px solid rgba(255,122,26,0.6);
+  color: black;
+  cursor: pointer;
+}
