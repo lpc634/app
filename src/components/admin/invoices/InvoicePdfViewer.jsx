@@ -45,7 +45,7 @@ export default function InvoicePdfViewer({ invoice, onClose, onTogglePaid }) {
 
   return (
     <Dialog open={!!invoice} onOpenChange={onClose}>
-      <DialogContent className="max-w-[98vw] w-[98vw] h-[95vh] p-0">
+      <DialogContent className="max-w-[90vw] w-[90vw] h-[90vh] p-0">
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <DialogHeader className="p-0">
             <DialogTitle>
