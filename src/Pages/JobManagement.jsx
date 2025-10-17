@@ -452,12 +452,15 @@ export default function JobManagement() {
   }
 
   const openInvoiceViewer = async (invoiceId, fileName) => {
+    console.log('[Invoice] View clicked', { invoiceId, fileName });
     try {
       const blob = await getInvoicePdf(invoiceId);
+      console.log('[Invoice] Blob received', { size: blob.size, type: blob.type });
       const url = URL.createObjectURL(blob);
+      console.log('[Invoice] Object URL created:', url);
       setInvoiceViewer({ open: true, blobUrl: url, name: fileName });
     } catch (error) {
-      console.error('Failed to load invoice PDF:', error);
+      console.error('[Invoice] Failed to load invoice PDF:', error);
       toast.error('Failed to load invoice PDF', { description: error.message });
     }
   };
