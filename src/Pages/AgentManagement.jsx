@@ -28,7 +28,7 @@ export default function AgentManagement() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [sortBy, setSortBy] = useState('name') // 'name', 'reliability', 'joined'
   const [activeTab, setActiveTab] = useState('agents') // 'agents' or 'verification'
   const [selectedAgentForDetails, setSelectedAgentForDetails] = useState(null)
   const [showAgentDetails, setShowAgentDetails] = useState(false)
@@ -45,7 +45,7 @@ export default function AgentManagement() {
   useEffect(() => {
     fetchAgents()
     fetchAvailableAgents()
-  }, [selectedDate])
+  }, [])
 
   useEffect(() => {
     register({ title: 'Agents' });
@@ -66,7 +66,8 @@ export default function AgentManagement() {
 
   const fetchAvailableAgents = async () => {
     try {
-      const params = new URLSearchParams({ date: selectedDate }).toString()
+      const today = new Date().toISOString().split('T')[0]
+      const params = new URLSearchParams({ date: today }).toString()
       const data = await apiCall(`/agents/available?${params}`)
       setAvailableAgents(data.agents || [])
     } catch (error) {
@@ -74,13 +75,31 @@ export default function AgentManagement() {
     }
   }
 
-  const filteredAgents = agents.filter(agent => {
-    const fullName = `${agent.first_name} ${agent.last_name}`.toLowerCase()
-    const email = agent.email.toLowerCase()
-    const search = searchTerm.toLowerCase()
-    
-    return fullName.includes(search) || email.includes(search)
-  })
+  const filteredAndSortedAgents = agents
+    .filter(agent => {
+      const fullName = `${agent.first_name} ${agent.last_name}`.toLowerCase()
+      const email = agent.email.toLowerCase()
+      const search = searchTerm.toLowerCase()
+
+      return fullName.includes(search) || email.includes(search)
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          const nameA = `${a.first_name} ${a.last_name}`.toLowerCase()
+          const nameB = `${b.first_name} ${b.last_name}`.toLowerCase()
+          return nameA.localeCompare(nameB)
+        case 'reliability':
+          // Sort by jobs_accepted (most jobs first), fallback to jobs_completed
+          const reliabilityA = (a.jobs_accepted || 0) + (a.jobs_completed || 0)
+          const reliabilityB = (b.jobs_accepted || 0) + (b.jobs_completed || 0)
+          return reliabilityB - reliabilityA
+        case 'joined':
+          return new Date(b.created_at) - new Date(a.created_at)
+        default:
+          return 0
+      }
+    })
 
   const getAvailabilityStatus = (agentId) => {
     const available = availableAgents.find(a => a.id === agentId)
@@ -351,20 +370,20 @@ export default function AgentManagement() {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-40"
-              />
-            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
+            >
+              <option value="name">Sort: A-Z (Name)</option>
+              <option value="reliability">Sort: Most Reliable</option>
+              <option value="joined">Sort: Recently Joined</option>
+            </select>
           </div>
 
           {/* Agents List: mobile cards, md+ table */}
           <ResponsiveList
-            data={filteredAgents}
+            data={filteredAndSortedAgents}
             columns={[
               { key: 'name', header: 'Name' },
               { key: 'email', header: 'Email' },
@@ -402,9 +421,9 @@ export default function AgentManagement() {
                       <div>
                         <p className="text-sm font-medium mb-1">Availability Status</p>
                         <p className="text-sm text-muted-foreground">
-                          {status === 'available' 
-                            ? `Available for ${selectedDate}`
-                            : `Not available for ${selectedDate}`
+                          {status === 'available'
+                            ? 'Available today'
+                            : 'Not available today'
                           }
                         </p>
                         {availabilityData?.availability?.notes && (
@@ -446,7 +465,7 @@ export default function AgentManagement() {
             <CardHeader>
               <CardTitle>Weekly Availability Overview</CardTitle>
               <CardDescription>
-                Agent availability for the week of {selectedDate}
+                Agent availability for this week
               </CardDescription>
             </CardHeader>
             <CardContent>
