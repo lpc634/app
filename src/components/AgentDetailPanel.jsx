@@ -3,47 +3,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
-import { Input } from './ui/input';  
-import { Textarea } from './ui/textarea';
-import { 
-  X, 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Building, 
-  CreditCard, 
-  Hash,
+import {
+  X,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Building,
   Calendar,
   DollarSign,
   FileText,
-  Download,
-  Eye,
   CheckCircle,
-  XCircle,
   Clock,
-  AlertTriangle,
-  TrendingUp,
-  Filter,
-  Search
+  AlertTriangle
 } from 'lucide-react';
-import AdminInvoiceDetails from './AdminInvoiceDetails';
 
 const AgentDetailPanel = ({ agent, isOpen, onClose, onRefresh }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [agentDetails, setAgentDetails] = useState(null);
-  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
-  const [invoiceFilter, setInvoiceFilter] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (isOpen && agent) {
       fetchAgentDetails();
-      fetchAgentInvoices();
     }
   }, [isOpen, agent]);
 
@@ -69,90 +52,6 @@ const AgentDetailPanel = ({ agent, isOpen, onClose, onRefresh }) => {
     }
   };
 
-  const fetchAgentInvoices = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/agents/${agent.id}/invoices`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setInvoices(data.invoices || []);
-    } catch (error) {
-      console.error('Error fetching agent invoices:', error);
-      setError('Failed to load agent invoices');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMarkAsPaid = async (invoiceId, paymentDate = null, adminNotes = '') => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/invoices/${invoiceId}/mark-paid`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          payment_date: paymentDate || new Date().toISOString(),
-          admin_notes: adminNotes
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      // Refresh invoices and agent details
-      await fetchAgentInvoices();
-      await fetchAgentDetails();
-      if (onRefresh) onRefresh();
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error marking invoice as paid:', error);
-      throw error;
-    }
-  };
-
-  const handleViewInvoice = (invoice) => {
-    setSelectedInvoice(invoice);
-    setShowInvoiceDetails(true);
-  };
-
-  const filteredInvoices = invoices.filter(invoice => {
-    const matchesSearch = invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = invoiceFilter === 'all' || invoice.payment_status === invoiceFilter;
-    return matchesSearch && matchesFilter;
-  });
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'paid': return 'bg-green-100 text-green-800 border-green-200';
-      case 'unpaid': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'overdue': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'paid': return <CheckCircle className="h-4 w-4" />;
-      case 'overdue': return <AlertTriangle className="h-4 w-4" />;
-      case 'unpaid': return <Clock className="h-4 w-4" />;
-      default: return <FileText className="h-4 w-4" />;
-    }
-  };
 
   if (!isOpen) return null;
 
@@ -192,16 +91,6 @@ const AgentDetailPanel = ({ agent, isOpen, onClose, onRefresh }) => {
               }`}
             >
               Overview
-            </button>
-            <button
-              onClick={() => setActiveTab('invoices')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'invoices'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Invoices ({invoices.length})
             </button>
             <button
               onClick={() => setActiveTab('documents')}
@@ -368,115 +257,6 @@ const AgentDetailPanel = ({ agent, isOpen, onClose, onRefresh }) => {
             </div>
           )}
 
-          {/* Invoices Tab */}
-          {activeTab === 'invoices' && (
-            <div className="space-y-4">
-              {/* Invoice Filters */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Search invoices..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <select
-                  value={invoiceFilter}
-                  onChange={(e) => setInvoiceFilter(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Invoices</option>
-                  <option value="paid">Paid</option>
-                  <option value="unpaid">Unpaid</option>
-                  <option value="overdue">Overdue</option>
-                </select>
-              </div>
-
-              {/* Invoices List */}
-              {loading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-2 text-gray-600">Loading invoices...</p>
-                </div>
-              ) : filteredInvoices.length === 0 ? (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No invoices found</h3>
-                    <p className="text-gray-600">
-                      {searchTerm || invoiceFilter !== 'all' 
-                        ? 'Try adjusting your search or filter criteria.' 
-                        : 'This agent has no invoices yet.'}
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-3">
-                  {filteredInvoices.map((invoice) => (
-                    <Card key={invoice.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3">
-                              <div>
-                                <h4 className="font-semibold text-gray-900">{invoice.invoice_number}</h4>
-                                <p className="text-sm text-gray-500">
-                                  Invoice Number: {invoice.agent_invoice_number ? `#${invoice.agent_invoice_number}` : 'Not set'}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  Issue Date: {new Date(invoice.issue_date).toLocaleDateString()}
-                                  {invoice.due_date && (
-                                    <span className="ml-2">
-                                      • Due: {new Date(invoice.due_date).toLocaleDateString()}
-                                    </span>
-                                  )}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-3">
-                            <div className="text-right">
-                              <p className="font-semibold text-lg">£{parseFloat(invoice.total_amount).toFixed(2)}</p>
-                              <Badge className={`${getStatusColor(invoice.payment_status)} border text-xs`}>
-                                {getStatusIcon(invoice.payment_status)}
-                                <span className="ml-1 capitalize">{invoice.payment_status}</span>
-                              </Badge>
-                            </div>
-                            
-                            <div className="flex space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleViewInvoice(invoice)}
-                              >
-                                <Eye className="h-4 w-4 mr-1" />
-                                View
-                              </Button>
-                              
-                              {invoice.payment_status === 'unpaid' && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleMarkAsPaid(invoice.id)}
-                                  className="bg-green-600 hover:bg-green-700 text-white"
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Mark Paid
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Documents Tab */}
           {activeTab === 'documents' && (
             <div className="space-y-4">
@@ -529,25 +309,6 @@ const AgentDetailPanel = ({ agent, isOpen, onClose, onRefresh }) => {
           )}
         </div>
       </div>
-
-      {/* Invoice Details Modal */}
-      {showInvoiceDetails && selectedInvoice && (
-        <AdminInvoiceDetails
-          invoice={selectedInvoice}
-          agent={agent}
-          isOpen={showInvoiceDetails}
-          onClose={() => {
-            setShowInvoiceDetails(false);
-            setSelectedInvoice(null);
-          }}
-          onMarkAsPaid={handleMarkAsPaid}
-          onRefresh={() => {
-            fetchAgentInvoices();
-            fetchAgentDetails();
-            if (onRefresh) onRefresh();
-          }}
-        />
-      )}
     </div>
   );
 };
