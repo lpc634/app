@@ -12,8 +12,7 @@ import ResponsiveList from "@/components/responsive/ResponsiveList.jsx";
 import LocationPicker from '@/components/LocationPicker.jsx';
 import AgentMultiSelect from '@/components/AgentMultiSelect.jsx';
 import ReportViewer from '@/components/modals/ReportViewer.jsx';
-import InvoiceViewer from '@/components/invoices/InvoiceViewer.jsx';
-import { getInvoicePdf } from '@/api/invoices';
+import InvoicePdfViewer from '@/components/admin/invoices/InvoicePdfViewer.jsx';
 import { usePageHeader } from "@/components/layout/PageHeaderContext.jsx";
 import { useAuth } from '../useAuth.jsx';
 import { extractUkPostcode } from '../utils/ukPostcode';
@@ -75,7 +74,7 @@ export default function JobManagement() {
   const [selectedPhoto, setSelectedPhoto] = useState(null)
   const [selectedReport, setSelectedReport] = useState(null)
   const [showReportViewer, setShowReportViewer] = useState(false)
-  const [invoiceViewer, setInvoiceViewer] = useState({ open: false, blobUrl: '', name: '' })
+  const [selectedInvoice, setSelectedInvoice] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
   const { apiCall } = useAuth()
 
@@ -451,34 +450,13 @@ export default function JobManagement() {
     }
   }
 
-  const openInvoiceViewer = async (invoiceId, fileName) => {
-    console.log('[Invoice] View clicked', { invoiceId, fileName });
-    try {
-      const blob = await getInvoicePdf(invoiceId);
-      console.log('[Invoice] Blob received', { size: blob.size, type: blob.type });
-      const url = URL.createObjectURL(blob);
-      console.log('[Invoice] Object URL created:', url);
-      setInvoiceViewer({ open: true, blobUrl: url, name: fileName });
-    } catch (error) {
-      console.error('[Invoice] Failed to load invoice PDF:', error);
-      toast.error('Failed to load invoice PDF', { description: error.message });
-    }
-  };
-
-  const closeInvoiceViewer = () => {
-    if (invoiceViewer.blobUrl) {
-      URL.revokeObjectURL(invoiceViewer.blobUrl);
-    }
-    setInvoiceViewer({ open: false, blobUrl: '', name: '' });
-  };
-
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          job.job_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          job.address.toLowerCase().includes(searchTerm.toLowerCase())
-
+    
     const matchesStatus = statusFilter === 'all' || job.status === statusFilter
-
+    
     return matchesSearch && matchesStatus
   })
 
@@ -1202,7 +1180,12 @@ export default function JobManagement() {
                                 className="text-xs"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  openInvoiceViewer(invoice.id, `invoice-${invoice.invoice_number || invoice.id}.pdf`)
+                                  if (!invoice.pdf_url) {
+                                    // Fall back to unified viewer using id or ref
+                                    setSelectedInvoice({ ...invoice, idOrRef: invoice.invoice_number || invoice.id })
+                                  } else {
+                                    setSelectedInvoice(invoice)
+                                  }
                                 }}
                               >
                                 View PDF
@@ -1666,11 +1649,35 @@ export default function JobManagement() {
         }}
       />
 
-      <InvoiceViewer
-        open={invoiceViewer.open}
-        onClose={closeInvoiceViewer}
-        blobUrl={invoiceViewer.blobUrl}
-        fileName={invoiceViewer.name}
+      <InvoicePdfViewer
+        invoice={selectedInvoice}
+        onClose={() => setSelectedInvoice(null)}
+        onTogglePaid={async (inv) => {
+          try {
+            const desired = inv.status === 'paid' ? 'unpaid' : 'paid'
+            await apiCall(`/admin/invoices/${inv.id}/status`, {
+              method: 'PUT',
+              body: JSON.stringify({ payment_status: desired })
+            })
+            toast.success(`Invoice ${inv.invoice_number} marked as ${desired}`)
+            setSelectedInvoice({ ...inv, status: desired })
+            // Refresh invoices in modal
+            if (selectedJob) fetchJobDetails(selectedJob.id)
+          } catch (err) {
+            try {
+              if (inv.status !== 'paid') {
+                await apiCall(`/admin/invoices/${inv.id}/mark-paid`, { method: 'PUT' })
+                toast.success(`Invoice ${inv.invoice_number} marked as paid`)
+                setSelectedInvoice({ ...inv, status: 'paid' })
+                if (selectedJob) fetchJobDetails(selectedJob.id)
+              } else {
+                toast.error('Cannot mark as unpaid via fallback endpoint')
+              }
+            } catch (error) {
+              toast.error('Failed to update invoice status', { description: error.message })
+            }
+          }
+        }}
       />
 
       <LocationPicker
