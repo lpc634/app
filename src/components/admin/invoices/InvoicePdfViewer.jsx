@@ -75,7 +75,7 @@ export default function InvoicePdfViewer({ invoice, onClose, onTogglePaid }) {
         </div>
 
         {/* PDF Viewer */}
-        <div className="flex-1 relative" style={{ height: 'calc(100% - 140px)' }}>
+        <div className="absolute inset-0" style={{ top: '73px', bottom: '73px' }}>
           {error ? (
             <div className="flex items-center justify-center h-full" style={{ color: 'var(--v3-orange)' }}>
               {error}
