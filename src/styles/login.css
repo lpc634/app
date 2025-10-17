@@ -82,19 +82,42 @@
   .v3-aurora-layer,
   .v3-aurora-blob-a,
   .v3-aurora-blob-b,
-  .v3-aurora-blob-c { animation: none; }
+  .v3-aurora-blob-c,
+  .v3-electric-card { animation: none; }
 }
 
-/* --- Electric glass card --- */
+/* --- Electric glass card with neon glow --- */
 .v3-electric-card {
-  border: 1px solid rgba(255, 122, 26, 0.5);
+  border: 2px solid rgba(255, 122, 26, 0.8);
   border-radius: 16px;
   background: linear-gradient(180deg, rgba(15, 15, 18, 0.70), rgba(15, 15, 18, 0.55));
   box-shadow:
-    0 0 0 1px rgba(255, 122, 26, 0.35),
-    0 10px 30px rgba(0, 0, 0, 0.45),
-    0 0 64px rgba(255, 122, 26, 0.22);
+    0 0 0 1px rgba(255, 122, 26, 0.6),
+    0 0 20px rgba(255, 122, 26, 0.5),
+    0 0 40px rgba(255, 122, 26, 0.4),
+    0 0 80px rgba(255, 122, 26, 0.3),
+    0 10px 30px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(8px);
+  animation: v3-neon-pulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes v3-neon-pulse {
+  0% {
+    box-shadow:
+      0 0 0 1px rgba(255, 122, 26, 0.6),
+      0 0 20px rgba(255, 122, 26, 0.5),
+      0 0 40px rgba(255, 122, 26, 0.4),
+      0 0 80px rgba(255, 122, 26, 0.3),
+      0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(255, 122, 26, 0.8),
+      0 0 25px rgba(255, 122, 26, 0.6),
+      0 0 50px rgba(255, 122, 26, 0.5),
+      0 0 100px rgba(255, 122, 26, 0.4),
+      0 10px 30px rgba(0, 0, 0, 0.5);
+  }
 }
 
 /* Inputs/buttons look good on dark glass */
