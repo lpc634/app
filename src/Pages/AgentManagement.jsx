@@ -373,11 +373,25 @@ export default function AgentManagement() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
+              className="px-4 py-2 rounded-md text-sm min-w-[200px] transition-all duration-200"
+              style={{
+                background: 'var(--v3-bg-dark)',
+                border: '1px solid var(--v3-border)',
+                color: 'var(--v3-text-lightest)',
+                outline: 'none'
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'var(--v3-orange)';
+                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.2)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'var(--v3-border)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             >
-              <option value="name">Sort: A-Z (Name)</option>
-              <option value="reliability">Sort: Most Reliable</option>
-              <option value="joined">Sort: Recently Joined</option>
+              <option value="name" style={{ background: 'var(--v3-bg-dark)', color: 'var(--v3-text-lightest)' }}>Sort: A-Z (Name)</option>
+              <option value="reliability" style={{ background: 'var(--v3-bg-dark)', color: 'var(--v3-text-lightest)' }}>Sort: Most Reliable</option>
+              <option value="joined" style={{ background: 'var(--v3-bg-dark)', color: 'var(--v3-text-lightest)' }}>Sort: Recently Joined</option>
             </select>
           </div>
 
