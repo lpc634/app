@@ -45,56 +45,77 @@ export default function InvoicePdfViewer({ invoice, onClose, onTogglePaid }) {
 
   return (
     <Dialog open={!!invoice} onOpenChange={onClose}>
-      <DialogContent className="!max-w-[98vw] w-[98vw] h-[95vh] p-0">
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <DialogHeader className="p-0">
-            <DialogTitle>
-              {`Invoice #${invoice.invoice_number || invoice.id} – ${invoice.agent_name || ''}`}
+      <DialogContent
+        className="!max-w-[98vw] w-[98vw] h-[95vh] p-0 bg-[var(--v3-bg-darker)] border-[var(--v3-border)]"
+        showCloseButton={false}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--v3-border)] bg-[var(--v3-bg-dark)]">
+          <div>
+            <DialogTitle className="text-lg font-semibold" style={{ color: 'var(--v3-text-lightest)' }}>
+              Invoice #{invoice.invoice_number || invoice.id}
             </DialogTitle>
-            <DialogDescription>
-              Preview the original PDF submitted by the agent.
+            <DialogDescription className="text-sm mt-1" style={{ color: 'var(--v3-text-muted)' }}>
+              {invoice.agent_name || 'Unknown Agent'}
             </DialogDescription>
-          </DialogHeader>
+          </div>
           <button
             aria-label="Close"
-            className="p-2 rounded hover:bg-muted"
             onClick={onClose}
+            className="p-2 rounded-lg transition-colors"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              color: 'var(--v3-text-lightest)'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'}
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
-        <div className="flex flex-col h-[calc(100%-56px)]">
-          <div className="flex-1">
-            {error ? (
-              <div className="flex items-center justify-center h-full text-red-400">{error}</div>
-            ) : loading ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">Loading PDF…</div>
-            ) : embedUrl ? (
-              <iframe
-                src={embedUrl}
-                className="w-full h-full"
-                title={`Invoice ${invoice.invoice_number || invoice.id}`}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">No PDF available</div>
-            )}
-          </div>
+        {/* PDF Viewer */}
+        <div className="flex-1 relative" style={{ height: 'calc(100% - 140px)' }}>
+          {error ? (
+            <div className="flex items-center justify-center h-full" style={{ color: 'var(--v3-orange)' }}>
+              {error}
+            </div>
+          ) : loading ? (
+            <div className="flex items-center justify-center h-full" style={{ color: 'var(--v3-text-muted)' }}>
+              Loading PDF…
+            </div>
+          ) : embedUrl ? (
+            <iframe
+              src={embedUrl}
+              className="w-full h-full"
+              title={`Invoice ${invoice.invoice_number || invoice.id}`}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full" style={{ color: 'var(--v3-text-muted)' }}>
+              No PDF available
+            </div>
+          )}
+        </div>
 
-          <div className="flex items-center justify-between gap-2 p-3 border-t">
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={handleDownload} disabled={!embedUrl}>
-                Download PDF
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              {onTogglePaid && (
-                <Button variant="outline" onClick={() => onTogglePaid(invoice)}>
-                  {invoice.status === 'paid' ? 'Mark as Unpaid' : 'Mark as Paid'}
-                </Button>
-              )}
-            </div>
-          </div>
+        {/* Footer Actions */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-[var(--v3-border)] bg-[var(--v3-bg-dark)]">
+          <Button
+            onClick={handleDownload}
+            disabled={!embedUrl}
+            className="bg-[var(--v3-orange)] hover:bg-[var(--v3-orange-dark)] text-white"
+          >
+            Download PDF
+          </Button>
+          {onTogglePaid && (
+            <Button
+              variant="outline"
+              onClick={() => onTogglePaid(invoice)}
+              className="border-[var(--v3-border)]"
+              style={{ color: 'var(--v3-text-lightest)' }}
+            >
+              {invoice.status === 'paid' ? 'Mark as Unpaid' : 'Mark as Paid'}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
