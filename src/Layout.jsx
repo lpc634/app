@@ -12,15 +12,14 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Agents', href: '/agents', icon: Users },
   { name: 'Jobs', href: '/jobs', icon: Briefcase },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Vehicle Search', href: '/admin/vehicle-search', icon: Search },
-  { name: 'Document Review', href: '/admin/documents', icon: FileText, adminOnly: true },
-  { name: 'Agent Invoices', href: '/admin/agent-invoices', icon: FileText, adminOnly: true },
-  { name: 'Expenses', href: '/admin/expenses', icon: DollarSign, adminOnly: true },
-  { name: 'V3 Job Reports', href: '/admin/v3-reports', icon: FileEdit, badge: 'NEW' },
+  { name: 'Police Interactions', href: '/police-interactions', icon: FileText },
+  { name: 'V3 Job Reports', href: '/admin/v3-reports', icon: FileEdit },
   { name: 'Authority to Act', href: '/admin/authority-to-act', icon: FileSignature, adminOnly: true },
   { name: 'Communications', href: '/admin/communications/message-agents', icon: MessageCircle, adminOnly: true },
-  { name: 'Police Interactions', href: '/police-interactions', icon: FileText },
+  { name: 'Document Review', href: '/admin/documents', icon: FileText, adminOnly: true },
+  { name: 'Expenses', href: '/admin/expenses', icon: DollarSign, adminOnly: true },
+  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
 ];
 
 function NavigationItems({ onItemClick = () => {} }) {
