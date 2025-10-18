@@ -36,7 +36,10 @@ import {
   X,
   FileText,
   Image as ImageIcon,
-  Download
+  Download,
+  Mail,
+  Shield,
+  AlertCircle
 } from 'lucide-react';
 import '../styles/admin/jobs.css';
 
@@ -76,6 +79,10 @@ export default function JobManagement() {
   const [showReportViewer, setShowReportViewer] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
+  const [selectedAgentForDetails, setSelectedAgentForDetails] = useState(null)
+  const [showAgentDetails, setShowAgentDetails] = useState(false)
+  const [agentDetails, setAgentDetails] = useState(null)
+  const [loadingAgentDetails, setLoadingAgentDetails] = useState(false)
   const { apiCall } = useAuth()
 
   // Keyboard navigation for photo lightbox
@@ -450,13 +457,30 @@ export default function JobManagement() {
     }
   }
 
+  const handleViewAgentDetails = async (agent) => {
+    setSelectedAgentForDetails(agent)
+    setShowAgentDetails(true)
+    setLoadingAgentDetails(true)
+    setAgentDetails(null)
+
+    try {
+      const data = await apiCall(`/admin/agent-management/${agent.id}/details`)
+      setAgentDetails(data)
+    } catch (error) {
+      console.error('Failed to load agent details:', error)
+      toast.error('Failed to load agent details')
+    } finally {
+      setLoadingAgentDetails(false)
+    }
+  }
+
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          job.job_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          job.address.toLowerCase().includes(searchTerm.toLowerCase())
-    
+
     const matchesStatus = statusFilter === 'all' || job.status === statusFilter
-    
+
     return matchesSearch && matchesStatus
   })
 
@@ -1089,7 +1113,12 @@ export default function JobManagement() {
                     ) : jobAgents.length > 0 ? (
                       <div className="agent-list">
                         {jobAgents.map((agent) => (
-                          <div key={agent.id} className="agent-item">
+                          <div
+                            key={agent.id}
+                            className="agent-item"
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => handleViewAgentDetails(agent)}
+                          >
                             <div className="agent-avatar">
                               {agent.first_name?.[0]}{agent.last_name?.[0]}
                             </div>
@@ -1156,6 +1185,11 @@ export default function JobManagement() {
                                 {invoice.status?.toUpperCase()}
                               </Badge>
                             </div>
+                            {invoice.agent_invoice_number && (
+                              <div className="text-sm mb-2" style={{ color: 'var(--v3-text-muted)' }}>
+                                Invoice Number: #{invoice.agent_invoice_number}
+                              </div>
+                            )}
                             <div className="invoice-details">
                               <div>
                                 <strong>Agent</strong>
@@ -1679,6 +1713,182 @@ export default function JobManagement() {
           }
         }}
       />
+
+      {/* Agent Details Modal */}
+      {showAgentDetails && selectedAgentForDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div
+            className="dashboard-card max-w-7xl w-full max-h-[95vh] overflow-hidden"
+            style={{
+              background: 'var(--v3-bg-card)',
+              border: '1px solid var(--v3-border)',
+              borderRadius: '12px'
+            }}
+          >
+            {/* Header */}
+            <div
+              className="p-6 border-b"
+              style={{
+                background: 'linear-gradient(135deg, var(--v3-bg-dark) 0%, #1F1F1F 100%)',
+                borderBottom: '1px solid var(--v3-border)'
+              }}
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-3xl font-bold" style={{ color: 'var(--v3-text-lightest)' }}>
+                    {selectedAgentForDetails.first_name} {selectedAgentForDetails.last_name}
+                  </h2>
+                  <p className="mt-1" style={{ color: 'var(--v3-orange)' }}>
+                    {selectedAgentForDetails.email}
+                  </p>
+                </div>
+                <button
+                  className="button-refresh px-4 py-2"
+                  onClick={() => setShowAgentDetails(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div
+              className="p-6 overflow-y-auto max-h-[calc(95vh-120px)]"
+              style={{ background: 'var(--v3-bg-card)' }}
+            >
+              {loadingAgentDetails ? (
+                <div className="text-center py-12">
+                  <div
+                    className="animate-spin w-8 h-8 border-4 border-t-transparent rounded-full mx-auto mb-4"
+                    style={{
+                      borderColor: 'var(--v3-orange)',
+                      borderTopColor: 'transparent'
+                    }}
+                  ></div>
+                  <p style={{ color: 'var(--v3-text-muted)' }}>Loading agent details...</p>
+                </div>
+              ) : agentDetails ? (
+                <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                  {/* Sidebar */}
+                  <div className="xl:col-span-1 space-y-4">
+                    {/* Contact */}
+                    <div
+                      className="dashboard-card rounded-lg p-4"
+                      style={{
+                        background: 'var(--v3-bg-dark)',
+                        border: '1px solid var(--v3-border)'
+                      }}
+                    >
+                      <h3 className="font-semibold text-lg mb-3" style={{ color: 'var(--v3-text-lightest)' }}>
+                        Contact
+                      </h3>
+                      <div className="space-y-2 text-sm">
+                        <p><span style={{ color: 'var(--v3-text-muted)' }}>Phone:</span> <span style={{ color: 'var(--v3-text-light)' }}>{agentDetails.agent.phone}</span></p>
+                        <p><span style={{ color: 'var(--v3-text-muted)' }}>Address:</span> <span style={{ color: 'var(--v3-text-light)' }}>{agentDetails.agent.address_line_1}</span></p>
+                        <p><span style={{ color: 'var(--v3-text-muted)' }}>City:</span> <span style={{ color: 'var(--v3-text-light)' }}>{agentDetails.agent.city} {agentDetails.agent.postcode}</span></p>
+                      </div>
+                    </div>
+
+                    {/* Banking */}
+                    <div
+                      className="dashboard-card rounded-lg p-4"
+                      style={{
+                        background: 'var(--v3-bg-dark)',
+                        border: '1px solid var(--v3-border)'
+                      }}
+                    >
+                      <h3 className="font-semibold text-lg mb-3" style={{ color: 'var(--v3-text-lightest)' }}>
+                        Banking
+                      </h3>
+                      <div className="space-y-2 text-sm">
+                        <p><span style={{ color: 'var(--v3-text-muted)' }}>Bank:</span> <span style={{ color: 'var(--v3-text-light)' }}>{agentDetails.agent.bank_name}</span></p>
+                        <p><span style={{ color: 'var(--v3-text-muted)' }}>Account:</span> <span style={{ color: '#22C55E' }}>{agentDetails.agent.bank_account_number}</span></p>
+                        <p><span style={{ color: 'var(--v3-text-muted)' }}>Sort Code:</span> <span style={{ color: '#22C55E' }}>{agentDetails.agent.bank_sort_code}</span></p>
+                      </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div
+                      className="dashboard-card rounded-lg p-4"
+                      style={{
+                        background: 'var(--v3-bg-dark)',
+                        border: '1px solid var(--v3-orange)'
+                      }}
+                    >
+                      <h3 className="font-semibold text-lg mb-3" style={{ color: 'var(--v3-text-lightest)' }}>
+                        Statistics
+                      </h3>
+                      <div className="space-y-2 text-sm">
+                        <p><span style={{ color: 'var(--v3-text-muted)' }}>Total Invoices:</span> <span style={{ color: 'var(--v3-orange)' }}>{agentDetails.stats.total_invoices}</span></p>
+                        <p><span style={{ color: 'var(--v3-text-muted)' }}>Total Earnings:</span> <span style={{ color: '#22C55E)' }}>£{agentDetails.stats.total_earnings.toFixed(2)}</span></p>
+                        <p><span style={{ color: 'var(--v3-text-muted)' }}>Paid:</span> <span style={{ color: '#3B82F6' }}>£{agentDetails.stats.paid_amount.toFixed(2)}</span></p>
+                        <p><span style={{ color: 'var(--v3-text-muted)' }}>Pending:</span> <span style={{ color: 'var(--v3-orange)' }}>£{agentDetails.stats.pending_amount.toFixed(2)}</span></p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Invoice History */}
+                  <div className="xl:col-span-3">
+                    <div className="dashboard-card rounded-lg" style={{ background: 'var(--v3-bg-card)', border: '1px solid var(--v3-border)' }}>
+                      <div className="p-4 border-b" style={{ background: 'var(--v3-bg-dark)', borderBottom: '1px solid var(--v3-border)' }}>
+                        <h3 className="text-xl font-semibold" style={{ color: 'var(--v3-text-lightest)' }}>
+                          Invoice History ({agentDetails.invoices.length})
+                        </h3>
+                      </div>
+                      <div className="p-4">
+                        {agentDetails.invoices.length > 0 ? (
+                          <div className="space-y-4">
+                            {agentDetails.invoices.map(invoice => (
+                              <div
+                                key={invoice.id}
+                                className="p-4 rounded"
+                                style={{ background: 'var(--v3-bg-dark)', border: '1px solid var(--v3-border)' }}
+                              >
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <h4 className="text-lg font-semibold" style={{ color: 'var(--v3-text-lightest)' }}>
+                                      {invoice.invoice_number}
+                                    </h4>
+                                    <div className="text-sm mt-2" style={{ color: 'var(--v3-text-muted)' }}>
+                                      Invoice Number: {invoice.agent_invoice_number ? `#${invoice.agent_invoice_number}` : 'Not set'}
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-4 text-sm mt-3">
+                                      <div>
+                                        <span style={{ color: 'var(--v3-text-muted)' }}>Issue Date:</span><br />
+                                        <span style={{ color: 'var(--v3-text-light)' }}>{new Date(invoice.issue_date).toLocaleDateString()}</span>
+                                      </div>
+                                      <div>
+                                        <span style={{ color: 'var(--v3-text-muted)' }}>Amount:</span><br />
+                                        <span style={{ color: '#22C55E' }}>£{parseFloat(invoice.total_amount).toFixed(2)}</span>
+                                      </div>
+                                      <div>
+                                        <Badge style={{ background: invoice.status === 'paid' ? '#10b981' : 'var(--v3-orange)', color: 'white' }}>
+                                          {invoice.status.toUpperCase()}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p style={{ color: 'var(--v3-text-muted)' }}>No invoices found</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <AlertCircle className="mx-auto h-12 w-12 mb-4" style={{ color: '#EF4444' }} />
+                  <p style={{ color: '#EF4444' }}>Failed to load agent details</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <LocationPicker
         isOpen={mapOpen}
