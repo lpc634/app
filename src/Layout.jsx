@@ -10,8 +10,8 @@ import logo from './assets/new_logo.png';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Agents', href: '/agents', icon: Users },
   { name: 'Jobs', href: '/jobs', icon: Briefcase },
+  { name: 'Agents', href: '/agents', icon: Users },
   { name: 'Vehicle Search', href: '/admin/vehicle-search', icon: Search },
   { name: 'Police Interactions', href: '/police-interactions', icon: FileText },
   { name: 'V3 Job Reports', href: '/admin/v3-reports', icon: FileEdit },
