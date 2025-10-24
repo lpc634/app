@@ -8,6 +8,7 @@ export const JOB_TYPES = [
   { code: "SQUATTER_NOTICE_SERVE",       label: "Squatter Notice Serve" },
   { code: "VEHICLE_TORTS_NOTICE",        label: "Vehicle Torts Notice" },
   { code: "LEASE_FORFEITURE",            label: "Lease Forfeiture" },
+  { code: "ROUGH_SLEEPER",               label: "Rough sleeper" },
 ]
 
 // Helper functions
