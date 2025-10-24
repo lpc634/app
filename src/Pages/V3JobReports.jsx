@@ -13,6 +13,7 @@ import { JobSelect } from "@/components/common/JobSelect";
 // Lazy load forms for better performance
 const SquatterServeForm = lazy(() => import('../components/forms/SquatterServeForm'));
 const SquatterEvictionForm = lazy(() => import('../components/forms/SquatterEvictionForm'));
+const TravellerServeForm = lazy(() => import('../components/forms/TravellerServeForm'));
 
 // Form registry - centralized configuration for all available forms
 const FORM_REGISTRY = [
@@ -21,6 +22,13 @@ const FORM_REGISTRY = [
     label: 'Traveller Eviction Form',
     description: 'Full eviction report with timeline and evidence',
     component: TravellerEvictionForm,
+    isEligible: (job) => true,
+  },
+  {
+    slug: 'traveller-serve',
+    label: 'Traveller Serve Report',
+    description: 'Use after serving the notice to travellers (photos, times, police, etc.)',
+    component: TravellerServeForm,
     isEligible: (job) => true,
   },
   {
