@@ -26,6 +26,7 @@ import AdminMore from './Pages/admin/AdminMore.jsx';
 import MessageAgents from './Pages/admin/communications/MessageAgents.jsx';
 import AuthorityToActManager from './Pages/admin/AuthorityToActManager.jsx';
 import PublicAuthorityToActPage from './Pages/PublicAuthorityToActPage.jsx';
+import EFlyerPage from './Pages/EFlyerPage.jsx';
 import Analytics from './Pages/Analytics';
 import AvailabilityPage from './Pages/AvailabilityPage';
 import AdminDocumentReview from './components/AdminDocumentReview';
@@ -87,6 +88,7 @@ function App() {
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
           <Route path="/signup" element={<PublicRoute><SignUpPage /></PublicRoute>} />
           <Route path="/form/:token" element={<PublicAuthorityToActPage />} />
+          <Route path="/eflyer" element={<EFlyerPage />} />
           
           {/* --- UPDATED: Root Route --- */}
           {/* This route now uses the RootRedirect component */}
@@ -112,6 +114,7 @@ function App() {
           <Route path="/admin/agent-invoices" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><AdminAgentInvoices /></Layout></ProtectedRoute>} />
           <Route path="/admin/expenses" element={<ProtectedRoute allowedRoles={['admin']}><Layout><AdminExpenses /></Layout></ProtectedRoute>} />
           <Route path="/admin/v3-reports" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><V3JobReports /></Layout></ProtectedRoute>} />
+          <Route path="/admin/eflyer" element={<ProtectedRoute allowedRoles={['admin']}><Layout><EFlyerPage /></Layout></ProtectedRoute>} />
           <Route path="/debug" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><DebugPage /></Layout></ProtectedRoute>} />
           <Route path="/police-interactions" element={<ProtectedRoute allowedRoles={['admin', 'manager', 'agent']}><Layout><PoliceInteractionsPage /></Layout></ProtectedRoute>} />
           
