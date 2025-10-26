@@ -27,6 +27,7 @@ import MessageAgents from './Pages/admin/communications/MessageAgents.jsx';
 import AuthorityToActManager from './Pages/admin/AuthorityToActManager.jsx';
 import PublicAuthorityToActPage from './Pages/PublicAuthorityToActPage.jsx';
 import EFlyerPage from './Pages/EFlyerPage.jsx';
+import EFlyerRedirect from './Pages/EFlyerRedirect.jsx';
 import Analytics from './Pages/Analytics';
 import AvailabilityPage from './Pages/AvailabilityPage';
 import AdminDocumentReview from './components/AdminDocumentReview';
@@ -88,7 +89,7 @@ function App() {
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
           <Route path="/signup" element={<PublicRoute><SignUpPage /></PublicRoute>} />
           <Route path="/form/:token" element={<PublicAuthorityToActPage />} />
-          <Route path="/eflyer" element={<EFlyerPage />} />
+          <Route path="/eflyer" element={<EFlyerRedirect />} />
           
           {/* --- UPDATED: Root Route --- */}
           {/* This route now uses the RootRedirect component */}
