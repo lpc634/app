@@ -6,7 +6,14 @@ load_dotenv()
 import os
 import sys
 import requests
-from datetime import timedelta
+import logging
+import threading
+import random
+import time
+import smtplib
+from datetime import datetime, timedelta
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # --- Get Git SHA for version tracking ---
 GIT_SHA = os.environ.get('GIT_SHA', 'dev')
@@ -15,7 +22,7 @@ GIT_SHA = os.environ.get('GIT_SHA', 'dev')
 sys.path.insert(0, 'src')
 
 # --- Flask and Extension Imports ---
-from flask import Flask, send_from_directory, jsonify
+from flask import Flask, send_from_directory, jsonify, request
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from flask_migrate import Migrate
@@ -182,6 +189,407 @@ app.register_blueprint(police_bp, url_prefix='/api')
 app.register_blueprint(forms_bp, url_prefix='/api')
 app.register_blueprint(authority_bp, url_prefix='/api')
 
+# ==================== CONTACT FORM AUTOMATION ====================
+# Contact Form Endpoint with OpenAI Auto-Reply, Telegram & Email Integration
+
+@app.route('/api/contact-form', methods=['POST', 'OPTIONS'])
+def contact_form():
+    """
+    Handle contact form submissions with automated GPT replies, Telegram notifications, and email sending.
+    Replaces Cognito Forms integration.
+    """
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response, 200
+
+    try:
+        # Get form data
+        data = request.get_json()
+
+        # Extract fields
+        first_name = data.get('firstName', '').strip()
+        last_name = data.get('lastName', '').strip()
+        company_name = data.get('companyName', '').strip()
+        email = data.get('email', '').strip()
+        phone = data.get('phone', '').strip()
+        request_callback = data.get('requestCallback', False)
+        comments = data.get('comments', '').strip()
+
+        # Validate required fields
+        if not email or not comments:
+            return jsonify({
+                'status': 'error',
+                'message': 'Email and comments are required'
+            }), 400
+
+        # Convert to internal format
+        fields = {
+            "name": f"{first_name} {last_name}".strip() or "Not provided",
+            "email": email,
+            "phone": phone or "Not provided",
+            "company_name": company_name or "Not provided",
+            "callback_requested": "Yes" if request_callback else "No",
+            "comments": comments
+        }
+
+        # Generate request ID
+        request_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+
+        app.logger.info(f"[Contact Form {request_id}] Processing submission from {fields['name']} ({email})")
+
+        # STEP 1: Generate GPT Reply FIRST
+        app.logger.info(f"[Contact Form {request_id}] Generating GPT reply...")
+        gpt_reply = generate_gpt_reply(fields, request_id)
+
+        # STEP 2: Send Telegram Notification (immediately)
+        app.logger.info(f"[Contact Form {request_id}] Sending Telegram notification...")
+        telegram_sent = send_telegram_notification(fields, gpt_reply, request_id)
+
+        # STEP 3: Queue customer email with delay (background thread)
+        app.logger.info(f"[Contact Form {request_id}] Queuing customer email...")
+        threading.Thread(
+            target=send_customer_email_delayed,
+            args=(fields, gpt_reply, request_id)
+        ).start()
+
+        # STEP 4: Send team notification if callback requested (background thread)
+        if fields['callback_requested'] == "Yes":
+            app.logger.info(f"[Contact Form {request_id}] Queuing team notification email...")
+            threading.Thread(
+                target=send_team_notification,
+                args=(fields, gpt_reply, request_id)
+            ).start()
+
+        # Return success response immediately
+        response = jsonify({
+            'status': 'success',
+            'message': 'Contact form processed successfully',
+            'request_id': request_id,
+            'data': {
+                'email_queued': True,
+                'gpt_reply_generated': True,
+                'telegram_notification_sent': telegram_sent
+            }
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 200
+
+    except Exception as e:
+        app.logger.error(f"[Contact Form] Error processing form: {str(e)}")
+        response = jsonify({
+            'status': 'error',
+            'message': f'Error processing contact form: {str(e)}'
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 500
+
+
+def generate_gpt_reply(fields, request_id):
+    """
+    Generate personalized GPT reply using OpenAI API.
+    Returns fallback message if OpenAI fails.
+    """
+    try:
+        import openai
+
+        openai_api_key = os.environ.get('OPENAI_API_KEY')
+        if not openai_api_key:
+            app.logger.warning(f"[Contact Form {request_id}] OPENAI_API_KEY not set, using fallback")
+            return generate_fallback_reply(fields)
+
+        # Set API key
+        openai.api_key = openai_api_key
+
+        # Prepare callback instruction
+        if fields['callback_requested'] == "Yes":
+            callback_instruction = """
+IMPORTANT: The person has requested a callback, so you should mention that someone will CALL them.
+- For eviction matters (travellers/trespassers/unauthorised access), say someone from the EVICTION TEAM will call within 2 hours during working hours.
+- For security matters (CCTV/vacant property/barriers), say a SECURITY SPECIALIST will call within 2 hours during working hours.
+- For general inquiries, say someone from the team will call to discuss their requirements."""
+        else:
+            callback_instruction = """
+IMPORTANT: The person has NOT requested a callback, so do NOT mention calling.
+- For eviction matters (travellers/trespassers/unauthorised access), say someone from the EVICTION TEAM will be in touch within 2 hours during working hours.
+- For security matters (CCTV/vacant property/barriers), say a SECURITY SPECIALIST will get back to you within 2 hours during working hours.
+- For general inquiries, say someone from the team will be in touch - but never mention calling specifically."""
+
+        # System prompt
+        system_prompt = f"""You are an assistant working for V3 Services, a company that handles traveller evictions and property security.
+
+When someone fills in a contact form, your job is to reply directly in 2-3 clear, professional sentences.
+
+Do not offer advice. Do not ask questions. Do not explain services. Do not mention the company name.
+Do not start with greetings like "Thank you for getting in contact" - the email template handles the greeting.
+
+{callback_instruction}
+
+SPECIALIST ROUTING:
+- Travellers, trespassers, unauthorised access, squatters, evictions -> EVICTION TEAM
+- Security, CCTV, vacant property, barriers, protection, surveillance -> SECURITY SPECIALIST
+- General inquiries -> TEAM
+
+Use their **first name** only if it's present, but do not start with greetings.
+
+End every message with:
+- Admin Team
+
+Maintain a confident and calm tone. No sales language. No fluff. Clear and human."""
+
+        # User message
+        user_message = f"Name: {fields['name']}\nComments: {fields['comments']}\nCallback Requested: {fields['callback_requested']}"
+
+        # Call OpenAI API
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ],
+            temperature=0.7,
+            max_tokens=200
+        )
+
+        gpt_reply = response.choices[0].message.content.strip()
+        app.logger.info(f"[Contact Form {request_id}] GPT reply generated successfully")
+        return gpt_reply
+
+    except Exception as e:
+        app.logger.error(f"[Contact Form {request_id}] OpenAI error: {str(e)}, using fallback")
+        return generate_fallback_reply(fields)
+
+
+def generate_fallback_reply(fields):
+    """
+    Generate intelligent fallback reply based on keywords and callback status.
+    """
+    comments_lower = fields['comments'].lower()
+    callback_requested = fields['callback_requested'] == "Yes"
+    name_part = fields['name'].split()[0] if fields['name'] != "Not provided" else ""
+
+    # Detect keywords
+    is_eviction = any(word in comments_lower for word in ['traveller', 'trespasser', 'squatter', 'eviction', 'unauthorised'])
+    is_security = any(word in comments_lower for word in ['security', 'cctv', 'vacant', 'barrier', 'protection', 'surveillance'])
+
+    # Generate response based on context
+    if callback_requested:
+        if is_eviction:
+            reply = f"Someone from our EVICTION TEAM will call you within 2 hours during working hours to discuss your situation."
+        elif is_security:
+            reply = f"A SECURITY SPECIALIST will call you within 2 hours during working hours to discuss your requirements."
+        else:
+            reply = f"Someone from our team will call you to discuss your requirements."
+    else:
+        if is_eviction:
+            reply = f"Someone from our EVICTION TEAM will be in touch within 2 hours during working hours."
+        elif is_security:
+            reply = f"A SECURITY SPECIALIST will get back to you within 2 hours during working hours."
+        else:
+            reply = f"Someone from our team will be in touch shortly."
+
+    return f"{reply}\n\n- Admin Team"
+
+
+def send_telegram_notification(fields, gpt_reply, request_id):
+    """
+    Send Telegram notification to admin group.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+        chat_id = os.environ.get('TELEGRAM_ADMIN_CHAT_ID')
+
+        if not bot_token or not chat_id:
+            app.logger.warning(f"[Contact Form {request_id}] Telegram credentials not set")
+            return False
+
+        # Format message
+        message = f"""📬 New Contact Form Submission
+
+👤 Name: {fields['name']}
+📧 Email: {fields['email']}
+📱 Phone: {fields['phone']}
+🏢 Company: {fields['company_name']}
+📞 Callback: {fields['callback_requested']}
+
+💬 Comments:
+{fields['comments']}
+
+🤖 GPT Reply:
+{gpt_reply}
+
+🆔 Request ID: {request_id}"""
+
+        # Send to Telegram
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = {
+            'chat_id': chat_id,
+            'text': message,
+            'parse_mode': 'HTML'
+        }
+
+        response = requests.post(url, json=payload, timeout=10)
+
+        if response.status_code == 200:
+            app.logger.info(f"[Contact Form {request_id}] Telegram notification sent successfully")
+            return True
+        else:
+            app.logger.error(f"[Contact Form {request_id}] Telegram API error: {response.status_code}")
+            return False
+
+    except Exception as e:
+        app.logger.error(f"[Contact Form {request_id}] Telegram error: {str(e)}")
+        return False
+
+
+def send_customer_email_delayed(fields, gpt_reply, request_id):
+    """
+    Send customer auto-reply email with random delay (30-60 seconds).
+    Runs in background thread.
+    """
+    try:
+        # Random delay between 30-60 seconds
+        delay = random.randint(30, 60)
+        app.logger.info(f"[Contact Form {request_id}] Waiting {delay} seconds before sending customer email...")
+        time.sleep(delay)
+
+        app.logger.info(f"[Contact Form {request_id}] Sending customer email...")
+
+        # Get email configuration
+        mail_server = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+        mail_port = int(os.environ.get('MAIL_PORT', 587))
+        mail_username = os.environ.get('MAIL_USERNAME')
+        mail_password = os.environ.get('MAIL_PASSWORD')
+
+        if not mail_username or not mail_password:
+            app.logger.error(f"[Contact Form {request_id}] Email credentials not set")
+            return
+
+        # Replace newlines with <br> for HTML
+        gpt_reply_html = gpt_reply.replace('\n', '<br>')
+
+        # Email body
+        email_body = f"""<p>Hello {fields['name'] or 'there'},</p>
+<p>Thank you for getting in touch with V3 Services.</p>
+<p>{gpt_reply_html}</p>
+<p>&nbsp;</p>
+<table style="color: #242424; font-size: small; font-family: Arial, Helvetica, sans-serif; background-color: white;" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td colspan="2">
+<p style="margin: 0; padding: 0;"><span style="color: #ff753d; font-size: 18pt; font-family: Arial, sans-serif;"><strong>V3 Services Ltd</strong></span></p>
+<p style="margin: 0 0 10px 0; padding: 0;"><span style="color: #f8723a; font-size: 10pt; font-family: Arial, sans-serif;"><strong><a style="color: #f8723a;" title="http://www.v3-services.com/" href="http://www.v3-services.com/" rel="noopener">www.V3-Services.com</a></strong></span></p>
+</td>
+</tr>
+<tr>
+<td style="padding-bottom: 10px;" colspan="2">
+<div style="height: 1px; background-color: #ff753d; width: 498px;">&nbsp;</div>
+</td>
+</tr>
+<tr>
+<td style="padding-right: 10px; vertical-align: top;"><img style="display: block; border: 0;" src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663031516064/PSVkCSsVLyZtGnNn.png" alt="V3 Services Logo" width="88" height="88" /></td>
+<td style="vertical-align: top;">
+<p style="margin: 0; padding: 0; line-height: 1.5;"><span style="color: black; font-size: 9pt; font-family: Arial, sans-serif;"><strong>T:&nbsp;</strong>0203 576 1343<br /><strong>E:&nbsp;</strong><a style="color: black;" title="mailto:info@v3-services.com" href="mailto:info@v3-services.com" rel="noopener">info@v3-services.com</a><br /><strong>W:&nbsp;</strong><a style="color: black;" title="http://www.v3-services.com/" href="http://www.v3-services.com/" rel="noopener">www.v3-services.com</a><br /><strong>A:&nbsp;</strong>V3 Services Ltd, 117 Dartford Road, Dartford, DA1 3EN</span></p>
+</td>
+</tr>
+<tr>
+<td style="padding-top: 10px;" colspan="2"><img style="display: block; border: 0;" src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663031516064/uXbfYfMdRRQBFEzF.png" alt="signature_banner" width="498" height="128" /></td>
+</tr>
+<tr>
+<td style="padding-top: 10px;" colspan="2" width="498px">
+<p style="margin: 0px 0px 10px; padding: 0px; text-align: left;"><span style="color: #ff753d; font-size: 8pt; font-family: Helvetica; text-align: center;"><strong><span style="color: #ff753d;"><a style="color: #ff753d;" href="https://www.v3-services.com/services/trace-locate/" rel="noopener">INVESTIGATION&nbsp;</a></span>|<span>&nbsp;</span><span style="color: #ff753d;"><a style="color: #ff753d;" href="https://www.v3-services.com/services/surveillance/">SURVEILLANCE&nbsp;</a></span>|<span>&nbsp;</span><a style="color: #ff753d;" title="https://www.v3-services.com/services/traveller-evictions/" href="https://www.v3-services.com/services/traveller-evictions/">TRAVELLER EVICTIONS</a>&nbsp;|<span>&nbsp;</span><a style="color: #ff753d;" title="https://www.v3-services.com/services/squatter-evictions/" href="https://www.v3-services.com/services/squatter-evictions/" rel="noopener">SQUATTER EVICTIONS</a>&nbsp;|<span>&nbsp;</span><a style="color: #ff753d;" title="https://www.v3-services.com/services/site-security-access-prevention/" href="https://www.v3-services.com/services/site-security-access-prevention/" rel="noopener">SECURITY</a></strong></span></p>
+<p style="margin: 0px; padding: 0px; text-align: justify;"><span style="color: #959595; font-size: 7pt; font-family: Arial, sans-serif;"><strong>The principal is a Member of the United Kingdom Professional Investigators Network</strong>&nbsp;(UKPIN) V3 Services Limited Registered in England No.10653477 Registered Office: 117 Dartford Road, Dartford DA1 3EN VAT No.269383460 ICO: ZA458365 This email and any files transmitted with it are confidential and are intended for the addressee(s) only. If you have received this email in error or there are any problems, please notify the originator immediately. The unauthorised use, disclosure, copying or alteration of this email is strictly forbidden.</span></p>
+</td>
+</tr>
+</tbody>
+</table>"""
+
+        # Create message
+        msg = MIMEMultipart('alternative')
+        msg['From'] = mail_username
+        msg['To'] = fields['email']
+        msg['Bcc'] = mail_username
+        msg['Subject'] = "Thanks for contacting V3 Services"
+        msg.attach(MIMEText(email_body, 'html'))
+
+        # Send email
+        with smtplib.SMTP(mail_server, mail_port) as server:
+            server.starttls()
+            server.login(mail_username, mail_password)
+            server.send_message(msg)
+
+        app.logger.info(f"[Contact Form {request_id}] Customer email sent successfully to {fields['email']}")
+
+    except Exception as e:
+        app.logger.error(f"[Contact Form {request_id}] Error sending customer email: {str(e)}")
+
+
+def send_team_notification(fields, gpt_reply, request_id):
+    """
+    Send team notification email when callback is requested.
+    Runs in background thread.
+    """
+    try:
+        app.logger.info(f"[Contact Form {request_id}] Sending team notification email...")
+
+        # Get email configuration
+        mail_server = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+        mail_port = int(os.environ.get('MAIL_PORT', 587))
+        mail_username = os.environ.get('MAIL_USERNAME')
+        mail_password = os.environ.get('MAIL_PASSWORD')
+
+        if not mail_username or not mail_password:
+            app.logger.error(f"[Contact Form {request_id}] Email credentials not set")
+            return
+
+        # Team recipients
+        team_emails = ['info@v3-services.com', 'Tom@v3-services.com', 'lance@v3-Services.com']
+
+        # Email body
+        email_body = f"""<h2>🔔 CALLBACK REQUESTED</h2>
+<p><strong>A customer has requested a callback. Please contact them as soon as possible.</strong></p>
+
+<h3>Contact Details:</h3>
+<ul>
+<li><strong>Name:</strong> {fields['name']}</li>
+<li><strong>Email:</strong> {fields['email']}</li>
+<li><strong>Phone:</strong> {fields['phone']}</li>
+<li><strong>Company:</strong> {fields['company_name']}</li>
+</ul>
+
+<h3>Comments:</h3>
+<p>{fields['comments']}</p>
+
+<h3>GPT Auto-Reply Sent:</h3>
+<p>{gpt_reply.replace(chr(10), '<br>')}</p>
+
+<hr>
+<p><small>Request ID: {request_id}<br>
+Submitted: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</small></p>"""
+
+        # Create message
+        msg = MIMEMultipart('alternative')
+        msg['From'] = mail_username
+        msg['To'] = ', '.join(team_emails)
+        msg['Subject'] = f"🔔 CALLBACK REQUESTED - {fields['name']}"
+        msg.attach(MIMEText(email_body, 'html'))
+
+        # Send email
+        with smtplib.SMTP(mail_server, mail_port) as server:
+            server.starttls()
+            server.login(mail_username, mail_password)
+            server.send_message(msg)
+
+        app.logger.info(f"[Contact Form {request_id}] Team notification sent successfully")
+
+    except Exception as e:
+        app.logger.error(f"[Contact Form {request_id}] Error sending team notification: {str(e)}")
+
+# ==================== END CONTACT FORM AUTOMATION ====================
 
 # --- Version tracking routes and headers ---
 @app.route('/__version')
