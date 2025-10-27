@@ -525,7 +525,7 @@ def send_customer_email_delayed(fields, gpt_reply, request_id):
 </td>
 </tr>
 <tr>
-<td style="padding-right: 10px; vertical-align: top;"><img style="display: block; border: 0;" src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663031516064/PSVkCSsVLyZtGnNn.png" alt="V3 Services Logo" width="88" /></td>
+<td style="padding-right: 10px; vertical-align: top;"><img style="display: block; border: 0;" src="https://v3-app-49c3d1eff914.herokuapp.com/static/v3-logo.png" alt="V3 Services Logo" width="88" /></td>
 <td style="vertical-align: top;">
 <p style="margin: 0; padding: 0; line-height: 1.5;"><span style="color: black; font-size: 9pt; font-family: Arial, sans-serif;"><strong>T:&nbsp;</strong>0203 576 1343<br /><strong>E:&nbsp;</strong><a style="color: black;" title="mailto:info@v3-services.com" href="mailto:info@v3-services.com" rel="noopener">info@v3-services.com</a><br /><strong>W:&nbsp;</strong><a style="color: black;" title="http://www.v3-services.com/" href="http://www.v3-services.com/" rel="noopener">www.v3-services.com</a><br /><strong>A:&nbsp;</strong>V3 Services Ltd, 117 Dartford Road, Dartford, DA1 3EN</span></p>
 </td>
