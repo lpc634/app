@@ -17,6 +17,12 @@ depends_on = None
 
 
 def upgrade():
+    # Check if table already exists
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if 'contact_form_submissions' in inspector.get_table_names():
+        return  # Table already exists, skip creation
+
     # Create contact_form_submissions table
     op.create_table(
         'contact_form_submissions',
