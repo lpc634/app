@@ -319,32 +319,52 @@ export default function AdminContactForms() {
                 <label className="text-xs text-v3-text-muted mb-2 block">Quick Actions</label>
                 <div className="flex flex-wrap gap-2">
                   <Button
+                    type="button"
                     size="sm"
-                    onClick={() => updateSubmission(selectedSubmission.id, { status: 'contacted' })}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      updateSubmission(selectedSubmission.id, { status: 'contacted' });
+                    }}
                     disabled={updating || selectedSubmission.status === 'contacted'}
                     className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30"
                   >
                     Mark as Contacted
                   </Button>
                   <Button
+                    type="button"
                     size="sm"
-                    onClick={() => updateSubmission(selectedSubmission.id, { status: 'resolved' })}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      updateSubmission(selectedSubmission.id, { status: 'resolved' });
+                    }}
                     disabled={updating || selectedSubmission.status === 'resolved'}
                     className="bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/30"
                   >
                     Mark as Resolved
                   </Button>
                   <Button
+                    type="button"
                     size="sm"
-                    onClick={() => updateSubmission(selectedSubmission.id, { status: 'spam' })}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      updateSubmission(selectedSubmission.id, { status: 'spam' });
+                    }}
                     disabled={updating || selectedSubmission.status === 'spam'}
                     className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30"
                   >
                     Mark as Spam
                   </Button>
                   <Button
+                    type="button"
                     size="sm"
-                    onClick={() => updateSubmission(selectedSubmission.id, { status: 'pending' })}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      updateSubmission(selectedSubmission.id, { status: 'pending' });
+                    }}
                     disabled={updating || selectedSubmission.status === 'pending'}
                     className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-500/30"
                   >
