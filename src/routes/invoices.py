@@ -81,6 +81,11 @@ def _render_invoice_pdf_bytes(inv: Invoice) -> bytes | None:
 
         # Totals
         total = sum(float(row.get('amount') or 0) for row in jobs_data)
+
+        # Fallback: if calculated total is 0 but invoice has a total_amount, use that
+        if total == 0 and hasattr(inv, 'total_amount') and inv.total_amount:
+            total = float(inv.total_amount)
+
         vat_rate = float(getattr(inv, 'vat_rate', 0) or 0)
         vat = round(total * vat_rate, 2) if vat_rate else 0.0
         totals = { 'subtotal': total, 'vat': vat, 'total': round(total + vat, 2), 'vat_rate': vat_rate }
