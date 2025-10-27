@@ -112,10 +112,11 @@ def build_supplier_invoice(
             session.add(InvoiceLine(
                 invoice_id=inv.id,
                 job_assignment_id=assignment.id,
+                work_date=date.today(),
                 hours=hours,
-                rate_per_hour=rate,
+                rate_net=rate,
+                line_net=line_total,
                 headcount=headcount,
-                line_total=line_total,
             ))
 
         try:
