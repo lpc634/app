@@ -3,7 +3,7 @@ import { useAuth } from '../useAuth';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogPortal, DialogOverlay } from '../components/ui/dialog';
 import { Textarea } from '../components/ui/textarea';
 import { Phone, Mail, Building2, MessageSquare, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 
@@ -261,7 +261,7 @@ export default function AdminContactForms() {
 
       {/* Details Dialog */}
       <Dialog open={!!selectedSubmission} onOpenChange={(open) => !open && setSelectedSubmission(null)}>
-        <DialogContent className="max-w-3xl bg-v3-bg-darker border border-v3-border text-v3-text max-h-[90vh] overflow-y-auto backdrop-blur-none [&>div]:bg-v3-bg-darker">
+        <DialogContent className="max-w-3xl !bg-[#1a1d24] border border-v3-border text-v3-text max-h-[90vh] overflow-y-auto" style={{ backgroundColor: '#1a1d24' }}>
           <DialogHeader>
             <DialogTitle className="text-v3-text-lightest">Contact Form Details</DialogTitle>
           </DialogHeader>
