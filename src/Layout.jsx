@@ -24,7 +24,7 @@ const navigation = [
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
 ];
 
-function NavigationItems({ onItemClick = () => {} }) {
+function NavigationItems({ onItemClick = () => {}, pendingContactForms = 0 }) {
   const location = useLocation();
   const { user } = useAuth();
 
@@ -38,6 +38,8 @@ function NavigationItems({ onItemClick = () => {} }) {
 
         const isActive = location.pathname === item.href;
         const Icon = item.icon;
+        const isContactForms = item.href === '/admin/contact-forms';
+        const hasPending = isContactForms && pendingContactForms > 0;
 
         return (
           <Link
@@ -54,6 +56,14 @@ function NavigationItems({ onItemClick = () => {} }) {
           >
             <Icon className="mr-3 h-5 w-5 flex-shrink-0" />
             <span className="truncate">{item.name}</span>
+            {hasPending && (
+              <span className="ml-auto flex-shrink-0 relative">
+                <span className="flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                </span>
+              </span>
+            )}
             {item.badge && (
               <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-orange-500 text-white rounded-md flex-shrink-0">
                 {item.badge}
@@ -70,6 +80,7 @@ export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout, apiCall } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [pendingContactForms, setPendingContactForms] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -89,11 +100,36 @@ export default function Layout({ children }) {
     return () => { mounted = false; };
   }, [user]);
 
+  // Fetch pending contact forms count for admin
+  useEffect(() => {
+    let mounted = true;
+    if (user?.role === 'admin') {
+      const fetchContactFormStats = async () => {
+        try {
+          const stats = await apiCall('/contact-forms/stats');
+          if (mounted) {
+            setPendingContactForms(stats?.pending || 0);
+          }
+        } catch (error) {
+          // Silently fail - not critical
+        }
+      };
+
+      fetchContactFormStats();
+      // Poll every 30 seconds for new submissions
+      const interval = setInterval(fetchContactFormStats, 30000);
+      return () => {
+        mounted = false;
+        clearInterval(interval);
+      };
+    }
+  }, [user]);
+
   const handleLogout = () => {
     logout();
   };
 
-  const SidebarContent = ({ onItemClick = () => {} }) => (
+  const SidebarContent = ({ onItemClick = () => {}, pendingContactForms = 0 }) => (
     <div className="flex h-full flex-col bg-card safe-pt safe-pb">
       {/* Header */}
       <div className="flex min-h-[64px] items-center p-4 gap-x-4 border-b">
@@ -103,7 +139,7 @@ export default function Layout({ children }) {
       
       {/* Navigation */}
       <div className="flex grow flex-col gap-y-5 overflow-y-auto py-4">
-        <NavigationItems onItemClick={onItemClick} />
+        <NavigationItems onItemClick={onItemClick} pendingContactForms={pendingContactForms} />
       </div>
       
       {/* User Profile & Logout */}
@@ -148,7 +184,7 @@ export default function Layout({ children }) {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-72 p-0 max-w-[85vw]">
-            <SidebarContent onItemClick={() => setSidebarOpen(false)} />
+            <SidebarContent onItemClick={() => setSidebarOpen(false)} pendingContactForms={pendingContactForms} />
           </SheetContent>
         </Sheet>
         
@@ -166,7 +202,7 @@ export default function Layout({ children }) {
 
       {/* Desktop Sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
-        <SidebarContent />
+        <SidebarContent pendingContactForms={pendingContactForms} />
       </div>
 
       {/* Main Content Area with Safe Area */}

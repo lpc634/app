@@ -261,7 +261,7 @@ export default function AdminContactForms() {
 
       {/* Details Dialog */}
       <Dialog open={!!selectedSubmission} onOpenChange={(open) => !open && setSelectedSubmission(null)}>
-        <DialogContent className="max-w-3xl bg-v3-bg-dark border-v3-border text-v3-text max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl bg-v3-bg-darker border border-v3-border text-v3-text max-h-[90vh] overflow-y-auto backdrop-blur-none [&>div]:bg-v3-bg-darker">
           <DialogHeader>
             <DialogTitle className="text-v3-text-lightest">Contact Form Details</DialogTitle>
           </DialogHeader>
@@ -314,25 +314,52 @@ export default function AdminContactForms() {
                 </div>
               )}
 
+              {/* Quick Actions */}
+              <div>
+                <label className="text-xs text-v3-text-muted mb-2 block">Quick Actions</label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => updateSubmission(selectedSubmission.id, { status: 'contacted' })}
+                    disabled={updating || selectedSubmission.status === 'contacted'}
+                    className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30"
+                  >
+                    Mark as Contacted
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => updateSubmission(selectedSubmission.id, { status: 'resolved' })}
+                    disabled={updating || selectedSubmission.status === 'resolved'}
+                    className="bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/30"
+                  >
+                    Mark as Resolved
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => updateSubmission(selectedSubmission.id, { status: 'spam' })}
+                    disabled={updating || selectedSubmission.status === 'spam'}
+                    className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30"
+                  >
+                    Mark as Spam
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => updateSubmission(selectedSubmission.id, { status: 'pending' })}
+                    disabled={updating || selectedSubmission.status === 'pending'}
+                    className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-500/30"
+                  >
+                    Mark as Pending
+                  </Button>
+                </div>
+              </div>
+
               {/* Status Management */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-v3-text-muted mb-2 block">Status</label>
-                  <Select
-                    value={selectedSubmission.status}
-                    onValueChange={(value) => updateSubmission(selectedSubmission.id, { status: value })}
-                  >
-                    <SelectTrigger className="bg-v3-bg-darker border-v3-border text-v3-text">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STATUS_OPTIONS.filter(s => s.value !== 'all').map(option => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <label className="text-xs text-v3-text-muted mb-2 block">Current Status</label>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(selectedSubmission.status)}
+                  </div>
                 </div>
 
                 <div>
