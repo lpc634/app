@@ -308,14 +308,14 @@ def generate_gpt_reply(fields, request_id):
         if fields['callback_requested'] == "Yes":
             callback_instruction = """
 IMPORTANT: The person has requested a callback, so you should mention that someone will CALL them.
-- For eviction matters (travellers/trespassers/unauthorised access), say someone from the EVICTION TEAM will call within 2 hours during working hours.
-- For security matters (CCTV/vacant property/barriers), say a SECURITY SPECIALIST will call within 2 hours during working hours.
+- For eviction matters (travellers/trespassers/unauthorised access), say someone from the eviction team will call within 2 hours during working hours.
+- For security matters (CCTV/vacant property/barriers), say a security specialist will call within 2 hours during working hours.
 - For general inquiries, say someone from the team will call to discuss their requirements."""
         else:
             callback_instruction = """
 IMPORTANT: The person has NOT requested a callback, so do NOT mention calling.
-- For eviction matters (travellers/trespassers/unauthorised access), say someone from the EVICTION TEAM will be in touch within 2 hours during working hours.
-- For security matters (CCTV/vacant property/barriers), say a SECURITY SPECIALIST will get back to you within 2 hours during working hours.
+- For eviction matters (travellers/trespassers/unauthorised access), say someone from the eviction team will be in touch within 2 hours during working hours.
+- For security matters (CCTV/vacant property/barriers), say a security specialist will get back to you within 2 hours during working hours.
 - For general inquiries, say someone from the team will be in touch - but never mention calling specifically."""
 
         # System prompt
@@ -329,16 +329,16 @@ Do not start with greetings like "Thank you for getting in contact" - the email 
 {callback_instruction}
 
 SPECIALIST ROUTING:
-- Travellers, trespassers, unauthorised access, squatters, evictions -> EVICTION TEAM
-- Security, CCTV, vacant property, barriers, protection, surveillance -> SECURITY SPECIALIST
-- General inquiries -> TEAM
+- Travellers, trespassers, unauthorised access, squatters, evictions -> eviction team
+- Security, CCTV, vacant property, barriers, protection, surveillance -> security specialist
+- General inquiries -> team
 
 Use their **first name** only if it's present, but do not start with greetings.
 
 End every message with:
 - Admin Team
 
-Maintain a confident and calm tone. No sales language. No fluff. Clear and human."""
+Maintain a confident and calm tone. No sales language. No fluff. Clear and human. Write in a natural, conversational style - avoid robotic or overly formal language."""
 
         # User message
         user_message = f"Name: {fields['name']}\nComments: {fields['comments']}\nCallback Requested: {fields['callback_requested']}"
@@ -378,16 +378,16 @@ def generate_fallback_reply(fields):
     # Generate response based on context
     if callback_requested:
         if is_eviction:
-            reply = f"Someone from our EVICTION TEAM will call you within 2 hours during working hours to discuss your situation."
+            reply = f"Someone from our eviction team will call you within 2 hours during working hours to discuss your situation."
         elif is_security:
-            reply = f"A SECURITY SPECIALIST will call you within 2 hours during working hours to discuss your requirements."
+            reply = f"A security specialist will call you within 2 hours during working hours to discuss your requirements."
         else:
             reply = f"Someone from our team will call you to discuss your requirements."
     else:
         if is_eviction:
-            reply = f"Someone from our EVICTION TEAM will be in touch within 2 hours during working hours."
+            reply = f"Someone from our eviction team will be in touch within 2 hours during working hours."
         elif is_security:
-            reply = f"A SECURITY SPECIALIST will get back to you within 2 hours during working hours."
+            reply = f"A security specialist will get back to you within 2 hours during working hours."
         else:
             reply = f"Someone from our team will be in touch shortly."
 
@@ -491,7 +491,7 @@ def send_customer_email_delayed(fields, gpt_reply, request_id):
 </td>
 </tr>
 <tr>
-<td style="padding-right: 10px; vertical-align: top;"><img style="display: block; border: 0;" src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663031516064/PSVkCSsVLyZtGnNn.png" alt="V3 Services Logo" width="88" height="88" /></td>
+<td style="padding-right: 10px; vertical-align: top;"><img style="display: block; border: 0;" src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663031516064/PSVkCSsVLyZtGnNn.png" alt="V3 Services Logo" width="88" /></td>
 <td style="vertical-align: top;">
 <p style="margin: 0; padding: 0; line-height: 1.5;"><span style="color: black; font-size: 9pt; font-family: Arial, sans-serif;"><strong>T:&nbsp;</strong>0203 576 1343<br /><strong>E:&nbsp;</strong><a style="color: black;" title="mailto:info@v3-services.com" href="mailto:info@v3-services.com" rel="noopener">info@v3-services.com</a><br /><strong>W:&nbsp;</strong><a style="color: black;" title="http://www.v3-services.com/" href="http://www.v3-services.com/" rel="noopener">www.v3-services.com</a><br /><strong>A:&nbsp;</strong>V3 Services Ltd, 117 Dartford Road, Dartford, DA1 3EN</span></p>
 </td>
