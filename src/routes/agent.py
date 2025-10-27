@@ -1152,7 +1152,17 @@ def create_invoice():
                 hours = Decimal(item.get('hours', 0))
                 if hours <= 0:
                     return jsonify({'error': f"Invalid hours for job at {job.address}."}), 400
-                rate = Decimal(job.hourly_rate)
+
+                # CRITICAL FIX: Use rate from request if provided, otherwise fall back to job.hourly_rate
+                # This handles cases where job.hourly_rate might be NULL/0 (e.g., ROUGH_SLEEPER jobs)
+                item_rate = item.get('rate') or item.get('hourly_rate')
+                if item_rate is not None and item_rate > 0:
+                    rate = Decimal(item_rate)
+                elif job.hourly_rate and job.hourly_rate > 0:
+                    rate = Decimal(job.hourly_rate)
+                else:
+                    return jsonify({'error': f"Rate must be specified for job at {job.address}. Job hourly_rate is not set."}), 400
+
                 amount = hours * rate
                 total_amount += amount
                 jobs_to_invoice.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
