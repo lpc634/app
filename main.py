@@ -480,6 +480,26 @@ def send_telegram_notification(fields, gpt_reply, request_id):
         return False
 
 
+def get_time_based_greeting():
+    """
+    Get appropriate greeting based on UK time (morning/afternoon/evening).
+    """
+    from datetime import datetime
+    import pytz
+
+    # Get current time in UK timezone
+    uk_tz = pytz.timezone('Europe/London')
+    uk_time = datetime.now(uk_tz)
+    hour = uk_time.hour
+
+    if 5 <= hour < 12:
+        return "Good morning"
+    elif 12 <= hour < 17:
+        return "Good afternoon"
+    else:
+        return "Good evening"
+
+
 def send_customer_email_delayed(fields, gpt_reply, request_id):
     """
     Send customer auto-reply email with random delay (30-60 seconds).
@@ -503,11 +523,23 @@ def send_customer_email_delayed(fields, gpt_reply, request_id):
             app.logger.error(f"[Contact Form {request_id}] Email credentials not set")
             return
 
+        # Get first name from the full name
+        first_name = fields['name'].split()[0] if fields['name'] and fields['name'] != "Not provided" else ""
+
+        # Get time-appropriate greeting
+        greeting = get_time_based_greeting()
+
+        # Create personalized greeting
+        if first_name:
+            personal_greeting = f"{greeting} {first_name},"
+        else:
+            personal_greeting = f"{greeting},"
+
         # Replace newlines with <br> for HTML
         gpt_reply_html = gpt_reply.replace('\n', '<br>')
 
         # Email body
-        email_body = f"""<p>Hello {fields['name'] or 'there'},</p>
+        email_body = f"""<p>{personal_greeting}</p>
 <p>Thank you for getting in touch with V3 Services.</p>
 <p>{gpt_reply_html}</p>
 <p>&nbsp;</p>
