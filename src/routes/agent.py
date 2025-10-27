@@ -2110,12 +2110,23 @@ def download_invoice_direct(invoice_id):
                 rate = float(ij.hourly_rate_at_invoice or job.hourly_rate or 0)
                 amount = hours * rate
 
-                # CRITICAL FIX: If InvoiceJob has 0 hours but Invoice has a total_amount,
-                # calculate hours from total_amount / rate to fix draft invoices
-                if hours == 0 and invoice.total_amount and float(invoice.total_amount) > 0 and rate > 0:
-                    hours = float(invoice.total_amount) / rate
+                # CRITICAL FIX: If calculated amount is 0 but Invoice has a total_amount, use that
+                if amount == 0 and invoice.total_amount and float(invoice.total_amount) > 0:
                     amount = float(invoice.total_amount)
-                    current_app.logger.info(f"Invoice {invoice.id}: Recalculated hours from total_amount. Hours: {hours}, Rate: {rate}, Amount: {amount}")
+                    # Try to back-calculate hours and rate
+                    if rate > 0 and hours == 0:
+                        # We have a rate, calculate hours
+                        hours = amount / rate
+                        current_app.logger.info(f"Invoice {invoice.id}: Back-calculated hours from total_amount. Hours: {hours}, Rate: {rate}, Amount: {amount}")
+                    elif hours > 0 and rate == 0:
+                        # We have hours, calculate rate
+                        rate = amount / hours
+                        current_app.logger.info(f"Invoice {invoice.id}: Back-calculated rate from total_amount. Hours: {hours}, Rate: {rate}, Amount: {amount}")
+                    else:
+                        # Both are 0, default to 1 hour at total amount as rate
+                        hours = 1.0
+                        rate = amount
+                        current_app.logger.info(f"Invoice {invoice.id}: Both hours and rate were 0. Defaulting to 1h @ £{rate}/hr, Amount: £{amount}")
 
                 jobs_data.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
             if not jobs_data:
