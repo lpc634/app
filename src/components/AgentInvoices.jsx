@@ -298,11 +298,15 @@ const AgentInvoices = () => {
             <div className="text-center p-12 border-t border-v3-border">
                 <AlertCircle className="mx-auto h-12 w-12 text-v3-text-muted mb-4" />
                 <h3 className="text-lg font-medium text-v3-text-lightest">No Invoices Found</h3>
-                <p className="text-v3-text-muted mt-1">Invoices will appear here when you accept jobs.</p>
-                <div className="mt-6">
-                  <Link to="/agent/invoices/new/misc" className="button-refresh w-full sm:w-auto inline-flex items-center justify-center gap-2">
+                <p className="text-v3-text-muted mt-1">Create an invoice from your completed jobs or add a miscellaneous invoice.</p>
+                <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link to="/agent/invoices/new/from-jobs" className="button-refresh w-full sm:w-auto inline-flex items-center justify-center gap-2">
                     <PlusCircle className="w-5 h-5" />
-                    Create Miscellaneous Invoice
+                    Create Invoice from Jobs
+                  </Link>
+                  <Link to="/agent/invoices/new/misc" className="border border-v3-border text-v3-text-lightest hover:bg-v3-bg-dark w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md">
+                    <FileText className="w-5 h-5" />
+                    Miscellaneous Invoice
                   </Link>
                 </div>
             </div>
@@ -396,11 +400,15 @@ const AgentInvoices = () => {
             </div>
         )}
         </div>
-        {/* Bottom action for mobile clarity */}
-        <div className="pt-4">
-          <Link to="/agent/invoices/new/misc" className="button-refresh w-full sm:w-auto inline-flex items-center justify-center gap-2">
+        {/* Bottom actions */}
+        <div className="pt-4 flex flex-col sm:flex-row gap-3">
+          <Link to="/agent/invoices/new/from-jobs" className="button-refresh w-full sm:w-auto inline-flex items-center justify-center gap-2">
             <PlusCircle className="w-5 h-5" />
-            Create Miscellaneous Invoice
+            Create Invoice from Jobs
+          </Link>
+          <Link to="/agent/invoices/new/misc" className="border border-v3-border text-v3-text-lightest hover:bg-v3-bg-dark w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md">
+            <FileText className="w-5 h-5" />
+            Miscellaneous Invoice
           </Link>
         </div>
       </div>
