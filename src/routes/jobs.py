@@ -1362,10 +1362,12 @@ def respond_to_assignment(assignment_id):
                 db.session.flush()  # Get the invoice ID
                 
                 # Create InvoiceJob record linking the job to this invoice
+                # Pre-populate with expected hours if available
+                expected_hours = getattr(job, 'expected_hours', None) or 8.0  # Default to 8 hours
                 invoice_job = InvoiceJob(
                     invoice_id=draft_invoice.id,
                     job_id=job.id,
-                    hours_worked=0.0,  # Will be filled when agent completes the job
+                    hours_worked=expected_hours,  # Pre-fill with expected hours instead of 0
                     hourly_rate_at_invoice=job.hourly_rate if job.hourly_rate else 0.0
                 )
                 

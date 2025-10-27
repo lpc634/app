@@ -559,6 +559,27 @@ def generate_invoice_pdf(agent,
 
         # Totals with VAT logic
         calc_total = sum(_f(r['amount']) for r in normalized_jobs) if total_amount is None else _f(total_amount)
+
+        # CRITICAL FIX: If all jobs have 0 hours but invoice has total_amount, recalculate
+        if calc_total == 0 and invoice and invoice.total_amount and float(invoice.total_amount) > 0:
+            current_app.logger.warning(f"PDF generation for {invoice_number}: Calculated total is 0 but invoice.total_amount is {invoice.total_amount}. Recalculating from invoice total.")
+            # If we have one job, assign all the total to it
+            if len(normalized_jobs) == 1:
+                job_total = float(invoice.total_amount)
+                # Try to get a reasonable rate from the job
+                rate = _f(normalized_jobs[0].get('rate', 0))
+                if rate > 0:
+                    hours = job_total / rate
+                else:
+                    # Assume 8 hours as default
+                    hours = 8.0
+                    rate = job_total / hours
+                normalized_jobs[0]['hours'] = hours
+                normalized_jobs[0]['rate'] = rate
+                normalized_jobs[0]['amount'] = job_total
+                calc_total = job_total
+                current_app.logger.info(f"Recalculated job data: hours={hours}, rate={rate}, amount={job_total}")
+
         # Determine VAT rate
         vat_rate_val = 0.0
         try:
@@ -2044,6 +2065,10 @@ def download_invoice_direct(invoice_id):
         if invoice.status == 'draft':
             return jsonify({'error': 'Cannot download draft invoices'}), 400
 
+        # NEW: Check if invoice has valid data before allowing download
+        if not invoice.total_amount or float(invoice.total_amount) == 0:
+            return jsonify({'error': 'Invoice has no amount. Please update the invoice with hours and rate before downloading.'}), 400
+
         if s3_client.is_configured():
             signed = s3_client.generate_invoice_download_url(agent.id, invoice.invoice_number, expiration=300)
             if signed.get('success'):
@@ -2084,6 +2109,14 @@ def download_invoice_direct(invoice_id):
                 hours = float(ij.hours_worked or 0)
                 rate = float(ij.hourly_rate_at_invoice or job.hourly_rate or 0)
                 amount = hours * rate
+
+                # CRITICAL FIX: If InvoiceJob has 0 hours but Invoice has a total_amount,
+                # calculate hours from total_amount / rate to fix draft invoices
+                if hours == 0 and invoice.total_amount and float(invoice.total_amount) > 0 and rate > 0:
+                    hours = float(invoice.total_amount) / rate
+                    amount = float(invoice.total_amount)
+                    current_app.logger.info(f"Invoice {invoice.id}: Recalculated hours from total_amount. Hours: {hours}, Rate: {rate}, Amount: {amount}")
+
                 jobs_data.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
             if not jobs_data:
                 return jsonify({'error': 'No valid job data to render PDF'}), 500
