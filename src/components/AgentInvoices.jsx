@@ -99,11 +99,36 @@ const AgentInvoices = () => {
     [invoices]
   );
 
+  const handleDelete = async (invoiceId, invoiceNumber) => {
+    if (!window.confirm(`Are you sure you want to delete invoice ${invoiceNumber}? This action cannot be undone. You can recreate the invoice afterwards if needed.`)) {
+      return;
+    }
+
+    try {
+      await apiCall(`/agent/invoices/${invoiceId}`, { method: 'DELETE' });
+      toast.success('Invoice deleted', {
+        description: `Invoice ${invoiceNumber} has been deleted. You can now recreate it with correct details.`
+      });
+      // Refresh the invoice list
+      const data = await apiCall('/agent/invoices');
+      if (Array.isArray(data)) {
+        setInvoices(data);
+      } else if (data && Array.isArray(data.invoices)) {
+        setInvoices(data.invoices);
+      }
+    } catch (error) {
+      console.error('Delete failed:', error);
+      toast.error('Delete failed', {
+        description: error.message || 'Unable to delete invoice'
+      });
+    }
+  };
+
   const handleDownload = async (invoiceId, invoiceNumber) => {
     try {
       // Add to downloading set
       setDownloadingInvoices(prev => new Set([...prev, invoiceId]));
-      
+
       // Get download URL from API
       const response = await apiCall(`/agent/invoices/${invoiceId}/download`);
       
@@ -338,8 +363,8 @@ const AgentInvoices = () => {
                                             </Button>
                                         </Link>
                                     ) : (
-                                        <Button 
-                                            variant="outline" 
+                                        <Button
+                                            variant="outline"
                                             className="border-v3-border text-v3-text-lightest hover:bg-v3-bg-dark"
                                             onClick={() => handleDownload(invoice.id, invoice.invoice_number)}
                                             disabled={downloadingInvoices.has(invoice.id)}
@@ -352,15 +377,17 @@ const AgentInvoices = () => {
                                             {downloadingInvoices.has(invoice.id) ? 'Downloading...' : 'Download PDF'}
                                         </Button>
                                     )}
-                                    {/* Admin-only delete button shown when API returns 403 for non-admin */}
-                                    <Button 
-                                      variant="destructive"
-                                      className="hidden sm:inline-flex"
-                                      onClick={() => handleAdminDelete(invoice.id)}
-                                      title="Admin: Delete invoice"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    {/* Agent can delete their own invoices (except paid ones) */}
+                                    {invoice.status !== 'paid' && (
+                                        <Button
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={() => handleDelete(invoice.id, invoice.invoice_number)}
+                                            title="Delete this invoice (you can recreate it afterwards)"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
                         </div>

@@ -1761,6 +1761,53 @@ def get_invoice_details(invoice_id):
         current_app.logger.error(f"Error fetching invoice details: {str(e)}")
         return jsonify({'error': 'Failed to fetch invoice details'}), 500
 
+
+@agent_bp.route('/agent/invoices/<int:invoice_id>', methods=['DELETE'])
+@jwt_required()
+def delete_invoice(invoice_id):
+    """Allow agents to delete their own invoices (e.g., to fix mistakes and recreate)."""
+    try:
+        current_user_id = int(get_jwt_identity())
+        user = User.query.get(current_user_id)
+        if not user or user.role != 'agent':
+            return jsonify({'error': 'Access denied. Agent role required.'}), 403
+
+        # Find the invoice
+        invoice = Invoice.query.get(invoice_id)
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+
+        # Security check: agents can only delete their own invoices
+        if invoice.agent_id != current_user_id:
+            return jsonify({'error': 'Access denied. You can only delete your own invoices.'}), 403
+
+        # Don't allow deleting paid invoices
+        if invoice.status == 'paid':
+            return jsonify({'error': 'Cannot delete paid invoices. Please contact admin.'}), 400
+
+        invoice_number = invoice.invoice_number
+
+        # Delete related records first (foreign key constraints)
+        InvoiceJob.query.filter_by(invoice_id=invoice.id).delete()
+        InvoiceLine.query.filter_by(invoice_id=invoice.id).delete()
+
+        # Delete the invoice
+        db.session.delete(invoice)
+        db.session.commit()
+
+        current_app.logger.info(f"Agent {current_user_id} deleted invoice {invoice_number} (ID: {invoice_id})")
+
+        return jsonify({
+            'message': 'Invoice deleted successfully',
+            'invoice_number': invoice_number
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting invoice {invoice_id}: {str(e)}")
+        return jsonify({'error': 'Failed to delete invoice', 'details': str(e)}), 500
+
+
 # --- AGENT INVOICE MANAGEMENT ENDPOINTS ---
 
 def _serialize_line(ln: InvoiceLine):
