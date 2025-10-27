@@ -86,23 +86,45 @@ def _render_invoice_pdf_bytes(inv: Invoice) -> bytes | None:
         # This handles cases where line items exist but have zero/null values
         if total == 0 and hasattr(inv, 'total_amount') and inv.total_amount and float(inv.total_amount) > 0:
             total = float(inv.total_amount)
+            current_app.logger.info(f"Invoice {inv.id}: Using fallback total_amount of £{total}")
             # If we have jobs_data but they sum to 0, fix them by using the invoice total
             if jobs_data:
                 # Distribute the total amount across the jobs
                 num_jobs = len(jobs_data)
                 amount_per_job = total / num_jobs
-                for job_row in jobs_data:
+                current_app.logger.info(f"Invoice {inv.id}: Distributing £{amount_per_job} across {num_jobs} job(s)")
+                for idx, job_row in enumerate(jobs_data):
+                    old_amount = job_row.get('amount', 0)
+                    old_rate = job_row.get('rate', 0)
+                    old_hours = job_row.get('hours', 0)
+
+                    # Set the corrected amount
                     job_row['amount'] = amount_per_job
-                    # Try to back-calculate hours if we have a rate
+
+                    # If we have a valid rate and hours are 0, back-calculate hours
                     if job_row.get('rate') and float(job_row['rate']) > 0:
                         job_row['hours'] = amount_per_job / float(job_row['rate'])
+                        current_app.logger.info(f"Invoice {inv.id} job {idx}: Fixed with existing rate £{job_row['rate']}/hr -> {job_row['hours']:.1f}h")
+                    # If rate is 0 but we have hours, back-calculate rate
+                    elif job_row.get('hours') and float(job_row['hours']) > 0:
+                        job_row['rate'] = amount_per_job / float(job_row['hours'])
+                        current_app.logger.info(f"Invoice {inv.id} job {idx}: Fixed with existing hours {job_row['hours']}h -> £{job_row['rate']:.2f}/hr")
+                    # If both are 0, we need to create reasonable values
+                    else:
+                        # Default to 1 hour at the total amount as the rate
+                        job_row['hours'] = 1.0
+                        job_row['rate'] = amount_per_job
+                        current_app.logger.info(f"Invoice {inv.id} job {idx}: Both rate and hours were 0, defaulting to 1h @ £{amount_per_job:.2f}/hr")
+
+                    current_app.logger.info(f"Invoice {inv.id} job {idx}: Before: £{old_amount} ({old_hours}h @ £{old_rate}/hr), After: £{job_row['amount']} ({job_row['hours']}h @ £{job_row['rate']}/hr)")
             else:
                 # No jobs_data at all - create a generic line
+                current_app.logger.info(f"Invoice {inv.id}: No jobs_data, creating generic line")
                 jobs_data.append({
                     'job': None,
                     'date': None,
-                    'hours': 0,
-                    'rate': 0,
+                    'hours': 1.0,
+                    'rate': total,
                     'amount': total,
                     'job_type': inv.job_type if hasattr(inv, 'job_type') else None
                 })
