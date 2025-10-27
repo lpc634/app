@@ -83,8 +83,29 @@ def _render_invoice_pdf_bytes(inv: Invoice) -> bytes | None:
         total = sum(float(row.get('amount') or 0) for row in jobs_data)
 
         # Fallback: if calculated total is 0 but invoice has a total_amount, use that
-        if total == 0 and hasattr(inv, 'total_amount') and inv.total_amount:
+        # This handles cases where line items exist but have zero/null values
+        if total == 0 and hasattr(inv, 'total_amount') and inv.total_amount and float(inv.total_amount) > 0:
             total = float(inv.total_amount)
+            # If we have jobs_data but they sum to 0, fix them by using the invoice total
+            if jobs_data:
+                # Distribute the total amount across the jobs
+                num_jobs = len(jobs_data)
+                amount_per_job = total / num_jobs
+                for job_row in jobs_data:
+                    job_row['amount'] = amount_per_job
+                    # Try to back-calculate hours if we have a rate
+                    if job_row.get('rate') and float(job_row['rate']) > 0:
+                        job_row['hours'] = amount_per_job / float(job_row['rate'])
+            else:
+                # No jobs_data at all - create a generic line
+                jobs_data.append({
+                    'job': None,
+                    'date': None,
+                    'hours': 0,
+                    'rate': 0,
+                    'amount': total,
+                    'job_type': inv.job_type if hasattr(inv, 'job_type') else None
+                })
 
         vat_rate = float(getattr(inv, 'vat_rate', 0) or 0)
         vat = round(total * vat_rate, 2) if vat_rate else 0.0
