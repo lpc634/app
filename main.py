@@ -55,6 +55,7 @@ from src.routes.telegram import telegram_bp, telegram_api_bp, agent_telegram_bp
 from src.routes.police_interactions import bp as police_bp
 from src.routes.forms import forms_bp
 from src.routes.authority_to_act import authority_bp
+from src.routes.contact_forms import contact_forms_bp
 
 
 # --- Flask App Initialization ---
@@ -188,6 +189,7 @@ app.register_blueprint(agent_telegram_bp)
 app.register_blueprint(police_bp, url_prefix='/api')
 app.register_blueprint(forms_bp, url_prefix='/api')
 app.register_blueprint(authority_bp, url_prefix='/api')
+app.register_blueprint(contact_forms_bp, url_prefix='/api')
 
 # ==================== CONTACT FORM AUTOMATION ====================
 # Contact Form Endpoint with OpenAI Auto-Reply, Telegram & Email Integration
@@ -245,9 +247,41 @@ def contact_form():
         app.logger.info(f"[Contact Form {request_id}] Generating GPT reply...")
         gpt_reply = generate_gpt_reply(fields, request_id)
 
+        # STEP 1.5: Save to database
+        app.logger.info(f"[Contact Form {request_id}] Saving to database...")
+        try:
+            from src.models.contact_form import ContactFormSubmission
+            submission = ContactFormSubmission(
+                first_name=first_name,
+                last_name=last_name,
+                company_name=company_name if company_name else None,
+                email=email,
+                phone=phone,
+                callback_requested=request_callback,
+                comments=comments,
+                gpt_reply=gpt_reply,
+                request_id=request_id,
+                telegram_sent=False,  # Will update after sending
+                email_sent=False,  # Will update after sending
+                status='pending'
+            )
+            db.session.add(submission)
+            db.session.commit()
+            app.logger.info(f"[Contact Form {request_id}] Saved to database with ID: {submission.id}")
+        except Exception as e:
+            app.logger.error(f"[Contact Form {request_id}] Failed to save to database: {str(e)}")
+            db.session.rollback()
+
         # STEP 2: Send Telegram Notification (immediately)
         app.logger.info(f"[Contact Form {request_id}] Sending Telegram notification...")
         telegram_sent = send_telegram_notification(fields, gpt_reply, request_id)
+
+        # Update telegram status in database
+        try:
+            submission.telegram_sent = telegram_sent
+            db.session.commit()
+        except Exception:
+            pass
 
         # STEP 3: Queue customer email with delay (background thread)
         app.logger.info(f"[Contact Form {request_id}] Queuing customer email...")
