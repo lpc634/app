@@ -9,9 +9,12 @@ const CreateInvoiceFromJobs = () => {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // State to track selected jobs and their hours, e.g., { jobId: { hours: 8, rate: 25.50 }, ... }
   const [selected, setSelected] = useState({});
+
+  // State for custom invoice number (agents can specify their own numbering)
+  const [customInvoiceNumber, setCustomInvoiceNumber] = useState('');
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -60,6 +63,13 @@ const CreateInvoiceFromJobs = () => {
     }
   };
 
+  const handleInvoiceNumberChange = (value) => {
+    // Allow only positive integers
+    if (/^\d*$/.test(value)) {
+      setCustomInvoiceNumber(value);
+    }
+  };
+
   const totalAmount = useMemo(() => {
     return Object.values(selected).reduce((acc, job) => {
       const hours = parseFloat(job.hours) || 0;
@@ -86,15 +96,23 @@ const CreateInvoiceFromJobs = () => {
       toast.error("No jobs selected", { description: "Please select at least one job and enter both hours worked and your rate." });
       return;
     }
-    
+
+    // Build the payload
+    const payload = { items: itemsToInvoice };
+
+    // Include custom invoice number if provided
+    if (customInvoiceNumber && parseInt(customInvoiceNumber) > 0) {
+      payload.custom_invoice_number = parseInt(customInvoiceNumber);
+    }
+
     // Submit to backend to create invoice
     console.log("Invoice data to be reviewed:", {
-      items: itemsToInvoice,
+      ...payload,
       total: grandTotal
     });
     apiCall('/agent/invoice', {
       method: 'POST',
-      body: JSON.stringify({ items: itemsToInvoice })
+      body: JSON.stringify(payload)
     }).then(() => {
       toast.success("Invoice submitted", { description: `Total £${grandTotal.toFixed(2)}`});
       navigate('/agent/invoices');
@@ -166,6 +184,28 @@ const CreateInvoiceFromJobs = () => {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="dashboard-card p-6">
+        <h2 className="text-xl font-bold text-v3-text-lightest mb-4">Invoice Details</h2>
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="invoice-number" className="block text-sm font-medium text-v3-text-lightest mb-2">
+              Invoice Number (optional)
+            </label>
+            <input
+              id="invoice-number"
+              type="text"
+              placeholder="e.g., 337"
+              value={customInvoiceNumber}
+              onChange={(e) => handleInvoiceNumberChange(e.target.value)}
+              className="w-full sm:w-64 bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+            />
+            <p className="text-xs text-v3-text-muted mt-1">
+              Leave blank to auto-generate an invoice number
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="dashboard-card p-4">

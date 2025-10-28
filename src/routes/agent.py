@@ -1066,7 +1066,8 @@ def create_invoice():
         job_items = data.get('items')
         time_entries = data.get('time_entries')  # New multi-day structure
         # Accept agent_invoice_number from frontend (their personal invoice number)
-        custom_invoice_number = data.get('agent_invoice_number') or data.get('invoice_number')
+        # Support multiple field names for backwards compatibility
+        custom_invoice_number = data.get('custom_invoice_number') or data.get('agent_invoice_number') or data.get('invoice_number')
         # Optional supplier invoicing flow
         # Disallow client-provided supplier spoofing on this agent endpoint
         supplier_email = ''
