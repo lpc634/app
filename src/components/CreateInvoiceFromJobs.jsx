@@ -137,18 +137,37 @@ const CreateInvoiceFromJobs = () => {
       </div>
       
       <div className="dashboard-card p-0">
-         <div className="p-6">
-            <h2 className="text-xl font-bold text-v3-text-lightest">Uninvoiced Jobs</h2>
+         <div className="p-6 border-b border-v3-border">
+            <h2 className="text-xl font-bold text-v3-text-lightest mb-4">Uninvoiced Jobs</h2>
+            <div className="flex items-end gap-4 justify-end">
+              <div className="w-24">
+                <label className="block text-sm font-medium text-v3-text-muted mb-1">Rate (£/h)</label>
+              </div>
+              <div className="w-24">
+                <label className="block text-sm font-medium text-v3-text-muted mb-1">Hours</label>
+              </div>
+              <div className="w-32">
+                <label htmlFor="invoice-number" className="block text-sm font-medium text-v3-text-muted mb-1">Invoice #</label>
+                <input
+                  id="invoice-number"
+                  type="text"
+                  placeholder="e.g., 337"
+                  value={customInvoiceNumber}
+                  onChange={(e) => handleInvoiceNumberChange(e.target.value)}
+                  className="w-full text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+                />
+              </div>
+            </div>
         </div>
-        
+
         {jobs.length === 0 ? (
-          <div className="text-center p-12 border-t border-v3-border">
+          <div className="text-center p-12">
             <AlertCircle className="mx-auto h-12 w-12 text-v3-text-muted mb-4" />
             <h3 className="text-lg font-medium text-v3-text-lightest">No Jobs to Invoice</h3>
             <p className="text-v3-text-muted mt-1">You have no completed jobs that are pending an invoice.</p>
           </div>
         ) : (
-          <div className="divide-y divide-v3-border border-t border-v3-border">
+          <div className="divide-y divide-v3-border">
             {jobs.map(job => (
               <div key={job.id} className={`p-4 flex flex-col md:flex-row items-start md:items-center gap-4 ${selected[job.id] ? 'bg-v3-bg-dark' : ''}`}>
                 <div className="flex items-center gap-4 flex-shrink-0 cursor-pointer" onClick={() => handleToggleJob(job)}>
@@ -184,28 +203,6 @@ const CreateInvoiceFromJobs = () => {
             ))}
           </div>
         )}
-      </div>
-
-      <div className="dashboard-card p-6">
-        <h2 className="text-xl font-bold text-v3-text-lightest mb-4">Invoice Details</h2>
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="invoice-number" className="block text-sm font-medium text-v3-text-lightest mb-2">
-              Invoice Number (optional)
-            </label>
-            <input
-              id="invoice-number"
-              type="text"
-              placeholder="e.g., 337"
-              value={customInvoiceNumber}
-              onChange={(e) => handleInvoiceNumberChange(e.target.value)}
-              className="w-full sm:w-64 bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
-            />
-            <p className="text-xs text-v3-text-muted mt-1">
-              Leave blank to auto-generate an invoice number
-            </p>
-          </div>
-        </div>
       </div>
 
       <div className="dashboard-card p-4">
