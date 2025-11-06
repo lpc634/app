@@ -15,7 +15,7 @@ from datetime import datetime, date, timedelta
 from sqlalchemy import or_, and_, func
 import logging
 
-crm_bp = Blueprint('crm', __name__)
+crm_bp = Blueprint('crm', __name__, url_prefix='/crm')
 logger = logging.getLogger(__name__)
 
 
@@ -49,7 +49,7 @@ def _parse_date(date_str):
 # CONTACT ENDPOINTS
 # ============================================================================
 
-@crm_bp.route('/crm/contacts', methods=['GET'])
+@crm_bp.route('/contacts', methods=['GET'])
 @jwt_required()
 def list_contacts():
     """
@@ -111,7 +111,7 @@ def list_contacts():
         return jsonify({'error': 'Failed to fetch contacts'}), 500
 
 
-@crm_bp.route('/crm/contacts/<int:contact_id>', methods=['GET'])
+@crm_bp.route('/contacts/<int:contact_id>', methods=['GET'])
 @jwt_required()
 def get_contact(contact_id):
     """Get single contact with full details including notes and files"""
@@ -141,7 +141,7 @@ def get_contact(contact_id):
         return jsonify({'error': 'Failed to fetch contact'}), 500
 
 
-@crm_bp.route('/crm/contacts', methods=['POST'])
+@crm_bp.route('/contacts', methods=['POST'])
 @jwt_required()
 def create_contact():
     """Create new CRM contact"""
@@ -189,7 +189,7 @@ def create_contact():
         return jsonify({'error': 'Failed to create contact'}), 500
 
 
-@crm_bp.route('/crm/contacts/<int:contact_id>', methods=['PUT'])
+@crm_bp.route('/contacts/<int:contact_id>', methods=['PUT'])
 @jwt_required()
 def update_contact(contact_id):
     """Update existing contact"""
@@ -249,7 +249,7 @@ def update_contact(contact_id):
         return jsonify({'error': 'Failed to update contact'}), 500
 
 
-@crm_bp.route('/crm/contacts/<int:contact_id>', methods=['DELETE'])
+@crm_bp.route('/contacts/<int:contact_id>', methods=['DELETE'])
 @jwt_required()
 def delete_contact(contact_id):
     """Delete contact (and cascade delete notes/files)"""
@@ -277,7 +277,7 @@ def delete_contact(contact_id):
 # NOTES ENDPOINTS
 # ============================================================================
 
-@crm_bp.route('/crm/contacts/<int:contact_id>/notes', methods=['POST'])
+@crm_bp.route('/contacts/<int:contact_id>/notes', methods=['POST'])
 @jwt_required()
 def add_note(contact_id):
     """Add note to contact"""
@@ -315,7 +315,7 @@ def add_note(contact_id):
         return jsonify({'error': 'Failed to add note'}), 500
 
 
-@crm_bp.route('/crm/notes/<int:note_id>', methods=['DELETE'])
+@crm_bp.route('/notes/<int:note_id>', methods=['DELETE'])
 @jwt_required()
 def delete_note(note_id):
     """Delete note"""
@@ -343,7 +343,7 @@ def delete_note(note_id):
 # FILE UPLOAD ENDPOINTS
 # ============================================================================
 
-@crm_bp.route('/crm/contacts/<int:contact_id>/files', methods=['POST'])
+@crm_bp.route('/contacts/<int:contact_id>/files', methods=['POST'])
 @jwt_required()
 def upload_file(contact_id):
     """Upload file for contact (uses S3)"""
@@ -400,7 +400,7 @@ def upload_file(contact_id):
         return jsonify({'error': 'Failed to upload file'}), 500
 
 
-@crm_bp.route('/crm/files/<int:file_id>', methods=['DELETE'])
+@crm_bp.route('/files/<int:file_id>', methods=['DELETE'])
 @jwt_required()
 def delete_file(file_id):
     """Delete file"""
@@ -431,7 +431,7 @@ def delete_file(file_id):
 # DASHBOARD & STATISTICS
 # ============================================================================
 
-@crm_bp.route('/crm/dashboard', methods=['GET'])
+@crm_bp.route('/dashboard', methods=['GET'])
 @jwt_required()
 def get_dashboard():
     """
@@ -529,7 +529,7 @@ def get_dashboard():
 # EMAIL CONFIGURATION (FUTURE FEATURE)
 # ============================================================================
 
-@crm_bp.route('/crm/email-config', methods=['GET'])
+@crm_bp.route('/email-config', methods=['GET'])
 @jwt_required()
 def get_email_config():
     """Get current admin's email configuration"""
@@ -552,7 +552,7 @@ def get_email_config():
         return jsonify({'error': 'Failed to fetch email config'}), 500
 
 
-@crm_bp.route('/crm/email-config', methods=['POST'])
+@crm_bp.route('/email-config', methods=['POST'])
 @jwt_required()
 def save_email_config():
     """Save or update email configuration"""
