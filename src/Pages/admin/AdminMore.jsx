@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
-import { BarChart3, Search, FileText, DollarSign, Bug, MessageCircle, FileEdit, FileSignature, Mail, Shield, MessageSquare } from "lucide-react";
+import { BarChart3, Search, FileText, DollarSign, Bug, MessageCircle, FileEdit, FileSignature, Mail, Shield, MessageSquare, Users } from "lucide-react";
 
 export default function AdminMore() {
   const links = [
+    { to: "/admin/crm", label: "CRM System", icon: Users, description: "Manage clients, prospects, and partners" },
     { to: "/admin/vehicle-search", label: "Vehicle Search", icon: Search, description: "Search vehicle registration data" },
     { to: "/police-interactions", label: "Police Interactions", icon: Shield, description: "Log and view police reports" },
     { to: "/admin/v3-reports", label: "V3 Job Reports", icon: FileEdit, description: "View and manage job reports" },

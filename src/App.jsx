@@ -35,6 +35,7 @@ import AdminDocumentReview from './components/AdminDocumentReview';
 import AdminExpenses from './Pages/AdminExpenses';
 import PoliceInteractionsPage from './Pages/PoliceInteractionsPage.jsx';
 import AdminContactForms from './Pages/AdminContactForms.jsx';
+import CRMPage from './Pages/CRMPage.jsx';
 
 import NotificationsPage from './Pages/NotificationsPage';
 import ProfilePage from './Pages/ProfilePage';
@@ -122,6 +123,7 @@ function App() {
           <Route path="/debug" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><DebugPage /></Layout></ProtectedRoute>} />
           <Route path="/police-interactions" element={<ProtectedRoute allowedRoles={['admin', 'manager', 'agent']}><Layout><PoliceInteractionsPage /></Layout></ProtectedRoute>} />
           <Route path="/admin/contact-forms" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><AdminContactForms /></Layout></ProtectedRoute>} />
+          <Route path="/admin/crm" element={<ProtectedRoute allowedRoles={['admin']}><Layout><CRMPage /></Layout></ProtectedRoute>} />
 
           {/* Agent Routes */}
           <Route element={<ProtectedRoute allowedRoles={['agent', 'admin', 'manager']}><AgentLayout /></ProtectedRoute>}>
