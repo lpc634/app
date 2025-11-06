@@ -5,13 +5,14 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "./useAuth.jsx";
 
 // --- 1. IMPORT THE SEARCH ICON ---
-import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search, FileText, DollarSign, BellOff, MessageCircle, FileEdit, FileSignature, Mail, MessageSquare } from 'lucide-react';
+import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search, FileText, DollarSign, BellOff, MessageCircle, FileEdit, FileSignature, Mail, MessageSquare, UserCheck } from 'lucide-react';
 import logo from './assets/new_logo.png';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Jobs', href: '/jobs', icon: Briefcase },
   { name: 'Agents', href: '/agents', icon: Users },
+  { name: 'CRM', href: '/admin/crm', icon: UserCheck, adminOnly: true },
   { name: 'Vehicle Search', href: '/admin/vehicle-search', icon: Search },
   { name: 'Police Interactions', href: '/police-interactions', icon: FileText },
   { name: 'V3 Job Reports', href: '/admin/v3-reports', icon: FileEdit },
