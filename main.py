@@ -778,7 +778,11 @@ def internal_server_error(e):
 
 # --- App Initialization Block ---
 with app.app_context():
-    db.create_all()  # Create tables first
+    # Avoid creating tables outside Alembic in production
+    if os.getenv('FLASK_ENV') == 'development' or os.getenv('RUN_DB_CREATE_ALL') == 'true':
+        db.create_all()
+    else:
+        app.logger.info('Skipping db.create_all() in non-development environment; using Alembic migrations instead')
     init_scheduler(app)  # Then initialize scheduler
     try:
         # Optionally set Telegram webhook on startup
