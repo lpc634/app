@@ -38,15 +38,15 @@ class CRMContact(db.Model):
     total_jobs_referred = db.Column(db.Integer, nullable=False, default=0)
     last_referral_date = db.Column(db.Date, nullable=True)
 
-    # Ownership
-    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)  # Which admin owns this contact
+    # Ownership - CRM users (separate from main admin system)
+    owner_id = db.Column(db.Integer, db.ForeignKey('crm_users.id'), nullable=True, index=True)  # Which CRM user owns this contact
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     # Relationships
-    owner = db.relationship('User', foreign_keys=[owner_id])
+    owner = db.relationship('CRMUser', foreign_keys=[owner_id])
     notes = db.relationship('CRMNote', back_populates='contact', cascade='all, delete-orphan', lazy='dynamic')
     files = db.relationship('CRMFile', back_populates='contact', cascade='all, delete-orphan', lazy='dynamic')
 
@@ -71,7 +71,7 @@ class CRMContact(db.Model):
             'total_jobs_referred': self.total_jobs_referred,
             'last_referral_date': self.last_referral_date.isoformat() if self.last_referral_date else None,
             'owner_id': self.owner_id,
-            'owner_name': f"{self.owner.first_name} {self.owner.last_name}" if self.owner else None,
+            'owner_name': self.owner.username if self.owner else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

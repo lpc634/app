@@ -4,8 +4,9 @@ Handles eviction clients, prevention prospects, and referral partners
 """
 
 from flask import Blueprint, jsonify, request, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token, get_jwt
 from src.models.user import User, db
+from src.models.crm_user import CRMUser
 from src.models.crm_contact import CRMContact
 from src.models.crm_note import CRMNote
 from src.models.crm_file import CRMFile
@@ -23,16 +24,31 @@ logger = logging.getLogger(__name__)
 # HELPER FUNCTIONS
 # ============================================================================
 
-def require_admin():
-    """Ensure current user is admin"""
+def require_crm_user():
+    """Ensure current user is a CRM user (separate from main admin system)"""
     try:
-        current_user_id = get_jwt_identity()
-        user = User.query.get(int(current_user_id)) if current_user_id is not None else None
-        if not user or user.role != 'admin':
+        claims = get_jwt()
+        if not claims.get('crm_user'):
             return None
-        return user
+
+        user_id = get_jwt_identity()
+        crm_user = CRMUser.query.get(int(user_id))
+        return crm_user
     except Exception:
         return None
+
+
+def require_super_admin():
+    """Ensure current user is a CRM super admin"""
+    crm_user = require_crm_user()
+    if not crm_user or not crm_user.is_super_admin:
+        return None
+    return crm_user
+
+
+def require_admin():
+    """DEPRECATED: Use require_crm_user() instead. Kept for backwards compatibility."""
+    return require_crm_user()
 
 
 def _parse_date(date_str):
@@ -56,6 +72,76 @@ def _parse_numeric(value):
 
 
 # ============================================================================
+# AUTHENTICATION ENDPOINTS (CRM-specific login system)
+# ============================================================================
+
+@crm_bp.route('/auth/login', methods=['POST'])
+def crm_login():
+    """Login to CRM (separate from main admin login)"""
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+
+        if not username or not password:
+            return jsonify({'error': 'Username and password required'}), 400
+
+        crm_user = CRMUser.query.filter_by(username=username).first()
+
+        if not crm_user or not crm_user.check_password(password):
+            return jsonify({'error': 'Invalid credentials'}), 401
+
+        # Create separate JWT token for CRM with special claims
+        access_token = create_access_token(
+            identity=str(crm_user.id),
+            additional_claims={
+                'crm_user': True,
+                'is_super_admin': crm_user.is_super_admin
+            }
+        )
+
+        logger.info(f"CRM user {username} logged in successfully")
+
+        return jsonify({
+            'access_token': access_token,
+            'user': crm_user.to_dict()
+        }), 200
+
+    except Exception as e:
+        logger.exception("Error during CRM login: %s", e)
+        return jsonify({'error': 'Login failed'}), 500
+
+
+@crm_bp.route('/auth/me', methods=['GET'])
+@jwt_required()
+def crm_current_user():
+    """Get current CRM user"""
+    try:
+        claims = get_jwt()
+        if not claims.get('crm_user'):
+            return jsonify({'error': 'Not a CRM user'}), 403
+
+        user_id = get_jwt_identity()
+        crm_user = CRMUser.query.get(int(user_id))
+
+        if not crm_user:
+            return jsonify({'error': 'User not found'}), 404
+
+        return jsonify(crm_user.to_dict(include_email_config=True)), 200
+
+    except Exception as e:
+        logger.exception("Error getting current CRM user: %s", e)
+        return jsonify({'error': 'Failed to get user'}), 500
+
+
+@crm_bp.route('/auth/logout', methods=['POST'])
+@jwt_required()
+def crm_logout():
+    """Logout from CRM (JWT is stateless, so just tell frontend to remove token)"""
+    return jsonify({'message': 'Logged out successfully'}), 200
+
+
+# ============================================================================
 # CONTACT ENDPOINTS
 # ============================================================================
 
@@ -65,14 +151,14 @@ def list_contacts():
     """
     List CRM contacts with filtering
     Query params:
-    - view: 'my' (only my contacts) or 'team' (all contacts)
+    - view: 'my' (only my contacts) or 'team' (all contacts - super admin only)
     - type: 'eviction_client', 'prevention_prospect', 'referral_partner'
     - status: 'active', 'won', 'lost', 'dormant'
     - search: search in name, email, company
     """
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden - Admin access required'}), 403
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
 
     try:
         # Base query
@@ -80,8 +166,14 @@ def list_contacts():
 
         # View filter (personal vs team)
         view = request.args.get('view', 'my')
-        if view == 'my':
-            query = query.filter(CRMContact.owner_id == user.id)
+        if view == 'team':
+            # Team view - only super admins can see all contacts
+            if not crm_user.is_super_admin:
+                return jsonify({'error': 'Super admin access required for team view'}), 403
+            # Show all contacts for super admin
+        else:
+            # My view - show only user's contacts
+            query = query.filter(CRMContact.owner_id == crm_user.id)
 
         # Type filter
         contact_type = request.args.get('type')
@@ -125,9 +217,9 @@ def list_contacts():
 @jwt_required()
 def get_contact(contact_id):
     """Get single contact with full details including notes and files"""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden - Admin access required'}), 403
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
 
     try:
         contact = CRMContact.query.get(contact_id)
@@ -155,9 +247,9 @@ def get_contact(contact_id):
 @jwt_required()
 def create_contact():
     """Create new CRM contact"""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden - Admin access required'}), 403
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
 
     try:
         data = request.json
@@ -182,7 +274,7 @@ def create_contact():
             status=data.get('status', 'active'),
             next_followup_date=_parse_date(data.get('next_followup_date')),
             potential_value=_parse_numeric(data.get('potential_value')),
-            owner_id=user.id  # Set current admin as owner
+            owner_id=crm_user.id  # Set current CRM user as owner
         )
 
         db.session.add(contact)
@@ -203,9 +295,9 @@ def create_contact():
 @jwt_required()
 def update_contact(contact_id):
     """Update existing contact"""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden - Admin access required'}), 403
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
 
     try:
         contact = CRMContact.query.get(contact_id)
@@ -263,9 +355,9 @@ def update_contact(contact_id):
 @jwt_required()
 def delete_contact(contact_id):
     """Delete contact (and cascade delete notes/files)"""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden - Admin access required'}), 403
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
 
     try:
         contact = CRMContact.query.get(contact_id)
@@ -291,9 +383,9 @@ def delete_contact(contact_id):
 @jwt_required()
 def add_note(contact_id):
     """Add note to contact"""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden - Admin access required'}), 403
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
 
     try:
         contact = CRMContact.query.get(contact_id)
@@ -329,9 +421,9 @@ def add_note(contact_id):
 @jwt_required()
 def delete_note(note_id):
     """Delete note"""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden - Admin access required'}), 403
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
 
     try:
         note = CRMNote.query.get(note_id)
@@ -357,9 +449,9 @@ def delete_note(note_id):
 @jwt_required()
 def upload_file(contact_id):
     """Upload file for contact (uses S3)"""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden - Admin access required'}), 403
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
 
     try:
         contact = CRMContact.query.get(contact_id)
@@ -414,9 +506,9 @@ def upload_file(contact_id):
 @jwt_required()
 def delete_file(file_id):
     """Delete file"""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden - Admin access required'}), 403
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
 
     try:
         crm_file = CRMFile.query.get(file_id)
@@ -449,18 +541,23 @@ def get_dashboard():
     Query params:
     - view: 'my' or 'team'
     """
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden - Admin access required'}), 403
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
 
     try:
         view = request.args.get('view', 'my')
 
         # Base query
         if view == 'my':
-            base_query = CRMContact.query.filter_by(owner_id=user.id)
-        else:
+            base_query = CRMContact.query.filter_by(owner_id=crm_user.id)
+        elif view == 'team':
+            # Team view - super admin only
+            if not crm_user.is_super_admin:
+                return jsonify({'error': 'Super admin access required for team view'}), 403
             base_query = CRMContact.query
+        else:
+            base_query = CRMContact.query.filter_by(owner_id=crm_user.id)
 
         today = date.today()
 
@@ -492,7 +589,7 @@ def get_dashboard():
         potential_revenue = db.session.query(
             func.sum(CRMContact.potential_value)
         ).filter(
-            CRMContact.owner_id == user.id if view == 'my' else True,
+            CRMContact.owner_id == crm_user.id if view == 'my' else True,
             CRMContact.status == 'active',
             CRMContact.potential_value.isnot(None)
         ).scalar() or 0
@@ -543,12 +640,12 @@ def get_dashboard():
 @jwt_required()
 def get_email_config():
     """Get current admin's email configuration"""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden - Admin access required'}), 403
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
 
     try:
-        config = CRMEmailConfig.query.filter_by(admin_id=user.id).first()
+        config = CRMEmailConfig.query.filter_by(admin_id=crm_user.id).first()
         if not config:
             return jsonify({'configured': False, 'config': None})
 
@@ -566,9 +663,9 @@ def get_email_config():
 @jwt_required()
 def save_email_config():
     """Save or update email configuration"""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden - Admin access required'}), 403
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
 
     try:
         data = request.json
@@ -577,9 +674,9 @@ def save_email_config():
             return jsonify({'error': 'Email and password are required'}), 400
 
         # Get or create config
-        config = CRMEmailConfig.query.filter_by(admin_id=user.id).first()
+        config = CRMEmailConfig.query.filter_by(admin_id=crm_user.id).first()
         if not config:
-            config = CRMEmailConfig(admin_id=user.id)
+            config = CRMEmailConfig(admin_id=crm_user.id)
             db.session.add(config)
 
         # Update config
