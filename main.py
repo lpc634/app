@@ -191,7 +191,7 @@ app.register_blueprint(police_bp, url_prefix='/api')
 app.register_blueprint(forms_bp, url_prefix='/api')
 app.register_blueprint(authority_bp, url_prefix='/api')
 app.register_blueprint(contact_forms_bp, url_prefix='/api')
-app.register_blueprint(crm_bp, url_prefix='/api')
+app.register_blueprint(crm_bp)
 
 # ==================== CONTACT FORM AUTOMATION ====================
 # Contact Form Endpoint with OpenAI Auto-Reply, Telegram & Email Integration
