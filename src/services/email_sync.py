@@ -41,7 +41,7 @@ class EmailSyncService:
 
             # Search in INBOX
             mail.select('INBOX')
-            search_criteria = f'(OR FROM "{contact.email}" TO "{contact.email}")'
+            search_criteria = f'OR FROM {contact.email} TO {contact.email}'
             status, messages = mail.search(None, search_criteria)
 
             if status != 'OK':
