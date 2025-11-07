@@ -10,7 +10,9 @@ from src.models.crm_user import CRMUser
 from src.models.crm_contact import CRMContact
 from src.models.crm_note import CRMNote
 from src.models.crm_file import CRMFile
+from src.models.crm_email import CRMEmail
 from src.models.crm_email_config import CRMEmailConfig
+from src.services.email_sync import EmailSyncService
 from src.utils.s3_client import s3_client
 from datetime import datetime, date, timedelta
 from sqlalchemy import or_, and_, func
@@ -566,6 +568,83 @@ def delete_note(note_id):
         db.session.rollback()
         logger.exception("Error deleting note %s: %s", note_id, e)
         return jsonify({'error': 'Failed to delete note'}), 500
+
+
+# ============================================================================
+# EMAIL SYNC ENDPOINTS
+# ============================================================================
+
+@crm_bp.route('/contacts/<int:contact_id>/sync-emails', methods=['POST'])
+@jwt_required()
+def sync_contact_emails(contact_id):
+    """Sync emails for a specific contact"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        # Get contact
+        contact = CRMContact.query.get(contact_id)
+        if not contact:
+            return jsonify({'error': 'Contact not found'}), 404
+
+        # Check ownership
+        if contact.owner_id != crm_user.id and not crm_user.is_super_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Check email configuration
+        if not crm_user.imap_server or not crm_user.imap_email:
+            return jsonify({'error': 'Email not configured. Please set up email in Settings.'}), 400
+
+        # Sync emails
+        results = EmailSyncService.sync_contact_emails(crm_user, contact)
+
+        if results['success']:
+            return jsonify({
+                'message': f"Synced successfully! Found {results['new_emails']} new emails.",
+                'new_emails': results['new_emails'],
+                'total_emails': results['total_emails']
+            }), 200
+        else:
+            return jsonify({'error': results['error']}), 500
+
+    except Exception as e:
+        logger.exception("Error syncing emails for contact %s: %s", contact_id, e)
+        return jsonify({'error': f'Sync failed: {str(e)}'}), 500
+
+
+@crm_bp.route('/contacts/<int:contact_id>/emails', methods=['GET'])
+@jwt_required()
+def get_contact_emails(contact_id):
+    """Get all emails for a contact"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        # Get contact
+        contact = CRMContact.query.get(contact_id)
+        if not contact:
+            return jsonify({'error': 'Contact not found'}), 404
+
+        # Check ownership
+        if contact.owner_id != crm_user.id and not crm_user.is_super_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get emails, ordered by date descending
+        emails = CRMEmail.query.filter_by(
+            contact_id=contact_id,
+            user_id=crm_user.id
+        ).order_by(CRMEmail.date.desc()).all()
+
+        return jsonify({
+            'emails': [email.to_dict() for email in emails],
+            'count': len(emails)
+        }), 200
+
+    except Exception as e:
+        logger.exception("Error getting emails for contact %s: %s", contact_id, e)
+        return jsonify({'error': 'Failed to load emails'}), 500
 
 
 # ============================================================================
