@@ -116,7 +116,7 @@ export default function CRMPage() {
   // API Calls
   const fetchDashboard = async () => {
     try {
-      const data = await apiCall(`/api/crm/dashboard?view=${view}`);
+      const data = await apiCall(`/crm/dashboard?view=${view}`);
       setDashboard(data);
     } catch (error) {
       console.error('Error fetching dashboard:', error);
@@ -131,7 +131,7 @@ export default function CRMPage() {
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (searchTerm) params.append('search', searchTerm);
 
-      const data = await apiCall(`/api/crm/contacts?${params.toString()}`);
+      const data = await apiCall(`/crm/contacts?${params.toString()}`);
       setContacts(data.contacts || []);
     } catch (error) {
       toast.error('Failed to load contacts');
@@ -142,7 +142,7 @@ export default function CRMPage() {
 
   const fetchContactDetails = async (contactId) => {
     try {
-      const data = await apiCall(`/api/crm/contacts/${contactId}`);
+      const data = await apiCall(`/crm/contacts/${contactId}`);
       setSelectedContact(data);
       setNotes(data.notes || []);
       setShowDetailsModal(true);
@@ -153,7 +153,7 @@ export default function CRMPage() {
 
   const createContact = async () => {
     try {
-      await apiCall('/api/crm/contacts', {
+      await apiCall('/crm/contacts', {
         method: 'POST',
         body: JSON.stringify(formData)
       });
@@ -169,7 +169,7 @@ export default function CRMPage() {
 
   const updateContact = async () => {
     try {
-      await apiCall(`/api/crm/contacts/${selectedContact.id}`, {
+      await apiCall(`/crm/contacts/${selectedContact.id}`, {
         method: 'PUT',
         body: JSON.stringify(formData)
       });
@@ -187,7 +187,7 @@ export default function CRMPage() {
     if (!newNote.trim()) return;
 
     try {
-      await apiCall(`/api/crm/contacts/${selectedContact.id}/notes`, {
+      await apiCall(`/crm/contacts/${selectedContact.id}/notes`, {
         method: 'POST',
         body: JSON.stringify({
           content: newNote,
@@ -206,7 +206,7 @@ export default function CRMPage() {
     if (!confirm('Are you sure you want to delete this contact?')) return;
 
     try {
-      await apiCall(`/api/crm/contacts/${contactId}`, { method: 'DELETE' });
+      await apiCall(`/crm/contacts/${contactId}`, { method: 'DELETE' });
       toast.success('Contact deleted');
       setShowDetailsModal(false);
       fetchContacts();
