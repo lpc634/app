@@ -62,7 +62,13 @@ const CONTACT_STATUS = [
 
 export default function CRMPage() {
   const { register } = usePageHeader();
-  const { apiCall } = useAuth();
+
+  // CRM Authentication State
+  const [crmUser, setCrmUser] = useState(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   // State
   const [contacts, setContacts] = useState([]);
@@ -107,17 +113,110 @@ export default function CRMPage() {
     register('CRM System', 'Manage eviction clients, prevention prospects, and referral partners');
   }, [register]);
 
+  // Check CRM authentication on mount
+  useEffect(() => {
+    const checkCrmAuth = async () => {
+      const token = localStorage.getItem('crm_token');
+
+      if (!token) {
+        setShowLoginModal(true);
+        setIsCheckingAuth(false);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/crm/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setCrmUser(data);
+          setIsCheckingAuth(false);
+        } else {
+          // Token invalid, remove it and show login
+          localStorage.removeItem('crm_token');
+          setShowLoginModal(true);
+          setIsCheckingAuth(false);
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        localStorage.removeItem('crm_token');
+        setShowLoginModal(true);
+        setIsCheckingAuth(false);
+      }
+    };
+
+    checkCrmAuth();
+  }, []);
+
   // Load data
   useEffect(() => {
-    fetchDashboard();
-    fetchContacts();
-  }, [view, typeFilter, statusFilter]);
+    if (crmUser) {
+      fetchDashboard();
+      fetchContacts();
+    }
+  }, [view, typeFilter, statusFilter, crmUser]);
+
+  // Login handler
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoginError('');
+
+    try {
+      const response = await fetch('/api/crm/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginForm)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('crm_token', data.access_token);
+        setCrmUser(data.user);
+        setShowLoginModal(false);
+        setLoginForm({ username: '', password: '' });
+        toast.success('Logged in successfully');
+      } else {
+        const error = await response.json();
+        setLoginError(error.error || 'Login failed');
+      }
+    } catch (error) {
+      setLoginError('Network error - please try again');
+    }
+  };
+
+  // Logout handler
+  const handleLogout = () => {
+    localStorage.removeItem('crm_token');
+    setCrmUser(null);
+    setShowLoginModal(true);
+    toast.success('Logged out');
+  };
 
   // API Calls
   const fetchDashboard = async () => {
     try {
-      const data = await apiCall(`/crm/dashboard?view=${view}`);
-      setDashboard(data);
+      const token = localStorage.getItem('crm_token');
+      const response = await fetch(`/api/crm/dashboard?view=${view}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDashboard(data);
+      } else if (response.status === 403 || response.status === 401) {
+        // Not authorized or token expired
+        localStorage.removeItem('crm_token');
+        setCrmUser(null);
+        setShowLoginModal(true);
+      }
     } catch (error) {
       console.error('Error fetching dashboard:', error);
     }
@@ -131,8 +230,24 @@ export default function CRMPage() {
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (searchTerm) params.append('search', searchTerm);
 
-      const data = await apiCall(`/crm/contacts?${params.toString()}`);
-      setContacts(data.contacts || []);
+      const token = localStorage.getItem('crm_token');
+      const response = await fetch(`/api/crm/contacts?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setContacts(data.contacts || []);
+      } else if (response.status === 403 || response.status === 401) {
+        localStorage.removeItem('crm_token');
+        setCrmUser(null);
+        setShowLoginModal(true);
+      } else {
+        toast.error('Failed to load contacts');
+      }
     } catch (error) {
       toast.error('Failed to load contacts');
     } finally {
@@ -142,10 +257,22 @@ export default function CRMPage() {
 
   const fetchContactDetails = async (contactId) => {
     try {
-      const data = await apiCall(`/crm/contacts/${contactId}`);
-      setSelectedContact(data);
-      setNotes(data.notes || []);
-      setShowDetailsModal(true);
+      const token = localStorage.getItem('crm_token');
+      const response = await fetch(`/api/crm/contacts/${contactId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedContact(data);
+        setNotes(data.notes || []);
+        setShowDetailsModal(true);
+      } else {
+        toast.error('Failed to load contact details');
+      }
     } catch (error) {
       toast.error('Failed to load contact details');
     }
@@ -153,15 +280,25 @@ export default function CRMPage() {
 
   const createContact = async () => {
     try {
-      await apiCall('/crm/contacts', {
+      const token = localStorage.getItem('crm_token');
+      const response = await fetch('/api/crm/contacts', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(formData)
       });
-      toast.success('Contact created successfully');
-      setShowContactModal(false);
-      resetForm();
-      fetchContacts();
-      fetchDashboard();
+
+      if (response.ok) {
+        toast.success('Contact created successfully');
+        setShowContactModal(false);
+        resetForm();
+        fetchContacts();
+        fetchDashboard();
+      } else {
+        toast.error('Failed to create contact');
+      }
     } catch (error) {
       toast.error('Failed to create contact');
     }
@@ -169,15 +306,25 @@ export default function CRMPage() {
 
   const updateContact = async () => {
     try {
-      await apiCall(`/crm/contacts/${selectedContact.id}`, {
+      const token = localStorage.getItem('crm_token');
+      const response = await fetch(`/api/crm/contacts/${selectedContact.id}`, {
         method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(formData)
       });
-      toast.success('Contact updated successfully');
-      setEditMode(false);
-      fetchContactDetails(selectedContact.id);
-      fetchContacts();
-      fetchDashboard();
+
+      if (response.ok) {
+        toast.success('Contact updated successfully');
+        setEditMode(false);
+        fetchContactDetails(selectedContact.id);
+        fetchContacts();
+        fetchDashboard();
+      } else {
+        toast.error('Failed to update contact');
+      }
     } catch (error) {
       toast.error('Failed to update contact');
     }
@@ -187,16 +334,26 @@ export default function CRMPage() {
     if (!newNote.trim()) return;
 
     try {
-      await apiCall(`/crm/contacts/${selectedContact.id}/notes`, {
+      const token = localStorage.getItem('crm_token');
+      const response = await fetch(`/api/crm/contacts/${selectedContact.id}/notes`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           content: newNote,
           note_type: noteType
         })
       });
-      toast.success('Note added');
-      setNewNote('');
-      fetchContactDetails(selectedContact.id);
+
+      if (response.ok) {
+        toast.success('Note added');
+        setNewNote('');
+        fetchContactDetails(selectedContact.id);
+      } else {
+        toast.error('Failed to add note');
+      }
     } catch (error) {
       toast.error('Failed to add note');
     }
@@ -206,11 +363,23 @@ export default function CRMPage() {
     if (!confirm('Are you sure you want to delete this contact?')) return;
 
     try {
-      await apiCall(`/crm/contacts/${contactId}`, { method: 'DELETE' });
-      toast.success('Contact deleted');
-      setShowDetailsModal(false);
-      fetchContacts();
-      fetchDashboard();
+      const token = localStorage.getItem('crm_token');
+      const response = await fetch(`/api/crm/contacts/${contactId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        toast.success('Contact deleted');
+        setShowDetailsModal(false);
+        fetchContacts();
+        fetchDashboard();
+      } else {
+        toast.error('Failed to delete contact');
+      }
     } catch (error) {
       toast.error('Failed to delete contact');
     }
@@ -277,8 +446,88 @@ export default function CRMPage() {
     return colors[status] || 'text-gray-600';
   };
 
+  // Show login modal if not authenticated
+  if (showLoginModal) {
+    return (
+      <div className="fixed inset-0 bg-v3-bg-darker flex items-center justify-center z-50">
+        <div className="dashboard-card max-w-md w-full mx-4">
+          <h2 className="text-2xl font-bold text-v3-text-lightest mb-6 text-center">CRM Login</h2>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm text-v3-text-light mb-1">Username</label>
+              <input
+                type="text"
+                value={loginForm.username}
+                onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                className="v3-input w-full"
+                required
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-v3-text-light mb-1">Password</label>
+              <input
+                type="password"
+                value={loginForm.password}
+                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                className="v3-input w-full"
+                required
+              />
+            </div>
+
+            {loginError && (
+              <div className="p-3 bg-red-500/20 border border-red-500 rounded text-red-400 text-sm">
+                {loginError}
+              </div>
+            )}
+
+            <button type="submit" className="button-refresh w-full">
+              Login to CRM
+            </button>
+          </form>
+
+          <p className="text-xs text-v3-text-muted text-center mt-4">
+            Separate CRM authentication required
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="page-container">
+        <p className="text-center text-v3-text-muted py-8">Checking authentication...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="page-container">
+      {/* User info and logout */}
+      {crmUser && (
+        <div className="dashboard-card mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-v3-text-light">Logged in as:</span>
+            <span className="font-semibold text-v3-text-lightest">{crmUser.username}</span>
+            {crmUser.is_super_admin && (
+              <span className="px-2 py-1 bg-v3-brand/20 text-v3-brand text-xs rounded">
+                Super Admin
+              </span>
+            )}
+          </div>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker transition-colors"
+          >
+            Logout
+          </button>
+        </div>
+      )}
+
       {/* Dashboard Stats */}
       {dashboard && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -334,12 +583,14 @@ export default function CRMPage() {
             >
               My Contacts
             </button>
-            <button
-              onClick={() => setView('team')}
-              className={`px-4 py-2 rounded ${view === 'team' ? 'bg-v3-brand text-white' : 'bg-v3-bg-card text-v3-text-light'}`}
-            >
-              Team View
-            </button>
+            {crmUser?.is_super_admin && (
+              <button
+                onClick={() => setView('team')}
+                className={`px-4 py-2 rounded ${view === 'team' ? 'bg-v3-brand text-white' : 'bg-v3-bg-card text-v3-text-light'}`}
+              >
+                Team View
+              </button>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2">
