@@ -15,7 +15,7 @@ from datetime import datetime, date, timedelta
 from sqlalchemy import or_, and_, func
 import logging
 
-crm_bp = Blueprint('crm', __name__, url_prefix='/api/crm')
+crm_bp = Blueprint('crm', __name__)
 logger = logging.getLogger(__name__)
 
 
