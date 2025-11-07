@@ -45,6 +45,16 @@ def _parse_date(date_str):
         return None
 
 
+def _parse_numeric(value):
+    """Parse numeric value, converting empty strings to None"""
+    if value == '' or value is None:
+        return None
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return None
+
+
 # ============================================================================
 # CONTACT ENDPOINTS
 # ============================================================================
@@ -171,7 +181,7 @@ def create_contact():
             current_stage=data.get('current_stage', 'new_inquiry'),
             status=data.get('status', 'active'),
             next_followup_date=_parse_date(data.get('next_followup_date')),
-            potential_value=data.get('potential_value'),
+            potential_value=_parse_numeric(data.get('potential_value')),
             owner_id=user.id  # Set current admin as owner
         )
 
@@ -232,9 +242,9 @@ def update_contact(contact_id):
         if 'next_followup_date' in data:
             contact.next_followup_date = _parse_date(data['next_followup_date'])
         if 'potential_value' in data:
-            contact.potential_value = data['potential_value']
+            contact.potential_value = _parse_numeric(data['potential_value'])
         if 'total_revenue' in data:
-            contact.total_revenue = data['total_revenue']
+            contact.total_revenue = _parse_numeric(data['total_revenue'])
 
         db.session.commit()
 
