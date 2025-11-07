@@ -36,28 +36,25 @@ def upgrade():
     )
 
     # Update owner_id in crm_contacts to point to crm_users instead of users
-    with op.batch_alter_table('crm_contacts', schema=None) as batch_op:
-        # Drop old foreign key to users table (if it exists)
-        try:
-            batch_op.drop_constraint('crm_contacts_owner_id_fkey', type_='foreignkey')
-        except:
-            pass  # Constraint might not exist in some databases
+    # Drop existing foreign keys if they exist (try both possible names)
+    try:
+        op.drop_constraint('crm_contacts_owner_id_fkey', 'crm_contacts', type_='foreignkey')
+    except:
+        pass
 
-        try:
-            batch_op.drop_constraint('fk_crm_contacts_owner_id', type_='foreignkey')
-        except:
-            pass
+    try:
+        op.drop_constraint('fk_crm_contacts_owner_id', 'crm_contacts', type_='foreignkey')
+    except:
+        pass
 
-    # Set all existing contacts to NULL owner_id (will be assigned after users are created)
+    # Set all existing contacts to NULL owner_id
     op.execute('UPDATE crm_contacts SET owner_id = NULL')
 
-    # Now add new foreign key constraint
-    with op.batch_alter_table('crm_contacts', schema=None) as batch_op:
-        # Make owner_id nullable
-        batch_op.alter_column('owner_id', existing_type=sa.Integer(), nullable=True)
+    # Make owner_id nullable
+    op.alter_column('crm_contacts', 'owner_id', existing_type=sa.Integer(), nullable=True)
 
-        # Create new foreign key to crm_users table
-        batch_op.create_foreign_key('fk_crm_contacts_owner_id', 'crm_users', ['owner_id'], ['id'])
+    # Create new foreign key to crm_users table
+    op.create_foreign_key('fk_crm_contacts_owner_id', 'crm_contacts', 'crm_users', ['owner_id'], ['id'])
 
 
 def downgrade():
