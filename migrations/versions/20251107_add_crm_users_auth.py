@@ -44,8 +44,8 @@ def upgrade():
         except:
             pass  # Constraint might not exist in some databases
 
-        # Set all existing contacts to NULL owner_id (will be assigned later)
-        op.execute('UPDATE crm_contacts SET owner_id = NULL')
+        # Make owner_id nullable (existing contacts will have NULL owner_id)
+        batch_op.alter_column('owner_id', existing_type=sa.Integer(), nullable=True)
 
         # Create new foreign key to crm_users table
         batch_op.create_foreign_key('fk_crm_contacts_owner_id', 'crm_users', ['owner_id'], ['id'])
