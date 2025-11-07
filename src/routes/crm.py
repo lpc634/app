@@ -75,6 +75,93 @@ def _parse_numeric(value):
 # AUTHENTICATION ENDPOINTS (CRM-specific login system)
 # ============================================================================
 
+@crm_bp.route('/auth/register', methods=['POST'])
+def crm_register():
+    """Self-service CRM account registration"""
+    try:
+        data = request.get_json()
+
+        # Validate required fields
+        required_fields = ['username', 'email', 'password', 'imap_server', 'imap_port', 'imap_email', 'imap_password']
+        missing_fields = [field for field in required_fields if not data.get(field)]
+
+        if missing_fields:
+            return jsonify({'error': f'Missing required fields: {", ".join(missing_fields)}'}), 400
+
+        # Extract data
+        username = data.get('username', '').strip().lower()
+        email = data.get('email', '').strip().lower()
+        password = data.get('password')
+        imap_server = data.get('imap_server', '').strip()
+        imap_port = data.get('imap_port')
+        imap_email = data.get('imap_email', '').strip()
+        imap_password = data.get('imap_password')
+        imap_use_ssl = data.get('imap_use_ssl', True)
+
+        # Validate username (alphanumeric only, 3-50 chars)
+        if not username or len(username) < 3 or len(username) > 50:
+            return jsonify({'error': 'Username must be 3-50 characters'}), 400
+
+        if not username.replace('_', '').replace('-', '').isalnum():
+            return jsonify({'error': 'Username can only contain letters, numbers, hyphens, and underscores'}), 400
+
+        # Validate email format
+        if not email or '@' not in email:
+            return jsonify({'error': 'Valid email address required'}), 400
+
+        # Validate password strength (min 8 chars)
+        if not password or len(password) < 8:
+            return jsonify({'error': 'Password must be at least 8 characters'}), 400
+
+        # Check if username already exists
+        existing_user = CRMUser.query.filter_by(username=username).first()
+        if existing_user:
+            return jsonify({'error': 'Username already taken'}), 409
+
+        # Check if email already exists
+        existing_email = CRMUser.query.filter_by(email=email).first()
+        if existing_email:
+            return jsonify({'error': 'Email already registered'}), 409
+
+        # Create new CRM user
+        crm_user = CRMUser(
+            username=username,
+            email=email,
+            is_super_admin=False,  # Regular admin by default
+            imap_server=imap_server,
+            imap_port=int(imap_port),
+            imap_email=imap_email,
+            imap_password=imap_password,  # TODO: Encrypt this
+            imap_use_ssl=imap_use_ssl
+        )
+        crm_user.set_password(password)
+
+        db.session.add(crm_user)
+        db.session.commit()
+
+        # Create JWT token for immediate login
+        access_token = create_access_token(
+            identity=str(crm_user.id),
+            additional_claims={
+                'crm_user': True,
+                'is_super_admin': False
+            }
+        )
+
+        logger.info(f"New CRM user registered: {username}")
+
+        return jsonify({
+            'message': 'Account created successfully',
+            'access_token': access_token,
+            'user': crm_user.to_dict()
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        logger.exception("Error during CRM registration: %s", e)
+        return jsonify({'error': f'Registration failed: {str(e)}'}), 500
+
+
 @crm_bp.route('/auth/login', methods=['POST'])
 def crm_login():
     """Login to CRM (separate from main admin login)"""
