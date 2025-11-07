@@ -109,6 +109,12 @@ export default function CRMPage() {
   const [selectedContact, setSelectedContact] = useState(null);
   const [editMode, setEditMode] = useState(false);
 
+  // Email sync states
+  const [syncingEmails, setSyncingEmails] = useState(false);
+  const [showEmailsModal, setShowEmailsModal] = useState(false);
+  const [selectedContactEmails, setSelectedContactEmails] = useState([]);
+  const [selectedEmail, setSelectedEmail] = useState(null);
+
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -479,6 +485,66 @@ export default function CRMPage() {
     } catch (error) {
       toast.error('Failed to add note');
     }
+  };
+
+  // Email sync handlers
+  const handleSyncEmails = async (contactId) => {
+    const token = localStorage.getItem('crm_token');
+    setSyncingEmails(true);
+
+    try {
+      const response = await fetch(`/api/crm/contacts/${contactId}/sync-emails`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Sync failed');
+      }
+
+      const data = await response.json();
+      toast.success(data.message);
+
+      // If emails modal is open, reload emails
+      if (showEmailsModal) {
+        loadContactEmails(contactId);
+      }
+    } catch (error) {
+      toast.error(`Email sync failed: ${error.message}`);
+    } finally {
+      setSyncingEmails(false);
+    }
+  };
+
+  const loadContactEmails = async (contactId) => {
+    const token = localStorage.getItem('crm_token');
+
+    try {
+      const response = await fetch(`/api/crm/contacts/${contactId}/emails`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) throw new Error('Failed to load emails');
+
+      const data = await response.json();
+      setSelectedContactEmails(data.emails);
+    } catch (error) {
+      console.error('Error loading emails:', error);
+      setSelectedContactEmails([]);
+    }
+  };
+
+  const handleShowEmails = async (contact) => {
+    setSelectedContact(contact);
+    setShowEmailsModal(true);
+    await loadContactEmails(contact.id);
   };
 
   const deleteContact = async (contactId) => {
@@ -1100,6 +1166,30 @@ export default function CRMPage() {
                         <span className="font-semibold text-green-600">{formatCurrency(contact.potential_value)}</span>
                       </div>
                     )}
+
+                    {/* Email sync buttons */}
+                    <div className="flex gap-2 mt-4 pt-4 border-t border-v3-bg-card">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSyncEmails(contact.id);
+                        }}
+                        disabled={syncingEmails || !crmUser?.has_email_configured}
+                        className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {syncingEmails ? 'Syncing...' : '📧 Sync Emails'}
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleShowEmails(contact);
+                        }}
+                        className="flex-1 px-3 py-2 text-sm bg-gray-700 text-white rounded hover:bg-gray-600"
+                      >
+                        📨 View Emails ({contact.email_count || 0})
+                      </button>
+                    </div>
                   </div>
 
                   <Eye className="h-5 w-5 text-v3-text-muted" />
@@ -1396,6 +1486,125 @@ export default function CRMPage() {
                   </div>
                 </div>
               </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Emails Modal */}
+      {showEmailsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="dashboard-card max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-v3-text-lightest">
+                Emails - {selectedContact?.name}
+              </h2>
+              <button onClick={() => {
+                setShowEmailsModal(false);
+                setSelectedEmail(null);
+              }}>
+                <X className="h-6 w-6 text-v3-text-muted" />
+              </button>
+            </div>
+
+            {/* Sync button */}
+            <div className="mb-4">
+              <button
+                onClick={() => handleSyncEmails(selectedContact.id)}
+                disabled={syncingEmails}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                {syncingEmails ? 'Syncing...' : '🔄 Sync Now'}
+              </button>
+            </div>
+
+            {selectedEmail ? (
+              /* Email detail view */
+              <div className="space-y-4">
+                <button
+                  onClick={() => setSelectedEmail(null)}
+                  className="text-v3-brand hover:underline mb-4"
+                >
+                  ← Back to list
+                </button>
+
+                <div className="bg-v3-bg-card p-4 rounded space-y-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-v3-text-lightest">
+                      {selectedEmail.subject}
+                    </h3>
+                    <span className={`px-2 py-1 text-xs rounded ${
+                      selectedEmail.is_sent
+                        ? 'bg-green-600/20 text-green-400'
+                        : 'bg-blue-600/20 text-blue-400'
+                    }`}>
+                      {selectedEmail.is_sent ? 'Sent' : 'Received'}
+                    </span>
+                  </div>
+
+                  <div className="text-sm text-v3-text-light space-y-1">
+                    <div><strong>From:</strong> {selectedEmail.sender}</div>
+                    <div><strong>To:</strong> {selectedEmail.recipient}</div>
+                    <div><strong>Date:</strong> {new Date(selectedEmail.date).toLocaleString()}</div>
+                  </div>
+
+                  <div className="border-t border-v3-bg-darker pt-4">
+                    {selectedEmail.body_html ? (
+                      <div
+                        className="prose prose-invert max-w-none"
+                        dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }}
+                      />
+                    ) : (
+                      <pre className="whitespace-pre-wrap text-v3-text-light font-sans">
+                        {selectedEmail.body_text || '(No content)'}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Email list view */
+              <div className="space-y-2">
+                {selectedContactEmails.length === 0 ? (
+                  <p className="text-center text-v3-text-muted py-8">
+                    No emails found. Click "Sync Now" to fetch emails.
+                  </p>
+                ) : (
+                  selectedContactEmails.map((email) => (
+                    <div
+                      key={email.id}
+                      onClick={() => setSelectedEmail(email)}
+                      className="p-4 bg-v3-bg-card rounded hover:bg-v3-bg-darker cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`px-2 py-1 text-xs rounded ${
+                              email.is_sent
+                                ? 'bg-green-600/20 text-green-400'
+                                : 'bg-blue-600/20 text-blue-400'
+                            }`}>
+                              {email.is_sent ? 'Sent' : 'Received'}
+                            </span>
+                            <h4 className="font-semibold text-v3-text-lightest">
+                              {email.subject}
+                            </h4>
+                          </div>
+                          <div className="text-sm text-v3-text-muted">
+                            {email.is_sent ? `To: ${email.recipient}` : `From: ${email.sender}`}
+                          </div>
+                          <p className="text-sm text-v3-text-light mt-2 line-clamp-2">
+                            {email.preview}
+                          </p>
+                        </div>
+                        <div className="text-xs text-v3-text-muted whitespace-nowrap">
+                          {new Date(email.date).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             )}
           </div>
         </div>
