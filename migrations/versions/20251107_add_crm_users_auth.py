@@ -36,10 +36,10 @@ def upgrade():
     )
 
     # Update owner_id in crm_contacts to point to crm_users instead of users
-    # Use connection to execute raw SQL for safer constraint handling
+    # Use raw SQL to handle this safely
     conn = op.get_bind()
 
-    # Drop existing foreign key constraint if it exists
+    # Step 1: Drop existing foreign key constraints
     conn.execute(sa.text("""
         DO $$
         BEGIN
@@ -50,12 +50,14 @@ def upgrade():
         END $$;
     """))
 
-    # Set all existing contacts to NULL owner_id
+    # Step 2: Make owner_id nullable FIRST
+    conn.execute(sa.text('ALTER TABLE crm_contacts ALTER COLUMN owner_id DROP NOT NULL'))
+
+    # Step 3: Set all existing contacts to NULL owner_id
     conn.execute(sa.text('UPDATE crm_contacts SET owner_id = NULL'))
 
-    # Make owner_id nullable and add new foreign key
-    op.alter_column('crm_contacts', 'owner_id', existing_type=sa.Integer(), nullable=True)
-    op.create_foreign_key('fk_crm_contacts_owner_id', 'crm_contacts', 'crm_users', ['owner_id'], ['id'])
+    # Step 4: Add new foreign key to crm_users table
+    conn.execute(sa.text('ALTER TABLE crm_contacts ADD CONSTRAINT fk_crm_contacts_owner_id FOREIGN KEY (owner_id) REFERENCES crm_users(id)'))
 
 
 def downgrade():
