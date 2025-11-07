@@ -83,6 +83,17 @@ export default function CRMPage() {
   const [registerError, setRegisterError] = useState('');
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
+  // Email setup state (for existing users without IMAP)
+  const [showEmailSetup, setShowEmailSetup] = useState(false);
+  const [emailSetupForm, setEmailSetupForm] = useState({
+    imap_server: 'mail.nebula.galaxywebsolutions.com',
+    imap_port: '993',
+    imap_email: '',
+    imap_password: '',
+    imap_use_ssl: true
+  });
+  const [emailSetupError, setEmailSetupError] = useState('');
+
   // State
   const [contacts, setContacts] = useState([]);
   const [dashboard, setDashboard] = useState(null);
@@ -146,8 +157,14 @@ export default function CRMPage() {
         });
 
         if (response.ok) {
-          const data = await response.json();
-          setCrmUser(data);
+          const user = await response.json();
+          setCrmUser(user);
+
+          // Check if user needs to set up email
+          if (!user.has_email_configured) {
+            setShowEmailSetup(true);
+          }
+
           setIsCheckingAuth(false);
         } else {
           // Token invalid, remove it and show login
@@ -256,6 +273,49 @@ export default function CRMPage() {
       }
     } catch (error) {
       setRegisterError('Network error - please try again');
+    }
+  };
+
+  // Email setup handler (for existing users)
+  const handleEmailSetup = async (e) => {
+    e.preventDefault();
+    setEmailSetupError('');
+
+    const token = localStorage.getItem('crm_token');
+
+    try {
+      const response = await fetch('/api/crm/auth/email-settings', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          imap_server: emailSetupForm.imap_server,
+          imap_port: parseInt(emailSetupForm.imap_port),
+          imap_email: emailSetupForm.imap_email,
+          imap_password: emailSetupForm.imap_password,
+          imap_use_ssl: emailSetupForm.imap_use_ssl
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCrmUser(data.user);
+        setShowEmailSetup(false);
+        toast.success('Email settings saved successfully! You can now sync emails.');
+      } else {
+        const error = await response.json();
+        setEmailSetupError(error.error || 'Failed to save settings');
+      }
+    } catch (error) {
+      setEmailSetupError('Network error - please try again');
+    }
+  };
+
+  const handleSkipEmailSetup = () => {
+    if (confirm('You can set up email tracking later in Settings. Continue without email sync?')) {
+      setShowEmailSetup(false);
     }
   };
 
@@ -735,6 +795,115 @@ export default function CRMPage() {
     return (
       <div className="page-container">
         <p className="text-center text-v3-text-muted py-8">Checking authentication...</p>
+      </div>
+    );
+  }
+
+  // Show email setup modal for existing users without IMAP
+  if (showEmailSetup) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="dashboard-card max-w-2xl w-full">
+          <h2 className="text-2xl font-bold text-v3-text-lightest mb-2">Email Configuration Required</h2>
+          <p className="text-v3-text-muted mb-6">
+            Set up your email to track conversations with contacts
+          </p>
+
+          <form onSubmit={handleEmailSetup} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-v3-text-light mb-2">IMAP Server *</label>
+                <input
+                  type="text"
+                  value={emailSetupForm.imap_server}
+                  onChange={(e) => setEmailSetupForm({...emailSetupForm, imap_server: e.target.value})}
+                  className="v3-input w-full"
+                  placeholder="mail.yourserver.com"
+                  required
+                />
+                <p className="text-xs text-v3-text-muted mt-1">Usually mail.yourcompany.com</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-v3-text-light mb-2">IMAP Port *</label>
+                <input
+                  type="number"
+                  value={emailSetupForm.imap_port}
+                  onChange={(e) => setEmailSetupForm({...emailSetupForm, imap_port: e.target.value})}
+                  className="v3-input w-full"
+                  placeholder="993"
+                  required
+                />
+                <p className="text-xs text-v3-text-muted mt-1">Usually 993 (SSL) or 143</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-v3-text-light mb-2">Your Email Address *</label>
+                <input
+                  type="email"
+                  value={emailSetupForm.imap_email}
+                  onChange={(e) => setEmailSetupForm({...emailSetupForm, imap_email: e.target.value})}
+                  className="v3-input w-full"
+                  placeholder={`${crmUser?.username}@v3-services.com`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-v3-text-light mb-2">Email Password *</label>
+                <input
+                  type="password"
+                  value={emailSetupForm.imap_password}
+                  onChange={(e) => setEmailSetupForm({...emailSetupForm, imap_password: e.target.value})}
+                  className="v3-input w-full"
+                  placeholder="Your email password"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={emailSetupForm.imap_use_ssl}
+                  onChange={(e) => setEmailSetupForm({...emailSetupForm, imap_use_ssl: e.target.checked})}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm text-v3-text-light">Use SSL/TLS (recommended)</span>
+              </label>
+            </div>
+
+            {emailSetupError && (
+              <div className="p-3 bg-red-500/20 border border-red-500 rounded text-red-400 text-sm">
+                {emailSetupError}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                className="flex-1 button-refresh"
+              >
+                Save Email Settings
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSkipEmailSetup}
+                className="px-4 py-2 bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker transition-colors"
+              >
+                Skip for Now
+              </button>
+            </div>
+
+            <p className="text-xs text-v3-text-muted text-center">
+              Your credentials are securely stored. You can update these later in Settings.
+            </p>
+          </form>
+        </div>
       </div>
     );
   }

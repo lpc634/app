@@ -40,6 +40,7 @@ class CRMUser(db.Model):
             'username': self.username,
             'email': self.email,
             'is_super_admin': self.is_super_admin,
+            'has_email_configured': bool(self.imap_server and self.imap_email),
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 

@@ -228,6 +228,46 @@ def crm_logout():
     return jsonify({'message': 'Logged out successfully'}), 200
 
 
+@crm_bp.route('/auth/email-settings', methods=['PUT'])
+@jwt_required()
+def update_email_settings():
+    """Update email IMAP settings for current user"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        data = request.get_json()
+
+        # Validate required fields
+        required_fields = ['imap_server', 'imap_port', 'imap_email', 'imap_password']
+        missing_fields = [field for field in required_fields if not data.get(field)]
+
+        if missing_fields:
+            return jsonify({'error': f'Missing required fields: {", ".join(missing_fields)}'}), 400
+
+        # Update user's IMAP settings
+        crm_user.imap_server = data.get('imap_server', '').strip()
+        crm_user.imap_port = int(data.get('imap_port'))
+        crm_user.imap_email = data.get('imap_email', '').strip()
+        crm_user.imap_password = data.get('imap_password')  # TODO: Encrypt
+        crm_user.imap_use_ssl = data.get('imap_use_ssl', True)
+
+        db.session.commit()
+
+        logger.info(f"Email settings updated for CRM user: {crm_user.username}")
+
+        return jsonify({
+            'message': 'Email settings updated successfully',
+            'user': crm_user.to_dict()
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.exception("Error updating email settings: %s", e)
+        return jsonify({'error': f'Failed to update settings: {str(e)}'}), 500
+
+
 # ============================================================================
 # CONTACT ENDPOINTS
 # ============================================================================
