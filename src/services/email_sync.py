@@ -114,79 +114,94 @@ class EmailSyncService:
                     logger.error(f"Error processing email {email_id}: {str(e)}")
                     continue
 
-            # Also check SENT folder
-            # Try common sent folder names
-            sent_folders = ['Sent', '[Gmail]/Sent Mail', 'Sent Items', 'INBOX.Sent']
+            # Try to also check Sent folder
+            try:
+                # Try common sent folder names
+                sent_folders = ['Sent', '[Gmail]/Sent Mail', 'Sent Items', 'INBOX.Sent']
 
-            for folder_name in sent_folders:
-                try:
-                    # Select the folder and check if successful
-                    status, data = mail.select(folder_name)
-                    if status == 'OK':
-                        logger.info(f"Successfully selected sent folder: {folder_name}")
+                for folder_name in sent_folders:
+                    try:
+                        # Select the folder and check if successful
+                        select_status, select_data = mail.select(folder_name)
 
-                        # Folder selected successfully, now search
-                        status, messages = mail.search(None, 'ALL')
-                        if status == 'OK':
-                            sent_ids = messages[0].split()
-                            for email_id in sent_ids[-50:]:  # Limit to last 50
-                                try:
-                                    status, msg_data = mail.fetch(email_id, '(RFC822)')
-                                    if status != 'OK':
-                                        continue
+                        if select_status == 'OK':
+                            logger.info(f"Successfully selected sent folder: {folder_name}")
 
-                                    raw_email = msg_data[0][1]
-                                    email_message = email.message_from_bytes(raw_email)
+                            # NOW we can search (folder is selected)
+                            try:
+                                status, sent_messages = mail.search(None, 'ALL')
 
-                                    # Parse recipient first
-                                    recipient = EmailSyncService._parse_email_address(email_message.get('To', ''))
+                                if status == 'OK' and sent_messages[0]:
+                                    sent_email_ids = sent_messages[0].split()
+                                    logger.info(f"Found {len(sent_email_ids)} emails in sent folder")
 
-                                    # FILTER: Only if sent TO this contact
-                                    if contact_email_lower not in recipient.lower():
-                                        continue
+                                    # Process last 50 from sent folder
+                                    for email_id in sent_email_ids[-50:]:
+                                        try:
+                                            status, msg_data = mail.fetch(email_id, '(RFC822)')
+                                            if status != 'OK':
+                                                continue
 
-                                    # Parse rest of details
-                                    email_uid = email_id.decode()
-                                    subject = EmailSyncService._decode_header(email_message.get('Subject', ''))
-                                    sender = EmailSyncService._parse_email_address(email_message.get('From', ''))
-                                    date_str = email_message.get('Date', '')
-                                    email_date = EmailSyncService._parse_date(date_str)
+                                            raw_email = msg_data[0][1]
+                                            email_message = email.message_from_bytes(raw_email)
 
-                                    body_text, body_html = EmailSyncService._get_email_body(email_message)
+                                            # Parse recipient
+                                            recipient = EmailSyncService._parse_email_address(email_message.get('To', ''))
 
-                                    # Check if already exists
-                                    existing = CRMEmail.query.filter_by(
-                                        user_id=crm_user.id,
-                                        email_uid=f"SENT_{email_uid}"
-                                    ).first()
+                                            # FILTER: Only if sent TO this contact
+                                            if contact_email_lower not in recipient.lower():
+                                                continue
 
-                                    if not existing:
-                                        new_email = CRMEmail(
-                                            contact_id=contact.id,
-                                            user_id=crm_user.id,
-                                            email_uid=f"SENT_{email_uid}",
-                                            subject=subject,
-                                            sender=sender,
-                                            recipient=recipient,
-                                            date=email_date,
-                                            body_text=body_text,
-                                            body_html=body_html,
-                                            is_sent=True,
-                                            synced_at=datetime.utcnow()
-                                        )
-                                        db.session.add(new_email)
-                                        results['new_emails'] += 1
+                                            # Parse the rest
+                                            email_uid = email_id.decode()
+                                            sender = crm_user.imap_email
+                                            subject = EmailSyncService._decode_header(email_message.get('Subject', ''))
+                                            date_str = email_message.get('Date', '')
+                                            email_date = EmailSyncService._parse_date(date_str)
+                                            body_text, body_html = EmailSyncService._get_email_body(email_message)
 
-                                except Exception as e:
-                                    logger.error(f"Error processing sent email {email_id}: {str(e)}")
-                                    continue
+                                            # Check if exists
+                                            existing = CRMEmail.query.filter_by(
+                                                user_id=crm_user.id,
+                                                email_uid=f"SENT_{email_uid}"
+                                            ).first()
 
-                        # Successfully processed sent folder, break out of loop
-                        break
+                                            if not existing:
+                                                new_email = CRMEmail(
+                                                    contact_id=contact.id,
+                                                    user_id=crm_user.id,
+                                                    email_uid=f"SENT_{email_uid}",
+                                                    subject=subject,
+                                                    sender=sender,
+                                                    recipient=recipient,
+                                                    date=email_date,
+                                                    body_text=body_text,
+                                                    body_html=body_html,
+                                                    is_sent=True,
+                                                    synced_at=datetime.utcnow()
+                                                )
+                                                db.session.add(new_email)
+                                                results['new_emails'] += 1
+                                                logger.info(f"Added sent email: {subject}")
 
-                except Exception as e:
-                    logger.warning(f"Could not select/search sent folder {folder_name}: {str(e)}")
-                    continue
+                                        except Exception as e:
+                                            logger.error(f"Error processing sent email {email_id}: {str(e)}")
+                                            continue
+
+                                    db.session.commit()
+                                    logger.info(f"Committed {results['new_emails']} total new emails")
+                                    break  # Successfully processed, exit loop
+
+                            except Exception as e:
+                                logger.error(f"Error searching sent folder {folder_name}: {str(e)}")
+                                continue
+
+                    except Exception as e:
+                        logger.warning(f"Could not select sent folder {folder_name}: {str(e)}")
+                        continue
+
+            except Exception as e:
+                logger.error(f"Error checking sent folder: {str(e)}")
 
             # Commit all new emails
             db.session.commit()

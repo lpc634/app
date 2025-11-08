@@ -332,8 +332,19 @@ def list_contacts():
             CRMContact.updated_at.desc()
         ).all()
 
+        # Add email count to each contact
+        contacts_with_counts = []
+        for contact in contacts:
+            contact_dict = contact.to_dict()
+
+            # Count emails for this contact
+            email_count = CRMEmail.query.filter_by(contact_id=contact.id).count()
+            contact_dict['email_count'] = email_count
+
+            contacts_with_counts.append(contact_dict)
+
         return jsonify({
-            'contacts': [c.to_dict() for c in contacts],
+            'contacts': contacts_with_counts,
             'count': len(contacts)
         })
 
