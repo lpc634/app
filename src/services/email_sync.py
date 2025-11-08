@@ -39,25 +39,25 @@ class EmailSyncService:
             # Login
             mail.login(crm_user.imap_email, crm_user.imap_password)
 
-            # Search in INBOX using HEADER method (RFC-compliant, works with all IMAP servers)
+            # Select INBOX
             mail.select('INBOX')
-            status1, messages1 = mail.search(None, 'HEADER', 'From', contact.email)
 
-            # Search in INBOX for emails TO contact
-            status2, messages2 = mail.search(None, 'HEADER', 'To', contact.email)
+            # Fetch ALL emails (no search filter - we'll filter in Python)
+            # This works with ALL IMAP servers, even strict ones
+            status, messages = mail.search(None, 'ALL')
 
-            # Combine results
-            email_ids = set()
-            if status1 == 'OK' and messages1[0]:
-                email_ids.update(messages1[0].split())
-            if status2 == 'OK' and messages2[0]:
-                email_ids.update(messages2[0].split())
+            if status != 'OK':
+                raise Exception("Failed to search emails")
 
-            email_ids = list(email_ids)
+            email_ids = messages[0].split()
             results['total_emails'] = len(email_ids)
 
+            # Only process the last 100 emails to avoid taking too long
+            # We'll filter these by the contact's email address
+            contact_email_lower = contact.email.lower()
+
             # Fetch each email from INBOX
-            for email_id in email_ids[-50:]:  # Limit to last 50 emails
+            for email_id in email_ids[-100:]:  # Last 100 emails
                 try:
                     status, msg_data = mail.fetch(email_id, '(RFC822)')
                     if status != 'OK':
@@ -66,11 +66,17 @@ class EmailSyncService:
                     raw_email = msg_data[0][1]
                     email_message = email.message_from_bytes(raw_email)
 
-                    # Parse email
-                    email_uid = email_id.decode()
-                    subject = EmailSyncService._decode_header(email_message.get('Subject', ''))
+                    # Parse sender and recipient first
                     sender = EmailSyncService._parse_email_address(email_message.get('From', ''))
                     recipient = EmailSyncService._parse_email_address(email_message.get('To', ''))
+
+                    # FILTER: Only process if this email involves the contact
+                    if contact_email_lower not in sender.lower() and contact_email_lower not in recipient.lower():
+                        continue  # Skip - this email doesn't involve this contact
+
+                    # Parse rest of email details
+                    email_uid = email_id.decode()
+                    subject = EmailSyncService._decode_header(email_message.get('Subject', ''))
                     date_str = email_message.get('Date', '')
                     email_date = EmailSyncService._parse_date(date_str)
 
@@ -121,9 +127,9 @@ class EmailSyncService:
                         logger.warning("Could not find Sent folder")
                         mail.select('INBOX')  # Fallback to INBOX
 
-            # Only search sent folder if we successfully selected it
+            # Search sent folder using ALL and filter in Python
             try:
-                status, messages = mail.search(None, 'HEADER', 'To', contact.email)
+                status, messages = mail.search(None, 'ALL')
                 if status == 'OK':
                     sent_ids = messages[0].split()
                     for email_id in sent_ids[-50:]:  # Limit to last 50
@@ -135,10 +141,17 @@ class EmailSyncService:
                             raw_email = msg_data[0][1]
                             email_message = email.message_from_bytes(raw_email)
 
+                            # Parse recipient first
+                            recipient = EmailSyncService._parse_email_address(email_message.get('To', ''))
+
+                            # FILTER: Only if sent TO this contact
+                            if contact_email_lower not in recipient.lower():
+                                continue
+
+                            # Parse rest of details
                             email_uid = email_id.decode()
                             subject = EmailSyncService._decode_header(email_message.get('Subject', ''))
                             sender = EmailSyncService._parse_email_address(email_message.get('From', ''))
-                            recipient = EmailSyncService._parse_email_address(email_message.get('To', ''))
                             date_str = email_message.get('Date', '')
                             email_date = EmailSyncService._parse_date(date_str)
 
