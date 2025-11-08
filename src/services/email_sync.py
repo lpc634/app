@@ -39,15 +39,21 @@ class EmailSyncService:
             # Login
             mail.login(crm_user.imap_email, crm_user.imap_password)
 
-            # Search in INBOX
+            # Search in INBOX for emails FROM contact
             mail.select('INBOX')
-            search_criteria = f'OR FROM {contact.email} TO {contact.email}'
-            status, messages = mail.search(None, search_criteria)
+            status1, messages1 = mail.search(None, f'FROM "{contact.email}"')
 
-            if status != 'OK':
-                raise Exception("Failed to search emails")
+            # Search in INBOX for emails TO contact
+            status2, messages2 = mail.search(None, f'TO "{contact.email}"')
 
-            email_ids = messages[0].split()
+            # Combine results
+            email_ids = set()
+            if status1 == 'OK' and messages1[0]:
+                email_ids.update(messages1[0].split())
+            if status2 == 'OK' and messages2[0]:
+                email_ids.update(messages2[0].split())
+
+            email_ids = list(email_ids)
             results['total_emails'] = len(email_ids)
 
             # Fetch each email from INBOX
