@@ -1191,3 +1191,39 @@ def delete_task(task_id):
         db.session.rollback()
         logger.exception("Error deleting task: %s", e)
         return jsonify({'error': 'Failed to delete task'}), 500
+
+
+@crm_bp.route('/tasks/check-notifications', methods=['POST'])
+@jwt_required()
+def check_task_notifications():
+    """
+    Manually trigger task notification check (admin only)
+    This endpoint is primarily for testing - in production, notifications
+    should be sent via a scheduled job
+    """
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    # Only super admins can trigger manual notification checks
+    if not crm_user.is_super_admin:
+        return jsonify({'error': 'Super admin access required'}), 403
+
+    try:
+        from src.services.crm_task_notifications import check_and_notify_due_tasks, check_overdue_tasks
+
+        # Check due tasks
+        due_result = check_and_notify_due_tasks()
+
+        # Check overdue tasks
+        overdue_result = check_overdue_tasks()
+
+        return jsonify({
+            'message': 'Task notifications checked',
+            'due_tasks': due_result,
+            'overdue_tasks': overdue_result
+        }), 200
+
+    except Exception as e:
+        logger.exception("Error checking task notifications: %s", e)
+        return jsonify({'error': 'Failed to check notifications'}), 500

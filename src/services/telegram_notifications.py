@@ -276,37 +276,95 @@ Your invoice is ready for download in the V3 Services app.
 def send_generic_notification(agent, title, message):
     """
     Send generic notification to agent via Telegram
-    
+
     Args:
         agent: User object with telegram_chat_id
         title: Notification title
         message: Notification message
-    
+
     Returns:
         bool: True if sent successfully, False otherwise
     """
     if _skip_if_muted("telegram_generic", {"agent_id": getattr(agent, 'id', None)}):
         return False
-    
+
     if not agent.telegram_chat_id or not agent.telegram_opt_in:
         return False
-    
+
     try:
         formatted_message = f"""
 📢 <b>{title}</b>
 
 {message}
         """.strip()
-        
+
         result = send_message(agent.telegram_chat_id, formatted_message)
-        
+
         if result.get("ok"):
             logging.info(f"Generic notification sent to agent {agent.id} via Telegram")
             return True
         else:
             logging.warning(f"Failed to send generic notification to agent {agent.id}: {result}")
             return False
-            
+
     except Exception as e:
         logging.error(f"Error sending generic notification to agent {agent.id}: {str(e)}")
+        return False
+
+
+def send_crm_task_notification(crm_user, task, contact):
+    """
+    Send CRM task notification to CRM user via Telegram
+
+    Args:
+        crm_user: CRMUser object with telegram_chat_id
+        task: CRMTask object with task details
+        contact: CRMContact object with contact details
+
+    Returns:
+        bool: True if sent successfully, False otherwise
+    """
+    if _skip_if_muted("telegram_crm_task", {"crm_user_id": getattr(crm_user, 'id', None), "task_id": getattr(task, 'id', None)}):
+        return False
+
+    if not crm_user.telegram_chat_id or not crm_user.telegram_opt_in:
+        logging.info(f"CRM user {crm_user.id} has no Telegram chat_id or opted out, skipping notification")
+        return False
+
+    try:
+        # Task type emoji mapping
+        task_emojis = {
+            'call': '📞',
+            'email': '📧',
+            'send_docs': '📄',
+            'site_visit': '🏢',
+            'follow_up': '🔄',
+            'general': '📋'
+        }
+        emoji = task_emojis.get(task.task_type, '📋')
+
+        message = (
+            f"{emoji} <b>CRM Task Due</b>\n\n"
+            f"<b>Contact:</b> {contact.name}\n"
+            f"<b>Task Type:</b> {task.task_type.replace('_', ' ').title()}\n"
+            f"<b>Task:</b> {task.title}\n"
+            f"<b>Due:</b> {_format_dt(task.due_date)}\n"
+        )
+
+        if task.notes:
+            message += f"\n<b>Notes:</b> {task.notes[:200]}"  # Limit notes to 200 chars
+
+        message += "\n\nPlease check the CRM system to complete this task."
+
+        result = send_message(crm_user.telegram_chat_id, message)
+
+        if result.get("ok"):
+            logging.info(f"CRM task notification sent to user {crm_user.id} via Telegram")
+            return True
+        else:
+            logging.warning(f"Failed to send CRM task notification to user {crm_user.id}: {result}")
+            return False
+
+    except Exception as e:
+        logging.error(f"Error sending CRM task notification to user {crm_user.id}: {str(e)}")
         return False

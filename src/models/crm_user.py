@@ -23,6 +23,10 @@ class CRMUser(db.Model):
     imap_password = db.Column(db.String(255))  # Encrypted
     imap_use_ssl = db.Column(db.Boolean, default=True)
 
+    # Telegram integration (optional)
+    telegram_chat_id = db.Column(db.String(50))
+    telegram_opt_in = db.Column(db.Boolean, default=True)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
