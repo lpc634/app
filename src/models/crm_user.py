@@ -25,7 +25,9 @@ class CRMUser(db.Model):
 
     # Telegram integration (optional)
     telegram_chat_id = db.Column(db.String(50))
+    telegram_username = db.Column(db.String(64))
     telegram_opt_in = db.Column(db.Boolean, default=True)
+    telegram_link_code = db.Column(db.String(16))  # Temporary one-time linking code
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

@@ -26,11 +26,23 @@ def upgrade():
     else:
         print(" ⏭️  telegram_chat_id column already exists")
 
+    if 'telegram_username' not in columns:
+        op.add_column('crm_users', sa.Column('telegram_username', sa.String(length=64), nullable=True))
+        print(" ✅ Added telegram_username column to crm_users")
+    else:
+        print(" ⏭️  telegram_username column already exists")
+
     if 'telegram_opt_in' not in columns:
         op.add_column('crm_users', sa.Column('telegram_opt_in', sa.Boolean(), nullable=True, server_default='1'))
         print(" ✅ Added telegram_opt_in column to crm_users")
     else:
         print(" ⏭️  telegram_opt_in column already exists")
+
+    if 'telegram_link_code' not in columns:
+        op.add_column('crm_users', sa.Column('telegram_link_code', sa.String(length=16), nullable=True))
+        print(" ✅ Added telegram_link_code column to crm_users")
+    else:
+        print(" ⏭️  telegram_link_code column already exists")
 
 def downgrade():
     from sqlalchemy import inspect
@@ -40,11 +52,23 @@ def downgrade():
     # Check if columns exist before dropping
     columns = [col['name'] for col in inspector.get_columns('crm_users')]
 
+    if 'telegram_link_code' in columns:
+        op.drop_column('crm_users', 'telegram_link_code')
+        print(" ✅ Dropped telegram_link_code column from crm_users")
+    else:
+        print(" ⏭️  telegram_link_code column doesn't exist, skipping drop")
+
     if 'telegram_opt_in' in columns:
         op.drop_column('crm_users', 'telegram_opt_in')
         print(" ✅ Dropped telegram_opt_in column from crm_users")
     else:
         print(" ⏭️  telegram_opt_in column doesn't exist, skipping drop")
+
+    if 'telegram_username' in columns:
+        op.drop_column('crm_users', 'telegram_username')
+        print(" ✅ Dropped telegram_username column from crm_users")
+    else:
+        print(" ⏭️  telegram_username column doesn't exist, skipping drop")
 
     if 'telegram_chat_id' in columns:
         op.drop_column('crm_users', 'telegram_chat_id')

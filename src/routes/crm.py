@@ -1227,3 +1227,129 @@ def check_task_notifications():
     except Exception as e:
         logger.exception("Error checking task notifications: %s", e)
         return jsonify({'error': 'Failed to check notifications'}), 500
+
+
+# ==================== TELEGRAM INTEGRATION ENDPOINTS ====================
+
+@crm_bp.route('/telegram/status', methods=['GET'])
+@jwt_required()
+def get_telegram_status():
+    """Get Telegram linking status for current CRM user"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        # Get bot username from config or Telegram API
+        from flask import current_app
+        bot_username = current_app.config.get('TELEGRAM_BOT_USERNAME', 'V3JobsBot')
+
+        return jsonify({
+            'enabled': True,
+            'linked': bool(crm_user.telegram_chat_id),
+            'bot_username': bot_username,
+            'opt_in': crm_user.telegram_opt_in if crm_user.telegram_chat_id else False
+        }), 200
+
+    except Exception as e:
+        logger.exception("Error getting Telegram status: %s", e)
+        return jsonify({'error': 'Failed to get status'}), 500
+
+
+@crm_bp.route('/telegram/link/start', methods=['POST'])
+@jwt_required()
+def start_telegram_link():
+    """Generate a one-time code for linking Telegram account"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        import random
+        import string
+        from flask import current_app
+
+        # Generate 6-character code
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+        # Store code on user
+        crm_user.telegram_link_code = code
+        crm_user.telegram_opt_in = False  # Reset opt-in until linked
+        db.session.commit()
+
+        # Get bot username
+        bot_username = current_app.config.get('TELEGRAM_BOT_USERNAME', 'V3JobsBot')
+
+        logger.info(f"Generated Telegram link code for CRM user {crm_user.id}")
+
+        return jsonify({
+            'code': code,
+            'bot_username': bot_username
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.exception("Error generating Telegram link code: %s", e)
+        return jsonify({'error': 'Failed to generate link code'}), 500
+
+
+@crm_bp.route('/telegram/disconnect', methods=['POST'])
+@jwt_required()
+def disconnect_telegram():
+    """Disconnect Telegram account from CRM user"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        # Clear all Telegram fields
+        crm_user.telegram_chat_id = None
+        crm_user.telegram_username = None
+        crm_user.telegram_opt_in = False
+        crm_user.telegram_link_code = None
+
+        db.session.commit()
+
+        logger.info(f"Disconnected Telegram for CRM user {crm_user.id}")
+
+        return jsonify({'message': 'Telegram disconnected successfully'}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.exception("Error disconnecting Telegram: %s", e)
+        return jsonify({'error': 'Failed to disconnect'}), 500
+
+
+@crm_bp.route('/telegram/test', methods=['POST'])
+@jwt_required()
+def test_telegram():
+    """Send a test notification to linked Telegram account"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    if not crm_user.telegram_chat_id or not crm_user.telegram_opt_in:
+        return jsonify({'error': 'Telegram not linked or opted out'}), 400
+
+    try:
+        from src.integrations.telegram_client import send_message
+
+        message = (
+            "🧪 <b>Test Notification</b>\n\n"
+            "Your CRM Telegram notifications are working correctly!\n\n"
+            f"User: {crm_user.username}\n"
+            "You will receive task reminders and notifications here."
+        )
+
+        result = send_message(crm_user.telegram_chat_id, message)
+
+        if result.get("ok"):
+            logger.info(f"Test notification sent to CRM user {crm_user.id}")
+            return jsonify({'message': 'Test notification sent successfully'}), 200
+        else:
+            logger.warning(f"Failed to send test notification to CRM user {crm_user.id}: {result}")
+            return jsonify({'error': 'Failed to send test notification'}), 500
+
+    except Exception as e:
+        logger.exception("Error sending test notification: %s", e)
+        return jsonify({'error': 'Failed to send test notification'}), 500

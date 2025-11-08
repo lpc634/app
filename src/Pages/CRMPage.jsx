@@ -83,6 +83,11 @@ export default function CRMPage() {
   const [registerError, setRegisterError] = useState('');
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
+  // Telegram link state
+  const [telegramLinkCode, setTelegramLinkCode] = useState(null);
+  const [telegramBotUsername, setTelegramBotUsername] = useState('V3JobsBot');
+  const [telegramLinked, setTelegramLinked] = useState(false);
+
   // Email setup state (for existing users without IMAP)
   const [showEmailSetup, setShowEmailSetup] = useState(false);
   const [emailSetupForm, setEmailSetupForm] = useState({
@@ -699,6 +704,59 @@ export default function CRMPage() {
     }
   };
 
+  // Telegram linking functions
+  const handleLinkTelegram = async () => {
+    const token = localStorage.getItem('crm_token');
+    try {
+      const response = await fetch('/api/crm/telegram/link/start', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTelegramLinkCode(data.code);
+        setTelegramBotUsername(data.bot_username || 'V3JobsBot');
+
+        // Open Telegram automatically
+        const deepLink = `tg://resolve?domain=${data.bot_username}&start=${data.code}`;
+        window.location.href = deepLink;
+
+        toast.success(`Code: ${data.code} - Opening Telegram...`);
+      } else {
+        toast.error('Failed to generate link code');
+      }
+    } catch (error) {
+      toast.error('Failed to link Telegram');
+    }
+  };
+
+  const checkTelegramStatus = async () => {
+    const token = localStorage.getItem('crm_token');
+    try {
+      const response = await fetch('/api/crm/telegram/status', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTelegramLinked(data.linked);
+        if (data.linked) {
+          setTelegramLinkCode(null);
+          toast.success('Telegram successfully linked!');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check Telegram status');
+    }
+  };
+
   const deleteContact = async (contactId) => {
     if (!confirm('Are you sure you want to delete this contact?')) return;
 
@@ -790,7 +848,7 @@ export default function CRMPage() {
   if (showLoginModal) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="dashboard-card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="bg-v3-bg-card rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <h2 className="text-2xl font-bold text-v3-text-lightest mb-2">CRM Access</h2>
           <p className="text-v3-text-muted mb-6">
             {showRegister ? 'Create your personal CRM account' : 'Log in with your CRM account'}
@@ -986,6 +1044,67 @@ export default function CRMPage() {
                     <span className="text-sm text-v3-text-light">Use SSL/TLS (recommended)</span>
                   </label>
                 </div>
+              </div>
+
+              {/* Telegram Notifications Section */}
+              <div className="border-t border-v3-bg-card pt-4 mt-4">
+                <h3 className="font-medium text-v3-text-lightest mb-3">Telegram Notifications (Optional)</h3>
+                <p className="text-sm text-v3-text-muted mb-4">
+                  Link your Telegram account to receive task reminders and notifications.
+                </p>
+
+                {!telegramLinked && !telegramLinkCode && (
+                  <button
+                    type="button"
+                    onClick={handleLinkTelegram}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  >
+                    Link Telegram Account
+                  </button>
+                )}
+
+                {telegramLinkCode && !telegramLinked && (
+                  <div className="p-4 bg-v3-bg-darker rounded border border-v3-brand/30">
+                    <p className="text-sm text-v3-text-light mb-3">
+                      Your linking code: <span className="font-mono font-bold text-v3-brand text-lg">{telegramLinkCode}</span>
+                    </p>
+                    <p className="text-xs text-v3-text-muted mb-3">
+                      1. Open Telegram and search for <span className="font-mono">@{telegramBotUsername}</span>
+                      <br />
+                      2. Send the command: <span className="font-mono">/start {telegramLinkCode}</span>
+                    </p>
+                    <div className="flex gap-2">
+                      <a
+                        href={`tg://resolve?domain=${telegramBotUsername}&start=${telegramLinkCode}`}
+                        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        Open Telegram App
+                      </a>
+                      <a
+                        href={`https://t.me/${telegramBotUsername}?start=${telegramLinkCode}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 text-sm bg-gray-700 text-white rounded hover:bg-gray-600"
+                      >
+                        Open in Browser
+                      </a>
+                      <button
+                        type="button"
+                        onClick={checkTelegramStatus}
+                        className="px-3 py-1.5 text-sm bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker"
+                      >
+                        Check Status
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {telegramLinked && (
+                  <div className="flex items-center gap-2 p-3 bg-green-600/20 border border-green-600/30 rounded">
+                    <span className="text-green-400">✓</span>
+                    <span className="text-sm text-green-400">Telegram account linked successfully!</span>
+                  </div>
+                )}
               </div>
 
               {registerError && (

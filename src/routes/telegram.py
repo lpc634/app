@@ -45,11 +45,37 @@ def webhook(secret):
     if text.startswith("/start"):
         parts = text.split()
         token = parts[1] if len(parts) > 1 else None
-        
+
         if token:
-            # Find agent by link token
+            # Try to find agent first, then CRM user
             agent = User.query.filter_by(telegram_link_code=token).first()
-            
+
+            if not agent:
+                # Check if it's a CRM user
+                from src.models.crm_user import CRMUser
+                crm_user = CRMUser.query.filter_by(telegram_link_code=token).first()
+
+                if crm_user:
+                    # Link the CRM user's Telegram account
+                    crm_user.telegram_chat_id = chat_id
+                    crm_user.telegram_username = username
+                    crm_user.telegram_link_code = None  # Clear the token
+                    crm_user.telegram_opt_in = True
+
+                    try:
+                        db.session.commit()
+                        current_app.logger.info(f"Telegram linked for CRM user {crm_user.id}: {username}")
+
+                        # Send confirmation message
+                        welcome_msg = "✅ Telegram successfully linked to your CRM account! You will now receive task reminders here."
+                        send_message(chat_id, welcome_msg)
+
+                    except Exception as e:
+                        db.session.rollback()
+                        current_app.logger.error(f"Database error linking Telegram for CRM user {crm_user.id}: {str(e)}")
+                        send_message(chat_id, "❌ Sorry, there was an error linking your account. Please try again.")
+                    return jsonify({"ok": True})
+
             if agent:
                 # Link the agent's Telegram account
                 agent.telegram_chat_id = chat_id
@@ -100,11 +126,37 @@ def webhook(secret):
     elif text.startswith("/link"):
         parts = text.split()
         token = parts[1] if len(parts) > 1 else None
-        
+
         if token:
-            # Find agent by link token
+            # Try to find agent first, then CRM user
             agent = User.query.filter_by(telegram_link_code=token).first()
-            
+
+            if not agent:
+                # Check if it's a CRM user
+                from src.models.crm_user import CRMUser
+                crm_user = CRMUser.query.filter_by(telegram_link_code=token).first()
+
+                if crm_user:
+                    # Link the CRM user's Telegram account
+                    crm_user.telegram_chat_id = chat_id
+                    crm_user.telegram_username = username
+                    crm_user.telegram_link_code = None  # Clear the token
+                    crm_user.telegram_opt_in = True
+
+                    try:
+                        db.session.commit()
+                        current_app.logger.info(f"Telegram linked via /link for CRM user {crm_user.id}: {username}")
+
+                        # Send confirmation message
+                        welcome_msg = "✅ Linked to your CRM account! You will now receive task reminders here."
+                        send_message(chat_id, welcome_msg)
+
+                    except Exception as e:
+                        db.session.rollback()
+                        current_app.logger.error(f"Database error linking Telegram via /link for CRM user {crm_user.id}: {str(e)}")
+                        send_message(chat_id, "❌ Sorry, there was an error linking your account. Please try again.")
+                    return jsonify({"ok": True})
+
             if agent:
                 # Link the agent's Telegram account
                 agent.telegram_chat_id = chat_id
