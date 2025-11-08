@@ -1119,11 +1119,11 @@ export default function CRMPage() {
               <div
                 key={contact.id}
                 onClick={() => fetchContactDetails(contact.id)}
-                className="p-4 bg-v3-bg-card rounded hover:bg-v3-bg-darker cursor-pointer transition-colors"
+                className="p-6 bg-v3-bg-card rounded-lg hover:bg-v3-bg-darker cursor-pointer transition-colors"
               >
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-4">
                       <h3 className="text-lg font-semibold text-v3-text-lightest">{contact.name}</h3>
                       <span className="px-2 py-1 bg-v3-brand/20 text-v3-brand text-xs rounded">
                         {CONTACT_TYPES[contact.contact_type]}
@@ -1133,49 +1133,49 @@ export default function CRMPage() {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-sm text-v3-text-light">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-v3-text-light mb-4">
                       {contact.email && (
                         <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4" />
-                          {contact.email}
+                          <Mail className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{contact.email}</span>
                         </div>
                       )}
                       {contact.phone && (
                         <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4" />
-                          {contact.phone}
+                          <Phone className="h-4 w-4 flex-shrink-0" />
+                          <span>{contact.phone}</span>
                         </div>
                       )}
                       {contact.company_name && (
                         <div className="flex items-center gap-2">
-                          <Building className="h-4 w-4" />
-                          {contact.company_name}
+                          <Building className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{contact.company_name}</span>
                         </div>
                       )}
                       {contact.next_followup_date && (
                         <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
-                          Follow-up: {formatDate(contact.next_followup_date)}
+                          <Calendar className="h-4 w-4 flex-shrink-0" />
+                          <span>Follow-up: {formatDate(contact.next_followup_date)}</span>
                         </div>
                       )}
                     </div>
 
                     {contact.potential_value && (
-                      <div className="mt-2 text-sm">
+                      <div className="mb-4 text-sm">
                         <span className="text-v3-text-muted">Potential: </span>
                         <span className="font-semibold text-green-600">{formatCurrency(contact.potential_value)}</span>
                       </div>
                     )}
 
                     {/* Email sync buttons */}
-                    <div className="flex gap-2 mt-4 pt-4 border-t border-v3-bg-card">
+                    <div className="flex gap-3 mt-5 pt-5 border-t border-gray-700">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleSyncEmails(contact.id);
                         }}
                         disabled={syncingEmails || !crmUser?.has_email_configured}
-                        className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {syncingEmails ? 'Syncing...' : '📧 Sync Emails'}
                       </button>
@@ -1185,14 +1185,14 @@ export default function CRMPage() {
                           e.stopPropagation();
                           handleShowEmails(contact);
                         }}
-                        className="flex-1 px-3 py-2 text-sm bg-gray-700 text-white rounded hover:bg-gray-600"
+                        className="flex-1 px-4 py-2.5 text-sm font-medium bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
                       >
                         📨 View Emails ({contact.email_count || 0})
                       </button>
                     </div>
                   </div>
 
-                  <Eye className="h-5 w-5 text-v3-text-muted" />
+                  <Eye className="h-5 w-5 text-v3-text-muted flex-shrink-0 mt-1" />
                 </div>
               </div>
             ))}
