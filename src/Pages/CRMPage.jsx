@@ -707,7 +707,13 @@ export default function CRMPage() {
   // Telegram linking functions
   const handleLinkTelegram = async () => {
     const token = localStorage.getItem('crm_token');
+    if (!token) {
+      toast.error('Please create your account first, then link Telegram');
+      return;
+    }
+
     try {
+      console.log('Requesting Telegram link code...');
       const response = await fetch('/api/crm/telegram/link/start', {
         method: 'POST',
         headers: {
@@ -716,21 +722,29 @@ export default function CRMPage() {
         }
       });
 
+      console.log('Response status:', response.status);
+      const data = await response.json();
+      console.log('Response data:', data);
+
       if (response.ok) {
-        const data = await response.json();
         setTelegramLinkCode(data.code);
         setTelegramBotUsername(data.bot_username || 'V3JobsBot');
 
-        // Open Telegram automatically
+        // Try to open Telegram automatically
         const deepLink = `tg://resolve?domain=${data.bot_username}&start=${data.code}`;
-        window.location.href = deepLink;
 
-        toast.success(`Code: ${data.code} - Opening Telegram...`);
+        // Try opening with a small delay
+        setTimeout(() => {
+          window.location.href = deepLink;
+        }, 100);
+
+        toast.success(`Code generated: ${data.code}`);
       } else {
-        toast.error('Failed to generate link code');
+        toast.error(data.error || 'Failed to generate link code');
       }
     } catch (error) {
-      toast.error('Failed to link Telegram');
+      console.error('Telegram link error:', error);
+      toast.error('Failed to link Telegram: ' + error.message);
     }
   };
 
@@ -848,7 +862,7 @@ export default function CRMPage() {
   if (showLoginModal) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-v3-bg-card rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="dashboard-card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <h2 className="text-2xl font-bold text-v3-text-lightest mb-2">CRM Access</h2>
           <p className="text-v3-text-muted mb-6">
             {showRegister ? 'Create your personal CRM account' : 'Log in with your CRM account'}
@@ -941,11 +955,15 @@ export default function CRMPage() {
                   <input
                     type="email"
                     value={registerForm.email}
-                    onChange={(e) => setRegisterForm({...registerForm, email: e.target.value})}
+                    onChange={(e) => {
+                      const email = e.target.value;
+                      setRegisterForm({...registerForm, email: email, imap_email: email});
+                    }}
                     className="v3-input w-full"
                     placeholder="john@v3-services.com"
                     required
                   />
+                  <p className="text-xs text-v3-text-muted mt-1">Used for login and email sync</p>
                 </div>
               </div>
 
@@ -1007,30 +1025,17 @@ export default function CRMPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <div>
-                    <label className="block text-sm font-medium text-v3-text-light mb-2">Your Email Address *</label>
-                    <input
-                      type="email"
-                      value={registerForm.imap_email}
-                      onChange={(e) => setRegisterForm({...registerForm, imap_email: e.target.value})}
-                      className="v3-input w-full"
-                      placeholder="john@v3-services.com"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-v3-text-light mb-2">Email Password *</label>
-                    <input
-                      type="password"
-                      value={registerForm.imap_password}
-                      onChange={(e) => setRegisterForm({...registerForm, imap_password: e.target.value})}
-                      className="v3-input w-full"
-                      placeholder="Your email password"
-                      required
-                    />
-                  </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-v3-text-light mb-2">Email Password *</label>
+                  <input
+                    type="password"
+                    value={registerForm.imap_password}
+                    onChange={(e) => setRegisterForm({...registerForm, imap_password: e.target.value})}
+                    className="v3-input w-full"
+                    placeholder="Your email password"
+                    required
+                  />
+                  <p className="text-xs text-v3-text-muted mt-1">Password for {registerForm.email || 'your email'}</p>
                 </div>
 
                 <div className="mt-4">
@@ -1047,51 +1052,49 @@ export default function CRMPage() {
               </div>
 
               {/* Telegram Notifications Section */}
-              <div className="border-t border-v3-bg-card pt-4 mt-4">
-                <h3 className="font-medium text-v3-text-lightest mb-3">Telegram Notifications (Optional)</h3>
-                <p className="text-sm text-v3-text-muted mb-4">
-                  Link your Telegram account to receive task reminders and notifications.
+              <div className="border-t border-gray-700 pt-4 mt-4">
+                <h3 className="font-medium text-v3-text-lightest mb-2">Telegram Notifications (Optional)</h3>
+                <p className="text-xs text-v3-text-muted mb-3">
+                  Receive task reminders via Telegram
                 </p>
 
                 {!telegramLinked && !telegramLinkCode && (
                   <button
                     type="button"
                     onClick={handleLinkTelegram}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                    className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                   >
                     Link Telegram Account
                   </button>
                 )}
 
                 {telegramLinkCode && !telegramLinked && (
-                  <div className="p-4 bg-v3-bg-darker rounded border border-v3-brand/30">
-                    <p className="text-sm text-v3-text-light mb-3">
-                      Your linking code: <span className="font-mono font-bold text-v3-brand text-lg">{telegramLinkCode}</span>
+                  <div className="p-3 bg-v3-bg-darker rounded border border-blue-600/30">
+                    <p className="text-xs text-v3-text-light mb-2">
+                      Code: <span className="font-mono font-bold text-blue-400 text-base">{telegramLinkCode}</span>
                     </p>
-                    <p className="text-xs text-v3-text-muted mb-3">
-                      1. Open Telegram and search for <span className="font-mono">@{telegramBotUsername}</span>
-                      <br />
-                      2. Send the command: <span className="font-mono">/start {telegramLinkCode}</span>
+                    <p className="text-xs text-v3-text-muted mb-2">
+                      Open Telegram and send: <span className="font-mono">/start {telegramLinkCode}</span> to @{telegramBotUsername}
                     </p>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <a
                         href={`tg://resolve?domain=${telegramBotUsername}&start=${telegramLinkCode}`}
-                        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                        className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
                       >
-                        Open Telegram App
+                        Open App
                       </a>
                       <a
                         href={`https://t.me/${telegramBotUsername}?start=${telegramLinkCode}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3 py-1.5 text-sm bg-gray-700 text-white rounded hover:bg-gray-600"
+                        className="px-3 py-1.5 text-xs bg-gray-700 text-white rounded hover:bg-gray-600"
                       >
-                        Open in Browser
+                        Web
                       </a>
                       <button
                         type="button"
                         onClick={checkTelegramStatus}
-                        className="px-3 py-1.5 text-sm bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker"
+                        className="px-3 py-1.5 text-xs bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker border border-gray-600"
                       >
                         Check Status
                       </button>
@@ -1100,9 +1103,9 @@ export default function CRMPage() {
                 )}
 
                 {telegramLinked && (
-                  <div className="flex items-center gap-2 p-3 bg-green-600/20 border border-green-600/30 rounded">
-                    <span className="text-green-400">✓</span>
-                    <span className="text-sm text-green-400">Telegram account linked successfully!</span>
+                  <div className="flex items-center gap-2 p-2 bg-green-600/20 border border-green-600/30 rounded">
+                    <span className="text-green-400 text-sm">✓</span>
+                    <span className="text-xs text-green-400">Linked successfully!</span>
                   </div>
                 )}
               </div>
