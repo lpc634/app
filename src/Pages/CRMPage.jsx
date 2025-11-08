@@ -115,6 +115,18 @@ export default function CRMPage() {
   const [selectedContactEmails, setSelectedContactEmails] = useState([]);
   const [selectedEmail, setSelectedEmail] = useState(null);
 
+  // Task states
+  const [tasks, setTasks] = useState([]);
+  const [todayTasks, setTodayTasks] = useState([]);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskFormData, setTaskFormData] = useState({
+    task_type: 'call',
+    title: '',
+    due_date: '',
+    notes: ''
+  });
+  const [selectedTask, setSelectedTask] = useState(null);
+
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -194,6 +206,7 @@ export default function CRMPage() {
     if (crmUser) {
       fetchDashboard();
       fetchContacts();
+      fetchTodayTasks();
     }
   }, [view, typeFilter, statusFilter, crmUser]);
 
@@ -397,6 +410,9 @@ export default function CRMPage() {
         const data = await response.json();
         setSelectedContact(data);
         setNotes(data.notes || []);
+        // Fetch tasks for this contact
+        const contactTasks = await fetchContactTasks(contactId);
+        setTasks(contactTasks);
         setShowDetailsModal(true);
       } else {
         toast.error('Failed to load contact details');
@@ -545,6 +561,142 @@ export default function CRMPage() {
     setSelectedContact(contact);
     setShowEmailsModal(true);
     await loadContactEmails(contact.id);
+  };
+
+  // Task handlers
+  const fetchTodayTasks = async () => {
+    const token = localStorage.getItem('crm_token');
+    try {
+      const response = await fetch('/api/crm/tasks?filter=today', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTodayTasks(data.tasks);
+      }
+    } catch (error) {
+      console.error('Error fetching today tasks:', error);
+    }
+  };
+
+  const fetchContactTasks = async (contactId) => {
+    const token = localStorage.getItem('crm_token');
+    try {
+      const response = await fetch(`/api/crm/contacts/${contactId}/tasks`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data.tasks;
+      }
+    } catch (error) {
+      console.error('Error fetching contact tasks:', error);
+    }
+    return [];
+  };
+
+  const handleAddTask = (contact) => {
+    setSelectedContact(contact);
+    setTaskFormData({
+      task_type: 'call',
+      title: '',
+      due_date: '',
+      notes: ''
+    });
+    setSelectedTask(null);
+    setShowTaskModal(true);
+  };
+
+  const handleSaveTask = async () => {
+    if (!taskFormData.title || !taskFormData.due_date) {
+      toast.error('Please fill in title and due date');
+      return;
+    }
+
+    const token = localStorage.getItem('crm_token');
+    try {
+      const response = await fetch('/api/crm/tasks', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contact_id: selectedContact.id,
+          ...taskFormData
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Task created successfully');
+        setShowTaskModal(false);
+        fetchTodayTasks();
+        fetchContacts(); // Refresh contact list to update task counts
+        if (showDetailsModal) {
+          // Refresh task list in detail modal
+          const tasks = await fetchContactTasks(selectedContact.id);
+          setTasks(tasks);
+        }
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to create task');
+      }
+    } catch (error) {
+      toast.error('Failed to create task');
+    }
+  };
+
+  const handleCompleteTask = async (taskId) => {
+    const token = localStorage.getItem('crm_token');
+    try {
+      const response = await fetch(`/api/crm/tasks/${taskId}/complete`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        toast.success('Task completed!');
+        fetchTodayTasks();
+        fetchContacts(); // Refresh contact list to update task counts
+        if (selectedContact) {
+          const tasks = await fetchContactTasks(selectedContact.id);
+          setTasks(tasks);
+        }
+      }
+    } catch (error) {
+      toast.error('Failed to complete task');
+    }
+  };
+
+  const handleSnoozeTask = async (taskId, duration) => {
+    const token = localStorage.getItem('crm_token');
+    try {
+      const response = await fetch(`/api/crm/tasks/${taskId}/snooze`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ duration })
+      });
+
+      if (response.ok) {
+        toast.success('Task snoozed');
+        fetchTodayTasks();
+        fetchContacts(); // Refresh contact list to update task counts
+      }
+    } catch (error) {
+      toast.error('Failed to snooze task');
+    }
   };
 
   const deleteContact = async (contactId) => {
@@ -1042,6 +1194,42 @@ export default function CRMPage() {
         </div>
       )}
 
+      {/* My Tasks Today Widget */}
+      {todayTasks.length > 0 && (
+        <div className="dashboard-card mb-6">
+          <h3 className="text-lg font-semibold text-v3-text-lightest mb-4">⏰ My Tasks Today ({todayTasks.length})</h3>
+          <div className="space-y-2">
+            {todayTasks.slice(0, 5).map((task) => (
+              <div key={task.id} className="flex items-center justify-between p-3 bg-v3-bg-darker rounded">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 text-xs rounded ${task.is_overdue ? 'bg-red-600/20 text-red-400' : 'bg-yellow-600/20 text-yellow-400'}`}>
+                      {task.task_type}
+                    </span>
+                    <span className="text-v3-text-lightest">{task.title}</span>
+                  </div>
+                  <p className="text-sm text-v3-text-muted mt-1">{task.contact_name} • Due: {new Date(task.due_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleCompleteTask(task.id)}
+                    className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                  >
+                    ✓ Complete
+                  </button>
+                  <button
+                    onClick={() => handleSnoozeTask(task.id, '1hour')}
+                    className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700"
+                  >
+                    Snooze 1h
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Controls */}
       <div className="dashboard-card mb-6">
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
@@ -1188,6 +1376,16 @@ export default function CRMPage() {
                         className="flex-1 px-4 py-2.5 text-sm font-medium bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
                       >
                         📨 View Emails ({contact.email_count || 0})
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddTask(contact);
+                        }}
+                        className="flex-1 px-4 py-2.5 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                      >
+                        ⏰ Add Task {contact.task_count > 0 && `(${contact.task_count})`}
                       </button>
                     </div>
                   </div>
@@ -1442,6 +1640,71 @@ export default function CRMPage() {
                   </div>
                 </div>
 
+                {/* Tasks Section */}
+                <div className="border-t border-v3-bg-card pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-v3-text-lightest">Tasks</h3>
+                    <button
+                      onClick={() => handleAddTask(selectedContact)}
+                      className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded hover:bg-purple-700"
+                    >
+                      + Add Task
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 mb-6">
+                    {tasks.length === 0 ? (
+                      <p className="text-sm text-v3-text-muted text-center py-4">No tasks for this contact</p>
+                    ) : (
+                      tasks.map((task) => (
+                        <div key={task.id} className="p-3 bg-v3-bg-card rounded">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`px-2 py-0.5 text-xs rounded ${
+                                  task.status === 'completed'
+                                    ? 'bg-green-600/20 text-green-400'
+                                    : task.is_overdue
+                                    ? 'bg-red-600/20 text-red-400'
+                                    : 'bg-blue-600/20 text-blue-400'
+                                }`}>
+                                  {task.task_type}
+                                </span>
+                                <span className="text-sm font-semibold text-v3-text-lightest">{task.title}</span>
+                                {task.status === 'completed' && (
+                                  <span className="text-xs text-green-400">✓ Completed</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-v3-text-muted">
+                                Due: {new Date(task.due_date).toLocaleString()}
+                              </p>
+                              {task.notes && (
+                                <p className="text-xs text-v3-text-light mt-1">{task.notes}</p>
+                              )}
+                            </div>
+                            {task.status === 'pending' && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleCompleteTask(task.id)}
+                                  className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                                >
+                                  Complete
+                                </button>
+                                <button
+                                  onClick={() => handleSnoozeTask(task.id, '1hour')}
+                                  className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700"
+                                >
+                                  Snooze
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
                 {/* Notes Section */}
                 <div className="border-t border-v3-bg-card pt-6">
                   <h3 className="text-lg font-semibold text-v3-text-lightest mb-4">Notes & History</h3>
@@ -1606,6 +1869,87 @@ export default function CRMPage() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Task Modal */}
+      {showTaskModal && selectedContact && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="dashboard-card max-w-2xl w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-v3-text-lightest">
+                Add Task for {selectedContact.name}
+              </h2>
+              <button onClick={() => setShowTaskModal(false)}>
+                <X className="h-6 w-6 text-v3-text-muted" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-v3-text-light mb-1">Task Type *</label>
+                <select
+                  value={taskFormData.task_type}
+                  onChange={(e) => setTaskFormData({ ...taskFormData, task_type: e.target.value })}
+                  className="v3-input w-full"
+                >
+                  <option value="call">Phone Call</option>
+                  <option value="email">Email</option>
+                  <option value="send_docs">Send Documents</option>
+                  <option value="site_visit">Site Visit</option>
+                  <option value="follow_up">Follow-up</option>
+                  <option value="general">General Task</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-v3-text-light mb-1">Title *</label>
+                <input
+                  type="text"
+                  value={taskFormData.title}
+                  onChange={(e) => setTaskFormData({ ...taskFormData, title: e.target.value })}
+                  placeholder="e.g., Call about quote follow-up"
+                  className="v3-input w-full"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-v3-text-light mb-1">Due Date & Time *</label>
+                <input
+                  type="datetime-local"
+                  value={taskFormData.due_date}
+                  onChange={(e) => setTaskFormData({ ...taskFormData, due_date: e.target.value })}
+                  className="v3-input w-full"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-v3-text-light mb-1">Notes</label>
+                <textarea
+                  value={taskFormData.notes}
+                  onChange={(e) => setTaskFormData({ ...taskFormData, notes: e.target.value })}
+                  placeholder="Additional details..."
+                  className="v3-input w-full"
+                  rows="4"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  onClick={() => setShowTaskModal(false)}
+                  className="px-4 py-2 bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveTask}
+                  className="button-refresh"
+                >
+                  Create Task
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

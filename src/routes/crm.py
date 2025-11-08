@@ -333,7 +333,7 @@ def list_contacts():
             CRMContact.updated_at.desc()
         ).all()
 
-        # Add email count to each contact
+        # Add email count and task count to each contact
         contacts_with_counts = []
         for contact in contacts:
             contact_dict = contact.to_dict()
@@ -341,6 +341,13 @@ def list_contacts():
             # Count emails for this contact
             email_count = CRMEmail.query.filter_by(contact_id=contact.id).count()
             contact_dict['email_count'] = email_count
+
+            # Count pending tasks for this contact
+            task_count = CRMTask.query.filter_by(
+                contact_id=contact.id,
+                status='pending'
+            ).count()
+            contact_dict['task_count'] = task_count
 
             contacts_with_counts.append(contact_dict)
 
