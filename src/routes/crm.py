@@ -12,6 +12,7 @@ from src.models.crm_note import CRMNote
 from src.models.crm_file import CRMFile
 from src.models.crm_email import CRMEmail
 from src.models.crm_email_config import CRMEmailConfig
+from src.models.crm_task import CRMTask
 from src.services.email_sync import EmailSyncService
 from src.utils.s3_client import s3_client
 from datetime import datetime, date, timedelta
@@ -914,3 +915,272 @@ def save_email_config():
         db.session.rollback()
         logger.exception("Error saving email config: %s", e)
         return jsonify({'error': 'Failed to save email configuration'}), 500
+
+
+# ==================== TASK MANAGEMENT ENDPOINTS ====================
+
+@crm_bp.route('/tasks', methods=['POST'])
+@jwt_required()
+def create_task():
+    """Create a new task"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        data = request.get_json()
+
+        # Validate required fields
+        if not data.get('contact_id') or not data.get('task_type') or not data.get('title') or not data.get('due_date'):
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        # Verify contact exists and user has access
+        contact = CRMContact.query.get(data['contact_id'])
+        if not contact:
+            return jsonify({'error': 'Contact not found'}), 404
+
+        if contact.owner_id != crm_user.id and not crm_user.is_super_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Parse due_date
+        try:
+            due_date = datetime.fromisoformat(data['due_date'].replace('Z', '+00:00'))
+        except:
+            return jsonify({'error': 'Invalid due_date format'}), 400
+
+        # Create task
+        task = CRMTask(
+            crm_user_id=crm_user.id,
+            contact_id=data['contact_id'],
+            task_type=data['task_type'],
+            title=data['title'],
+            due_date=due_date,
+            notes=data.get('notes')
+        )
+
+        db.session.add(task)
+        db.session.commit()
+
+        logger.info(f"Task created: {task.id} for contact {contact.name}")
+
+        return jsonify({
+            'message': 'Task created successfully',
+            'task': task.to_dict()
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        logger.exception("Error creating task: %s", e)
+        return jsonify({'error': 'Failed to create task'}), 500
+
+
+@crm_bp.route('/tasks', methods=['GET'])
+@jwt_required()
+def get_tasks():
+    """Get all tasks for the current user with optional filters"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        # Base query
+        query = CRMTask.query.filter_by(crm_user_id=crm_user.id)
+
+        # Filter by status
+        status = request.args.get('status')
+        if status:
+            query = query.filter_by(status=status)
+        else:
+            # By default, only show pending and snoozed tasks
+            query = query.filter(CRMTask.status.in_(['pending', 'snoozed']))
+
+        # Filter by time period
+        filter_type = request.args.get('filter', 'all')
+        now = datetime.utcnow()
+
+        if filter_type == 'today':
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+            query = query.filter(CRMTask.due_date.between(today_start, today_end))
+        elif filter_type == 'overdue':
+            query = query.filter(CRMTask.due_date < now, CRMTask.status == 'pending')
+        elif filter_type == 'upcoming':
+            tomorrow = now + timedelta(days=1)
+            query = query.filter(CRMTask.due_date > now, CRMTask.due_date <= tomorrow + timedelta(days=7))
+
+        # Order by due_date
+        tasks = query.order_by(CRMTask.due_date.asc()).all()
+
+        return jsonify({
+            'tasks': [task.to_dict() for task in tasks],
+            'count': len(tasks)
+        })
+
+    except Exception as e:
+        logger.exception("Error getting tasks: %s", e)
+        return jsonify({'error': 'Failed to fetch tasks'}), 500
+
+
+@crm_bp.route('/contacts/<int:contact_id>/tasks', methods=['GET'])
+@jwt_required()
+def get_contact_tasks(contact_id):
+    """Get all tasks for a specific contact"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        contact = CRMContact.query.get(contact_id)
+        if not contact:
+            return jsonify({'error': 'Contact not found'}), 404
+
+        if contact.owner_id != crm_user.id and not crm_user.is_super_admin:
+            return jsonify({'error': 'Access denied'}), 403
+
+        tasks = CRMTask.query.filter_by(
+            contact_id=contact_id,
+            crm_user_id=crm_user.id
+        ).order_by(CRMTask.due_date.desc()).all()
+
+        return jsonify({
+            'tasks': [task.to_dict() for task in tasks],
+            'count': len(tasks)
+        })
+
+    except Exception as e:
+        logger.exception("Error getting contact tasks: %s", e)
+        return jsonify({'error': 'Failed to fetch tasks'}), 500
+
+
+@crm_bp.route('/tasks/<int:task_id>/complete', methods=['PUT'])
+@jwt_required()
+def complete_task(task_id):
+    """Mark a task as complete and create a note on the contact"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        task = CRMTask.query.get(task_id)
+        if not task:
+            return jsonify({'error': 'Task not found'}), 404
+
+        if task.crm_user_id != crm_user.id:
+            return jsonify({'error': 'Access denied'}), 403
+
+        data = request.get_json() or {}
+
+        # Mark task as complete
+        task.status = 'completed'
+        task.completed_at = datetime.utcnow()
+        if data.get('notes'):
+            task.notes = data['notes']
+
+        # Create a note on the contact
+        note_content = f"✅ Completed task: {task.title}"
+        if data.get('notes'):
+            note_content += f"\n\nNotes: {data['notes']}"
+
+        note = CRMNote(
+            contact_id=task.contact_id,
+            content=note_content,
+            note_type='general',
+            created_by=crm_user.id
+        )
+
+        db.session.add(note)
+        db.session.commit()
+
+        logger.info(f"Task {task_id} completed and note created")
+
+        return jsonify({
+            'message': 'Task completed successfully',
+            'task': task.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.exception("Error completing task: %s", e)
+        return jsonify({'error': 'Failed to complete task'}), 500
+
+
+@crm_bp.route('/tasks/<int:task_id>/snooze', methods=['PUT'])
+@jwt_required()
+def snooze_task(task_id):
+    """Snooze a task (delay it by specified time)"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        task = CRMTask.query.get(task_id)
+        if not task:
+            return jsonify({'error': 'Task not found'}), 404
+
+        if task.crm_user_id != crm_user.id:
+            return jsonify({'error': 'Access denied'}), 403
+
+        data = request.get_json()
+        snooze_duration = data.get('duration', '1hour')  # 1hour, 3hours, 1day, custom
+
+        now = datetime.utcnow()
+
+        if snooze_duration == '1hour':
+            new_due_date = now + timedelta(hours=1)
+        elif snooze_duration == '3hours':
+            new_due_date = now + timedelta(hours=3)
+        elif snooze_duration == '1day':
+            new_due_date = now + timedelta(days=1)
+        elif snooze_duration == 'custom' and data.get('custom_date'):
+            try:
+                new_due_date = datetime.fromisoformat(data['custom_date'].replace('Z', '+00:00'))
+            except:
+                return jsonify({'error': 'Invalid custom_date format'}), 400
+        else:
+            return jsonify({'error': 'Invalid snooze duration'}), 400
+
+        task.due_date = new_due_date
+        task.status = 'snoozed'
+
+        db.session.commit()
+
+        logger.info(f"Task {task_id} snoozed until {new_due_date}")
+
+        return jsonify({
+            'message': 'Task snoozed successfully',
+            'task': task.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.exception("Error snoozing task: %s", e)
+        return jsonify({'error': 'Failed to snooze task'}), 500
+
+
+@crm_bp.route('/tasks/<int:task_id>', methods=['DELETE'])
+@jwt_required()
+def delete_task(task_id):
+    """Delete a task"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        task = CRMTask.query.get(task_id)
+        if not task:
+            return jsonify({'error': 'Task not found'}), 404
+
+        if task.crm_user_id != crm_user.id:
+            return jsonify({'error': 'Access denied'}), 403
+
+        db.session.delete(task)
+        db.session.commit()
+
+        logger.info(f"Task {task_id} deleted")
+
+        return jsonify({'message': 'Task deleted successfully'})
+
+    except Exception as e:
+        db.session.rollback()
+        logger.exception("Error deleting task: %s", e)
+        return jsonify({'error': 'Failed to delete task'}), 500
