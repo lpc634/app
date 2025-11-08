@@ -39,12 +39,12 @@ class EmailSyncService:
             # Login
             mail.login(crm_user.imap_email, crm_user.imap_password)
 
-            # Search in INBOX for emails FROM contact
+            # Search in INBOX using HEADER method (RFC-compliant, works with all IMAP servers)
             mail.select('INBOX')
-            status1, messages1 = mail.search(None, f'FROM "{contact.email}"')
+            status1, messages1 = mail.search(None, 'HEADER', 'From', contact.email)
 
             # Search in INBOX for emails TO contact
-            status2, messages2 = mail.search(None, f'TO "{contact.email}"')
+            status2, messages2 = mail.search(None, 'HEADER', 'To', contact.email)
 
             # Combine results
             email_ids = set()
@@ -123,7 +123,7 @@ class EmailSyncService:
 
             # Only search sent folder if we successfully selected it
             try:
-                status, messages = mail.search(None, f'TO "{contact.email}"')
+                status, messages = mail.search(None, 'HEADER', 'To', contact.email)
                 if status == 'OK':
                     sent_ids = messages[0].split()
                     for email_id in sent_ids[-50:]:  # Limit to last 50
