@@ -87,6 +87,7 @@ export default function CRMPage() {
   const [telegramLinkCode, setTelegramLinkCode] = useState(null);
   const [telegramBotUsername, setTelegramBotUsername] = useState('V3JobsBot');
   const [telegramLinked, setTelegramLinked] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Email setup state (for existing users without IMAP)
   const [showEmailSetup, setShowEmailSetup] = useState(false);
@@ -1262,12 +1263,20 @@ export default function CRMPage() {
               </span>
             )}
           </div>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker transition-colors"
-          >
-            Logout
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="px-4 py-2 bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker transition-colors"
+            >
+              Settings
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       )}
 
@@ -2070,6 +2079,154 @@ export default function CRMPage() {
                 >
                   Create Task
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background: 'rgba(0,0,0,0.7)'}}>
+          <div className="dashboard-card max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-v3-text-lightest">CRM Settings</h2>
+              <button
+                onClick={() => {
+                  setShowSettingsModal(false);
+                  setTelegramLinkCode(null);
+                }}
+                className="text-v3-text-muted hover:text-v3-text-lightest"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Telegram Settings Section */}
+              <div className="border-t border-gray-700 pt-4">
+                <h3 className="font-medium text-v3-text-lightest mb-2">Telegram Notifications</h3>
+                <p className="text-xs text-v3-text-muted mb-4">
+                  Receive task reminders and updates via Telegram
+                </p>
+
+                {telegramLinked ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-green-400 text-sm">
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Telegram account linked</span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          const token = localStorage.getItem('crm_token');
+                          const response = await fetch('/api/crm/telegram/test', {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${token}`,
+                              'Content-Type': 'application/json'
+                            }
+                          });
+
+                          if (response.ok) {
+                            toast.success('Test notification sent!');
+                          } else {
+                            toast.error('Failed to send test notification');
+                          }
+                        }}
+                        className="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                      >
+                        Send Test Notification
+                      </button>
+
+                      <button
+                        onClick={async () => {
+                          if (confirm('Are you sure you want to disconnect Telegram?')) {
+                            const token = localStorage.getItem('crm_token');
+                            const response = await fetch('/api/crm/telegram/disconnect', {
+                              method: 'POST',
+                              headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                              }
+                            });
+
+                            if (response.ok) {
+                              setTelegramLinked(false);
+                              toast.success('Telegram disconnected');
+                            } else {
+                              toast.error('Failed to disconnect Telegram');
+                            }
+                          }
+                        }}
+                        className="px-3 py-2 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  </div>
+                ) : telegramLinkCode ? (
+                  <div className="space-y-3">
+                    <div className="bg-v3-bg-darker p-4 rounded">
+                      <p className="text-sm text-v3-text-light mb-2">Your linking code:</p>
+                      <p className="text-3xl font-bold text-v3-brand text-center tracking-wider">{telegramLinkCode}</p>
+                    </div>
+
+                    <div className="text-sm text-v3-text-muted">
+                      <p className="mb-2">To link your Telegram account:</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs">
+                        <li>Open Telegram and search for <span className="text-v3-brand font-mono">@{telegramBotUsername}</span></li>
+                        <li>Send the message: <span className="text-v3-brand font-mono">/link {telegramLinkCode}</span></li>
+                        <li>Wait for confirmation</li>
+                      </ol>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        window.open(`tg://resolve?domain=${telegramBotUsername}&start=link_${telegramLinkCode}`, '_blank');
+                      }}
+                      className="w-full px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                    >
+                      Open in Telegram
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        checkTelegramStatus();
+                      }}
+                      className="w-full px-4 py-2 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                    >
+                      Check if Linked
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleLinkTelegram}
+                    className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  >
+                    Link Telegram Account
+                  </button>
+                )}
+              </div>
+
+              {/* Account Info Section */}
+              <div className="border-t border-gray-700 pt-4">
+                <h3 className="font-medium text-v3-text-lightest mb-2">Account Information</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-v3-text-muted">Username:</span>
+                    <span className="text-v3-text-light">{crmUser?.username}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-v3-text-muted">Email:</span>
+                    <span className="text-v3-text-light">{crmUser?.email}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-v3-text-muted">Role:</span>
+                    <span className="text-v3-text-light">{crmUser?.is_super_admin ? 'Super Admin' : 'User'}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
