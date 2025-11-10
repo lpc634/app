@@ -231,6 +231,42 @@ def crm_logout():
     return jsonify({'message': 'Logged out successfully'}), 200
 
 
+@crm_bp.route('/auth/change-password', methods=['POST'])
+@jwt_required()
+def change_password():
+    """Change password for current CRM user"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        data = request.get_json()
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+
+        # Validate required fields
+        if not current_password or not new_password:
+            return jsonify({'error': 'Current password and new password are required'}), 400
+
+        # Verify current password
+        if not crm_user.check_password(current_password):
+            return jsonify({'error': 'Current password is incorrect'}), 401
+
+        # Validate new password
+        if len(new_password) < 8:
+            return jsonify({'error': 'New password must be at least 8 characters'}), 400
+
+        # Update password
+        crm_user.set_password(new_password)
+        db.session.commit()
+
+        return jsonify({'message': 'Password changed successfully'}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
 @crm_bp.route('/auth/email-settings', methods=['PUT'])
 @jwt_required()
 def update_email_settings():

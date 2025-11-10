@@ -89,6 +89,15 @@ export default function CRMPage() {
   const [telegramLinked, setTelegramLinked] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
+  // Password change state
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: ''
+  });
+  const [passwordError, setPasswordError] = useState('');
+
   // Email setup state (for existing users without IMAP)
   const [showEmailSetup, setShowEmailSetup] = useState(false);
   const [emailSetupForm, setEmailSetupForm] = useState({
@@ -746,6 +755,52 @@ export default function CRMPage() {
     } catch (error) {
       console.error('Telegram link error:', error);
       toast.error('Failed to link Telegram: ' + error.message);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+
+    // Validate passwords
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    if (passwordForm.new_password.length < 8) {
+      setPasswordError('New password must be at least 8 characters');
+      return;
+    }
+
+    const token = localStorage.getItem('crm_token');
+    try {
+      const response = await fetch('/api/crm/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          current_password: passwordForm.current_password,
+          new_password: passwordForm.new_password
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Password changed successfully!');
+        setPasswordForm({
+          current_password: '',
+          new_password: '',
+          confirm_password: ''
+        });
+        setShowPasswordChange(false);
+      } else {
+        const data = await response.json();
+        setPasswordError(data.error || 'Failed to change password');
+      }
+    } catch (error) {
+      setPasswordError('Error changing password');
     }
   };
 
@@ -2207,6 +2262,90 @@ export default function CRMPage() {
                   >
                     Link Telegram Account
                   </button>
+                )}
+              </div>
+
+              {/* Password Change Section */}
+              <div className="border-t border-gray-700 pt-4">
+                <h3 className="font-medium text-v3-text-lightest mb-2">Change Password</h3>
+                <p className="text-xs text-v3-text-muted mb-4">
+                  Update your account password
+                </p>
+
+                {!showPasswordChange ? (
+                  <button
+                    onClick={() => {
+                      setShowPasswordChange(true);
+                      setPasswordError('');
+                    }}
+                    className="px-4 py-2 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                  >
+                    Change Password
+                  </button>
+                ) : (
+                  <form onSubmit={handleChangePassword} className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-v3-text-light mb-1">Current Password *</label>
+                      <input
+                        type="password"
+                        value={passwordForm.current_password}
+                        onChange={(e) => setPasswordForm({...passwordForm, current_password: e.target.value})}
+                        className="v3-input w-full text-sm"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-v3-text-light mb-1">New Password *</label>
+                      <input
+                        type="password"
+                        value={passwordForm.new_password}
+                        onChange={(e) => setPasswordForm({...passwordForm, new_password: e.target.value})}
+                        className="v3-input w-full text-sm"
+                        placeholder="Min 8 characters"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-v3-text-light mb-1">Confirm New Password *</label>
+                      <input
+                        type="password"
+                        value={passwordForm.confirm_password}
+                        onChange={(e) => setPasswordForm({...passwordForm, confirm_password: e.target.value})}
+                        className="v3-input w-full text-sm"
+                        required
+                      />
+                    </div>
+
+                    {passwordError && (
+                      <p className="text-red-400 text-xs">{passwordError}</p>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                      >
+                        Update Password
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPasswordChange(false);
+                          setPasswordForm({
+                            current_password: '',
+                            new_password: '',
+                            confirm_password: ''
+                          });
+                          setPasswordError('');
+                        }}
+                        className="px-4 py-2 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
                 )}
               </div>
 
