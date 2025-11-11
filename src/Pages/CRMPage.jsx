@@ -1314,8 +1314,7 @@ export default function CRMPage() {
   }
 
   return (
-    <div className="page-container">
-      <div className="max-w-7xl mx-auto">
+    <div className="page-container px-6">
       {/* User info and logout */}
       {crmUser && (
         <div className="dashboard-card mb-4 flex items-center justify-between">
@@ -1350,44 +1349,44 @@ export default function CRMPage() {
 
       {/* Dashboard Stats */}
       {dashboard && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="dashboard-card">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <div className="bg-v3-bg-card border border-v3-border rounded-lg p-3 hover:border-v3-brand/50 transition-colors">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-v3-text-muted text-sm">Follow-ups Today</p>
-                <p className="text-2xl font-bold text-v3-brand">{dashboard.followups_today}</p>
+                <p className="text-v3-text-muted text-xs mb-1">Follow-ups Today</p>
+                <p className="text-xl font-bold text-v3-brand">{dashboard.followups_today}</p>
               </div>
-              <Calendar className="h-8 w-8 text-v3-brand opacity-50" />
+              <Calendar className="h-6 w-6 text-v3-brand opacity-50" />
             </div>
           </div>
 
-          <div className="dashboard-card">
+          <div className="bg-v3-bg-card border border-v3-border rounded-lg p-3 hover:border-red-600/50 transition-colors">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-v3-text-muted text-sm">Overdue Follow-ups</p>
-                <p className="text-2xl font-bold text-red-600">{dashboard.overdue_followups}</p>
+                <p className="text-v3-text-muted text-xs mb-1">Overdue Follow-ups</p>
+                <p className="text-xl font-bold text-red-600">{dashboard.overdue_followups}</p>
               </div>
-              <AlertCircle className="h-8 w-8 text-red-600 opacity-50" />
+              <AlertCircle className="h-6 w-6 text-red-600 opacity-50" />
             </div>
           </div>
 
-          <div className="dashboard-card">
+          <div className="bg-v3-bg-card border border-v3-border rounded-lg p-3 hover:border-yellow-600/50 transition-colors">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-v3-text-muted text-sm">Quotes Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">{dashboard.quotes_pending}</p>
+                <p className="text-v3-text-muted text-xs mb-1">Quotes Pending</p>
+                <p className="text-xl font-bold text-yellow-600">{dashboard.quotes_pending}</p>
               </div>
-              <FileText className="h-8 w-8 text-yellow-600 opacity-50" />
+              <FileText className="h-6 w-6 text-yellow-600 opacity-50" />
             </div>
           </div>
 
-          <div className="dashboard-card">
+          <div className="bg-v3-bg-card border border-v3-border rounded-lg p-3 hover:border-green-600/50 transition-colors">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-v3-text-muted text-sm">Potential Revenue</p>
-                <p className="text-2xl font-bold text-green-600">{formatCurrency(dashboard.potential_revenue)}</p>
+                <p className="text-v3-text-muted text-xs mb-1">Potential Revenue</p>
+                <p className="text-xl font-bold text-green-600">{formatCurrency(dashboard.potential_revenue)}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-green-600 opacity-50" />
+              <DollarSign className="h-6 w-6 text-green-600 opacity-50" />
             </div>
           </div>
         </div>
@@ -1430,30 +1429,30 @@ export default function CRMPage() {
       )}
 
       {/* Controls */}
-      <div className="dashboard-card mb-6">
-        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+      <div className="bg-v3-bg-card border border-v3-border rounded-lg p-3 mb-4">
+        <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setView('my')}
-              className={`px-4 py-2 rounded ${view === 'my' ? 'bg-v3-brand text-white' : 'bg-v3-bg-card text-v3-text-light'}`}
+              className={`px-3 py-1.5 text-sm rounded ${view === 'my' ? 'bg-v3-brand text-white' : 'bg-v3-bg-darker text-v3-text-light'}`}
             >
               My Contacts
             </button>
             {crmUser?.is_super_admin && (
               <button
                 onClick={() => setView('team')}
-                className={`px-4 py-2 rounded ${view === 'team' ? 'bg-v3-brand text-white' : 'bg-v3-bg-card text-v3-text-light'}`}
+                className={`px-3 py-1.5 text-sm rounded ${view === 'team' ? 'bg-v3-brand text-white' : 'bg-v3-bg-darker text-v3-text-light'}`}
               >
                 Team View
               </button>
             )}
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 flex-1 justify-end">
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="v3-input"
+              className="v3-input text-sm py-1.5"
             >
               <option value="all">All Types</option>
               {Object.entries(CONTACT_TYPES).map(([key, label]) => (
@@ -1464,30 +1463,30 @@ export default function CRMPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="v3-input"
+              className="v3-input text-sm py-1.5"
             >
-              <option value="all">All Statuses</option>
+              <option value="all">Active</option>
               {CONTACT_STATUS.map(({ value, label }) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
 
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-v3-text-muted" />
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-v3-text-muted" />
               <input
                 type="text"
                 placeholder="Search contacts..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="v3-input pl-10"
+                className="v3-input text-sm py-1.5 pl-8 w-48"
               />
             </div>
 
             <button
               onClick={() => setShowContactModal(true)}
-              className="button-refresh flex items-center gap-2"
+              className="px-3 py-1.5 text-sm bg-v3-brand text-white rounded hover:bg-v3-brand/80 flex items-center gap-1.5 transition-colors"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3.5 w-3.5" />
               Add Contact
             </button>
           </div>
@@ -1495,13 +1494,13 @@ export default function CRMPage() {
       </div>
 
       {/* Contacts List */}
-      <div className="dashboard-card">
+      <div className="bg-v3-bg-card border border-v3-border rounded-lg p-4">
         {loading ? (
-          <p className="text-center text-v3-text-muted py-8">Loading contacts...</p>
+          <p className="text-center text-v3-text-muted py-6">Loading contacts...</p>
         ) : contacts.length === 0 ? (
-          <p className="text-center text-v3-text-muted py-8">No contacts found</p>
+          <p className="text-center text-v3-text-muted py-6">No contacts found</p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {contacts.map((contact) => (
               <div
                 key={contact.id}
@@ -2384,7 +2383,6 @@ export default function CRMPage() {
           </div>
         </div>
       )}
-      </div>
     </div>
   );
 }
