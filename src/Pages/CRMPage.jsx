@@ -198,6 +198,9 @@ export default function CRMPage() {
             setShowEmailSetup(true);
           }
 
+          // Check Telegram status
+          checkTelegramStatus();
+
           setIsCheckingAuth(false);
         } else {
           // Token invalid, remove it and show login
@@ -243,6 +246,10 @@ export default function CRMPage() {
         setCrmUser(data.user);
         setShowLoginModal(false);
         setLoginForm({ username: '', password: '' });
+
+        // Check Telegram status after login
+        checkTelegramStatus();
+
         toast.success('Logged in successfully');
       } else {
         const error = await response.json();
@@ -804,7 +811,7 @@ export default function CRMPage() {
     }
   };
 
-  const checkTelegramStatus = async () => {
+  const checkTelegramStatus = async (showSuccessToast = false) => {
     const token = localStorage.getItem('crm_token');
     try {
       const response = await fetch('/api/crm/telegram/status', {
@@ -819,7 +826,9 @@ export default function CRMPage() {
         setTelegramLinked(data.linked);
         if (data.linked) {
           setTelegramLinkCode(null);
-          toast.success('Telegram successfully linked!');
+          if (showSuccessToast) {
+            toast.success('Telegram successfully linked!');
+          }
         }
       }
     } catch (error) {
@@ -1320,7 +1329,10 @@ export default function CRMPage() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => setShowSettingsModal(true)}
+              onClick={() => {
+                setShowSettingsModal(true);
+                checkTelegramStatus();
+              }}
               className="px-4 py-2 bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker transition-colors"
             >
               Settings
@@ -2248,7 +2260,7 @@ export default function CRMPage() {
 
                     <button
                       onClick={() => {
-                        checkTelegramStatus();
+                        checkTelegramStatus(true);
                       }}
                       className="w-full px-4 py-2 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
                     >
