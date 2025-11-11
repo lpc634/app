@@ -1,7 +1,9 @@
 from flask_apscheduler import APScheduler
 from datetime import datetime, date, timedelta
 from src.models.user import db, User, AgentAvailability, AgentWeeklyAvailability, Notification
-from src.models.crm import CRMTask, CRMUser
+from src.models.crm_task import CRMTask
+from src.models.crm_user import CRMUser
+from src.models.crm_contact import CRMContact
 import requests
 import os
 
@@ -117,7 +119,6 @@ def check_crm_task_reminders():
             # Get contact info if task is linked to a contact
             contact_info = ""
             if task.contact_id:
-                from src.models.crm import CRMContact
                 contact = CRMContact.query.get(task.contact_id)
                 if contact:
                     contact_info = f"\n📋 Contact: {contact.name}"
