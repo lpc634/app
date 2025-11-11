@@ -1598,8 +1598,8 @@ export default function CRMPage() {
 
       {/* Create/Edit Contact Modal */}
       {showContactModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="dashboard-card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="dashboard-card max-w-2xl w-full my-8">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-v3-text-lightest">Add New Contact</h2>
               <button onClick={() => setShowContactModal(false)}>
