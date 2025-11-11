@@ -2171,7 +2171,7 @@ export default function CRMPage() {
 
             <div className="space-y-6">
               {/* Telegram Settings Section */}
-              <div className="border-t border-gray-700 pt-4">
+              <div>
                 <h3 className="font-medium text-v3-text-lightest mb-2">Telegram Notifications</h3>
                 <p className="text-xs text-v3-text-muted mb-4">
                   Receive task reminders and updates via Telegram
@@ -2278,7 +2278,7 @@ export default function CRMPage() {
               </div>
 
               {/* Password Change Section */}
-              <div className="border-t border-gray-700 pt-4">
+              <div className="pt-2">
                 <h3 className="font-medium text-v3-text-lightest mb-2">Change Password</h3>
                 <p className="text-xs text-v3-text-muted mb-4">
                   Update your account password
@@ -2362,7 +2362,7 @@ export default function CRMPage() {
               </div>
 
               {/* Account Info Section */}
-              <div className="border-t border-gray-700 pt-4">
+              <div className="pt-2">
                 <h3 className="font-medium text-v3-text-lightest mb-2">Account Information</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
