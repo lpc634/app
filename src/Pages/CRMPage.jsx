@@ -1349,8 +1349,8 @@ export default function CRMPage() {
 
       {/* Dashboard Stats */}
       {dashboard && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-          <div className="bg-v3-bg-card border border-v3-border rounded-lg p-3 hover:border-v3-brand/50 transition-colors">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          <div className="dashboard-card !p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-v3-text-muted text-xs mb-1">Follow-ups Today</p>
@@ -1360,7 +1360,7 @@ export default function CRMPage() {
             </div>
           </div>
 
-          <div className="bg-v3-bg-card border border-v3-border rounded-lg p-3 hover:border-red-600/50 transition-colors">
+          <div className="dashboard-card !p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-v3-text-muted text-xs mb-1">Overdue Follow-ups</p>
@@ -1370,7 +1370,7 @@ export default function CRMPage() {
             </div>
           </div>
 
-          <div className="bg-v3-bg-card border border-v3-border rounded-lg p-3 hover:border-yellow-600/50 transition-colors">
+          <div className="dashboard-card !p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-v3-text-muted text-xs mb-1">Quotes Pending</p>
@@ -1380,7 +1380,7 @@ export default function CRMPage() {
             </div>
           </div>
 
-          <div className="bg-v3-bg-card border border-v3-border rounded-lg p-3 hover:border-green-600/50 transition-colors">
+          <div className="dashboard-card !p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-v3-text-muted text-xs mb-1">Potential Revenue</p>
@@ -1429,7 +1429,7 @@ export default function CRMPage() {
       )}
 
       {/* Controls */}
-      <div className="bg-v3-bg-card border border-v3-border rounded-lg p-3 mb-4">
+      <div className="dashboard-card !p-3 mb-4">
         <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
           <div className="flex flex-wrap gap-2">
             <button
@@ -1494,7 +1494,7 @@ export default function CRMPage() {
       </div>
 
       {/* Contacts List */}
-      <div className="bg-v3-bg-card border border-v3-border rounded-lg p-4">
+      <div className="dashboard-card !p-4">
         {loading ? (
           <p className="text-center text-v3-text-muted py-6">Loading contacts...</p>
         ) : contacts.length === 0 ? (
