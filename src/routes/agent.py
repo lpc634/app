@@ -2136,14 +2136,26 @@ def download_invoice_direct(invoice_id):
             # Fetch first linked job to provide job metadata for header/address
             invoice_job = InvoiceJob.query.filter_by(invoice_id=invoice.id).first()
             linked_job = invoice_job.job if invoice_job else None
+
+            # For supplier invoices, fetch the job assignment to get address
+            from src.models.user import JobAssignment
             for ln in lines:
+                # Get the job assignment for address
+                assignment = None
+                assignment_address = None
+                if ln.job_assignment_id:
+                    assignment = JobAssignment.query.get(ln.job_assignment_id)
+                    if assignment and assignment.job:
+                        assignment_address = assignment.job.address or ''
+
                 jobs_data.append({
-                    'job': linked_job,
+                    'job': linked_job or (assignment.job if assignment else None),
                     'date': ln.work_date,
                     'hours': float(ln.hours or 0),
                     'rate': float((ln.rate_net if ln.rate_net is not None else ln.rate_per_hour) or 0),
                     'amount': float((ln.line_net if ln.line_net is not None else ln.line_total) or 0),
-                    'job_type': getattr(linked_job, 'job_type', None),
+                    'job_type': getattr((assignment.job if assignment else linked_job), 'job_type', None) if (assignment or linked_job) else None,
+                    'address': assignment_address or (getattr(linked_job, 'address', None) if linked_job else None),
                 })
         else:
             # Fallback to legacy InvoiceJob aggregation
