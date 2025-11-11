@@ -290,9 +290,9 @@ button:has(.lucide-log-out):hover {
 }
 
 /* ===== SCROLLBAR ===== */
-::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--v3-bg-dark); }
-::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--v3-orange), var(--v3-orange-dark)); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--v3-orange), var(--v3-orange-dark)); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--v3-orange); }
 
 /* ===== RESPONSIVE ===== */

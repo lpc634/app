@@ -1315,6 +1315,7 @@ export default function CRMPage() {
 
   return (
     <div className="page-container">
+      <div className="max-w-7xl mx-auto">
       {/* User info and logout */}
       {crmUser && (
         <div className="dashboard-card mb-4 flex items-center justify-between">
@@ -2383,6 +2384,7 @@ export default function CRMPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
