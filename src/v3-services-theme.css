@@ -248,6 +248,7 @@ main::after {
   position: relative !important;
   overflow: hidden !important;
   border-radius: 12px !important;
+  padding: 1.5rem !important;
 }
 
 .dashboard-card:hover {
