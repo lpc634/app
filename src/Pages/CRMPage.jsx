@@ -23,7 +23,9 @@ import {
   XCircle,
   AlertCircle,
   Upload,
-  Download
+  Download,
+  List,
+  LayoutGrid
 } from 'lucide-react';
 import '../v3-services-theme.css';
 
@@ -114,6 +116,7 @@ export default function CRMPage() {
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('my'); // 'my' or 'team'
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'pipeline'
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('active');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -1178,6 +1181,116 @@ export default function CRMPage() {
     );
   };
 
+  // Kanban Board helpers
+  const getKanbanStages = (contactType) => {
+    if (!contactType || contactType === 'all') {
+      // Return all stages grouped by type
+      return {
+        eviction_client: EVICTION_STAGES,
+        prevention_prospect: PREVENTION_STAGES,
+        referral_partner: [
+          { value: 'new_partner', label: 'New Partner' },
+          { value: 'active', label: 'Active' },
+          { value: 'inactive', label: 'Inactive' }
+        ]
+      };
+    }
+
+    if (contactType === 'eviction_client') return { eviction_client: EVICTION_STAGES };
+    if (contactType === 'prevention_prospect') return { prevention_prospect: PREVENTION_STAGES };
+    if (contactType === 'referral_partner') {
+      return {
+        referral_partner: [
+          { value: 'new_partner', label: 'New Partner' },
+          { value: 'active', label: 'Active' },
+          { value: 'inactive', label: 'Inactive' }
+        ]
+      };
+    }
+    return {};
+  };
+
+  const groupContactsByStage = (contacts, contactType) => {
+    const stages = getKanbanStages(contactType);
+    const grouped = {};
+
+    Object.entries(stages).forEach(([type, stagesList]) => {
+      stagesList.forEach(stage => {
+        const key = `${type}-${stage.value}`;
+        grouped[key] = {
+          ...stage,
+          contactType: type,
+          contacts: contacts.filter(c => c.contact_type === type && c.current_stage === stage.value)
+        };
+      });
+    });
+
+    return grouped;
+  };
+
+  const getDaysInStage = (contact) => {
+    if (!contact.updated_at) return 0;
+    const updated = new Date(contact.updated_at);
+    const now = new Date();
+    const diff = Math.floor((now - updated) / (1000 * 60 * 60 * 24));
+    return diff;
+  };
+
+  const getContactTypeColor = (contactType) => {
+    const colors = {
+      eviction_client: 'border-blue-500/30 bg-blue-500/5',
+      prevention_prospect: 'border-green-500/30 bg-green-500/5',
+      referral_partner: 'border-purple-500/30 bg-purple-500/5'
+    };
+    return colors[contactType] || 'border-gray-500/30 bg-gray-500/5';
+  };
+
+  // Handle drag and drop stage change
+  const handleStageChange = async (contactId, newStage, oldStage) => {
+    try {
+      const token = localStorage.getItem('crm_token');
+      const response = await fetch(`/api/crm/contacts/${contactId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ current_stage: newStage })
+      });
+
+      if (!response.ok) throw new Error('Failed to update stage');
+
+      // Add activity log entry
+      const stageName = (stage) => {
+        const allStages = [...EVICTION_STAGES, ...PREVENTION_STAGES,
+          { value: 'new_partner', label: 'New Partner' },
+          { value: 'active', label: 'Active' },
+          { value: 'inactive', label: 'Inactive' }
+        ];
+        const found = allStages.find(s => s.value === stage);
+        return found ? found.label : stage;
+      };
+
+      await fetch(`/api/crm/contacts/${contactId}/activity`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          activity_type: 'stage_change',
+          notes: `Stage changed from "${stageName(oldStage)}" to "${stageName(newStage)}"`
+        })
+      });
+
+      toast.success(`Contact moved to ${stageName(newStage)}`);
+      fetchContacts(); // Refresh the contacts list
+    } catch (error) {
+      console.error('Error updating stage:', error);
+      toast.error('Failed to update stage');
+    }
+  };
+
   // Show login/register modal if not authenticated
   if (showLoginModal) {
     return (
@@ -1701,6 +1814,24 @@ export default function CRMPage() {
                 Team View
               </button>
             )}
+
+            {/* View Mode Toggle */}
+            <div className="flex gap-0 ml-4 bg-v3-bg-darker rounded overflow-hidden">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1.5 text-sm flex items-center gap-2 transition-colors ${viewMode === 'list' ? 'bg-v3-brand text-white' : 'text-v3-text-light hover:bg-v3-bg-darker/50'}`}
+              >
+                <List className="h-4 w-4" />
+                <span>List</span>
+              </button>
+              <button
+                onClick={() => setViewMode('pipeline')}
+                className={`px-3 py-1.5 text-sm flex items-center gap-2 transition-colors ${viewMode === 'pipeline' ? 'bg-v3-brand text-white' : 'text-v3-text-light hover:bg-v3-bg-darker/50'}`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                <span>Pipeline</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2 flex-1 justify-end">
@@ -1798,15 +1929,16 @@ export default function CRMPage() {
         </div>
       )}
 
-      {/* Contacts List */}
-      <div className="dashboard-card !p-4">
-        {loading ? (
-          <p className="text-center text-v3-text-muted py-6">Loading contacts...</p>
-        ) : contacts.length === 0 ? (
-          <p className="text-center text-v3-text-muted py-6">No contacts found</p>
-        ) : (
-          <div className="space-y-3">
-            {contacts.map((contact) => (
+      {/* Contacts List or Pipeline View */}
+      {viewMode === 'list' ? (
+        <div className="dashboard-card !p-4">
+          {loading ? (
+            <p className="text-center text-v3-text-muted py-6">Loading contacts...</p>
+          ) : contacts.length === 0 ? (
+            <p className="text-center text-v3-text-muted py-6">No contacts found</p>
+          ) : (
+            <div className="space-y-3">
+              {contacts.map((contact) => (
               <div
                 key={contact.id}
                 onClick={() => fetchContactDetails(contact.id)}
@@ -1897,10 +2029,155 @@ export default function CRMPage() {
                   <Eye className="h-5 w-5 text-v3-text-muted flex-shrink-0" />
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Pipeline/Kanban View */
+        <div className="dashboard-card !p-4">
+          {loading ? (
+            <p className="text-center text-v3-text-muted py-6">Loading pipeline...</p>
+          ) : contacts.length === 0 ? (
+            <p className="text-center text-v3-text-muted py-6">No contacts found</p>
+          ) : (
+            <div className="overflow-x-auto pb-4">
+              <div className="flex gap-4 min-w-max">
+                {(() => {
+                  const groupedStages = groupContactsByStage(contacts, typeFilter);
+                  return Object.entries(groupedStages).map(([key, stage]) => (
+                    <div key={key} className="flex-shrink-0 w-80">
+                      {/* Stage Column */}
+                      <div className={`rounded-lg border-2 ${getContactTypeColor(stage.contactType)} h-full`}>
+                        {/* Column Header */}
+                        <div className="p-4 border-b border-gray-700">
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className="font-semibold text-v3-text-lightest">{stage.label}</h3>
+                            <span className="px-2 py-1 bg-v3-brand/20 text-v3-brand text-xs rounded font-medium">
+                              {stage.contacts.length}
+                            </span>
+                          </div>
+                          <p className="text-xs text-v3-text-muted">
+                            {CONTACT_TYPES[stage.contactType]}
+                          </p>
+                        </div>
+
+                        {/* Cards Container */}
+                        <div className="p-3 space-y-3 min-h-[200px]">
+                          {stage.contacts.map((contact) => {
+                            const daysInStage = getDaysInStage(contact);
+                            return (
+                              <div
+                                key={contact.id}
+                                draggable
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('contactId', contact.id);
+                                  e.dataTransfer.setData('oldStage', contact.current_stage);
+                                }}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.currentTarget.classList.add('ring-2', 'ring-v3-brand');
+                                }}
+                                onDragLeave={(e) => {
+                                  e.currentTarget.classList.remove('ring-2', 'ring-v3-brand');
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  e.currentTarget.classList.remove('ring-2', 'ring-v3-brand');
+                                  const draggedContactId = e.dataTransfer.getData('contactId');
+                                  const oldStage = e.dataTransfer.getData('oldStage');
+                                  if (draggedContactId !== contact.id.toString() && stage.value !== oldStage) {
+                                    handleStageChange(parseInt(draggedContactId), stage.value, oldStage);
+                                  }
+                                }}
+                                onClick={() => fetchContactDetails(contact.id)}
+                                className="p-3 bg-v3-bg-card rounded-lg cursor-move hover:bg-v3-bg-darker border border-gray-700 transition-all"
+                              >
+                                {/* Contact Card */}
+                                <div className="space-y-2">
+                                  {/* Name and Priority */}
+                                  <div className="flex items-start justify-between gap-2">
+                                    <h4 className="font-semibold text-sm text-v3-text-lightest line-clamp-1">
+                                      {contact.name}
+                                    </h4>
+                                    {getPriorityBadge(contact.priority)}
+                                  </div>
+
+                                  {/* Company */}
+                                  {contact.company_name && (
+                                    <div className="flex items-center gap-1 text-xs text-v3-text-muted">
+                                      <Building className="h-3 w-3 flex-shrink-0" />
+                                      <span className="truncate">{contact.company_name}</span>
+                                    </div>
+                                  )}
+
+                                  {/* Phone */}
+                                  {contact.phone && (
+                                    <div className="flex items-center gap-1 text-xs text-v3-text-light">
+                                      <Phone className="h-3 w-3 flex-shrink-0" />
+                                      <span>{contact.phone}</span>
+                                    </div>
+                                  )}
+
+                                  {/* Email */}
+                                  {contact.email && (
+                                    <div className="flex items-center gap-1 text-xs text-v3-text-light">
+                                      <Mail className="h-3 w-3 flex-shrink-0" />
+                                      <span className="truncate">{contact.email}</span>
+                                    </div>
+                                  )}
+
+                                  {/* Days in Stage */}
+                                  <div className="flex items-center gap-1 text-xs text-v3-text-muted pt-2 border-t border-gray-700">
+                                    <Clock className="h-3 w-3 flex-shrink-0" />
+                                    <span>{daysInStage} day{daysInStage !== 1 ? 's' : ''} in stage</span>
+                                  </div>
+
+                                  {/* Potential Value */}
+                                  {contact.potential_value && (
+                                    <div className="text-xs font-semibold text-green-600">
+                                      {formatCurrency(contact.potential_value)}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {/* Drop Zone for empty columns */}
+                          {stage.contacts.length === 0 && (
+                            <div
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                e.currentTarget.classList.add('bg-v3-brand/10', 'border-v3-brand');
+                              }}
+                              onDragLeave={(e) => {
+                                e.currentTarget.classList.remove('bg-v3-brand/10', 'border-v3-brand');
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                e.currentTarget.classList.remove('bg-v3-brand/10', 'border-v3-brand');
+                                const contactId = e.dataTransfer.getData('contactId');
+                                const oldStage = e.dataTransfer.getData('oldStage');
+                                if (stage.value !== oldStage) {
+                                  handleStageChange(parseInt(contactId), stage.value, oldStage);
+                                }
+                              }}
+                              className="h-32 border-2 border-dashed border-gray-700 rounded-lg flex items-center justify-center text-v3-text-muted text-sm transition-colors"
+                            >
+                              Drop contacts here
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Create/Edit Contact Modal */}
       {showContactModal && (
