@@ -66,7 +66,7 @@ class CRMContact(db.Model):
             'urgency_level': self.urgency_level,
             'current_stage': self.current_stage,
             'status': self.status,
-            'priority': self.priority or 'none',
+            'priority': getattr(self, 'priority', None) or 'none',
             'next_followup_date': self.next_followup_date.isoformat() if self.next_followup_date else None,
             'potential_value': float(self.potential_value) if self.potential_value else None,
             'total_revenue': float(self.total_revenue) if self.total_revenue else 0.0,
