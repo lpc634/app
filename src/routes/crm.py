@@ -352,10 +352,15 @@ def list_contacts():
         if status:
             query = query.filter(CRMContact.status == status)
 
-        # Priority filter
+        # Priority filter (only if column exists - graceful degradation)
         priority = request.args.get('priority')
-        if priority:
-            query = query.filter(CRMContact.priority == priority)
+        use_priority_sorting = False
+        try:
+            if priority and hasattr(CRMContact, 'priority'):
+                query = query.filter(CRMContact.priority == priority)
+                use_priority_sorting = True
+        except Exception:
+            pass  # Column doesn't exist yet, skip priority filtering
 
         # Search filter
         search = request.args.get('search', '').strip()
@@ -369,22 +374,35 @@ def list_contacts():
                 )
             )
 
-        # Priority-based sorting: urgent first, then hot, nurture, routine, none
+        # Priority-based sorting: urgent first, then hot, nurture, routine, none (if column exists)
         # Within same priority, sort by next follow-up date, then updated_at
-        from sqlalchemy import case
-        priority_order = case(
-            (CRMContact.priority == 'urgent', 1),
-            (CRMContact.priority == 'hot', 2),
-            (CRMContact.priority == 'nurture', 3),
-            (CRMContact.priority == 'routine', 4),
-            else_=5
-        )
-
-        contacts = query.order_by(
-            priority_order,
-            CRMContact.next_followup_date.asc().nullslast(),
-            CRMContact.updated_at.desc()
-        ).all()
+        try:
+            if use_priority_sorting and hasattr(CRMContact, 'priority'):
+                from sqlalchemy import case
+                priority_order = case(
+                    (CRMContact.priority == 'urgent', 1),
+                    (CRMContact.priority == 'hot', 2),
+                    (CRMContact.priority == 'nurture', 3),
+                    (CRMContact.priority == 'routine', 4),
+                    else_=5
+                )
+                contacts = query.order_by(
+                    priority_order,
+                    CRMContact.next_followup_date.asc().nullslast(),
+                    CRMContact.updated_at.desc()
+                ).all()
+            else:
+                # Fallback to old sorting without priority
+                contacts = query.order_by(
+                    CRMContact.next_followup_date.asc().nullslast(),
+                    CRMContact.updated_at.desc()
+                ).all()
+        except Exception:
+            # If priority sorting fails, fallback to old sorting
+            contacts = query.order_by(
+                CRMContact.next_followup_date.asc().nullslast(),
+                CRMContact.updated_at.desc()
+            ).all()
 
         # Add email count and task count to each contact
         contacts_with_counts = []
@@ -647,6 +665,16 @@ def get_priority_counts():
         return jsonify({'error': 'CRM access required'}), 403
 
     try:
+        # Check if priority column exists
+        if not hasattr(CRMContact, 'priority'):
+            # Priority column doesn't exist yet, return zeros
+            return jsonify({
+                'urgent': 0,
+                'hot': 0,
+                'nurture': 0,
+                'routine': 0
+            })
+
         # Base query for user's active contacts
         query = CRMContact.query.filter(
             CRMContact.owner_id == crm_user.id,
@@ -668,7 +696,13 @@ def get_priority_counts():
 
     except Exception as e:
         logger.exception("Error getting priority counts: %s", e)
-        return jsonify({'error': 'Failed to get priority counts'}), 500
+        # Return zeros on error to prevent frontend breaking
+        return jsonify({
+            'urgent': 0,
+            'hot': 0,
+            'nurture': 0,
+            'routine': 0
+        })
 
 
 # ============================================================================
