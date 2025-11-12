@@ -2151,12 +2151,26 @@ def download_invoice_direct(invoice_id):
                 # Log exactly what's in the database
                 current_app.logger.info(f"PDF Line {ln.id}: DB hours={ln.hours}, rate_net={ln.rate_net}, line_net={ln.line_net}")
 
+                # Extract values with proper fallback logic
+                hours_val = float(ln.hours or 0)
+                # Try rate_net first, then rate_per_hour as fallback
+                rate_val = float((ln.rate_net if ln.rate_net is not None else (ln.rate_per_hour if hasattr(ln, 'rate_per_hour') else 0)) or 0)
+                # Try line_net first, then line_total as fallback
+                amount_val = float((ln.line_net if ln.line_net is not None else (ln.line_total if hasattr(ln, 'line_total') else 0)) or 0)
+
+                # If amount is 0 but hours and rate exist, calculate it
+                if amount_val == 0 and hours_val > 0 and rate_val > 0:
+                    # For supplier invoices, the amount should be hours * rate * headcount
+                    headcount_val = int(getattr(ln, 'headcount', 1) or 1)
+                    amount_val = hours_val * rate_val * headcount_val
+                    current_app.logger.warning(f"PDF Line {ln.id}: Calculated amount from hours*rate*headcount: {hours_val}*{rate_val}*{headcount_val}={amount_val}")
+
                 jobs_data.append({
                     'job': linked_job or (assignment.job if assignment else None),
                     'date': ln.work_date,
-                    'hours': float(ln.hours or 0),
-                    'rate': float((ln.rate_net if ln.rate_net is not None else ln.rate_per_hour) or 0),
-                    'amount': float((ln.line_net if ln.line_net is not None else ln.line_total) or 0),
+                    'hours': hours_val,
+                    'rate': rate_val,
+                    'amount': amount_val,
                     'job_type': getattr((assignment.job if assignment else linked_job), 'job_type', None) if (assignment or linked_job) else None,
                     'address': assignment_address or (getattr(linked_job, 'address', None) if linked_job else None),
                 })
