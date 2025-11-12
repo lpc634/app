@@ -116,7 +116,9 @@ export default function CRMPage() {
   const [view, setView] = useState('my'); // 'my' or 'team'
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('active');
+  const [priorityFilter, setPriorityFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [priorityCounts, setPriorityCounts] = useState({ urgent: 0, hot: 0, nurture: 0, routine: 0 });
 
   // Modal states
   const [showContactModal, setShowContactModal] = useState(false);
@@ -169,6 +171,7 @@ export default function CRMPage() {
   const [showLogCallModal, setShowLogCallModal] = useState(false);
   const [showQuickNoteModal, setShowQuickNoteModal] = useState(false);
   const [showStageDropdown, setShowStageDropdown] = useState(false);
+  const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
   const [logCallFormData, setLogCallFormData] = useState({
     outcome: 'Connected - Positive',
     duration: '',
@@ -185,11 +188,14 @@ export default function CRMPage() {
     register('CRM System', 'Manage eviction clients, prevention prospects, and referral partners');
   }, [register]);
 
-  // Close stage dropdown when clicking outside
+  // Close stage and priority dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (showStageDropdown && !event.target.closest('.stage-dropdown-container')) {
         setShowStageDropdown(false);
+      }
+      if (showPriorityDropdown && !event.target.closest('.priority-dropdown-container')) {
+        setShowPriorityDropdown(false);
       }
     };
 
@@ -197,7 +203,7 @@ export default function CRMPage() {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showStageDropdown]);
+  }, [showStageDropdown, showPriorityDropdown]);
 
   // Check CRM authentication on mount
   useEffect(() => {
@@ -254,8 +260,9 @@ export default function CRMPage() {
       fetchDashboard();
       fetchContacts();
       fetchTodayTasks();
+      fetchPriorityCounts();
     }
-  }, [view, typeFilter, statusFilter, crmUser]);
+  }, [view, typeFilter, statusFilter, priorityFilter, crmUser]);
 
   // Login handler
   const handleLogin = async (e) => {
@@ -414,12 +421,32 @@ export default function CRMPage() {
     }
   };
 
+  const fetchPriorityCounts = async () => {
+    try {
+      const token = localStorage.getItem('crm_token');
+      const response = await fetch('/api/crm/contacts/priority-counts', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPriorityCounts(data);
+      }
+    } catch (error) {
+      console.error('Error fetching priority counts:', error);
+    }
+  };
+
   const fetchContacts = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ view });
       if (typeFilter !== 'all') params.append('type', typeFilter);
       if (statusFilter !== 'all') params.append('status', statusFilter);
+      if (priorityFilter !== 'all') params.append('priority', priorityFilter);
       if (searchTerm) params.append('search', searchTerm);
 
       const token = localStorage.getItem('crm_token');
@@ -684,6 +711,41 @@ export default function CRMPage() {
       }
     } catch (error) {
       toast.error('Failed to change stage');
+    }
+  };
+
+  const handleChangePriority = async (newPriority) => {
+    try {
+      const token = localStorage.getItem('crm_token');
+      const response = await fetch(`/api/crm/contacts/${selectedContact.id}/priority`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          priority: newPriority
+        })
+      });
+
+      if (response.ok) {
+        const priorityLabels = {
+          urgent: '🔴 Urgent',
+          hot: '🟡 Hot Lead',
+          nurture: '🔵 Nurture',
+          routine: '⚪ Routine',
+          none: 'None'
+        };
+        toast.success(`Priority changed to ${priorityLabels[newPriority]}`);
+        setShowPriorityDropdown(false);
+        fetchContactDetails(selectedContact.id);
+        fetchContacts();
+        fetchPriorityCounts();
+      } else {
+        toast.error('Failed to change priority');
+      }
+    } catch (error) {
+      toast.error('Failed to change priority');
     }
   };
 
@@ -1094,6 +1156,26 @@ export default function CRMPage() {
       dormant: 'text-gray-600'
     };
     return colors[status] || 'text-gray-600';
+  };
+
+  const getPriorityBadge = (priority) => {
+    if (!priority || priority === 'none') return null;
+
+    const priorityConfig = {
+      urgent: { label: '🔴 URGENT', bg: 'bg-red-500/20', text: 'text-red-500', border: 'border-red-500/30' },
+      hot: { label: '🟡 HOT LEAD', bg: 'bg-yellow-500/20', text: 'text-yellow-500', border: 'border-yellow-500/30' },
+      nurture: { label: '🔵 NURTURE', bg: 'bg-blue-500/20', text: 'text-blue-500', border: 'border-blue-500/30' },
+      routine: { label: '⚪ ROUTINE', bg: 'bg-gray-500/20', text: 'text-gray-400', border: 'border-gray-500/30' }
+    };
+
+    const config = priorityConfig[priority];
+    if (!config) return null;
+
+    return (
+      <span className={`px-2.5 py-1 text-xs rounded font-semibold border ${config.bg} ${config.text} ${config.border}`}>
+        {config.label}
+      </span>
+    );
   };
 
   // Show login/register modal if not authenticated
@@ -1639,9 +1721,22 @@ export default function CRMPage() {
               className="v3-input text-sm py-1.5"
             >
               <option value="all">Active</option>
-              {CONTACT_STATUS.map(({ value, label }) => (
+              {CONTACT_STATUS.map(({ value, label}) => (
                 <option key={value} value={value}>{label}</option>
               ))}
+            </select>
+
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="v3-input text-sm py-1.5"
+            >
+              <option value="all">All Priorities</option>
+              <option value="urgent">🔴 Urgent</option>
+              <option value="hot">🟡 Hot</option>
+              <option value="nurture">🔵 Nurture</option>
+              <option value="routine">⚪ Routine</option>
+              <option value="none">No Priority</option>
             </select>
 
             <div className="relative">
@@ -1665,6 +1760,43 @@ export default function CRMPage() {
           </div>
         </div>
       </div>
+
+      {/* Priority Dashboard Widget */}
+      {(priorityCounts.urgent > 0 || priorityCounts.hot > 0) && (
+        <div className="dashboard-card !p-4 bg-gradient-to-r from-red-500/10 to-yellow-500/10 border-l-4 border-red-500">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <AlertCircle className="h-6 w-6 text-red-500" />
+              <div>
+                <h3 className="text-sm font-semibold text-v3-text-lightest mb-1">Priority Contacts Requiring Attention</h3>
+                <div className="flex items-center gap-4 text-sm">
+                  {priorityCounts.urgent > 0 && (
+                    <span className="text-red-500 font-semibold">
+                      🔴 {priorityCounts.urgent} Urgent
+                    </span>
+                  )}
+                  {priorityCounts.hot > 0 && (
+                    <span className="text-yellow-500 font-semibold">
+                      🟡 {priorityCounts.hot} Hot Lead{priorityCounts.hot > 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {priorityCounts.nurture > 0 && (
+                    <span className="text-blue-500 font-medium">
+                      🔵 {priorityCounts.nurture} Nurture
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setPriorityFilter(priorityCounts.urgent > 0 ? 'urgent' : 'hot')}
+              className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+            >
+              View Now
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Contacts List */}
       <div className="dashboard-card !p-4">
@@ -1690,6 +1822,7 @@ export default function CRMPage() {
                       <span className={`px-2.5 py-1 text-xs rounded font-medium ${getStatusColor(contact.status)}`}>
                         {contact.status}
                       </span>
+                      {getPriorityBadge(contact.priority)}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-v3-text-light mb-4">
@@ -2013,6 +2146,64 @@ export default function CRMPage() {
                                 {stage.label}
                               </button>
                             ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="relative priority-dropdown-container">
+                      <button
+                        onClick={() => setShowPriorityDropdown(!showPriorityDropdown)}
+                        className={`flex items-center gap-2 px-4 py-2 text-white rounded hover:opacity-90 transition-colors ${
+                          selectedContact.priority === 'urgent' ? 'bg-red-600' :
+                          selectedContact.priority === 'hot' ? 'bg-yellow-600' :
+                          selectedContact.priority === 'nurture' ? 'bg-blue-600' :
+                          selectedContact.priority === 'routine' ? 'bg-gray-600' :
+                          'bg-gray-700'
+                        }`}
+                      >
+                        <AlertCircle className="h-4 w-4" />
+                        Priority: {selectedContact.priority === 'urgent' ? '🔴 Urgent' :
+                                   selectedContact.priority === 'hot' ? '🟡 Hot' :
+                                   selectedContact.priority === 'nurture' ? '🔵 Nurture' :
+                                   selectedContact.priority === 'routine' ? '⚪ Routine' :
+                                   'None'}
+                      </button>
+                      {showPriorityDropdown && (
+                        <div className="absolute top-full mt-1 left-0 bg-v3-bg-darker border border-v3-bg-card rounded shadow-lg z-20 min-w-[180px]">
+                          <div className="p-2 border-b border-v3-bg-card text-xs text-v3-text-muted">
+                            Set Priority
+                          </div>
+                          <div className="max-h-64 overflow-y-auto">
+                            <button
+                              onClick={() => handleChangePriority('urgent')}
+                              className="w-full text-left px-4 py-2 hover:bg-v3-bg-card text-sm text-red-500 font-semibold"
+                            >
+                              🔴 Urgent
+                            </button>
+                            <button
+                              onClick={() => handleChangePriority('hot')}
+                              className="w-full text-left px-4 py-2 hover:bg-v3-bg-card text-sm text-yellow-500 font-semibold"
+                            >
+                              🟡 Hot Lead
+                            </button>
+                            <button
+                              onClick={() => handleChangePriority('nurture')}
+                              className="w-full text-left px-4 py-2 hover:bg-v3-bg-card text-sm text-blue-500"
+                            >
+                              🔵 Nurture
+                            </button>
+                            <button
+                              onClick={() => handleChangePriority('routine')}
+                              className="w-full text-left px-4 py-2 hover:bg-v3-bg-card text-sm text-gray-400"
+                            >
+                              ⚪ Routine
+                            </button>
+                            <button
+                              onClick={() => handleChangePriority('none')}
+                              className="w-full text-left px-4 py-2 hover:bg-v3-bg-card text-sm text-v3-text-muted"
+                            >
+                              No Priority
+                            </button>
                           </div>
                         </div>
                       )}

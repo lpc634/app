@@ -30,6 +30,7 @@ class CRMContact(db.Model):
     # Sales tracking
     current_stage = db.Column(db.String(50), nullable=False, default='new_inquiry', index=True)
     status = db.Column(db.String(20), nullable=False, default='active', index=True)  # 'active', 'won', 'lost', 'dormant'
+    priority = db.Column(db.String(20), nullable=True, default='none', index=True)  # 'urgent', 'hot', 'nurture', 'routine', 'none'
     next_followup_date = db.Column(db.Date, nullable=True, index=True)
     potential_value = db.Column(db.Numeric(10, 2), nullable=True)  # Estimated deal value
     total_revenue = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)  # Actual revenue from jobs
@@ -65,6 +66,7 @@ class CRMContact(db.Model):
             'urgency_level': self.urgency_level,
             'current_stage': self.current_stage,
             'status': self.status,
+            'priority': self.priority or 'none',
             'next_followup_date': self.next_followup_date.isoformat() if self.next_followup_date else None,
             'potential_value': float(self.potential_value) if self.potential_value else None,
             'total_revenue': float(self.total_revenue) if self.total_revenue else 0.0,

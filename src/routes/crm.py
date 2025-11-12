@@ -320,6 +320,7 @@ def list_contacts():
     - view: 'my' (only my contacts) or 'team' (all contacts - super admin only)
     - type: 'eviction_client', 'prevention_prospect', 'referral_partner'
     - status: 'active', 'won', 'lost', 'dormant'
+    - priority: 'urgent', 'hot', 'nurture', 'routine', 'none'
     - search: search in name, email, company
     """
     crm_user = require_crm_user()
@@ -351,6 +352,11 @@ def list_contacts():
         if status:
             query = query.filter(CRMContact.status == status)
 
+        # Priority filter
+        priority = request.args.get('priority')
+        if priority:
+            query = query.filter(CRMContact.priority == priority)
+
         # Search filter
         search = request.args.get('search', '').strip()
         if search:
@@ -363,8 +369,18 @@ def list_contacts():
                 )
             )
 
-        # Order by next follow-up date (nulls last), then most recently updated
+        # Priority-based sorting: urgent first, then hot, nurture, routine, none
+        # Within same priority, sort by next follow-up date, then updated_at
+        priority_order = func.case(
+            (CRMContact.priority == 'urgent', 1),
+            (CRMContact.priority == 'hot', 2),
+            (CRMContact.priority == 'nurture', 3),
+            (CRMContact.priority == 'routine', 4),
+            else_=5
+        )
+
         contacts = query.order_by(
+            priority_order,
             CRMContact.next_followup_date.asc().nullslast(),
             CRMContact.updated_at.desc()
         ).all()
@@ -456,6 +472,7 @@ def create_contact():
             urgency_level=data.get('urgency_level'),
             current_stage=data.get('current_stage', 'new_inquiry'),
             status=data.get('status', 'active'),
+            priority=data.get('priority', 'none'),
             next_followup_date=_parse_date(data.get('next_followup_date')),
             potential_value=_parse_numeric(data.get('potential_value')),
             owner_id=crm_user.id  # Set current CRM user as owner
@@ -515,6 +532,8 @@ def update_contact(contact_id):
             contact.current_stage = data['current_stage']
         if 'status' in data:
             contact.status = data['status']
+        if 'priority' in data:
+            contact.priority = data['priority']
         if 'next_followup_date' in data:
             contact.next_followup_date = _parse_date(data['next_followup_date'])
         if 'potential_value' in data:
@@ -557,6 +576,98 @@ def delete_contact(contact_id):
         db.session.rollback()
         logger.exception("Error deleting contact %s: %s", contact_id, e)
         return jsonify({'error': 'Failed to delete contact'}), 500
+
+
+@crm_bp.route('/contacts/<int:contact_id>/priority', methods=['PUT'])
+@jwt_required()
+def update_contact_priority(contact_id):
+    """Update contact priority and log the change"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        contact = CRMContact.query.get(contact_id)
+        if not contact:
+            return jsonify({'error': 'Contact not found'}), 404
+
+        data = request.json
+        new_priority = data.get('priority')
+
+        if not new_priority:
+            return jsonify({'error': 'Priority is required'}), 400
+
+        if new_priority not in ['urgent', 'hot', 'nurture', 'routine', 'none']:
+            return jsonify({'error': 'Invalid priority value'}), 400
+
+        old_priority = contact.priority or 'none'
+
+        # Update priority
+        contact.priority = new_priority
+        db.session.commit()
+
+        # Log priority change in activity timeline
+        priority_labels = {
+            'urgent': '🔴 Urgent',
+            'hot': '🟡 Hot Lead',
+            'nurture': '🔵 Nurture',
+            'routine': '⚪ Routine',
+            'none': 'None'
+        }
+
+        note_content = f"Priority changed from {priority_labels.get(old_priority, old_priority)} to {priority_labels.get(new_priority, new_priority)}"
+
+        note = CRMNote(
+            contact_id=contact_id,
+            note_type='internal',
+            content=note_content,
+            created_by=crm_user.id
+        )
+        db.session.add(note)
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Priority updated successfully',
+            'contact': contact.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.exception("Error updating priority for contact %s: %s", contact_id, e)
+        return jsonify({'error': 'Failed to update priority'}), 500
+
+
+@crm_bp.route('/contacts/priority-counts', methods=['GET'])
+@jwt_required()
+def get_priority_counts():
+    """Get count of contacts by priority for dashboard widget"""
+    crm_user = require_crm_user()
+    if not crm_user:
+        return jsonify({'error': 'CRM access required'}), 403
+
+    try:
+        # Base query for user's active contacts
+        query = CRMContact.query.filter(
+            CRMContact.owner_id == crm_user.id,
+            CRMContact.status == 'active'
+        )
+
+        # Count by priority
+        urgent_count = query.filter(CRMContact.priority == 'urgent').count()
+        hot_count = query.filter(CRMContact.priority == 'hot').count()
+        nurture_count = query.filter(CRMContact.priority == 'nurture').count()
+        routine_count = query.filter(CRMContact.priority == 'routine').count()
+
+        return jsonify({
+            'urgent': urgent_count,
+            'hot': hot_count,
+            'nurture': nurture_count,
+            'routine': routine_count
+        })
+
+    except Exception as e:
+        logger.exception("Error getting priority counts: %s", e)
+        return jsonify({'error': 'Failed to get priority counts'}), 500
 
 
 # ============================================================================
