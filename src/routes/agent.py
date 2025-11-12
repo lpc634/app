@@ -2197,6 +2197,10 @@ def download_invoice_direct(invoice_id):
 
         # Let the PDF generator compute subtotal/VAT/total from the unaggregated rows
         total_amount_float = None
+
+        # Log what we're passing to PDF generator
+        current_app.logger.info(f"Calling generate_invoice_pdf with {len(jobs_data)} jobs. First job data: {jobs_data[0] if jobs_data else 'NONE'}")
+
         pdf_result = generate_invoice_pdf(
             agent,
             jobs_data,
