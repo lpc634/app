@@ -2148,6 +2148,9 @@ def download_invoice_direct(invoice_id):
                     if assignment and assignment.job:
                         assignment_address = assignment.job.address or ''
 
+                # Log exactly what's in the database
+                current_app.logger.info(f"PDF Line {ln.id}: DB hours={ln.hours}, rate_net={ln.rate_net}, line_net={ln.line_net}")
+
                 jobs_data.append({
                     'job': linked_job or (assignment.job if assignment else None),
                     'date': ln.work_date,
