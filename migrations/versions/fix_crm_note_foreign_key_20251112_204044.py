@@ -1,7 +1,7 @@
 """Fix CRM note foreign key to reference crm_users
 
 Revision ID: 20251112_204044
-Revises: 20251112_add_rate_net_line_net_columns
+Revises: 20251112_add_rate_net_line_net
 Create Date: 2025-11-12 20:40:44
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '20251112_204044'
-down_revision = '20251112_add_rate_net_line_net_columns'
+down_revision = '20251112_add_rate_net_line_net'
 branch_labels = None
 depends_on = None
 
