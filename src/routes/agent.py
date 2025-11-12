@@ -2160,7 +2160,9 @@ def download_invoice_direct(invoice_id):
 
                 # If amount is 0 but hours and rate exist, calculate it
                 if amount_val == 0 and hours_val > 0 and rate_val > 0:
-                    # For supplier invoices, the amount should be hours * rate * headcount
+                    # Calculate amount: hours * rate * headcount
+                    # For regular agent invoices: headcount=1, so amount = hours * rate
+                    # For supplier invoices: headcount=N, so amount = hours * rate * N
                     headcount_val = int(getattr(ln, 'headcount', 1) or 1)
                     amount_val = hours_val * rate_val * headcount_val
                     current_app.logger.warning(f"PDF Line {ln.id}: Calculated amount from hours*rate*headcount: {hours_val}*{rate_val}*{headcount_val}={amount_val}")
