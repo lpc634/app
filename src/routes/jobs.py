@@ -1324,62 +1324,9 @@ def respond_to_assignment(assignment_id):
                 except Exception as _e:
                     logger.warning(f"Admin filled notify failed: {_e}")
             
-            # Create draft invoice for the agent
-            try:
-                # Generate unique invoice number
-                from datetime import date
-                today = date.today()
-                year_month = today.strftime('%Y%m')
-                
-                # Get the last invoice number for this month
-                last_invoice = Invoice.query.filter(
-                    Invoice.invoice_number.like(f'INV-{year_month}-%')
-                ).order_by(Invoice.invoice_number.desc()).first()
-                
-                if last_invoice:
-                    # Extract the sequence number and increment
-                    last_seq = int(last_invoice.invoice_number.split('-')[-1])
-                    new_seq = last_seq + 1
-                else:
-                    new_seq = 1
-                
-                invoice_number = f'INV-{year_month}-{new_seq:04d}'
-                
-                # Calculate due date (30 days from today)
-                due_date = today + timedelta(days=30)
-                
-                # Create draft invoice
-                draft_invoice = Invoice(
-                    agent_id=current_user.id,
-                    invoice_number=invoice_number,
-                    issue_date=today,
-                    due_date=due_date,
-                    total_amount=0.0,  # Will be calculated when finalized
-                    status='draft'
-                )
-                
-                db.session.add(draft_invoice)
-                db.session.flush()  # Get the invoice ID
-                
-                # Create InvoiceJob record linking the job to this invoice
-                # Pre-populate with expected hours if available
-                expected_hours = getattr(job, 'expected_hours', None) or 8.0  # Default to 8 hours
-                invoice_job = InvoiceJob(
-                    invoice_id=draft_invoice.id,
-                    job_id=job.id,
-                    hours_worked=expected_hours,  # Pre-fill with expected hours instead of 0
-                    hourly_rate_at_invoice=job.hourly_rate if job.hourly_rate else 0.0
-                )
-                
-                db.session.add(invoice_job)
-                
-                logger.info(f"Created draft invoice {invoice_number} for agent {current_user.id} and job {job.id}")
-                
-            except Exception as e:
-                logger.error(f"Failed to create draft invoice for agent {current_user.id} and job {job.id}: {str(e)}")
-                # Don't fail the job acceptance if invoice creation fails
-                pass
-            
+            # NOTE: Draft invoices are NO LONGER auto-created when jobs are accepted
+            # Agents must manually create invoices with correct hours/rates via the invoice creation flow
+
             # Send job acceptance notification via Telegram
             try:
                 from src.services.notifications import notify_job_update
