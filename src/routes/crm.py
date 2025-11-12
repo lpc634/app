@@ -371,7 +371,8 @@ def list_contacts():
 
         # Priority-based sorting: urgent first, then hot, nurture, routine, none
         # Within same priority, sort by next follow-up date, then updated_at
-        priority_order = func.case(
+        from sqlalchemy import case
+        priority_order = case(
             (CRMContact.priority == 'urgent', 1),
             (CRMContact.priority == 'hot', 2),
             (CRMContact.priority == 'nurture', 3),
