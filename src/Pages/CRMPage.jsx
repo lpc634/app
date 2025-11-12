@@ -165,10 +165,39 @@ export default function CRMPage() {
   const [newNote, setNewNote] = useState('');
   const [noteType, setNoteType] = useState('internal');
 
+  // Quick Actions state
+  const [showLogCallModal, setShowLogCallModal] = useState(false);
+  const [showQuickNoteModal, setShowQuickNoteModal] = useState(false);
+  const [showStageDropdown, setShowStageDropdown] = useState(false);
+  const [logCallFormData, setLogCallFormData] = useState({
+    outcome: 'Connected - Positive',
+    duration: '',
+    notes: '',
+    createFollowup: false
+  });
+  const [quickNoteFormData, setQuickNoteFormData] = useState({
+    note_type: 'general',
+    content: ''
+  });
+
   // Register page header
   useEffect(() => {
     register('CRM System', 'Manage eviction clients, prevention prospects, and referral partners');
   }, [register]);
+
+  // Close stage dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showStageDropdown && !event.target.closest('.stage-dropdown-container')) {
+        setShowStageDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showStageDropdown]);
 
   // Check CRM authentication on mount
   useEffect(() => {
@@ -525,6 +554,139 @@ export default function CRMPage() {
     }
   };
 
+  // Quick Actions handlers
+  const handleLogCall = async () => {
+    if (!logCallFormData.notes.trim()) {
+      toast.error('Please enter call notes');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('crm_token');
+
+      // Create a note with phone_call type and structured content
+      const noteContent = `Outcome: ${logCallFormData.outcome}\n${logCallFormData.duration ? `Duration: ${logCallFormData.duration} minutes\n` : ''}Notes: ${logCallFormData.notes}`;
+
+      const response = await fetch(`/api/crm/contacts/${selectedContact.id}/notes`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          content: noteContent,
+          note_type: 'call'
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Call logged successfully');
+        setShowLogCallModal(false);
+        setLogCallFormData({
+          outcome: 'Connected - Positive',
+          duration: '',
+          notes: '',
+          createFollowup: false
+        });
+        fetchContactDetails(selectedContact.id);
+
+        // If user wants to create follow-up task, open task modal
+        if (logCallFormData.createFollowup) {
+          setShowTaskModal(true);
+          setTaskFormData({
+            task_type: 'follow_up',
+            title: 'Follow-up from call',
+            due_date: '',
+            notes: `Follow-up from call: ${logCallFormData.outcome}`
+          });
+        }
+      } else {
+        toast.error('Failed to log call');
+      }
+    } catch (error) {
+      toast.error('Failed to log call');
+    }
+  };
+
+  const handleQuickNote = async () => {
+    if (!quickNoteFormData.content.trim()) {
+      toast.error('Please enter note content');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('crm_token');
+      const response = await fetch(`/api/crm/contacts/${selectedContact.id}/notes`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          content: quickNoteFormData.content,
+          note_type: quickNoteFormData.note_type
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Note added successfully');
+        setShowQuickNoteModal(false);
+        setQuickNoteFormData({
+          note_type: 'general',
+          content: ''
+        });
+        fetchContactDetails(selectedContact.id);
+      } else {
+        toast.error('Failed to add note');
+      }
+    } catch (error) {
+      toast.error('Failed to add note');
+    }
+  };
+
+  const handleChangeStage = async (newStage) => {
+    try {
+      const token = localStorage.getItem('crm_token');
+      const response = await fetch(`/api/crm/contacts/${selectedContact.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...selectedContact,
+          current_stage: newStage
+        })
+      });
+
+      if (response.ok) {
+        toast.success(`Stage changed to ${newStage}`);
+        setShowStageDropdown(false);
+
+        // Add a note about the stage change
+        await fetch(`/api/crm/contacts/${selectedContact.id}/notes`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            content: `Stage changed to: ${newStage}`,
+            note_type: 'internal'
+          })
+        });
+
+        fetchContactDetails(selectedContact.id);
+        fetchContacts();
+        fetchDashboard();
+      } else {
+        toast.error('Failed to change stage');
+      }
+    } catch (error) {
+      toast.error('Failed to change stage');
+    }
+  };
+
   // Email sync handlers
   const handleSyncEmails = async (contactId) => {
     const token = localStorage.getItem('crm_token');
@@ -682,7 +844,8 @@ export default function CRMPage() {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({})
       });
 
       if (response.ok) {
@@ -693,9 +856,14 @@ export default function CRMPage() {
           const tasks = await fetchContactTasks(selectedContact.id);
           setTasks(tasks);
         }
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to complete task');
+        console.error('Complete task error:', error);
       }
     } catch (error) {
       toast.error('Failed to complete task');
+      console.error('Complete task exception:', error);
     }
   };
 
@@ -715,9 +883,14 @@ export default function CRMPage() {
         toast.success('Task snoozed');
         fetchTodayTasks();
         fetchContacts(); // Refresh contact list to update task counts
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to snooze task');
+        console.error('Snooze task error:', error);
       }
     } catch (error) {
       toast.error('Failed to snooze task');
+      console.error('Snooze task exception:', error);
     }
   };
 
@@ -1789,6 +1962,64 @@ export default function CRMPage() {
               </div>
             ) : (
               <>
+                {/* Quick Actions Bar */}
+                <div className="sticky top-0 bg-v3-bg-card border-b border-v3-bg-darker p-4 -mx-6 mb-6 z-10">
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    <button
+                      onClick={() => setShowLogCallModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                    >
+                      <Phone className="h-4 w-4" />
+                      Log Call
+                    </button>
+                    <button
+                      onClick={() => handleAddTask(selectedContact)}
+                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      Add Task
+                    </button>
+                    <button
+                      onClick={() => setShowQuickNoteModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                    >
+                      <FileText className="h-4 w-4" />
+                      Quick Note
+                    </button>
+                    <div className="relative stage-dropdown-container">
+                      <button
+                        onClick={() => setShowStageDropdown(!showStageDropdown)}
+                        className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
+                      >
+                        <TrendingUp className="h-4 w-4" />
+                        Change Stage
+                      </button>
+                      {showStageDropdown && (
+                        <div className="absolute top-full mt-1 left-0 bg-v3-bg-darker border border-v3-bg-card rounded shadow-lg z-20 min-w-[200px]">
+                          <div className="p-2 border-b border-v3-bg-card text-xs text-v3-text-muted">
+                            Current: {selectedContact.current_stage}
+                          </div>
+                          <div className="max-h-64 overflow-y-auto">
+                            {(selectedContact.contact_type === 'eviction_client' ? EVICTION_STAGES : PREVENTION_STAGES).map((stage) => (
+                              <button
+                                key={stage.value}
+                                onClick={() => handleChangeStage(stage.value)}
+                                className={`w-full text-left px-4 py-2 hover:bg-v3-bg-card text-sm ${
+                                  selectedContact.current_stage === stage.value
+                                    ? 'text-v3-brand font-semibold'
+                                    : 'text-v3-text-light'
+                                }`}
+                              >
+                                {stage.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Contact Details View */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                   <div>
@@ -2152,6 +2383,149 @@ export default function CRMPage() {
         </div>
       )}
 
+      {/* Log Call Modal */}
+      {showLogCallModal && selectedContact && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="dashboard-card max-w-2xl w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-v3-text-lightest">
+                Log Call - {selectedContact.name}
+              </h2>
+              <button onClick={() => setShowLogCallModal(false)}>
+                <X className="h-6 w-6 text-v3-text-muted" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-v3-text-light mb-1">Call Outcome *</label>
+                <select
+                  value={logCallFormData.outcome}
+                  onChange={(e) => setLogCallFormData({ ...logCallFormData, outcome: e.target.value })}
+                  className="v3-input w-full"
+                >
+                  <option value="Connected - Positive">Connected - Positive</option>
+                  <option value="Connected - Needs follow-up">Connected - Needs follow-up</option>
+                  <option value="Voicemail left">Voicemail left</option>
+                  <option value="No answer">No answer</option>
+                  <option value="Wrong number">Wrong number</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-v3-text-light mb-1">Duration (minutes)</label>
+                <input
+                  type="number"
+                  value={logCallFormData.duration}
+                  onChange={(e) => setLogCallFormData({ ...logCallFormData, duration: e.target.value })}
+                  placeholder="Optional"
+                  className="v3-input w-full"
+                  min="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-v3-text-light mb-1">Call Notes *</label>
+                <textarea
+                  value={logCallFormData.notes}
+                  onChange={(e) => setLogCallFormData({ ...logCallFormData, notes: e.target.value })}
+                  placeholder="What was discussed..."
+                  className="v3-input w-full"
+                  rows="5"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="createFollowup"
+                  checked={logCallFormData.createFollowup}
+                  onChange={(e) => setLogCallFormData({ ...logCallFormData, createFollowup: e.target.checked })}
+                  className="rounded"
+                />
+                <label htmlFor="createFollowup" className="text-sm text-v3-text-light cursor-pointer">
+                  Create follow-up task after saving
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  onClick={() => setShowLogCallModal(false)}
+                  className="px-4 py-2 bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleLogCall}
+                  className="button-refresh"
+                >
+                  Save Call Log
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Note Modal */}
+      {showQuickNoteModal && selectedContact && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="dashboard-card max-w-2xl w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-v3-text-lightest">
+                Quick Note - {selectedContact.name}
+              </h2>
+              <button onClick={() => setShowQuickNoteModal(false)}>
+                <X className="h-6 w-6 text-v3-text-muted" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-v3-text-light mb-1">Note Type *</label>
+                <select
+                  value={quickNoteFormData.note_type}
+                  onChange={(e) => setQuickNoteFormData({ ...quickNoteFormData, note_type: e.target.value })}
+                  className="v3-input w-full"
+                >
+                  <option value="general">General</option>
+                  <option value="call">Phone Call</option>
+                  <option value="email">Email</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="internal">Internal Note</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-v3-text-light mb-1">Note Content *</label>
+                <textarea
+                  value={quickNoteFormData.content}
+                  onChange={(e) => setQuickNoteFormData({ ...quickNoteFormData, content: e.target.value })}
+                  placeholder="Enter your note here..."
+                  className="v3-input w-full"
+                  rows="8"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  onClick={() => setShowQuickNoteModal(false)}
+                  className="px-4 py-2 bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleQuickNote}
+                  className="button-refresh"
+                >
+                  Save Note
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Settings Modal */}
       {showSettingsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background: 'rgba(0,0,0,0.7)'}}>
@@ -2277,8 +2651,25 @@ export default function CRMPage() {
                 )}
               </div>
 
+              {/* Email Settings Section */}
+              <div className="pt-4 border-t border-v3-bg-card">
+                <h3 className="font-medium text-v3-text-lightest mb-2">Email Sync Settings</h3>
+                <p className="text-xs text-v3-text-muted mb-4">
+                  Configure IMAP to sync emails with your contacts
+                </p>
+                <button
+                  onClick={() => {
+                    setShowSettingsModal(false);
+                    setShowEmailSetup(true);
+                  }}
+                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                >
+                  {crmUser?.has_email_configured ? 'Update Email Settings' : 'Setup Email Sync'}
+                </button>
+              </div>
+
               {/* Password Change Section */}
-              <div className="pt-2">
+              <div className="pt-4 border-t border-v3-bg-card">
                 <h3 className="font-medium text-v3-text-lightest mb-2">Change Password</h3>
                 <p className="text-xs text-v3-text-muted mb-4">
                   Update your account password
@@ -2362,7 +2753,7 @@ export default function CRMPage() {
               </div>
 
               {/* Account Info Section */}
-              <div className="pt-2">
+              <div className="pt-4 border-t border-v3-bg-card">
                 <h3 className="font-medium text-v3-text-lightest mb-2">Account Information</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">

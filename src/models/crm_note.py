@@ -17,12 +17,12 @@ class CRMNote(db.Model):
     content = db.Column(db.Text, nullable=False)
 
     # Metadata
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('crm_users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     # Relationships
     contact = db.relationship('CRMContact', back_populates='notes')
-    creator = db.relationship('User', foreign_keys=[created_by])
+    creator = db.relationship('CRMUser', foreign_keys=[created_by])
 
     def to_dict(self):
         return {
@@ -31,6 +31,6 @@ class CRMNote(db.Model):
             'note_type': self.note_type,
             'content': self.content,
             'created_by': self.created_by,
-            'creator_name': f"{self.creator.first_name} {self.creator.last_name}" if self.creator else None,
+            'creator_name': self.creator.username if self.creator else 'Unknown',
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
