@@ -1260,7 +1260,7 @@ export default function CRMPage() {
 
       if (!response.ok) throw new Error('Failed to update stage');
 
-      // Add activity log entry
+      // Helper function to get stage label
       const stageName = (stage) => {
         const allStages = [...EVICTION_STAGES, ...PREVENTION_STAGES,
           { value: 'new_partner', label: 'New Partner' },
@@ -1271,17 +1271,23 @@ export default function CRMPage() {
         return found ? found.label : stage;
       };
 
-      await fetch(`/api/crm/contacts/${contactId}/activity`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          activity_type: 'stage_change',
-          notes: `Stage changed from "${stageName(oldStage)}" to "${stageName(newStage)}"`
-        })
-      });
+      // Try to add activity log entry (fail silently if endpoint doesn't exist yet)
+      try {
+        await fetch(`/api/crm/contacts/${contactId}/activity`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            activity_type: 'stage_change',
+            notes: `Stage changed from "${stageName(oldStage)}" to "${stageName(newStage)}"`
+          })
+        });
+      } catch (error) {
+        // Activity logging failed, but continue anyway
+        console.log('Activity logging not available yet');
+      }
 
       toast.success(`Contact moved to ${stageName(newStage)}`);
       fetchContacts(); // Refresh the contacts list
