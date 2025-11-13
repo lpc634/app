@@ -2037,146 +2037,165 @@ export default function CRMPage() {
         </div>
       ) : (
         /* Pipeline/Kanban View */
-        <div className="dashboard-card !p-4">
+        <div className="space-y-4">
           {loading ? (
-            <p className="text-center text-v3-text-muted py-6">Loading pipeline...</p>
+            <div className="dashboard-card !p-4">
+              <p className="text-center text-v3-text-muted py-6">Loading pipeline...</p>
+            </div>
           ) : contacts.length === 0 ? (
-            <p className="text-center text-v3-text-muted py-6">No contacts found</p>
+            <div className="dashboard-card !p-4">
+              <p className="text-center text-v3-text-muted py-6">No contacts found</p>
+            </div>
           ) : (
-            <div className="overflow-x-auto pb-4">
-              <div className="flex gap-4 min-w-max">
-                {(() => {
-                  const groupedStages = groupContactsByStage(contacts, typeFilter);
-                  return Object.entries(groupedStages).map(([key, stage]) => (
-                    <div key={key} className="flex-shrink-0 w-80">
-                      {/* Stage Column */}
-                      <div className={`rounded-lg border-2 ${getContactTypeColor(stage.contactType)} h-full`}>
-                        {/* Column Header */}
-                        <div className="p-4 border-b border-gray-700">
-                          <div className="flex items-center justify-between mb-1">
-                            <h3 className="font-semibold text-v3-text-lightest">{stage.label}</h3>
-                            <span className="px-2 py-1 bg-v3-brand/20 text-v3-brand text-xs rounded font-medium">
-                              {stage.contacts.length}
-                            </span>
-                          </div>
-                          <p className="text-xs text-v3-text-muted">
-                            {CONTACT_TYPES[stage.contactType]}
-                          </p>
-                        </div>
+            (() => {
+              const contactTypes = getKanbanStages(typeFilter);
 
-                        {/* Cards Container */}
-                        <div className="p-3 space-y-3 min-h-[200px]">
-                          {stage.contacts.map((contact) => {
-                            const daysInStage = getDaysInStage(contact);
-                            return (
-                              <div
-                                key={contact.id}
-                                draggable
-                                onDragStart={(e) => {
-                                  e.dataTransfer.setData('contactId', contact.id);
-                                  e.dataTransfer.setData('oldStage', contact.current_stage);
-                                }}
-                                onDragOver={(e) => {
-                                  e.preventDefault();
-                                  e.currentTarget.classList.add('ring-2', 'ring-v3-brand');
-                                }}
-                                onDragLeave={(e) => {
-                                  e.currentTarget.classList.remove('ring-2', 'ring-v3-brand');
-                                }}
-                                onDrop={(e) => {
-                                  e.preventDefault();
-                                  e.currentTarget.classList.remove('ring-2', 'ring-v3-brand');
-                                  const draggedContactId = e.dataTransfer.getData('contactId');
-                                  const oldStage = e.dataTransfer.getData('oldStage');
-                                  if (draggedContactId !== contact.id.toString() && stage.value !== oldStage) {
-                                    handleStageChange(parseInt(draggedContactId), stage.value, oldStage);
-                                  }
-                                }}
-                                onClick={() => fetchContactDetails(contact.id)}
-                                className="p-3 bg-v3-bg-card rounded-lg cursor-move hover:bg-v3-bg-darker border border-gray-700 transition-all"
-                              >
-                                {/* Contact Card */}
-                                <div className="space-y-2">
-                                  {/* Name and Priority */}
-                                  <div className="flex items-start justify-between gap-2">
-                                    <h4 className="font-semibold text-sm text-v3-text-lightest line-clamp-1">
-                                      {contact.name}
-                                    </h4>
-                                    {getPriorityBadge(contact.priority)}
+              return Object.entries(contactTypes).map(([contactType, stages]) => {
+                const typeContacts = contacts.filter(c => c.contact_type === contactType);
+                const totalCount = typeContacts.length;
+
+                // Get section styling
+                const sectionColors = {
+                  eviction_client: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400', icon: '📋' },
+                  prevention_prospect: { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400', icon: '🏢' },
+                  referral_partner: { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400', icon: '🤝' }
+                };
+                const colors = sectionColors[contactType] || { bg: 'bg-gray-500/10', border: 'border-gray-500/30', text: 'text-gray-400', icon: '📁' };
+
+                return (
+                  <div key={contactType} className="dashboard-card !p-4">
+                    {/* Section Header */}
+                    <div className={`${colors.bg} ${colors.border} border-2 rounded-lg p-3 mb-4`}>
+                      <div className="flex items-center justify-between">
+                        <h2 className={`text-lg font-bold ${colors.text} flex items-center gap-2`}>
+                          <span>{colors.icon}</span>
+                          <span>{CONTACT_TYPES[contactType].toUpperCase()}</span>
+                          <span className="text-sm font-normal text-v3-text-muted">({totalCount})</span>
+                        </h2>
+                      </div>
+                    </div>
+
+                    {/* Horizontal Stage Columns */}
+                    <div className="overflow-x-auto pb-2">
+                      <div className="flex gap-3 min-w-max">
+                        {stages.map(stage => {
+                          const stageContacts = typeContacts.filter(c => c.current_stage === stage.value);
+
+                          return (
+                            <div key={stage.value} className="flex-shrink-0 w-64">
+                              {/* Stage Column */}
+                              <div className={`rounded-lg border-2 ${getContactTypeColor(contactType)} h-full`}>
+                                {/* Column Header */}
+                                <div className="p-3 border-b border-gray-700">
+                                  <div className="flex items-center justify-between">
+                                    <h3 className="font-semibold text-sm text-v3-text-lightest">{stage.label}</h3>
+                                    <span className="px-2 py-0.5 bg-v3-brand/20 text-v3-brand text-xs rounded font-medium">
+                                      {stageContacts.length}
+                                    </span>
                                   </div>
+                                </div>
 
-                                  {/* Company */}
-                                  {contact.company_name && (
-                                    <div className="flex items-center gap-1 text-xs text-v3-text-muted">
-                                      <Building className="h-3 w-3 flex-shrink-0" />
-                                      <span className="truncate">{contact.company_name}</span>
-                                    </div>
-                                  )}
+                                {/* Cards Container */}
+                                <div className="p-2 space-y-2 min-h-[150px]">
+                                  {stageContacts.map((contact) => {
+                                    const daysInStage = getDaysInStage(contact);
+                                    return (
+                                      <div
+                                        key={contact.id}
+                                        draggable
+                                        onDragStart={(e) => {
+                                          e.dataTransfer.setData('contactId', contact.id);
+                                          e.dataTransfer.setData('oldStage', contact.current_stage);
+                                        }}
+                                        onDragOver={(e) => {
+                                          e.preventDefault();
+                                          e.currentTarget.classList.add('ring-2', 'ring-v3-brand');
+                                        }}
+                                        onDragLeave={(e) => {
+                                          e.currentTarget.classList.remove('ring-2', 'ring-v3-brand');
+                                        }}
+                                        onDrop={(e) => {
+                                          e.preventDefault();
+                                          e.currentTarget.classList.remove('ring-2', 'ring-v3-brand');
+                                          const draggedContactId = e.dataTransfer.getData('contactId');
+                                          const oldStage = e.dataTransfer.getData('oldStage');
+                                          if (draggedContactId !== contact.id.toString() && stage.value !== oldStage) {
+                                            handleStageChange(parseInt(draggedContactId), stage.value, oldStage);
+                                          }
+                                        }}
+                                        onClick={() => fetchContactDetails(contact.id)}
+                                        className="p-2 bg-v3-bg-card rounded-lg cursor-move hover:bg-v3-bg-darker border border-gray-700 transition-all"
+                                      >
+                                        {/* Contact Card */}
+                                        <div className="space-y-1.5">
+                                          {/* Name and Priority */}
+                                          <div className="flex items-start justify-between gap-1">
+                                            <h4 className="font-semibold text-xs text-v3-text-lightest line-clamp-1">
+                                              {contact.name}
+                                            </h4>
+                                            {getPriorityBadge(contact.priority)}
+                                          </div>
 
-                                  {/* Phone */}
-                                  {contact.phone && (
-                                    <div className="flex items-center gap-1 text-xs text-v3-text-light">
-                                      <Phone className="h-3 w-3 flex-shrink-0" />
-                                      <span>{contact.phone}</span>
-                                    </div>
-                                  )}
+                                          {/* Company */}
+                                          {contact.company_name && (
+                                            <div className="flex items-center gap-1 text-xs text-v3-text-muted">
+                                              <Building className="h-3 w-3 flex-shrink-0" />
+                                              <span className="truncate">{contact.company_name}</span>
+                                            </div>
+                                          )}
 
-                                  {/* Email */}
-                                  {contact.email && (
-                                    <div className="flex items-center gap-1 text-xs text-v3-text-light">
-                                      <Mail className="h-3 w-3 flex-shrink-0" />
-                                      <span className="truncate">{contact.email}</span>
-                                    </div>
-                                  )}
+                                          {/* Days in Stage */}
+                                          <div className="flex items-center gap-1 text-xs text-v3-text-muted pt-1.5 border-t border-gray-700">
+                                            <Clock className="h-3 w-3 flex-shrink-0" />
+                                            <span>{daysInStage}d in stage</span>
+                                          </div>
 
-                                  {/* Days in Stage */}
-                                  <div className="flex items-center gap-1 text-xs text-v3-text-muted pt-2 border-t border-gray-700">
-                                    <Clock className="h-3 w-3 flex-shrink-0" />
-                                    <span>{daysInStage} day{daysInStage !== 1 ? 's' : ''} in stage</span>
-                                  </div>
+                                          {/* Potential Value */}
+                                          {contact.potential_value && (
+                                            <div className="text-xs font-semibold text-green-600">
+                                              {formatCurrency(contact.potential_value)}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
 
-                                  {/* Potential Value */}
-                                  {contact.potential_value && (
-                                    <div className="text-xs font-semibold text-green-600">
-                                      {formatCurrency(contact.potential_value)}
+                                  {/* Drop Zone for empty columns */}
+                                  {stageContacts.length === 0 && (
+                                    <div
+                                      onDragOver={(e) => {
+                                        e.preventDefault();
+                                        e.currentTarget.classList.add('bg-v3-brand/10', 'border-v3-brand');
+                                      }}
+                                      onDragLeave={(e) => {
+                                        e.currentTarget.classList.remove('bg-v3-brand/10', 'border-v3-brand');
+                                      }}
+                                      onDrop={(e) => {
+                                        e.preventDefault();
+                                        e.currentTarget.classList.remove('bg-v3-brand/10', 'border-v3-brand');
+                                        const contactId = e.dataTransfer.getData('contactId');
+                                        const oldStage = e.dataTransfer.getData('oldStage');
+                                        if (stage.value !== oldStage) {
+                                          handleStageChange(parseInt(contactId), stage.value, oldStage);
+                                        }
+                                      }}
+                                      className="h-24 border-2 border-dashed border-gray-700 rounded-lg flex items-center justify-center text-v3-text-muted text-xs transition-colors"
+                                    >
+                                      Drop here
                                     </div>
                                   )}
                                 </div>
                               </div>
-                            );
-                          })}
-
-                          {/* Drop Zone for empty columns */}
-                          {stage.contacts.length === 0 && (
-                            <div
-                              onDragOver={(e) => {
-                                e.preventDefault();
-                                e.currentTarget.classList.add('bg-v3-brand/10', 'border-v3-brand');
-                              }}
-                              onDragLeave={(e) => {
-                                e.currentTarget.classList.remove('bg-v3-brand/10', 'border-v3-brand');
-                              }}
-                              onDrop={(e) => {
-                                e.preventDefault();
-                                e.currentTarget.classList.remove('bg-v3-brand/10', 'border-v3-brand');
-                                const contactId = e.dataTransfer.getData('contactId');
-                                const oldStage = e.dataTransfer.getData('oldStage');
-                                if (stage.value !== oldStage) {
-                                  handleStageChange(parseInt(contactId), stage.value, oldStage);
-                                }
-                              }}
-                              className="h-32 border-2 border-dashed border-gray-700 rounded-lg flex items-center justify-center text-v3-text-muted text-sm transition-colors"
-                            >
-                              Drop contacts here
                             </div>
-                          )}
-                        </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  ));
-                })()}
-              </div>
-            </div>
+                  </div>
+                );
+              });
+            })()
           )}
         </div>
       )}
