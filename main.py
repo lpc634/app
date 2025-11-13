@@ -64,7 +64,12 @@ static_folder_path = os.path.join(os.path.dirname(__file__), 'dist')
 app = Flask(__name__, static_folder=static_folder_path)
 
 # --- App Configuration ---
-SECRET = os.environ.get('SECRET_KEY', 'v3-services-secret-key-change-in-production')
+# Get SECRET_KEY - must be set, no defaults allowed
+SECRET = os.environ.get('SECRET_KEY')
+if not SECRET:
+    raise ValueError("🚨 SECRET_KEY environment variable must be set!")
+if SECRET == 'v3-services-secret-key-change-in-production':
+    raise ValueError("🚨 SECRET_KEY cannot be the default value!")
 app.config['SECRET_KEY'] = SECRET
 app.config['JWT_SECRET_KEY'] = SECRET
 app.config['JWT_ALGORITHM'] = 'HS256'
@@ -85,8 +90,18 @@ app.config['AWS_S3_REGION'] = os.environ.get('AWS_S3_REGION')
 # --------------------------------
 
 # --- VAPID Keys for Push Notifications ---
-app.config['VAPID_PUBLIC_KEY'] = os.environ.get('VAPID_PUBLIC_KEY', 'BCVp6sM-3kVT43iVnAUrkXYc2gVdofIMc3tB4p7Q2Qv5G2b5P2iRzBEe-s2w9i5n-8T0aHkXyGNIk2N8yA9fUo8=')
-app.config['VAPID_PRIVATE_KEY'] = os.environ.get('VAPID_PRIVATE_KEY', 'jVpVIp5k2wOgrqI2nvy5kY7rBCEy5d2o1d5sJ6sW1Yg=')
+# Get VAPID keys - use placeholders in development, require in production
+VAPID_PUBLIC = os.environ.get('VAPID_PUBLIC_KEY')
+VAPID_PRIVATE = os.environ.get('VAPID_PRIVATE_KEY')
+
+# In production, these MUST be set
+if os.environ.get('FLASK_ENV') == 'production':
+    if not VAPID_PUBLIC or not VAPID_PRIVATE:
+        raise ValueError("🚨 VAPID keys must be set in production!")
+
+# Use dummy values in development if not set
+app.config['VAPID_PUBLIC_KEY'] = VAPID_PUBLIC or 'dev-vapid-public-key'
+app.config['VAPID_PRIVATE_KEY'] = VAPID_PRIVATE or 'dev-vapid-private-key'
 
 # --- Database Configuration for Heroku ---
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -144,6 +159,18 @@ CORS(app, origins=origins, supports_credentials=True, allow_headers=["Content-Ty
 db.init_app(app)
 migrate = Migrate(app, db)
 jwt = JWTManager(app)
+
+# Initialize rate limiter to prevent brute force attacks
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://",
+    headers_enabled=True
+)
 
 # --- JWT Configuration ---
 @jwt.token_in_blocklist_loader
