@@ -1717,7 +1717,7 @@ export default function CRMPage() {
 
       {/* Dashboard Stats */}
       {dashboard && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
           <div className="dashboard-card !p-3">
             <div className="flex items-center justify-between">
               <div>
@@ -1748,6 +1748,7 @@ export default function CRMPage() {
             </div>
           </div>
 
+          {/* Potential Revenue - Temporarily hidden
           <div className="dashboard-card !p-3">
             <div className="flex items-center justify-between">
               <div>
@@ -1757,6 +1758,7 @@ export default function CRMPage() {
               <DollarSign className="h-6 w-6 text-green-600 opacity-50" />
             </div>
           </div>
+          */}
         </div>
       )}
 
