@@ -60,8 +60,7 @@ def list_agents():
         active = request.args.get('active') == 'true'
         query = User.query.filter(User.role == 'agent')
 
-        if active:
-            query = query.filter(User.is_active.is_(True))
+        # Note: User model doesn't have is_active attribute, so we skip that filter
 
         agents = query.order_by(User.first_name, User.last_name).all()
 
@@ -118,7 +117,6 @@ def get_agents_available():
             .join(AgentAvailability, AgentAvailability.agent_id == User.id)
             .filter(
                 User.role == 'agent',
-                User.is_active.is_(True),
                 AgentAvailability.date.between(start_date, end_date),
                 AgentAvailability.is_available.is_(True)
             )
@@ -204,8 +202,7 @@ def get_agents_reliability():
             .outerjoin(accepted_subq, accepted_subq.c.agent_id == User.id)
             .outerjoin(offered_subq, offered_subq.c.agent_id == User.id)
             .filter(
-                User.role == 'agent',
-                User.is_active.is_(True)
+                User.role == 'agent'
             )
         )
 
@@ -264,9 +261,6 @@ def agents_picker():
         # Get all agents (same query as Comms tab would use)
         def q_all_agents():
             q = User.query.filter(User.role == 'agent')
-            # Only apply is_active filter if agents have non-null values, don't exclude null
-            if hasattr(User, 'is_active'):
-                q = q.filter(db.or_(User.is_active.is_(True), User.is_active.is_(None)))
             return q.order_by(User.first_name, User.last_name)
 
         # --- ALL AGENTS ---
@@ -342,9 +336,6 @@ def agents_picker():
                 .outerjoin(offered_subq, offered_subq.c.agent_id == User.id)
                 .outerjoin(accepted_subq, accepted_subq.c.agent_id == User.id)
             )
-
-            if hasattr(User, 'is_active'):
-                q = q.filter(db.or_(User.is_active.is_(True), User.is_active.is_(None)))
 
             rows = q.all()
             reliable_data = []

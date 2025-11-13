@@ -730,7 +730,7 @@ def add_note(contact_id):
             contact_id=contact_id,
             note_type=data.get('note_type', 'internal'),
             content=data['content'],
-            created_by=user.id
+            created_by=crm_user.id
         )
 
         db.session.add(note)
