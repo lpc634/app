@@ -2337,28 +2337,33 @@ export default function CRMPage() {
 
       {/* Contact Details Modal */}
       {showDetailsModal && selectedContact && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="dashboard-card max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex justify-between items-center mb-5">
-              <h2 className="text-xl font-bold text-v3-text-lightest">{selectedContact.name}</h2>
-              <div className="flex gap-2">
-                {!editMode && (
-                  <>
-                    <button onClick={openEditMode} className="p-2 hover:bg-v3-bg-darker rounded">
-                      <Edit2 className="h-5 w-5 text-v3-text-light" />
-                    </button>
-                    <button onClick={() => deleteContact(selectedContact.id)} className="p-2 hover:bg-v3-bg-darker rounded">
-                      <Trash2 className="h-5 w-5 text-red-600" />
-                    </button>
-                  </>
-                )}
-                <button onClick={() => setShowDetailsModal(false)}>
-                  <X className="h-6 w-6 text-v3-text-muted" />
-                </button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="dashboard-card max-w-4xl w-full my-4 flex flex-col max-h-[90vh]">
+            {/* Fixed Header */}
+            <div className="flex-shrink-0 p-6 pb-4 border-b border-v3-bg-darker">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-v3-text-lightest">{selectedContact.name}</h2>
+                <div className="flex gap-2">
+                  {!editMode && (
+                    <>
+                      <button onClick={openEditMode} className="p-2 hover:bg-v3-bg-darker rounded">
+                        <Edit2 className="h-5 w-5 text-v3-text-light" />
+                      </button>
+                      <button onClick={() => deleteContact(selectedContact.id)} className="p-2 hover:bg-v3-bg-darker rounded">
+                        <Trash2 className="h-5 w-5 text-red-600" />
+                      </button>
+                    </>
+                  )}
+                  <button onClick={() => setShowDetailsModal(false)}>
+                    <X className="h-6 w-6 text-v3-text-muted" />
+                  </button>
+                </div>
               </div>
             </div>
 
-            {editMode ? (
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6 pt-4">
+              {editMode ? (
               <div className="space-y-4">
                 {/* Edit form - same as create */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2400,7 +2405,7 @@ export default function CRMPage() {
             ) : (
               <>
                 {/* Quick Actions Bar */}
-                <div className="sticky top-0 bg-v3-bg-card border-b border-v3-bg-darker p-4 -mx-6 mb-6 z-10">
+                <div className="sticky top-0 bg-v3-bg-card border-b border-v3-bg-darker p-4 -mx-6 mb-6 z-10 shadow-md">
                   <div className="flex flex-wrap gap-2 justify-center">
                     <button
                       onClick={() => setShowLogCallModal(true)}
@@ -2673,7 +2678,8 @@ export default function CRMPage() {
                   </div>
                 </div>
               </>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
