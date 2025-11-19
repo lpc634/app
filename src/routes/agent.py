@@ -898,10 +898,11 @@ def get_invoiceable_jobs():
         invoiced_job_ids_query = db.session.query(InvoiceJob.job_id).join(Invoice).filter(Invoice.agent_id == current_user_id)
         invoiced_job_ids = [item[0] for item in invoiced_job_ids_query.all()]
 
+        # Get all accepted jobs for this agent, regardless of arrival time
+        # Agents can invoice before job date if they know the amount
         completed_jobs_query = db.session.query(Job).join(JobAssignment).filter(
             JobAssignment.agent_id == current_user_id,
-            JobAssignment.status == 'accepted',
-            Job.arrival_time < datetime.utcnow()
+            JobAssignment.status == 'accepted'
         )
 
         invoiceable_jobs = completed_jobs_query.filter(~Job.id.in_(invoiced_job_ids)).order_by(Job.arrival_time.desc()).all()
