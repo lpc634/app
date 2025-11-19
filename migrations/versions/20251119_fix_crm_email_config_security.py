@@ -101,7 +101,7 @@ def upgrade():
             connection.execute(sa.text("""
                 INSERT INTO crm_email_configs
                 (crm_user_id, email_address, imap_server, imap_port, imap_use_ssl, encrypted_password, is_active, created_at, updated_at)
-                VALUES (:user_id, :email, :server, :port, :use_ssl, :encrypted_pw, 1, :now, :now)
+                VALUES (:user_id, :email, :server, :port, :use_ssl, :encrypted_pw, TRUE, :now, :now)
             """), {
                 'user_id': user_id,
                 'email': imap_email,
