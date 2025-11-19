@@ -1905,7 +1905,30 @@ def get_agent_details(agent_id):
         recent_jobs = db.session.query(Job).join(JobAssignment).filter(
             JobAssignment.agent_id == agent_id
         ).order_by(Job.arrival_time.desc()).limit(5).all()
-        
+
+        # Process jobs to include actual invoiced details
+        recent_jobs_data = []
+        for job in recent_jobs:
+            job_dict = job.to_dict()
+
+            # Find the invoice line item for THIS agent and THIS job
+            invoice_job = InvoiceJob.query.join(Invoice).filter(
+                InvoiceJob.job_id == job.id,
+                Invoice.agent_id == agent_id
+            ).first()
+
+            if invoice_job:
+                job_dict['hours_worked'] = float(invoice_job.hours_worked or 0)
+                # Use rate from invoice, fallback to job rate
+                job_dict['hourly_rate'] = float(invoice_job.hourly_rate_at_invoice or job.hourly_rate or 0)
+                job_dict['invoice_number'] = invoice_job.invoice.invoice_number
+                job_dict['invoiced'] = True
+            else:
+                # Not invoiced yet
+                job_dict['invoiced'] = False
+
+            recent_jobs_data.append(job_dict)
+
         agent_details = {
             'personal_info': {
                 'id': agent.id,
@@ -1939,7 +1962,7 @@ def get_agent_details(agent_id):
                 'overdue_amount': sum(float(inv.total_amount or 0) for inv in overdue_invoices)
             },
             'recent_invoices': [inv.to_dict() for inv in recent_invoices],
-            'recent_jobs': [job.to_dict() for job in recent_jobs]
+            'recent_jobs': recent_jobs_data
         }
         
         # Log admin access
