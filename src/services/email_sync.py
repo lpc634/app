@@ -18,9 +18,32 @@ class EmailSyncService:
 
     @staticmethod
     def sync_contact_emails(crm_user, contact):
-        """Sync emails for a specific contact"""
-        if not crm_user.imap_server or not crm_user.imap_email:
-            raise Exception("Email not configured")
+        """Sync emails for a specific contact (uses secure encrypted credentials)"""
+        # Use secure email_config with encryption
+        email_config = crm_user.email_config
+
+        # Fallback to deprecated fields if email_config doesn't exist (migration period)
+        if not email_config:
+            if not crm_user.imap_server or not crm_user.imap_email:
+                raise Exception("Email not configured")
+            # Use deprecated fields (still unencrypted - will be migrated)
+            imap_server = crm_user.imap_server
+            imap_port = crm_user.imap_port
+            imap_email = crm_user.imap_email
+            imap_password = crm_user.imap_password
+            imap_use_ssl = crm_user.imap_use_ssl
+        else:
+            # Use secure encrypted config
+            if not email_config.email_address:
+                raise Exception("Email not configured")
+            imap_server = email_config.imap_server
+            imap_port = email_config.imap_port
+            imap_email = email_config.email_address
+            imap_password = email_config.get_password()  # Decrypted securely!
+            imap_use_ssl = email_config.imap_use_ssl
+
+            if not imap_password:
+                raise Exception("Failed to decrypt email password")
 
         results = {
             'success': False,
@@ -31,13 +54,13 @@ class EmailSyncService:
 
         try:
             # Connect to IMAP server
-            if crm_user.imap_use_ssl:
-                mail = imaplib.IMAP4_SSL(crm_user.imap_server, crm_user.imap_port or 993)
+            if imap_use_ssl:
+                mail = imaplib.IMAP4_SSL(imap_server, imap_port or 993)
             else:
-                mail = imaplib.IMAP4(crm_user.imap_server, crm_user.imap_port or 143)
+                mail = imaplib.IMAP4(imap_server, imap_port or 143)
 
-            # Login
-            mail.login(crm_user.imap_email, crm_user.imap_password)
+            # Login with decrypted password
+            mail.login(imap_email, imap_password)
 
             # Select INBOX
             mail.select('INBOX')
@@ -84,7 +107,7 @@ class EmailSyncService:
                     body_text, body_html = EmailSyncService._get_email_body(email_message)
 
                     # Determine if sent or received
-                    is_sent = sender.lower() == crm_user.imap_email.lower()
+                    is_sent = sender.lower() == imap_email.lower()
 
                     # Check if email already exists
                     existing = CRMEmail.query.filter_by(
@@ -154,7 +177,7 @@ class EmailSyncService:
 
                                             # Parse the rest
                                             email_uid = email_id.decode()
-                                            sender = crm_user.imap_email
+                                            sender = imap_email
                                             subject = EmailSyncService._decode_header(email_message.get('Subject', ''))
                                             date_str = email_message.get('Date', '')
                                             email_date = EmailSyncService._parse_date(date_str)

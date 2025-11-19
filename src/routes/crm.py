@@ -126,20 +126,28 @@ def crm_register():
         if existing_email:
             return jsonify({'error': 'Email already registered'}), 409
 
-        # Create new CRM user
+        # Create new CRM user (without plain-text IMAP password)
         crm_user = CRMUser(
             username=username,
             email=email,
-            is_super_admin=False,  # Regular admin by default
-            imap_server=imap_server,
-            imap_port=int(imap_port),
-            imap_email=imap_email,
-            imap_password=imap_password,  # TODO: Encrypt this
-            imap_use_ssl=imap_use_ssl
+            is_super_admin=False  # Regular admin by default
         )
         crm_user.set_password(password)
 
         db.session.add(crm_user)
+        db.session.flush()  # Get the user ID before creating config
+
+        # Create encrypted email config
+        email_config = CRMEmailConfig(
+            crm_user_id=crm_user.id,
+            email_address=imap_email,
+            imap_server=imap_server,
+            imap_port=int(imap_port),
+            imap_use_ssl=imap_use_ssl
+        )
+        email_config.set_password(imap_password)  # Securely encrypted!
+
+        db.session.add(email_config)
         db.session.commit()
 
         # Create JWT token for immediate login
@@ -270,7 +278,7 @@ def change_password():
 @crm_bp.route('/auth/email-settings', methods=['PUT'])
 @jwt_required()
 def update_email_settings():
-    """Update email IMAP settings for current user"""
+    """Update email IMAP settings for current user (uses secure encrypted storage)"""
     crm_user = require_crm_user()
     if not crm_user:
         return jsonify({'error': 'CRM access required'}), 403
@@ -285,16 +293,22 @@ def update_email_settings():
         if missing_fields:
             return jsonify({'error': f'Missing required fields: {", ".join(missing_fields)}'}), 400
 
-        # Update user's IMAP settings
-        crm_user.imap_server = data.get('imap_server', '').strip()
-        crm_user.imap_port = int(data.get('imap_port'))
-        crm_user.imap_email = data.get('imap_email', '').strip()
-        crm_user.imap_password = data.get('imap_password')  # TODO: Encrypt
-        crm_user.imap_use_ssl = data.get('imap_use_ssl', True)
+        # Get or create encrypted email config
+        email_config = crm_user.email_config
+        if not email_config:
+            email_config = CRMEmailConfig(crm_user_id=crm_user.id)
+            db.session.add(email_config)
+
+        # Update with encrypted password
+        email_config.email_address = data.get('imap_email', '').strip()
+        email_config.imap_server = data.get('imap_server', '').strip()
+        email_config.imap_port = int(data.get('imap_port'))
+        email_config.imap_use_ssl = data.get('imap_use_ssl', True)
+        email_config.set_password(data.get('imap_password'))  # Securely encrypted!
 
         db.session.commit()
 
-        logger.info(f"Email settings updated for CRM user: {crm_user.username}")
+        logger.info(f"Email settings updated (securely) for CRM user: {crm_user.username}")
 
         return jsonify({
             'message': 'Email settings updated successfully',
