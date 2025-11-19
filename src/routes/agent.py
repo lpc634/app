@@ -1241,8 +1241,17 @@ def create_invoice():
         if is_supplier_invoice and supplier is not None:
             invoice_number = f"{supplier.invoice_prefix}{issue_date.year}-{new_invoice_id:04d}"
         else:
-            # Get agent's name (use last name, remove spaces and special chars)
-            agent_name = (agent.last_name or agent.first_name or 'Agent').replace(' ', '-').replace("'", "")
+            # Get agent's full name (first + last, remove spaces and special chars)
+            first_name = (agent.first_name or '').strip()
+            last_name = (agent.last_name or '').strip()
+            if first_name and last_name:
+                agent_name = f"{first_name}-{last_name}".replace(' ', '-').replace("'", "")
+            elif last_name:
+                agent_name = last_name.replace(' ', '-').replace("'", "")
+            elif first_name:
+                agent_name = first_name.replace(' ', '-').replace("'", "")
+            else:
+                agent_name = 'Agent'
 
             # Get postcode from first job (remove spaces)
             postcode = ''

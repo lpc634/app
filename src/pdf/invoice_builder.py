@@ -196,18 +196,10 @@ def _top_meta_row(agent, invoice_date, invoice_number, agent_invoice_number):
     if agent_invoice_number is not None:
         meta_rows.append([Paragraph("Invoice Number", s["kv_label"]), Paragraph(str(agent_invoice_number), s["kv_value"])])
     meta_rows.append([Paragraph("Invoice Date", s["kv_label"]), Paragraph(_fmt_date(invoice_date), s["kv_value"])])
-    # V3 Ref: AgentName-YYMM-AgentInvoiceNumber (or fallback to system ref)
-    try:
-        name_slug = f"{_safe(agent.first_name)}-{_safe(agent.last_name)}".replace(" ", "-").strip("-")
-        dt = _coerce_date(invoice_date)
-        yymm = dt.strftime("%y%m") if dt else datetime.utcnow().strftime("%y%m")
-        agent_ref = f"{str(agent_invoice_number)}" if agent_invoice_number not in [None, ""] else None
-        v3_ref_display = f"{name_slug}-{yymm}-{agent_ref}" if agent_ref else str(invoice_number)
-    except Exception:
-        v3_ref_display = str(invoice_number)
-    meta_rows.append([Paragraph("V3 Ref", s["kv_label"]), Paragraph(v3_ref_display, s["kv_value"])])
+    # V3 Ref: Use the invoice_number passed from backend (already formatted correctly)
+    meta_rows.append([Paragraph("V3 Ref", s["kv_label"]), Paragraph(str(invoice_number), s["kv_value"])])
 
-    meta = Table(meta_rows, colWidths=[32*mm, 36*mm])
+    meta = Table(meta_rows, colWidths=[38*mm, 48*mm])
     meta.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), FILL_SOFT),
         ("BOX",        (0,0), (-1,-1), 0.9, GRID),
