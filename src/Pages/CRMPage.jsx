@@ -27,6 +27,7 @@ import {
   List,
   LayoutGrid
 } from 'lucide-react';
+import CRMContactModal from '../components/crm/CRMContactModal';
 import '../v3-services-theme.css';
 
 const CONTACT_TYPES = {
@@ -171,20 +172,8 @@ export default function CRMPage() {
   const [noteType, setNoteType] = useState('internal');
 
   // Quick Actions state
-  const [showLogCallModal, setShowLogCallModal] = useState(false);
-  const [showQuickNoteModal, setShowQuickNoteModal] = useState(false);
   const [showStageDropdown, setShowStageDropdown] = useState(false);
   const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
-  const [logCallFormData, setLogCallFormData] = useState({
-    outcome: 'Connected - Positive',
-    duration: '',
-    notes: '',
-    createFollowup: false
-  });
-  const [quickNoteFormData, setQuickNoteFormData] = useState({
-    note_type: 'general',
-    content: ''
-  });
 
   // Register page header
   useEffect(() => {
@@ -585,7 +574,7 @@ export default function CRMPage() {
   };
 
   // Quick Actions handlers
-  const handleLogCall = async () => {
+  const handleLogCall = async (logCallFormData) => {
     if (!logCallFormData.notes.trim()) {
       toast.error('Please enter call notes');
       return;
@@ -611,13 +600,6 @@ export default function CRMPage() {
 
       if (response.ok) {
         toast.success('Call logged successfully');
-        setShowLogCallModal(false);
-        setLogCallFormData({
-          outcome: 'Connected - Positive',
-          duration: '',
-          notes: '',
-          createFollowup: false
-        });
         fetchContactDetails(selectedContact.id);
 
         // If user wants to create follow-up task, open task modal
@@ -638,7 +620,7 @@ export default function CRMPage() {
     }
   };
 
-  const handleQuickNote = async () => {
+  const handleQuickNote = async (quickNoteFormData) => {
     if (!quickNoteFormData.content.trim()) {
       toast.error('Please enter note content');
       return;
@@ -660,11 +642,6 @@ export default function CRMPage() {
 
       if (response.ok) {
         toast.success('Note added successfully');
-        setShowQuickNoteModal(false);
-        setQuickNoteFormData({
-          note_type: 'general',
-          content: ''
-        });
         fetchContactDetails(selectedContact.id);
       } else {
         toast.error('Failed to add note');
@@ -2337,351 +2314,34 @@ export default function CRMPage() {
 
       {/* Contact Details Modal */}
       {showDetailsModal && selectedContact && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="dashboard-card max-w-4xl w-full my-4 flex flex-col max-h-[90vh]">
-            {/* Fixed Header */}
-            <div className="flex-shrink-0 p-6 pb-4 border-b border-v3-bg-darker">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-v3-text-lightest">{selectedContact.name}</h2>
-                <div className="flex gap-2">
-                  {!editMode && (
-                    <>
-                      <button onClick={openEditMode} className="p-2 hover:bg-v3-bg-darker rounded">
-                        <Edit2 className="h-5 w-5 text-v3-text-light" />
-                      </button>
-                      <button onClick={() => deleteContact(selectedContact.id)} className="p-2 hover:bg-v3-bg-darker rounded">
-                        <Trash2 className="h-5 w-5 text-red-600" />
-                      </button>
-                    </>
-                  )}
-                  <button onClick={() => setShowDetailsModal(false)}>
-                    <X className="h-6 w-6 text-v3-text-muted" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-6 pt-4">
-              {editMode ? (
-              <div className="space-y-4">
-                {/* Edit form - same as create */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-v3-text-light mb-1">Name</label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="v3-input w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-v3-text-light mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="v3-input w-full"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 mt-6">
-                  <button
-                    onClick={() => setEditMode(false)}
-                    className="px-4 py-2 bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={updateContact}
-                    className="button-refresh"
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Quick Actions Bar */}
-                <div className="sticky top-0 bg-v3-bg-card border-b border-v3-bg-darker p-4 -mx-6 mb-6 z-10 shadow-md">
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    <button
-                      onClick={() => setShowLogCallModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                    >
-                      <Phone className="h-4 w-4" />
-                      Log Call
-                    </button>
-                    <button
-                      onClick={() => handleAddTask(selectedContact)}
-                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                      Add Task
-                    </button>
-                    <button
-                      onClick={() => setShowQuickNoteModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                    >
-                      <FileText className="h-4 w-4" />
-                      Quick Note
-                    </button>
-                    <div className="relative stage-dropdown-container">
-                      <button
-                        onClick={() => setShowStageDropdown(!showStageDropdown)}
-                        className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
-                      >
-                        <TrendingUp className="h-4 w-4" />
-                        Change Stage
-                      </button>
-                      {showStageDropdown && (
-                        <div className="absolute top-full mt-1 left-0 bg-v3-bg-darker border border-v3-bg-card rounded shadow-lg z-20 min-w-[200px]">
-                          <div className="p-2 border-b border-v3-bg-card text-xs text-v3-text-muted">
-                            Current: {selectedContact.current_stage}
-                          </div>
-                          <div className="max-h-64 overflow-y-auto">
-                            {(selectedContact.contact_type === 'eviction_client' ? EVICTION_STAGES : PREVENTION_STAGES).map((stage) => (
-                              <button
-                                key={stage.value}
-                                onClick={() => handleChangeStage(stage.value)}
-                                className={`w-full text-left px-4 py-2 hover:bg-v3-bg-card text-sm ${
-                                  selectedContact.current_stage === stage.value
-                                    ? 'text-v3-brand font-semibold'
-                                    : 'text-v3-text-light'
-                                }`}
-                              >
-                                {stage.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="relative priority-dropdown-container">
-                      <button
-                        onClick={() => setShowPriorityDropdown(!showPriorityDropdown)}
-                        className={`flex items-center gap-2 px-4 py-2 text-white rounded hover:opacity-90 transition-colors ${
-                          selectedContact.priority === 'urgent' ? 'bg-red-600' :
-                          selectedContact.priority === 'hot' ? 'bg-yellow-600' :
-                          selectedContact.priority === 'nurture' ? 'bg-blue-600' :
-                          selectedContact.priority === 'routine' ? 'bg-gray-600' :
-                          'bg-gray-700'
-                        }`}
-                      >
-                        <AlertCircle className="h-4 w-4" />
-                        Priority: {selectedContact.priority === 'urgent' ? '🔴 Urgent' :
-                                   selectedContact.priority === 'hot' ? '🟡 Hot' :
-                                   selectedContact.priority === 'nurture' ? '🔵 Nurture' :
-                                   selectedContact.priority === 'routine' ? '⚪ Routine' :
-                                   'None'}
-                      </button>
-                      {showPriorityDropdown && (
-                        <div className="absolute top-full mt-1 left-0 bg-v3-bg-darker border border-v3-bg-card rounded shadow-lg z-20 min-w-[180px]">
-                          <div className="p-2 border-b border-v3-bg-card text-xs text-v3-text-muted">
-                            Set Priority
-                          </div>
-                          <div className="max-h-64 overflow-y-auto">
-                            <button
-                              onClick={() => handleChangePriority('urgent')}
-                              className="w-full text-left px-4 py-2 hover:bg-v3-bg-card text-sm text-red-500 font-semibold"
-                            >
-                              🔴 Urgent
-                            </button>
-                            <button
-                              onClick={() => handleChangePriority('hot')}
-                              className="w-full text-left px-4 py-2 hover:bg-v3-bg-card text-sm text-yellow-500 font-semibold"
-                            >
-                              🟡 Hot Lead
-                            </button>
-                            <button
-                              onClick={() => handleChangePriority('nurture')}
-                              className="w-full text-left px-4 py-2 hover:bg-v3-bg-card text-sm text-blue-500"
-                            >
-                              🔵 Nurture
-                            </button>
-                            <button
-                              onClick={() => handleChangePriority('routine')}
-                              className="w-full text-left px-4 py-2 hover:bg-v3-bg-card text-sm text-gray-400"
-                            >
-                              ⚪ Routine
-                            </button>
-                            <button
-                              onClick={() => handleChangePriority('none')}
-                              className="w-full text-left px-4 py-2 hover:bg-v3-bg-card text-sm text-v3-text-muted"
-                            >
-                              No Priority
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Contact Details View */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <h3 className="text-sm font-semibold text-v3-text-muted uppercase mb-3">Contact Info</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-v3-text-muted" />
-                        <span className="text-v3-text-light">{selectedContact.email}</span>
-                      </div>
-                      {selectedContact.phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-v3-text-muted" />
-                          <span className="text-v3-text-light">{selectedContact.phone}</span>
-                        </div>
-                      )}
-                      {selectedContact.company_name && (
-                        <div className="flex items-center gap-2">
-                          <Building className="h-4 w-4 text-v3-text-muted" />
-                          <span className="text-v3-text-light">{selectedContact.company_name}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-semibold text-v3-text-muted uppercase mb-3">Sales Info</h3>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <span className="text-v3-text-muted">Type: </span>
-                        <span className="text-v3-text-light">{CONTACT_TYPES[selectedContact.contact_type]}</span>
-                      </div>
-                      <div>
-                        <span className="text-v3-text-muted">Stage: </span>
-                        <span className="text-v3-text-light">{selectedContact.current_stage}</span>
-                      </div>
-                      <div>
-                        <span className="text-v3-text-muted">Status: </span>
-                        <span className={getStatusColor(selectedContact.status)}>{selectedContact.status}</span>
-                      </div>
-                      {selectedContact.next_followup_date && (
-                        <div>
-                          <span className="text-v3-text-muted">Follow-up: </span>
-                          <span className="text-v3-text-light">{formatDate(selectedContact.next_followup_date)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tasks Section */}
-                <div className="border-t border-v3-bg-card pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-v3-text-lightest">Tasks</h3>
-                    <button
-                      onClick={() => handleAddTask(selectedContact)}
-                      className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded hover:bg-purple-700"
-                    >
-                      + Add Task
-                    </button>
-                  </div>
-
-                  <div className="space-y-2 mb-6">
-                    {tasks.length === 0 ? (
-                      <p className="text-sm text-v3-text-muted text-center py-4">No tasks for this contact</p>
-                    ) : (
-                      tasks.map((task) => (
-                        <div key={task.id} className="p-3 bg-v3-bg-card rounded">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className={`px-2 py-0.5 text-xs rounded ${
-                                  task.status === 'completed'
-                                    ? 'bg-green-600/20 text-green-400'
-                                    : task.is_overdue
-                                    ? 'bg-red-600/20 text-red-400'
-                                    : 'bg-blue-600/20 text-blue-400'
-                                }`}>
-                                  {task.task_type}
-                                </span>
-                                <span className="text-sm font-semibold text-v3-text-lightest">{task.title}</span>
-                                {task.status === 'completed' && (
-                                  <span className="text-xs text-green-400">✓ Completed</span>
-                                )}
-                              </div>
-                              <p className="text-xs text-v3-text-muted">
-                                Due: {new Date(task.due_date).toLocaleString()}
-                              </p>
-                              {task.notes && (
-                                <p className="text-xs text-v3-text-light mt-1">{task.notes}</p>
-                              )}
-                            </div>
-                            {task.status === 'pending' && (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleCompleteTask(task.id)}
-                                  className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
-                                >
-                                  Complete
-                                </button>
-                                <button
-                                  onClick={() => handleSnoozeTask(task.id, '1hour')}
-                                  className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700"
-                                >
-                                  Snooze
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* Notes Section */}
-                <div className="border-t border-v3-bg-card pt-6">
-                  <h3 className="text-lg font-semibold text-v3-text-lightest mb-4">Notes & History</h3>
-
-                  <div className="mb-4">
-                    <textarea
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      placeholder="Add a note..."
-                      className="v3-input w-full"
-                      rows="3"
-                    />
-                    <div className="flex justify-between mt-2">
-                      <select
-                        value={noteType}
-                        onChange={(e) => setNoteType(e.target.value)}
-                        className="v3-input"
-                      >
-                        <option value="internal">Internal Note</option>
-                        <option value="call">Phone Call</option>
-                        <option value="email">Email</option>
-                        <option value="meeting">Meeting</option>
-                        <option value="quote_sent">Quote Sent</option>
-                      </select>
-                      <button onClick={addNote} className="button-refresh">
-                        Add Note
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 mt-4">
-                    {notes.map((note) => (
-                      <div key={note.id} className="p-3 bg-v3-bg-card rounded">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="text-xs text-v3-brand uppercase">{note.note_type}</span>
-                          <span className="text-xs text-v3-text-muted">{formatDate(note.created_at)}</span>
-                        </div>
-                        <p className="text-sm text-v3-text-light whitespace-pre-wrap">{note.content}</p>
-                        <p className="text-xs text-v3-text-muted mt-1">by {note.creator_name}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-              )}
-            </div>
-          </div>
-        </div>
+        <CRMContactModal
+          selectedContact={selectedContact}
+          notes={notes}
+          tasks={tasks}
+          emails={selectedContactEmails}
+          editMode={editMode}
+          formData={formData}
+          setFormData={setFormData}
+          showStageDropdown={showStageDropdown}
+          setShowStageDropdown={setShowStageDropdown}
+          showPriorityDropdown={showPriorityDropdown}
+          setShowPriorityDropdown={setShowPriorityDropdown}
+          onClose={() => setShowDetailsModal(false)}
+          onEdit={openEditMode}
+          onDelete={deleteContact}
+          onUpdate={updateContact}
+          onCancelEdit={() => setEditMode(false)}
+          onLogCall={handleLogCall}
+          onQuickNote={handleQuickNote}
+          onAddTask={() => handleAddTask(selectedContact)}
+          onChangeStage={handleChangeStage}
+          onChangePriority={handleChangePriority}
+          onCompleteTask={handleCompleteTask}
+          onSnoozeTask={handleSnoozeTask}
+          onRefresh={fetchContactDetails}
+          getStatusColor={getStatusColor}
+          formatDate={formatDate}
+        />
       )}
 
       {/* Emails Modal */}
@@ -2877,149 +2537,6 @@ export default function CRMPage() {
                   className="button-refresh"
                 >
                   Create Task
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Log Call Modal */}
-      {showLogCallModal && selectedContact && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="dashboard-card max-w-2xl w-full">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-v3-text-lightest">
-                Log Call - {selectedContact.name}
-              </h2>
-              <button onClick={() => setShowLogCallModal(false)}>
-                <X className="h-6 w-6 text-v3-text-muted" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-v3-text-light mb-1">Call Outcome *</label>
-                <select
-                  value={logCallFormData.outcome}
-                  onChange={(e) => setLogCallFormData({ ...logCallFormData, outcome: e.target.value })}
-                  className="v3-input w-full"
-                >
-                  <option value="Connected - Positive">Connected - Positive</option>
-                  <option value="Connected - Needs follow-up">Connected - Needs follow-up</option>
-                  <option value="Voicemail left">Voicemail left</option>
-                  <option value="No answer">No answer</option>
-                  <option value="Wrong number">Wrong number</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-v3-text-light mb-1">Duration (minutes)</label>
-                <input
-                  type="number"
-                  value={logCallFormData.duration}
-                  onChange={(e) => setLogCallFormData({ ...logCallFormData, duration: e.target.value })}
-                  placeholder="Optional"
-                  className="v3-input w-full"
-                  min="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-v3-text-light mb-1">Call Notes *</label>
-                <textarea
-                  value={logCallFormData.notes}
-                  onChange={(e) => setLogCallFormData({ ...logCallFormData, notes: e.target.value })}
-                  placeholder="What was discussed..."
-                  className="v3-input w-full"
-                  rows="5"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="createFollowup"
-                  checked={logCallFormData.createFollowup}
-                  onChange={(e) => setLogCallFormData({ ...logCallFormData, createFollowup: e.target.checked })}
-                  className="rounded"
-                />
-                <label htmlFor="createFollowup" className="text-sm text-v3-text-light cursor-pointer">
-                  Create follow-up task after saving
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-2 mt-6">
-                <button
-                  onClick={() => setShowLogCallModal(false)}
-                  className="px-4 py-2 bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleLogCall}
-                  className="button-refresh"
-                >
-                  Save Call Log
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Note Modal */}
-      {showQuickNoteModal && selectedContact && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="dashboard-card max-w-2xl w-full">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-v3-text-lightest">
-                Quick Note - {selectedContact.name}
-              </h2>
-              <button onClick={() => setShowQuickNoteModal(false)}>
-                <X className="h-6 w-6 text-v3-text-muted" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-v3-text-light mb-1">Note Type *</label>
-                <select
-                  value={quickNoteFormData.note_type}
-                  onChange={(e) => setQuickNoteFormData({ ...quickNoteFormData, note_type: e.target.value })}
-                  className="v3-input w-full"
-                >
-                  <option value="general">General</option>
-                  <option value="call">Phone Call</option>
-                  <option value="email">Email</option>
-                  <option value="meeting">Meeting</option>
-                  <option value="internal">Internal Note</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-v3-text-light mb-1">Note Content *</label>
-                <textarea
-                  value={quickNoteFormData.content}
-                  onChange={(e) => setQuickNoteFormData({ ...quickNoteFormData, content: e.target.value })}
-                  placeholder="Enter your note here..."
-                  className="v3-input w-full"
-                  rows="8"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 mt-6">
-                <button
-                  onClick={() => setShowQuickNoteModal(false)}
-                  className="px-4 py-2 bg-v3-bg-card text-v3-text-light rounded hover:bg-v3-bg-darker"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleQuickNote}
-                  className="button-refresh"
-                >
-                  Save Note
                 </button>
               </div>
             </div>
