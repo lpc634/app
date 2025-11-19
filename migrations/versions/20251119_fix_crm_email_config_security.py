@@ -24,7 +24,7 @@ from cryptography.fernet import Fernet
 
 # revision identifiers, used by Alembic.
 revision = '20251119_fix_crm_email_config_security'
-down_revision = '20251112_221027_add_priority_to_contacts'
+down_revision = '20251112_221027'
 branch_labels = None
 depends_on = None
 
