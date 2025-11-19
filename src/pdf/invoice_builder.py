@@ -181,7 +181,7 @@ def _top_meta_row(agent, invoice_date, invoice_number, agent_invoice_number):
         Paragraph(f"<b>Phone:</b> {_safe(agent.phone)}", s["small"]),
         Paragraph(f"<b>UTR:</b> {_safe(agent.utr_number)}", s["small"]),
         Paragraph(f"<b>VAT Number:</b> {_safe(getattr(agent, 'vat_number', None))}", s["small"]),
-    ], col_width=72*mm)
+    ], col_width=62*mm)
 
     # BILL TO (V3)
     to_block = _boxed([
@@ -189,7 +189,7 @@ def _top_meta_row(agent, invoice_date, invoice_number, agent_invoice_number):
         Spacer(1, 1*mm),
         Paragraph("V3 SERVICES LTD", s["kv_value"]),
         Paragraph("117 Dartford Road<br/>Dartford, England<br/>DA1 3EN", s["small"]),
-    ], col_width=60*mm)
+    ], col_width=48*mm)
 
     # META
     meta_rows = []
@@ -199,7 +199,7 @@ def _top_meta_row(agent, invoice_date, invoice_number, agent_invoice_number):
     # V3 Ref: Use the invoice_number passed from backend (already formatted correctly)
     meta_rows.append([Paragraph("V3 Ref", s["kv_label"]), Paragraph(str(invoice_number), s["kv_value"])])
 
-    meta = Table(meta_rows, colWidths=[38*mm, 48*mm])
+    meta = Table(meta_rows, colWidths=[32*mm, 54*mm])
     meta.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), FILL_SOFT),
         ("BOX",        (0,0), (-1,-1), 0.9, GRID),
@@ -211,7 +211,7 @@ def _top_meta_row(agent, invoice_date, invoice_number, agent_invoice_number):
         ("VALIGN",     (0,0), (-1,-1), "MIDDLE"),
     ]))
 
-    row = Table([[from_block, to_block, meta]], colWidths=[72*mm, 60*mm, None])
+    row = Table([[from_block, to_block, meta]], colWidths=[62*mm, 48*mm, None])
     row.setStyle(TableStyle([
         ("VALIGN", (0,0), (-1,-1), "TOP"),
         ("LEFTPADDING",(0,0), (-1,-1), 0),
