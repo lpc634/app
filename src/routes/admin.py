@@ -2360,6 +2360,11 @@ def get_detailed_invoice(invoice_id):
                     'notes': getattr(job, 'notes', '')
                 })
         
+        # Calculate totals from job_details (source of truth)
+        total_hours = sum(jd.get('hours_worked', 0) for jd in job_details)
+        avg_rate = sum(jd.get('hourly_rate', 0) for jd in job_details) / len(job_details) if job_details else 0
+        calculated_subtotal = sum(jd.get('subtotal', 0) for jd in job_details)
+
         # Build comprehensive invoice details with safe attribute access
         details = {
             # Invoice Information
@@ -2372,9 +2377,10 @@ def get_detailed_invoice(invoice_id):
             'due_date': invoice.due_date.isoformat() if hasattr(invoice, 'due_date') and invoice.due_date else None,
             'status': getattr(invoice, 'status', 'draft'),
             'total_amount': float(getattr(invoice, 'total_amount', 0) or 0),
-            'hours': float(getattr(invoice, 'hours', 0) or 0),
-            'rate_per_hour': float(getattr(invoice, 'rate_per_hour', 20) or 20),
-            'subtotal': float(getattr(invoice, 'hours', 0) or 0) * float(getattr(invoice, 'rate_per_hour', 20) or 20),
+            # Use calculated values from InvoiceJob records (source of truth)
+            'hours': total_hours,
+            'rate_per_hour': avg_rate,
+            'subtotal': calculated_subtotal,
             'expenses': float(getattr(invoice, 'expenses', 0) or 0),
             'job_details': job_details,
             'created_at': invoice.created_at.isoformat() if hasattr(invoice, 'created_at') and invoice.created_at else None,
