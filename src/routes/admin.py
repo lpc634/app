@@ -2285,20 +2285,20 @@ def get_agent_jobs(agent_id):
                 job_data['notes'] = getattr(job, 'notes', '')
                 job_data['assignment_status'] = getattr(assignment, 'status', 'assigned')
                 
-                # Check if there's an invoice for this job
-                invoice_job = InvoiceJob.query.filter_by(job_id=job.id).first()
+                # Check if there's an invoice for this job BY THIS SPECIFIC AGENT
+                # Join Invoice to ensure we get the record for THIS agent only
+                invoice_job = InvoiceJob.query.join(Invoice).filter(
+                    InvoiceJob.job_id == job.id,
+                    Invoice.agent_id == agent_id
+                ).first()
+
                 if invoice_job:
-                    invoice = Invoice.query.filter_by(
-                        agent_id=agent_id,
-                        id=invoice_job.invoice_id
-                    ).first()
-                    
-                    if invoice:
-                        job_data['invoice_id'] = invoice.id
-                        job_data['invoice_number'] = getattr(invoice, 'invoice_number', f'INV-{invoice.id}')
-                        job_data['invoice_status'] = getattr(invoice, 'status', 'draft')
-                        job_data['hours_worked'] = float(getattr(invoice_job, 'hours_worked', 0) or 0)
-                        job_data['hourly_rate'] = float(getattr(invoice_job, 'hourly_rate_at_invoice', None) or getattr(job, 'hourly_rate', 20) or 20)
+                    invoice = invoice_job.invoice
+                    job_data['invoice_id'] = invoice.id
+                    job_data['invoice_number'] = getattr(invoice, 'invoice_number', f'INV-{invoice.id}')
+                    job_data['invoice_status'] = getattr(invoice, 'status', 'draft')
+                    job_data['hours_worked'] = float(getattr(invoice_job, 'hours_worked', 0) or 0)
+                    job_data['hourly_rate'] = float(getattr(invoice_job, 'hourly_rate_at_invoice', None) or getattr(job, 'hourly_rate', 20) or 20)
                 
                 jobs.append(job_data)
                 
