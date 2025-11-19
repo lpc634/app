@@ -1225,20 +1225,36 @@ def create_invoice():
             final_agent_invoice_number = current_number + 1
 
         # --- Database Transaction ---
-        
+
         # 1. Create the new invoice record
         issue_date = date.today()
         last_invoice = Invoice.query.order_by(Invoice.id.desc()).first()
         new_invoice_id = (last_invoice.id + 1) if last_invoice else 1
-        if is_supplier_invoice and supplier is not None:
-            invoice_number = f"{supplier.invoice_prefix}{issue_date.year}-{new_invoice_id:04d}"
-        else:
-            invoice_number = f"V3-{issue_date.year}-{new_invoice_id:04d}"
 
         # Snapshot job details from the first job for PDF generation
         first_job = jobs_to_invoice[0]['job'] if jobs_to_invoice else None
         job_type_snapshot = getattr(first_job, 'job_type', None) if first_job else None
         address_snapshot = getattr(first_job, 'address', None) if first_job else None
+
+        # Generate invoice number with format: AgentName-Postcode-AgentInvoiceNumber
+        if is_supplier_invoice and supplier is not None:
+            invoice_number = f"{supplier.invoice_prefix}{issue_date.year}-{new_invoice_id:04d}"
+        else:
+            # Get agent's name (use last name, remove spaces and special chars)
+            agent_name = (agent.last_name or agent.first_name or 'Agent').replace(' ', '-').replace("'", "")
+
+            # Get postcode from first job (remove spaces)
+            postcode = ''
+            if first_job and hasattr(first_job, 'postcode') and first_job.postcode:
+                postcode = first_job.postcode.replace(' ', '').upper()
+            else:
+                postcode = 'NOPC'  # Fallback if no postcode
+
+            # Use agent's invoice number (their personal numbering system)
+            invoice_num = final_agent_invoice_number if final_agent_invoice_number else new_invoice_id
+
+            # Format: AgentName-Postcode-Number
+            invoice_number = f"{agent_name}-{postcode}-{invoice_num}"
         
         # Create invoice - only set agent_invoice_number if field exists
         invoice_kwargs = {
