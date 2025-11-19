@@ -147,16 +147,35 @@ def _top_meta_row(agent, invoice_date, invoice_number, agent_invoice_number):
 
     # FROM (Agent)
     agent_name = f"{_safe(agent.first_name)} {_safe(agent.last_name)}".strip() or "Agent"
+
+    # Build address lines, avoiding duplicates
+    address_parts = []
+    addr1 = _safe(agent.address_line_1)
+    addr2 = _safe(agent.address_line_2)
+
+    # Only add address_line_1 if not empty
+    if addr1 and addr1 != "Not provided":
+        address_parts.append(addr1)
+
+    # Only add address_line_2 if it's not empty AND not already in address_line_1
+    if addr2 and addr2 != "Not provided":
+        # Check if addr2 is not a duplicate of content in addr1
+        if addr1 == "Not provided" or addr2.lower() not in addr1.lower():
+            address_parts.append(addr2)
+
+    # Add city and postcode
+    city = _safe(agent.city)
+    postcode = _safe(agent.postcode)
+    if city and city != "Not provided":
+        address_parts.append(city)
+    if postcode and postcode != "Not provided":
+        address_parts.append(postcode)
+
     from_block = _boxed([
         Paragraph("<b>FROM</b>", s["kv_label"]),
         Spacer(1, 1*mm),
         Paragraph(agent_name, s["kv_value"]),
-        Paragraph(_join_lines([
-            _safe(agent.address_line_1),
-            _safe(agent.address_line_2),
-            _safe(agent.city),
-            _safe(agent.postcode)
-        ]), s["small"]),
+        Paragraph("<br/>".join(address_parts) if address_parts else "Address not provided", s["small"]),
         Spacer(1, 1.2*mm),
         Paragraph(f"<b>Email:</b> {_safe(agent.email)}", s["small"]),
         Paragraph(f"<b>Phone:</b> {_safe(agent.phone)}", s["small"]),
