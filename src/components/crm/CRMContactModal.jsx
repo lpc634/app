@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Edit2, Trash2, Phone, Mail, Building, CheckCircle, FileText, TrendingUp, AlertCircle, Calendar, Clock, MessageSquare } from 'lucide-react';
+import { X, Edit2, Trash2, Phone, Mail, Building, CheckCircle, FileText, TrendingUp, AlertCircle, Calendar, Clock, MessageSquare, Folder } from 'lucide-react';
+import CRMFiles from './CRMFiles';
 
 const CONTACT_TYPES = {
   eviction_client: 'Eviction Client',
@@ -51,9 +52,11 @@ export default function CRMContactModal({
   onChangePriority,
   onCompleteTask,
   onSnoozeTask,
+  onRefresh,
   getStatusColor,
   formatDate
 }) {
+  const [activeTab, setActiveTab] = useState('activity');
   const [showLogCallModal, setShowLogCallModal] = useState(false);
   const [showQuickNoteModal, setShowQuickNoteModal] = useState(false);
   const [logCallFormData, setLogCallFormData] = useState({
@@ -67,7 +70,7 @@ export default function CRMContactModal({
     content: ''
   });
 
-  // Unified Timeline: Merge notes, tasks, and emails
+  // Unified Timeline: Merge notes, tasks, emails, and files
   const unifiedTimeline = useMemo(() => {
     const timeline = [];
 
@@ -101,9 +104,19 @@ export default function CRMContactModal({
       });
     });
 
+    // Add files
+    selectedContact?.files?.forEach(file => {
+      timeline.push({
+        type: 'file',
+        id: `file-${file.id}`,
+        timestamp: new Date(file.created_at),
+        data: file
+      });
+    });
+
     // Sort by timestamp (newest first)
     return timeline.sort((a, b) => b.timestamp - a.timestamp);
-  }, [notes, tasks, emails]);
+  }, [notes, tasks, emails, selectedContact?.files]);
 
   const handleLogCall = async () => {
     await onLogCall(logCallFormData);
@@ -361,14 +374,38 @@ export default function CRMContactModal({
                   </div>
                 </div>
 
-                {/* Unified Activity Timeline */}
-                <div className="border-t border-v3-bg-card pt-6">
-                  <h3 className="text-lg font-semibold text-v3-text-lightest mb-4 flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Activity Timeline ({unifiedTimeline.length})
-                  </h3>
+                {/* Tabs Navigation */}
+                <div className="border-t border-v3-bg-card pt-6 mb-6">
+                  <div className="flex gap-4 border-b border-v3-bg-darker">
+                    <button
+                      onClick={() => setActiveTab('activity')}
+                      className={`flex items-center gap-2 px-4 py-3 -mb-px transition-colors ${
+                        activeTab === 'activity'
+                          ? 'border-b-2 border-v3-accent text-v3-accent font-semibold'
+                          : 'text-v3-text-muted hover:text-v3-text-light'
+                      }`}
+                    >
+                      <Clock className="h-5 w-5" />
+                      Activity Timeline ({unifiedTimeline.length})
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('files')}
+                      className={`flex items-center gap-2 px-4 py-3 -mb-px transition-colors ${
+                        activeTab === 'files'
+                          ? 'border-b-2 border-v3-accent text-v3-accent font-semibold'
+                          : 'text-v3-text-muted hover:text-v3-text-light'
+                      }`}
+                    >
+                      <Folder className="h-5 w-5" />
+                      Files & Documents ({selectedContact.files?.length || 0})
+                    </button>
+                  </div>
+                </div>
 
-                  <div className="space-y-3 mt-4">
+                {/* Tab Content */}
+                {activeTab === 'activity' ? (
+                  /* Unified Activity Timeline */
+                  <div className="space-y-3">
                     {unifiedTimeline.length === 0 ? (
                       <p className="text-sm text-v3-text-muted text-center py-8">No activity yet. Start by logging a call, adding a task, or creating a note.</p>
                     ) : (
@@ -491,11 +528,50 @@ export default function CRMContactModal({
                           );
                         }
 
+                        if (item.type === 'file') {
+                          const file = item.data;
+                          return (
+                            <div key={item.id} className="p-4 bg-v3-bg-card rounded-lg border-l-4 border-orange-500">
+                              <div className="flex items-start gap-3">
+                                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+                                  <Folder className="h-5 w-5 text-orange-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="px-2 py-0.5 text-xs rounded bg-orange-600/20 text-orange-400">
+                                      FILE UPLOADED
+                                    </span>
+                                    <span className="text-xs text-v3-text-muted">
+                                      {formatDate(file.created_at)}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm font-semibold text-v3-text-lightest mb-1">{file.file_name}</p>
+                                  <p className="text-xs text-v3-text-muted">
+                                    {file.category && file.category !== 'other' ? `${file.category} • ` : ''}
+                                    {file.uploaded_by_name || 'Unknown user'}
+                                  </p>
+                                  {file.description && (
+                                    <p className="text-xs text-v3-text-light mt-2">{file.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
                         return null;
                       })
                     )}
                   </div>
-                </div>
+                ) : (
+                  /* Files & Documents Tab */
+                  <CRMFiles
+                    contactId={selectedContact.id}
+                    files={selectedContact.files || []}
+                    onFileUploaded={onRefresh}
+                    onFileDeleted={onRefresh}
+                  />
+                )}
               </>
             )}
           </div>
