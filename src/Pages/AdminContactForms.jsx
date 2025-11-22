@@ -134,6 +134,33 @@ export default function AdminContactForms() {
         </Button>
       </div>
 
+      {/* Contact Form Link */}
+      <div className="bg-v3-bg-dark border border-v3-border rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h3 className="text-sm font-semibold text-v3-text-lightest mb-1">Public Contact Form</h3>
+            <p className="text-xs text-v3-text-muted">Share this link with clients to submit inquiries</p>
+          </div>
+          <div className="flex items-center gap-2 flex-1 max-w-2xl">
+            <input
+              type="text"
+              readOnly
+              value="https://v3-app-49c3d1eff914.herokuapp.com/contact"
+              className="bg-v3-bg-darkest border border-v3-border text-v3-text text-sm px-3 py-2 rounded flex-1 focus:outline-none focus:border-v3-orange"
+              onClick={(e) => e.target.select()}
+            />
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText('https://v3-app-49c3d1eff914.herokuapp.com/contact');
+              }}
+              className="bg-v3-orange hover:bg-v3-orange/80 text-white"
+            >
+              Copy Link
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
         <div className="bg-v3-bg-dark border border-v3-border rounded-lg p-4">
