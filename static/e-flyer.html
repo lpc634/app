@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V3 Services E-Flyer | Premium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            color: #1f2937;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        .brand-orange { color: #ee722e; }
+        .bg-brand-orange { background-color: #ee722e; }
+        .border-brand-orange { border-color: #ee722e; }
+        
+        @media print {
+            body { background-color: white; }
+            .page { box-shadow: none; margin: 0; width: 100%; max-width: none; }
+            .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
+        }
+
+        /* Page Container */
+        .page {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+        
+        .tech-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .tech-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="page">
+        
+        <!-- HERO SECTION -->
+        <div class="relative min-h-[600px] bg-gray-900 text-white overflow-hidden flex flex-col justify-center break-inside-avoid">
+            <div class="absolute inset-0 bg-gradient-to-b from-gray-900/80 via-gray-900/60 to-gray-900/90 z-10"></div>
+            <img src="/static/e-flyer-images/Gemini_Generated_Image_7yzuj57yzuj57yzu.jpg" alt="Site Background" class="absolute inset-0 w-full h-full object-cover opacity-60 transform scale-105">
+            
+            <div class="relative z-20 w-full flex flex-col items-center justify-center text-center px-8 py-12">
+                <div class="mb-8 w-72 md:w-96">
+                    <img src="/static/e-flyer-images/v3-services-logo-standard-3x.png" alt="V3 Logo" class="w-full h-auto object-contain drop-shadow-2xl">
+                </div>
+                <div class="relative py-6">
+                    <div class="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-brand-orange"></div>
+                    <h1 class="text-5xl md:text-7xl font-black tracking-tight leading-none uppercase mb-4">
+                        PREVENT. <span class="text-[#ee722e]">DETECT.</span> REACT.
+                    </h1>
+                    <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-brand-orange"></div>
+                </div>
+                <p class="mt-6 text-xl md:text-2xl font-light text-gray-200 max-w-3xl">
+                    The UK's premier three-stage security strategy.<br>
+                    <span class="font-semibold text-white">Total protection for land, property & assets.</span>
+                </p>
+            </div>
+        </div>
+
+        <!-- MISSION STATEMENT -->
+        <div class="bg-white py-10 px-12 border-b border-gray-100 break-inside-avoid">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
+                <div class="relative pl-6 border-l-4 border-brand-orange">
+                    <h3 class="text-xs font-black tracking-[0.2em] text-gray-400 uppercase mb-2">Our Mission</h3>
+                    <p class="text-lg md:text-xl font-bold text-gray-800 leading-snug">
+                        Fast, lawful protection for landowners through expert evictions and proactive security.
+                    </p>
+                </div>
+                <div>
+                    <h3 class="text-xs font-black tracking-[0.2em] text-gray-400 uppercase mb-2">The V3 Standard</h3>
+                    <p class="text-gray-600 leading-relaxed text-base">
+                        V3 Services Ltd is a specialist eviction and security company protecting land and assets across the UK. From traveller evictions to high-tech CCTV, we combine deep legal expertise with rapid, professional response.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- THE SOLUTION -->
+        <div class="bg-gray-50 py-12 px-8">
+            <div class="text-center mb-8 break-inside-avoid">
+                <h2 class="text-4xl font-black text-gray-800 uppercase tracking-tight">The <span class="text-[#ee722e]">Solution</span></h2>
+                <p class="text-gray-500 mt-2 font-medium">Robust Prevention & 24/7 Detection Technology</p>
+            </div>
+
+            <div class="grid grid-cols-1 gap-6">
+                
+                <!-- WATCHTOWER -->
+                <div class="tech-card bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col md:flex-row h-auto md:h-60 break-inside-avoid">
+                    <div class="w-full md:w-2/5 relative bg-gray-100 p-4 flex items-center justify-center">
+                        <!-- UPDATED: Set to .jpg -->
+                        <img src="/static/e-flyer-images/ChatGPT Image May 26, 2025, 11_54_13 AM.jpg" class="max-h-full object-contain mix-blend-multiply">
+                        <div class="absolute top-3 left-3 bg-[#ee722e] text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Flagship Tech</div>
+                    </div>
+                    <div class="w-full md:w-3/5 p-6 flex flex-col justify-center">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">WATCHTOWER</h3>
+                        <p class="text-gray-600 text-sm leading-relaxed">
+                            Our ultra-light mobile CCTV towers are engineered to secure even the most expansive sites. Extending to <span class="font-bold text-gray-900">6.5 metres</span>, they establish a high-level surveillance perimeter with solar backup for autonomous operation.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- SENTRY & ANALYTICS -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Sentry Tower -->
+                    <div class="tech-card bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col break-inside-avoid">
+                         <div class="h-36 w-full relative mb-3 bg-gray-100 rounded-lg flex items-center justify-center p-3">
+                            <!-- UPDATED: Set to .jpg -->
+                            <img src="/static/e-flyer-images/ChatGPT Image May 26, 2025, 01_18_38 PM.jpg" class="h-full object-contain mix-blend-multiply">
+                            <div class="absolute top-2 left-2 bg-gray-800 text-white text-[10px] font-bold px-2 py-1 rounded uppercase">Rapid Deploy</div>
+                        </div>
+                        <h4 class="text-lg font-bold text-gray-800 mb-1">SENTRY TOWER</h4>
+                        <p class="text-xs text-gray-500 leading-relaxed">
+                            At 7.5 ft tall on a heavy-duty tripod, the Sentry provides true perimeter coverage. Powered by solar recharge for sustainable off-grid uptime.
+                        </p>
+                    </div>
+                    
+                    <!-- Reconeyez Analytics -->
+                    <div class="tech-card bg-gray-900 rounded-2xl shadow-sm border border-gray-800 p-5 flex flex-col relative overflow-hidden break-inside-avoid">
+                        <img src="/static/e-flyer-images/Screenshot 2025-11-20 125522.png" class="absolute inset-0 w-full h-full object-cover opacity-60">
+                        <div class="relative z-10 mt-auto">
+                             <div class="inline-block bg-[#ee722e] text-white text-[10px] font-bold px-2 py-1 rounded uppercase mb-2">AI Verified</div>
+                            <h4 class="text-lg font-bold text-white mb-1">RECONEYEZ ANALYTICS</h4>
+                            <p class="text-xs text-gray-300 leading-relaxed">
+                                Military-grade AI that thrives where traditional systems can't. Instantly verifies threats, filtering out false alarms so we act only when needed.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CONCRETE -->
+                <div class="tech-card bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col md:flex-row h-auto md:h-48 break-inside-avoid">
+                    <div class="w-full md:w-2/5 relative overflow-hidden">
+                        <img src="/static/e-flyer-images/m-wall_orig.png" class="absolute inset-0 w-full h-full object-contain bg-gray-100 p-4 hover:scale-105 transition duration-500">
+                        <div class="absolute top-3 left-3 bg-gray-800 text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Prevention</div>
+                    </div>
+                    <div class="w-full md:w-3/5 p-6 flex flex-col justify-center">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">CONCRETE BARRIERS</h3>
+                        <p class="text-gray-600 text-sm leading-relaxed">
+                            Heavy-duty precast concrete blocks offering versatile defence against unauthorised vehicle access. Available in sizes up to <span class="font-bold text-gray-800">5 tonnes</span>.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- GATE CLAW & LOCKS -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Gate Claw -->
+                    <div class="tech-card bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col items-center text-center break-inside-avoid">
+                        <div class="h-28 w-full relative mb-3">
+                            <img src="/static/e-flyer-images/Screenshot 2025-05-26 at 15.31.14.png" class="w-full h-full object-contain">
+                        </div>
+                        <h4 class="text-lg font-bold text-gray-800 mb-1">GATE CLAW</h4>
+                        <p class="text-xs text-gray-500">Surface-mounted barrier with spring-loaded steel spikes to halt unauthorized vehicles.</p>
+                    </div>
+                    
+                    <!-- Locks -->
+                    <div class="tech-card bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col items-center text-center break-inside-avoid">
+                        <div class="h-28 w-full relative mb-3">
+                            <img src="/static/e-flyer-images/face-fix.jpg" class="w-full h-full object-contain">
+                        </div>
+                        <h4 class="text-lg font-bold text-gray-800 mb-1">LOXAL LOCKS</h4>
+                        <p class="text-xs text-gray-500">Gold-rated Sold Secure key safes. Reinforced steel body with tamper-proof design.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- THE REACTION -->
+        <div class="bg-[#ee722e] text-white relative overflow-hidden break-inside-avoid">
+            <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(#fff 1px, transparent 1px); background-size: 20px 20px;"></div>
+            <div class="px-8 py-12 relative z-10 text-center">
+                <h2 class="text-5xl font-black uppercase tracking-tight mb-2">The Reaction</h2>
+                <p class="text-white/90 text-lg font-medium">Fast, Lawful Evictions & Complete Site Clearance</p>
+            </div>
+        </div>
+
+        <div class="bg-white px-8 py-12 space-y-10">
+            <!-- Evictions -->
+            <div class="flex flex-col md:flex-row gap-8 items-center border-b border-gray-100 pb-10 break-inside-avoid">
+                <div class="w-full md:w-1/2">
+                    <div class="inline-block bg-gray-100 text-gray-800 text-xs font-bold px-3 py-1 rounded-full mb-3">STEP 1: EVICT</div>
+                    <h3 class="text-3xl font-bold text-gray-900 mb-2">FAST, LAWFUL EVICTIONS</h3>
+                    <p class="text-[#ee722e] font-bold mb-4 text-lg">When Land Is Taken, We Take It Back.</p>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center text-gray-700"><span class="w-2 h-2 bg-[#ee722e] rounded-full mr-3"></span><strong>No Court Order Required</strong> (Common Law)</li>
+                        <li class="flex items-center text-gray-700"><span class="w-2 h-2 bg-[#ee722e] rounded-full mr-3"></span>Senior Enforcement Agents</li>
+                        <li class="flex items-center text-gray-700"><span class="w-2 h-2 bg-[#ee722e] rounded-full mr-3"></span>Rapid UK-Wide Mobilisation</li>
+                    </ul>
+                </div>
+                <div class="w-full md:w-1/2">
+                    <img src="/static/e-flyer-images/9a290f53-956c-4cc5-9ed6-fe4eda4b5c25.jpg" class="rounded-lg shadow-xl w-full h-56 object-cover hover:scale-[1.02] transition duration-500">
+                </div>
+            </div>
+
+            <!-- Waste -->
+            <div class="flex flex-col md:flex-row-reverse gap-8 items-center break-inside-avoid">
+                <div class="w-full md:w-1/2">
+                    <div class="inline-block bg-gray-100 text-gray-800 text-xs font-bold px-3 py-1 rounded-full mb-3">STEP 2: CLEAR</div>
+                    <h3 class="text-3xl font-bold text-gray-900 mb-2">WASTE CLEARANCE</h3>
+                    <p class="text-gray-500 font-bold mb-4 text-lg">Restore Order, End-to-End.</p>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center text-gray-700"><span class="w-2 h-2 bg-gray-400 rounded-full mr-3"></span>Licensed Waste Carriers</li>
+                        <li class="flex items-center text-gray-700"><span class="w-2 h-2 bg-gray-400 rounded-full mr-3"></span>Biohazard & Sharps Specialists</li>
+                        <li class="flex items-center text-gray-700"><span class="w-2 h-2 bg-gray-400 rounded-full mr-3"></span>Full Waste Transfer Documentation</li>
+                    </ul>
+                </div>
+                <div class="w-full md:w-1/2">
+                    <!-- UPDATED: Set to .jpg -->
+                    <img src="/static/e-flyer-images/ChatGPT Image May 26, 2025, 09_27_26 PM.jpg" class="rounded-lg shadow-xl w-full h-56 object-cover hover:scale-[1.02] transition duration-500">
+                </div>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="bg-gray-900 text-white py-16 px-8 text-center relative overflow-hidden break-inside-avoid">
+             <div class="relative z-10">
+                <h2 class="text-4xl font-black uppercase mb-6">Don't Wait For It To Escalate.</h2>
+                <p class="text-gray-400 mb-8 max-w-2xl mx-auto text-lg">
+                    Secure your site today with the UK's most trusted eviction and security specialists.
+                </p>
+                
+                <button class="bg-[#ee722e] text-white text-xl font-bold py-4 px-10 rounded-full shadow-lg hover:bg-white hover:text-[#ee722e] transition-all duration-300 transform hover:-translate-y-1">
+                    SECURE YOUR SITE NOW
+                </button>
+                
+                <div class="mt-10 pt-10 border-t border-gray-800">
+                    <p class="text-sm text-gray-500 uppercase tracking-widest mb-2">Trusted By</p>
+                    <p class="font-medium text-white">Landowners • Landlords • Management Companies • Legal Professionals</p>
+                    <div class="mt-6 text-[#ee722e] font-black text-2xl">www.v3-services.com</div>
+                </div>
+             </div>
+        </div>
+
+    </div>
+</body>
+</html>

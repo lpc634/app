@@ -780,6 +780,12 @@ def firebase_messaging_sw():
     """Serve Firebase messaging service worker with correct MIME type"""
     return send_from_directory('Public', 'firebase-messaging-sw.js', mimetype='application/javascript')
 
+@app.route('/e-flyer')
+def e_flyer():
+    """Serve the V3 Services e-flyer"""
+    static_dir = os.path.join(os.path.dirname(__file__), 'static')
+    return send_from_directory(static_dir, 'e-flyer.html')
+
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     """Serve static files (like PDFs) from the static directory"""
