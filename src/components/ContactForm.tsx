@@ -3,7 +3,28 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-// Form validation schema
+// --- STYLES & ANIMATIONS ---
+const ANIMATION_STYLES = `
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-up {
+    opacity: 0;
+    animation: fadeUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
+  .delay-100 { animation-delay: 0.1s; }
+  .delay-200 { animation-delay: 0.2s; }
+  .delay-300 { animation-delay: 0.3s; }
+
+  /* Focus Ring - Orange match */
+  .focus-ring:focus-within {
+    border-color: #ee722e;
+    box-shadow: 0 0 0 4px rgba(238, 114, 46, 0.15);
+  }
+`;
+
+// --- VALIDATION SCHEMA ---
 const contactSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
@@ -56,7 +77,6 @@ export default function ContactForm({
     setSubmitStatus({ type: null, message: "" });
 
     try {
-      // Convert requestCallback string to boolean for API
       const payload = {
         ...data,
         requestCallback: data.requestCallback === "yes",
@@ -64,9 +84,7 @@ export default function ContactForm({
 
       const response = await fetch(apiEndpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -85,256 +103,177 @@ export default function ContactForm({
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to submit form";
-      setSubmitStatus({
-        type: "error",
-        message: errorMessage,
-      });
+      setSubmitStatus({ type: "error", message: errorMessage });
       if (onError) onError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // --- MOBILE OPTIMIZED CLASSES ---
+  // text-base prevents iOS zoom on focus
+  // py-3 ensures a good touch target size
+  const inputClasses = (hasError: boolean) => `
+    w-full px-4 py-3 rounded-lg bg-gray-50 border text-base
+    ${hasError ? 'border-red-500 bg-red-50' : 'border-gray-200'}
+    text-gray-900
+    focus:outline-none focus:bg-white transition-all duration-200
+    focus-ring appearance-none
+  `;
+
+  const labelClasses = "block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 ml-1";
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="bg-gray-900 rounded-t-2xl border-b-4 border-[#ee722e] px-8 py-10">
-          <div className="text-center space-y-2 animate-fade-up">
-            <h1 className="text-4xl font-bold text-white tracking-tight">
-              Contact V3 Services
-            </h1>
-            <p className="text-gray-300 text-lg">
-              Secure your site. Request immediate callback.
-            </p>
-          </div>
+    <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center p-4 font-sans">
+      <style>{ANIMATION_STYLES}</style>
+
+      {/* Container: reduced rounded corners on mobile for more screen space */}
+      <div className="w-full max-w-xl bg-white rounded-2xl shadow-xl overflow-hidden animate-fade-up">
+
+        {/* Header Section */}
+        <div className="bg-gray-900 p-6 md:p-8 text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#ee722e]"></div>
+          <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px'}}></div>
+
+          <h2 className="relative z-10 text-2xl md:text-3xl font-black text-white uppercase tracking-tight mb-2">
+            Contact V3 Services
+          </h2>
+          <p className="relative z-10 text-gray-400 text-sm font-light">
+            Secure your site. Request immediate callback.
+          </p>
         </div>
 
-        {/* Form Container */}
-        <div className="bg-white rounded-b-2xl shadow-xl px-8 py-10">
-          {submitStatus.type && (
-            <div
-              className={`mb-6 p-4 rounded-lg animate-fade-up ${
-                submitStatus.type === "success"
-                  ? "bg-green-50 border border-green-200 text-green-800"
-                  : "bg-red-50 border border-red-200 text-red-800"
-              }`}
-            >
-              <p className="font-medium">{submitStatus.message}</p>
+        {/* Status Messages */}
+        {submitStatus.type && (
+          <div
+            className={`px-6 py-4 text-center text-sm font-bold ${
+              submitStatus.type === "success"
+                ? "bg-green-50 text-green-700 border-b border-green-100"
+                : "bg-red-50 text-red-700 border-b border-red-100"
+            }`}
+          >
+            {submitStatus.message}
+          </div>
+        )}
+
+        {/* Form Section */}
+        {/* p-6 on mobile gives more horizontal space for inputs */}
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 md:p-8 space-y-5">
+
+          {/* Name Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-fade-up delay-100">
+            <div>
+              <label className={labelClasses}>First Name <span className="text-[#ee722e]">*</span></label>
+              <input
+                type="text"
+                className={inputClasses(!!errors.firstName)}
+                {...register("firstName")}
+              />
+              {errors.firstName && <p className="text-red-500 text-xs mt-1 ml-1">{errors.firstName.message}</p>}
             </div>
-          )}
-
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Name Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-up delay-100">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  First Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Enter first name"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ee722e] focus:border-transparent transition-all outline-none bg-gray-50 hover:bg-white"
-                  {...register("firstName")}
-                />
-                {errors.firstName && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.firstName.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Last Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Enter last name"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ee722e] focus:border-transparent transition-all outline-none bg-gray-50 hover:bg-white"
-                  {...register("lastName")}
-                />
-                {errors.lastName && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.lastName.message}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className={labelClasses}>Last Name <span className="text-[#ee722e]">*</span></label>
+              <input
+                type="text"
+                className={inputClasses(!!errors.lastName)}
+                {...register("lastName")}
+              />
+              {errors.lastName && <p className="text-red-500 text-xs mt-1 ml-1">{errors.lastName.message}</p>}
             </div>
+          </div>
 
-            {/* Company & Email */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-up delay-200">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Company Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="Enter company name"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ee722e] focus:border-transparent transition-all outline-none bg-gray-50 hover:bg-white"
-                  {...register("companyName")}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Email <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  placeholder="your.email@company.com"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ee722e] focus:border-transparent transition-all outline-none bg-gray-50 hover:bg-white"
-                  {...register("email")}
-                />
-                {errors.email && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Phone & Callback */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-up delay-300">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Phone <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  placeholder="+27 XX XXX XXXX"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ee722e] focus:border-transparent transition-all outline-none bg-gray-50 hover:bg-white"
-                  {...register("phone")}
-                />
-                {errors.phone && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.phone.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Request a callback?
-                </label>
-                <div className="flex items-center gap-6 mt-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="yes"
-                      className="w-5 h-5 text-[#ee722e] focus:ring-[#ee722e]"
-                      {...register("requestCallback")}
-                    />
-                    <span className="text-gray-700 font-medium">Yes</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="no"
-                      defaultChecked
-                      className="w-5 h-5 text-[#ee722e] focus:ring-[#ee722e]"
-                      {...register("requestCallback")}
-                    />
-                    <span className="text-gray-700 font-medium">No</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Comments */}
-            <div className="animate-fade-up delay-400">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Comments
-              </label>
-              <textarea
-                rows={4}
-                placeholder="Describe your security concerns or requirements..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ee722e] focus:border-transparent transition-all outline-none bg-gray-50 hover:bg-white resize-none"
-                {...register("comments")}
+          {/* Company & Email */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-fade-up delay-200">
+            <div>
+              <label className={labelClasses}>Company Name</label>
+              <input
+                type="text"
+                className={inputClasses(false)}
+                {...register("companyName")}
               />
             </div>
-
-            {/* Submit Button */}
-            <div className="pt-4 animate-fade-up delay-500">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-[#ee722e] text-white font-bold py-4 px-8 rounded-lg hover:bg-[#d65a1a] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg
-                      className="animate-spin h-5 w-5"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Processing...
-                  </span>
-                ) : (
-                  "Initiate Protection"
-                )}
-              </button>
+            <div>
+              <label className={labelClasses}>Email Address <span className="text-[#ee722e]">*</span></label>
+              <input
+                type="email"
+                className={inputClasses(!!errors.email)}
+                {...register("email")}
+              />
+              {errors.email && <p className="text-red-500 text-xs mt-1 ml-1">{errors.email.message}</p>}
             </div>
-          </form>
-        </div>
+          </div>
+
+          {/* Phone & Callback */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-fade-up delay-200">
+            <div>
+              <label className={labelClasses}>Phone Number <span className="text-[#ee722e]">*</span></label>
+              <input
+                type="tel"
+                className={inputClasses(!!errors.phone)}
+                {...register("phone")}
+              />
+              {errors.phone && <p className="text-red-500 text-xs mt-1 ml-1">{errors.phone.message}</p>}
+            </div>
+
+            <div className="flex flex-col justify-end pb-1">
+              <label className={labelClasses}>Request Immediate Callback?</label>
+              <div className="flex gap-4 mt-1">
+                <label className="relative flex cursor-pointer items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors w-full md:w-auto justify-center md:justify-start">
+                   <input
+                    type="radio"
+                    value="yes"
+                    className="peer h-4 w-4 cursor-pointer text-[#ee722e] focus:ring-[#ee722e]"
+                    {...register("requestCallback")}
+                  />
+                  <span className="text-sm font-medium text-gray-700">Yes</span>
+                </label>
+                <label className="relative flex cursor-pointer items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors w-full md:w-auto justify-center md:justify-start">
+                  <input
+                    type="radio"
+                    value="no"
+                    defaultChecked
+                    className="peer h-4 w-4 cursor-pointer text-[#ee722e] focus:ring-[#ee722e]"
+                    {...register("requestCallback")}
+                  />
+                  <span className="text-sm font-medium text-gray-700">No</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Comments - Keeping Placeholder here only */}
+          <div className="animate-fade-up delay-300">
+            <label className={labelClasses}>Site Details / Comments</label>
+            <textarea
+              className={`${inputClasses(false)} min-h-[120px] resize-none`}
+              placeholder="Describe your security concerns or requirements..."
+              {...register("comments")}
+            />
+          </div>
+
+          {/* Action Button */}
+          <div className="pt-2 animate-fade-up delay-300">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`
+                w-full py-4 px-8 rounded-full text-white font-black uppercase tracking-widest text-lg shadow-lg
+                transform transition-all duration-300
+                ${isSubmitting
+                  ? 'bg-gray-400 cursor-not-allowed opacity-70'
+                  : 'bg-[#ee722e] hover:bg-gray-900 hover:-translate-y-1 hover:shadow-xl'
+                }
+              `}
+            >
+              {isSubmitting ? "Processing..." : "Submit"}
+            </button>
+            <p className="text-center text-gray-400 text-xs mt-4">
+              Your data is secure.
+            </p>
+          </div>
+
+        </form>
       </div>
-
-      <style>{`
-        @keyframes fade-up {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .animate-fade-up {
-          animation: fade-up 0.6s ease-out forwards;
-        }
-
-        .delay-100 {
-          animation-delay: 0.1s;
-          opacity: 0;
-        }
-
-        .delay-200 {
-          animation-delay: 0.2s;
-          opacity: 0;
-        }
-
-        .delay-300 {
-          animation-delay: 0.3s;
-          opacity: 0;
-        }
-
-        .delay-400 {
-          animation-delay: 0.4s;
-          opacity: 0;
-        }
-
-        .delay-500 {
-          animation-delay: 0.5s;
-          opacity: 0;
-        }
-      `}</style>
     </div>
   );
 }
