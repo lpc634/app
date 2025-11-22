@@ -156,9 +156,9 @@ const CONTACT_FORM_CSS = `
 }
 
 .btn-primary {
-  background: #c97a48;
+  background: #ee722e;
   color: #fff;
-  border: 1px solid #c97a48;
+  border: 1px solid #ee722e;
 }
 
 .btn-primary:hover:not(:disabled) {
