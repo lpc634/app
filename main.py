@@ -247,6 +247,7 @@ def contact_form():
         company_name = data.get('companyName', '').strip()
         email = data.get('email', '').strip()
         phone = data.get('phone', '').strip()
+        site_postcode = data.get('sitePostcode', '').strip()
         request_callback = data.get('requestCallback', False)
         comments = data.get('comments', '').strip()
 
@@ -263,6 +264,7 @@ def contact_form():
             "email": email,
             "phone": phone or "Not provided",
             "company_name": company_name or "Not provided",
+            "site_postcode": site_postcode or "Not provided",
             "callback_requested": "Yes" if request_callback else "No",
             "comments": comments
         }
@@ -286,6 +288,7 @@ def contact_form():
                 company_name=company_name if company_name else None,
                 email=email,
                 phone=phone,
+                site_postcode=site_postcode if site_postcode else None,
                 callback_requested=request_callback,
                 comments=comments,
                 gpt_reply=gpt_reply,

@@ -31,6 +31,7 @@ const contactSchema = z.object({
   companyName: z.string().optional(),
   email: z.string().email("Valid email is required"),
   phone: z.string().min(1, "Phone number is required"),
+  sitePostcode: z.string().optional(),
   requestCallback: z.string(),
   comments: z.string().optional(),
 });
@@ -67,6 +68,7 @@ export default function ContactForm({
       companyName: "",
       email: "",
       phone: "",
+      sitePostcode: "",
       requestCallback: "no",
       comments: "",
     },
@@ -139,7 +141,7 @@ export default function ContactForm({
             Contact V3 Services
           </h2>
           <p className="relative z-10 text-gray-400 text-sm font-light">
-            Secure your site. Request immediate callback.
+            Secure your site. Request urgent callback.
           </p>
         </div>
 
@@ -203,6 +205,19 @@ export default function ContactForm({
             </div>
           </div>
 
+          {/* Site Postcode */}
+          <div className="animate-fade-up delay-200">
+            <div>
+              <label className={labelClasses}>Site Postcode</label>
+              <input
+                type="text"
+                className={inputClasses(false)}
+                placeholder="e.g. SW1A 1AA"
+                {...register("sitePostcode")}
+              />
+            </div>
+          </div>
+
           {/* Phone & Callback */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-fade-up delay-200">
             <div>
@@ -216,7 +231,7 @@ export default function ContactForm({
             </div>
 
             <div className="flex flex-col justify-end pb-1">
-              <label className={labelClasses}>Request Immediate Callback?</label>
+              <label className={labelClasses}>Request Urgent Callback?</label>
               <div className="flex gap-4 mt-1">
                 <label className="relative flex cursor-pointer items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors w-full md:w-auto justify-center md:justify-start">
                    <input

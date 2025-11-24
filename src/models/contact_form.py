@@ -13,6 +13,7 @@ class ContactFormSubmission(db.Model):
     company_name = db.Column(db.String(200), nullable=True)
     email = db.Column(db.String(255), nullable=False)
     phone = db.Column(db.String(50), nullable=False)
+    site_postcode = db.Column(db.String(20), nullable=True)
     callback_requested = db.Column(db.Boolean, default=False, nullable=False)
     comments = db.Column(db.Text, nullable=True)
 
@@ -53,6 +54,7 @@ class ContactFormSubmission(db.Model):
             'company_name': self.company_name,
             'email': self.email,
             'phone': self.phone,
+            'site_postcode': self.site_postcode,
             'callback_requested': self.callback_requested,
             'comments': self.comments,
             'gpt_reply': self.gpt_reply,
