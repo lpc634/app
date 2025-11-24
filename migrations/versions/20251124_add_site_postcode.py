@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '20251124_add_site_postcode'
-down_revision = None  # Will be set automatically by alembic
+down_revision = '20251119_fix_crm_email_config_security'
 branch_labels = None
 depends_on = None
 
