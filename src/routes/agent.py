@@ -1539,7 +1539,9 @@ def create_invoice():
         if 'pdf_path' in locals() and os.path.exists(pdf_path):
             os.remove(pdf_path)
         import traceback
-        return jsonify({"error": "An internal server error occurred.", "details": traceback.format_exc()}), 500
+        error_traceback = traceback.format_exc()
+        current_app.logger.error(f"Invoice creation failed: {error_traceback}")
+        return jsonify({"error": "An internal server error occurred.", "details": error_traceback}), 500
 
 @agent_bp.route('/agent/invoices/<int:invoice_id>', methods=['PUT'])
 @jwt_required()
