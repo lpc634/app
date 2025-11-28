@@ -300,7 +300,7 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
   const [photos, setPhotos] = useState({ p0:null, p2:null, p3:null, p4:null, p5:null, p6:null, p7:null, p8:null, p9:null, p10:null, p11:null, p12:null, p13:null });
 
   const onSubmit = async (data) => {
-    console.log('Squatter Eviction Form - Submit called', data);
+    console.log('✅ Squatter Eviction Form - Submit called', data);
     setIsSubmitting(true);
     try {
       // Collect all photos
@@ -311,17 +311,24 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
         }
       });
 
-      console.log('Collected photos:', allPhotos.length);
+      console.log('📸 Collected photos:', allPhotos.length);
 
       // Pass both form data and photos to parent
       await parentOnSubmit({ formData: data, photos: allPhotos });
-      console.log('Form submitted successfully');
+      console.log('✅ Form submitted successfully');
     } catch (error) {
-      console.error('Form submission error:', error);
+      console.error('❌ Form submission error:', error);
       alert('Failed to submit report. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const onError = (errors) => {
+    console.log('❌ VALIDATION ERRORS:', errors);
+    console.log('❌ Error count:', Object.keys(errors).length);
+    console.log('❌ First few errors:', Object.entries(errors).slice(0, 10));
+    alert(`Form has ${Object.keys(errors).length} validation error(s). Check console for details.`);
   };
 
   return (
@@ -864,7 +871,7 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
               <button
                 className="button-primary"
                 type="button"
-                onClick={handleSubmit(onSubmit)}
+                onClick={handleSubmit(onSubmit, onError)}
                 disabled={isSubmitting}
                 style={{ opacity: isSubmitting ? 0.6 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
               >
