@@ -248,18 +248,22 @@ def _services_table(jobs, job_type_default):
     rows = [headers]
     
     if jobs:
-        for line in jobs:
+        for idx, line in enumerate(jobs):
             # Date: prefer explicit date/arrival_time
             dt = line.get("date") or line.get("arrival_time")
             date_txt = _fmt_date(dt)
 
             # Description: use custom description if provided, otherwise get job_type from job object
             custom_desc = line.get("description")
+            # DEBUG
+            job_obj = line.get("job")
+            actual_job_type = getattr(job_obj, 'job_type', None) if job_obj else None
+            print(f"PDF DEBUG Line {idx}: custom_desc='{custom_desc}', job={job_obj}, actual_job_type='{actual_job_type}'")
+
             if custom_desc:
                 desc = custom_desc
             else:
                 # Get job_type from the job object if available
-                job_obj = line.get("job")
                 job_type = getattr(job_obj, 'job_type', None) if job_obj else line.get("job_type")
                 desc = job_type or job_type_default or "Service"
 
