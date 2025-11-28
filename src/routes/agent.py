@@ -1192,6 +1192,15 @@ def create_invoice():
                 total_amount += amount
                 jobs_to_invoice.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
 
+        # --- Add First Hour Premium to total_amount ---
+        if first_hour_rate and not is_supplier_invoice:
+            try:
+                first_hour_fee = Decimal(str(first_hour_rate))
+                if first_hour_fee > 0:
+                    total_amount += first_hour_fee
+            except (ValueError, InvalidOperation):
+                pass  # Ignore invalid first_hour_rate values
+
         # --- Flexible Agent Invoice Number Handling ---
         final_agent_invoice_number = None
         
@@ -1344,16 +1353,6 @@ def create_invoice():
                     hours_worked=hours,
                     hourly_rate_at_invoice=rate
                 ))
-            
-        # --- Add First Hour Premium to total_amount BEFORE creating invoice ---
-        if first_hour_rate and not is_supplier_invoice:
-            try:
-                first_hour_fee = Decimal(str(first_hour_rate))
-                if first_hour_fee > 0:
-                    # Add to total_amount
-                    total_amount += first_hour_fee
-            except (ValueError, InvalidOperation):
-                pass  # Ignore invalid first_hour_rate values
 
         # --- PDF and Emailing ---
         # Add First Hour Premium charge to the beginning of jobs list if requested
