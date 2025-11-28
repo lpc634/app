@@ -1360,10 +1360,17 @@ def create_invoice():
             try:
                 first_hour_fee = Decimal(str(first_hour_rate))
                 if first_hour_fee > 0:
+                    # Get date from the first job to keep everything on the same date
+                    job_date = issue_date
+                    if time_entries_to_invoice and time_entries_to_invoice[0].get('work_date'):
+                        job_date = time_entries_to_invoice[0]['work_date']
+                    elif jobs_to_invoice and jobs_to_invoice[0].get('job'):
+                        job_date = jobs_to_invoice[0]['job'].arrival_time.date()
+
                     # Create a synthetic job entry for the premium charge
                     first_hour_item = {
                         'job': None,  # No associated job
-                        'date': issue_date,
+                        'date': job_date,
                         'hours': 1,
                         'rate': float(first_hour_fee),
                         'amount': float(first_hour_fee),
@@ -1377,7 +1384,7 @@ def create_invoice():
                         # For time_entries format, insert at the beginning
                         time_entries_to_invoice.insert(0, {
                             'job': None,
-                            'work_date': issue_date,
+                            'work_date': job_date,
                             'hours': Decimal('1'),
                             'rate_net': first_hour_fee,
                             'line_net': first_hour_fee,
