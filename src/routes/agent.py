@@ -1422,6 +1422,8 @@ def create_invoice():
             # Temporarily pass grand_total to original function; it recomputes totals but we give exact lines
             pdf_result = generate_invoice_pdf(agent, jobs_pdf, float(grand_total), invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
         elif time_entries_to_invoice:
+            # DEBUG: Using time_entries path
+            current_app.logger.info(f"DEBUG: Using time_entries_to_invoice path with {len(time_entries_to_invoice)} entries")
             # Format time entries for PDF generation
             entries_pdf = []
             for entry in time_entries_to_invoice:
@@ -1455,7 +1457,8 @@ def create_invoice():
                 pass
             pdf_result = generate_invoice_pdf(agent, entries_pdf, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
         else:
-            # DEBUG: Log what's being sent to PDF
+            # DEBUG: Using legacy jobs path
+            current_app.logger.info(f"DEBUG: Using jobs_to_invoice path with {len(jobs_to_invoice)} jobs")
             current_app.logger.info(f"DEBUG jobs_to_invoice structure: {[(j.get('description'), j.get('job_type'), getattr(j.get('job'), 'job_type', None) if j.get('job') else None) for j in jobs_to_invoice]}")
             pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
         
