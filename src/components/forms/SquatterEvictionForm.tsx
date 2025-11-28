@@ -299,9 +299,29 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
   // photo previews state
   const [photos, setPhotos] = useState({ p0:null, p2:null, p3:null, p4:null, p5:null, p6:null, p7:null, p8:null, p9:null, p10:null, p11:null, p12:null, p13:null });
 
-  const onSubmit = (values)=>{
-    console.log('Squatter Eviction Form', values);
-    alert('Submitted (demo) — see console for JSON payload.');
+  const onSubmit = async (data) => {
+    console.log('Squatter Eviction Form - Submit called', data);
+    setIsSubmitting(true);
+    try {
+      // Collect all photos
+      const allPhotos = [];
+      Object.values(photos).forEach(photo => {
+        if (photo instanceof File) {
+          allPhotos.push(photo);
+        }
+      });
+
+      console.log('Collected photos:', allPhotos.length);
+
+      // Pass both form data and photos to parent
+      await parentOnSubmit({ formData: data, photos: allPhotos });
+      console.log('Form submitted successfully');
+    } catch (error) {
+      console.error('Form submission error:', error);
+      alert('Failed to submit report. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -841,7 +861,15 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
               <Field label="Completion Date:" required><DateInput {...register('completion_date')} /></Field>
             </div>
             <div style={{ display:'flex', justifyContent:'flex-end', paddingTop:14 }}>
-              <button className="button-primary" type="button" onClick={handleSubmit(onSubmit)}>Submit</button>
+              <button
+                className="button-primary"
+                type="button"
+                onClick={handleSubmit(onSubmit)}
+                disabled={isSubmitting}
+                style={{ opacity: isSubmitting ? 0.6 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit'}
+              </button>
             </div>
           </section>
         </div>
