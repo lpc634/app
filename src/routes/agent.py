@@ -538,6 +538,7 @@ def generate_invoice_pdf(agent,
                 'rate': rate,
                 'amount': amount,
                 'service': getattr(job_obj, 'job_type', None) if job_obj is not None else None,
+                'description': item.get('description'),  # Preserve custom description (e.g., "First Hour Premium")
             })
 
         # If nothing made it through (e.g., update flows with odd payloads), synthesize one row
