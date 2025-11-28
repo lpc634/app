@@ -1375,7 +1375,7 @@ def create_invoice():
                         'rate': float(first_hour_fee),
                         'amount': float(first_hour_fee),
                         'job_type': None,
-                        'description': 'First Hour Attendance Premium',
+                        'description': 'First Hour Premium',
                         'is_premium_charge': True  # Flag to identify this special item
                     }
 
@@ -1388,7 +1388,7 @@ def create_invoice():
                             'hours': Decimal('1'),
                             'rate_net': first_hour_fee,
                             'line_net': first_hour_fee,
-                            'notes': 'First Hour Attendance Premium',
+                            'notes': 'First Hour Premium',
                             'is_premium_charge': True
                         })
                     elif jobs_to_invoice:
