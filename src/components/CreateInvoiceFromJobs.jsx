@@ -17,8 +17,7 @@ const CreateInvoiceFromJobs = () => {
   const [customInvoiceNumber, setCustomInvoiceNumber] = useState('');
 
   // State for First Hour Premium charge (Lance Carstairs only)
-  const [applyFirstHourCharge, setApplyFirstHourCharge] = useState(false);
-  const FIRST_HOUR_FEE = 60.00;
+  const [firstHourRate, setFirstHourRate] = useState('');
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -74,6 +73,13 @@ const CreateInvoiceFromJobs = () => {
     }
   };
 
+  const handleFirstHourRateChange = (value) => {
+    // Allow only numbers and a single decimal point
+    if (/^\d*\.?\d*$/.test(value)) {
+      setFirstHourRate(value);
+    }
+  };
+
   const totalAmount = useMemo(() => {
     const jobsTotal = Object.values(selected).reduce((acc, job) => {
       const hours = parseFloat(job.hours) || 0;
@@ -82,9 +88,9 @@ const CreateInvoiceFromJobs = () => {
     }, 0);
 
     // Add First Hour Premium if applicable
-    const firstHourFee = applyFirstHourCharge ? FIRST_HOUR_FEE : 0;
+    const firstHourFee = parseFloat(firstHourRate) || 0;
     return jobsTotal + firstHourFee;
-  }, [selected, applyFirstHourCharge]);
+  }, [selected, firstHourRate]);
 
   const showVat = !!(user?.vat_number);
   const VAT_RATE = 0.20;
@@ -114,8 +120,9 @@ const CreateInvoiceFromJobs = () => {
     }
 
     // Include First Hour Premium charge if applicable
-    if (applyFirstHourCharge) {
-      payload.include_first_hour_charge = true;
+    const firstHourFee = parseFloat(firstHourRate);
+    if (firstHourFee && firstHourFee > 0) {
+      payload.first_hour_rate = firstHourFee;
     }
 
     // Submit to backend to create invoice
@@ -219,20 +226,23 @@ const CreateInvoiceFromJobs = () => {
       </div>
 
       <div className="dashboard-card p-4">
-        {/* First Hour Premium Checkbox - Only for Lance Carstairs */}
+        {/* First Hour Premium Rate - Only for Lance Carstairs */}
         {user && (user.first_name === 'Lance' && user.last_name === 'Carstairs') && (
-          <div className="mb-4 pb-4 border-b border-v3-border">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={applyFirstHourCharge}
-                onChange={(e) => setApplyFirstHourCharge(e.target.checked)}
-                className="w-5 h-5 accent-v3-orange cursor-pointer"
-              />
-              <span className="text-v3-text-lightest font-medium">
-                Add First Hour Premium Rate (+£{FIRST_HOUR_FEE.toFixed(2)})
-              </span>
+          <div className="flex items-center justify-between mb-3 pb-3 border-b border-v3-border">
+            <label htmlFor="first-hour-rate" className="text-lg font-semibold text-v3-text-lightest">
+              First Hour Rate:
             </label>
+            <div className="flex items-center gap-2">
+              <span className="text-v3-text-muted">£</span>
+              <input
+                id="first-hour-rate"
+                type="text"
+                placeholder="0.00"
+                value={firstHourRate}
+                onChange={(e) => handleFirstHourRateChange(e.target.value)}
+                className="w-24 text-right bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+              />
+            </div>
           </div>
         )}
 

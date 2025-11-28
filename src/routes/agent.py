@@ -1072,8 +1072,8 @@ def create_invoice():
         # Optional supplier invoicing flow
         # Disallow client-provided supplier spoofing on this agent endpoint
         supplier_email = ''
-        # First Hour Premium charge flag (Lance Carstairs feature)
-        include_first_hour_charge = data.get('include_first_hour_charge', False)
+        # First Hour Premium rate (Lance Carstairs feature)
+        first_hour_rate = data.get('first_hour_rate')
 
         # Support both old (job_items) and new (time_entries) formats
         if not job_items and not time_entries:
@@ -1347,35 +1347,39 @@ def create_invoice():
             
         # --- PDF and Emailing ---
         # Add First Hour Premium charge to the beginning of jobs list if requested
-        FIRST_HOUR_FEE = Decimal('60.00')
-        if include_first_hour_charge and not is_supplier_invoice:
-            # Create a synthetic job entry for the premium charge
-            first_hour_item = {
-                'job': None,  # No associated job
-                'date': issue_date,
-                'hours': 1,
-                'rate': float(FIRST_HOUR_FEE),
-                'amount': float(FIRST_HOUR_FEE),
-                'job_type': None,
-                'description': 'First Hour Attendance Premium',
-                'is_premium_charge': True  # Flag to identify this special item
-            }
+        if first_hour_rate and not is_supplier_invoice:
+            try:
+                first_hour_fee = Decimal(str(first_hour_rate))
+                if first_hour_fee > 0:
+                    # Create a synthetic job entry for the premium charge
+                    first_hour_item = {
+                        'job': None,  # No associated job
+                        'date': issue_date,
+                        'hours': 1,
+                        'rate': float(first_hour_fee),
+                        'amount': float(first_hour_fee),
+                        'job_type': None,
+                        'description': 'First Hour Attendance Premium',
+                        'is_premium_charge': True  # Flag to identify this special item
+                    }
 
-            # Add to the appropriate list depending on format
-            if time_entries_to_invoice:
-                # For time_entries format, insert at the beginning
-                time_entries_to_invoice.insert(0, {
-                    'job': None,
-                    'work_date': issue_date,
-                    'hours': Decimal('1'),
-                    'rate_net': FIRST_HOUR_FEE,
-                    'line_net': FIRST_HOUR_FEE,
-                    'notes': 'First Hour Attendance Premium',
-                    'is_premium_charge': True
-                })
-            elif jobs_to_invoice:
-                # For legacy format, insert at the beginning
-                jobs_to_invoice.insert(0, first_hour_item)
+                    # Add to the appropriate list depending on format
+                    if time_entries_to_invoice:
+                        # For time_entries format, insert at the beginning
+                        time_entries_to_invoice.insert(0, {
+                            'job': None,
+                            'work_date': issue_date,
+                            'hours': Decimal('1'),
+                            'rate_net': first_hour_fee,
+                            'line_net': first_hour_fee,
+                            'notes': 'First Hour Attendance Premium',
+                            'is_premium_charge': True
+                        })
+                    elif jobs_to_invoice:
+                        # For legacy format, insert at the beginning
+                        jobs_to_invoice.insert(0, first_hour_item)
+            except (ValueError, InvalidOperation):
+                pass  # Ignore invalid first_hour_rate values
 
         # Prepare jobs data for PDF and totals with VAT
         if is_supplier_invoice:
