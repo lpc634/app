@@ -98,13 +98,13 @@ const schema = z.object({
   ev10_text: z.string().optional(), ev10_time: z.string().optional(),
 
   // Hourly timeline fields (multi-day)
-  timeline_day1: z.record(z.string().optional()),
-  timeline_day2: z.record(z.string().optional()).optional(),
-  timeline_day3: z.record(z.string().optional()).optional(),
-  timeline_day4: z.record(z.string().optional()).optional(),
-  timeline_day5: z.record(z.string().optional()).optional(),
-  timeline_day6: z.record(z.string().optional()).optional(),
-  timeline_day7: z.record(z.string().optional()).optional(),
+  timeline_day1: z.record(z.string(), z.string().optional()),
+  timeline_day2: z.record(z.string(), z.string().optional()).optional(),
+  timeline_day3: z.record(z.string(), z.string().optional()).optional(),
+  timeline_day4: z.record(z.string(), z.string().optional()).optional(),
+  timeline_day5: z.record(z.string(), z.string().optional()).optional(),
+  timeline_day6: z.record(z.string(), z.string().optional()).optional(),
+  timeline_day7: z.record(z.string(), z.string().optional()).optional(),
 
   // Day toggles
   day2_enabled: z.boolean().default(false),
