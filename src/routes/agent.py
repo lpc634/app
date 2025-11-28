@@ -1426,11 +1426,17 @@ def create_invoice():
             entries_pdf = []
             for entry in time_entries_to_invoice:
                 # Build description: job_type + notes (if any)
-                job_type = getattr(entry['job'], 'job_type', None)
                 notes = entry.get('notes', '').strip()
-                description = job_type or 'Service'
-                if notes:
-                    description += f" - {notes}"
+
+                # For premium charges with no job, use notes as the description
+                if entry.get('job') is None and notes:
+                    description = notes
+                    job_type = None
+                else:
+                    job_type = getattr(entry['job'], 'job_type', None) if entry.get('job') else None
+                    description = job_type or 'Service'
+                    if notes:
+                        description += f" - {notes}"
 
                 entries_pdf.append({
                     'job': entry['job'],
@@ -1438,7 +1444,7 @@ def create_invoice():
                     'hours': float(entry['hours']),
                     'rate': float(entry['rate_net']),
                     'amount': float(entry['line_net']),
-                    'job_type': getattr(entry['job'], 'job_type', None),
+                    'job_type': job_type,
                     'description': description,  # Combined job type and notes
                     'notes': entry['notes']
                 })
