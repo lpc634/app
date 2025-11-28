@@ -1481,17 +1481,20 @@ def create_invoice():
         # --- Commit Transaction ---
         db.session.commit()
         
-        # Trigger hours aggregation for all linked jobs
+        # Trigger hours aggregation for all linked jobs (skip premium charges with no job)
         for item in jobs_to_invoice:
-            try:
-                update_job_hours(item['job'].id)
-            except Exception as e:
-                current_app.logger.warning(f"Failed to update hours for job {item['job'].id}: {e}")
+            if item.get('job') is not None:  # Skip first hour premium and other non-job items
+                try:
+                    update_job_hours(item['job'].id)
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to update hours for job {item['job'].id}: {e}")
 
         # --- Admin Telegram: if all agents linked to each job have invoiced, remind admin to complete job ---
         try:
             for item in jobs_to_invoice:
-                job = item['job']
+                job = item.get('job')
+                if job is None:  # Skip first hour premium and other non-job items
+                    continue
                 # agents required for job
                 required = int(getattr(job, 'agents_required', 1) or 1)
                 # agent_ids who accepted the job
