@@ -253,8 +253,15 @@ def _services_table(jobs, job_type_default):
             dt = line.get("date") or line.get("arrival_time")
             date_txt = _fmt_date(dt)
 
-            # Description: prefer custom description (for premium charges), then job type
-            desc = (line.get("description") or line.get("job_type") or job_type_default or "Service")
+            # Description: use custom description if provided, otherwise get job_type from job object
+            custom_desc = line.get("description")
+            if custom_desc:
+                desc = custom_desc
+            else:
+                # Get job_type from the job object if available
+                job_obj = line.get("job")
+                job_type = getattr(job_obj, 'job_type', None) if job_obj else line.get("job_type")
+                desc = job_type or job_type_default or "Service"
 
             rows.append([
                 Paragraph(date_txt, s["td"]),
