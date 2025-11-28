@@ -228,21 +228,26 @@ const CreateInvoiceFromJobs = () => {
       <div className="dashboard-card p-4">
         {/* First Hour Premium Rate - Only for Lance Carstairs */}
         {user && (user.first_name === 'Lance' && user.last_name === 'Carstairs') && (
-          <div className="flex items-center justify-between mb-3 pb-3 border-b border-v3-border">
-            <label htmlFor="first-hour-rate" className="text-lg font-semibold text-v3-text-lightest">
-              First Hour Rate:
-            </label>
-            <div className="flex items-center gap-2">
-              <span className="text-v3-text-muted">£</span>
-              <input
-                id="first-hour-rate"
-                type="text"
-                placeholder="0.00"
-                value={firstHourRate}
-                onChange={(e) => handleFirstHourRateChange(e.target.value)}
-                className="w-24 text-right bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
-              />
+          <div className="mb-3 pb-3 border-b border-v3-border">
+            <div className="flex items-center justify-between">
+              <label htmlFor="first-hour-rate" className="text-lg font-semibold text-v3-text-lightest">
+                First Hour Rate:
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-v3-text-muted">£</span>
+                <input
+                  id="first-hour-rate"
+                  type="text"
+                  placeholder="0.00"
+                  value={firstHourRate}
+                  onChange={(e) => handleFirstHourRateChange(e.target.value)}
+                  className="w-24 text-right bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+                />
+              </div>
             </div>
+            <p className="text-xs text-v3-text-muted mt-2">
+              The first hour will appear as a separate line item. Enter remaining hours in the job fields above.
+            </p>
           </div>
         )}
 
