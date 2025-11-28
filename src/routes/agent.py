@@ -1345,6 +1345,16 @@ def create_invoice():
                     hourly_rate_at_invoice=rate
                 ))
             
+        # --- Add First Hour Premium to total_amount BEFORE creating invoice ---
+        if first_hour_rate and not is_supplier_invoice:
+            try:
+                first_hour_fee = Decimal(str(first_hour_rate))
+                if first_hour_fee > 0:
+                    # Add to total_amount
+                    total_amount += first_hour_fee
+            except (ValueError, InvalidOperation):
+                pass  # Ignore invalid first_hour_rate values
+
         # --- PDF and Emailing ---
         # Add First Hour Premium charge to the beginning of jobs list if requested
         if first_hour_rate and not is_supplier_invoice:
