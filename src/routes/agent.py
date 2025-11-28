@@ -1455,6 +1455,8 @@ def create_invoice():
                 pass
             pdf_result = generate_invoice_pdf(agent, entries_pdf, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
         else:
+            # DEBUG: Log what's being sent to PDF
+            current_app.logger.info(f"DEBUG jobs_to_invoice structure: {[(j.get('description'), j.get('job_type'), getattr(j.get('job'), 'job_type', None) if j.get('job') else None) for j in jobs_to_invoice]}")
             pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
         
         # Handle different return formats (with or without S3 upload)
