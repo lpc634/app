@@ -15,6 +15,9 @@ const CreateInvoiceFromJobs = () => {
 
   // State for custom invoice number (agents can specify their own numbering)
   const [customInvoiceNumber, setCustomInvoiceNumber] = useState('');
+  
+  // State for suggested next invoice number (fetched from backend)
+  const [suggestedInvoiceNumber, setSuggestedInvoiceNumber] = useState(null);
 
   // State for First Hour Premium charge (Lance Carstairs only)
   const [firstHourRate, setFirstHourRate] = useState('');
@@ -32,6 +35,20 @@ const CreateInvoiceFromJobs = () => {
       }
     };
     fetchJobs();
+  }, [apiCall]);
+
+  // Fetch suggested next invoice number for this agent
+  useEffect(() => {
+    const fetchSuggestedNumber = async () => {
+      try {
+        const data = await apiCall('/agent/next-invoice-number');
+        setSuggestedInvoiceNumber(data.suggested);
+      } catch (error) {
+        console.error('Failed to fetch suggested invoice number:', error);
+        // Silently fail - placeholder will just show default text
+      }
+    };
+    fetchSuggestedNumber();
   }, [apiCall]);
 
   const handleToggleJob = (job) => {
@@ -171,7 +188,7 @@ const CreateInvoiceFromJobs = () => {
                 <input
                   id="invoice-number"
                   type="text"
-                  placeholder="e.g., 337"
+                  placeholder={suggestedInvoiceNumber ? `e.g., ${suggestedInvoiceNumber}` : "e.g., 337"}
                   value={customInvoiceNumber}
                   onChange={(e) => handleInvoiceNumberChange(e.target.value)}
                   className="w-full text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
