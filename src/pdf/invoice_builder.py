@@ -260,8 +260,10 @@ def _services_table(jobs, job_type_default):
             actual_job_type = getattr(job_obj, 'job_type', None) if job_obj else None
             print(f"PDF DEBUG Line {idx}: custom_desc='{custom_desc}', job={job_obj}, actual_job_type='{actual_job_type}'")
 
-            if custom_desc:
-                desc = custom_desc
+            # CRITICAL FIX: Check if 'description' key exists in line dict AND has a value
+            # This ensures "First Hour Premium" and other custom descriptions are always used
+            if "description" in line and line["description"]:
+                desc = line["description"]
             else:
                 # Get job_type from the job object if available
                 job_type = getattr(job_obj, 'job_type', None) if job_obj else line.get("job_type")
