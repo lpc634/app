@@ -398,9 +398,27 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
         if (isOpen && modalMapRef.current && !modalMapInstance.current) {
             // Initialize map centered on UK
             modalMapInstance.current = window.L.map(modalMapRef.current).setView([52.3555, -1.1743], 8); // Centered on UK
-            window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(modalMapInstance.current);
+            
+            // Define base layers
+            const streetLayer = window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            });
+            
+            const satelliteLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '© Esri, Maxar, Earthstar Geographics',
+                maxZoom: 19
+            });
+            
+            // Add street layer by default
+            streetLayer.addTo(modalMapInstance.current);
+            
+            // Add layer control to switch between views
+            const baseLayers = {
+                "Street View": streetLayer,
+                "Satellite View": satelliteLayer
+            };
+            window.L.control.layers(baseLayers).addTo(modalMapInstance.current);
             
             // Add click handler for map
             modalMapInstance.current.on('click', function(e) {
@@ -699,7 +717,7 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                             className="block text-sm font-medium mb-2"
                             style={{ color: '#cccccc' }}
                         >
-                            Address or Area Seen *
+                            Postcode or Location *
                         </label>
                         <input
                             type="text"
@@ -718,21 +736,21 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                 minHeight: '48px',
                                 fontSize: '16px'
                             }}
-                            placeholder="e.g. Daventry Road, Southam, CV47 1AS or just CV47 1AS"
-                            autoComplete="street-address"
+                            placeholder="Enter postcode (e.g., SE7 7SQ or CV47 1AS)"
+                            autoComplete="postal-code"
                         />
                         {errors.address && (
                             <p className="mt-1 text-sm" style={{ color: '#ef4444' }}>{errors.address}</p>
                         )}
                         
                         <div className="mt-2 p-2 rounded text-xs" style={{ backgroundColor: '#1a3a2e', color: '#a7f3d0' }}>
-                            <p className="mb-1">💡 <strong>Address Tips:</strong></p>
+                            <p className="mb-1">💡 <strong>Best Practice:</strong></p>
                             <ul className="list-disc list-inside space-y-1">
-                                <li>Use postcodes for best results (e.g., "CV47 1AS")</li>
-                                <li>Include area name (e.g., "Southam, CV47 1AS")</li>
-                                <li>Or click "Use Current Location" for GPS location</li>
-                                <li>You can also click directly on the map below</li>
-                                <li><strong>Drag the pin</strong> on the map to adjust the exact location</li>
+                                <li><strong>Enter just the postcode</strong> for most accurate results (e.g., "SE7 7SQ")</li>
+                                <li>Or add area name for context (e.g., "Southam, CV47 1AS")</li>
+                                <li>Click "Use Current Location" if you're on-site</li>
+                                <li>Click anywhere on the map to place a pin manually</li>
+                                <li><strong>Drag the pin</strong> to adjust the exact location (e.g., camp entrance)</li>
                             </ul>
                         </div>
                         
@@ -1356,7 +1374,27 @@ const VehicleSearchPage = () => {
         // If we have sightings and a map container, initialize the map
         if (sightings.length > 0 && mapRef.current && !mapInstance.current) {
             mapInstance.current = window.L.map(mapRef.current).setView([54.5, -3.5], 6); // UK view
-            window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance.current);
+            
+            // Define base layers
+            const streetLayer = window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            });
+            
+            const satelliteLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '© Esri, Maxar, Earthstar Geographics',
+                maxZoom: 19
+            });
+            
+            // Add street layer by default
+            streetLayer.addTo(mapInstance.current);
+            
+            // Add layer control to switch between views
+            const baseLayers = {
+                "Street View": streetLayer,
+                "Satellite View": satelliteLayer
+            };
+            window.L.control.layers(baseLayers).addTo(mapInstance.current);
         }
 
         // If there are no sightings and the map instance exists, destroy it
