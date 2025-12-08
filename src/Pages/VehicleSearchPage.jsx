@@ -1049,10 +1049,29 @@ const VehicleSearchPage = () => {
                     
                     if (!response.ok) {
                         console.warn(`[Geocoding] HTTP error ${response.status} for "${searchAddr}"`);
+                        // If rate limited, wait longer before continuing
+                        if (response.status === 429) {
+                            console.warn('[Geocoding] Rate limited! Waiting 5 seconds...');
+                            await new Promise(resolve => setTimeout(resolve, 5000));
+                        }
                         continue;
                     }
                     
-                    const data = await response.json();
+                    // Check if response is actually JSON before parsing
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        console.warn(`[Geocoding] Non-JSON response for "${searchAddr}": ${contentType}`);
+                        continue;
+                    }
+                    
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (jsonError) {
+                        console.warn(`[Geocoding] JSON parse error for "${searchAddr}":`, jsonError);
+                        continue;
+                    }
+                    
                     console.log(`[Geocoding] Found ${data.length} results for "${searchAddr}"`);
                     
                     if (data && data.length > 0) {
