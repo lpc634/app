@@ -10,6 +10,157 @@ const Textarea = (props) => <textarea className="w-full bg-v3-bg-dark border-v3-
 const Button = ({ children, ...props }) => <button className="button-refresh touch-manipulation" style={{minHeight: '44px', ...props.style}} {...props}>{children}</button>;
 const Select = (props) => <select className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange" {...props} />;
 
+// --- Shared Geocoding Function (used by both modal and main page) ---
+const getCoordinates = async (address) => {
+    if (!address) return null;
+    
+    // Check cache first
+    const cacheKey = `geocode_${address.toLowerCase().trim()}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+        try {
+            const parsedCache = JSON.parse(cached);
+            // Cache for 7 days
+            if (Date.now() - parsedCache.timestamp < 7 * 24 * 60 * 60 * 1000) {
+                return parsedCache.coords;
+            } else {
+                localStorage.removeItem(cacheKey);
+            }
+        } catch (e) {
+            localStorage.removeItem(cacheKey);
+        }
+    }
+    
+    try {
+        // Multiple search strategies for UK addresses - improved to handle building names and units
+        const searchStrategies = [
+            address, // Original address
+            address.replace(/([A-Z]{1,2}\d{1,2}[A-Z]?)(\d[A-Z]{2})/i, '$1 $2'), // Fix postcode spacing
+            // Remove unit/flat/building numbers and names for better street matching
+            address.replace(/^(Unit|Flat|Apartment|Building|Block)\s*[A-Z0-9]+[,\s]*/i, '').trim(),
+            address.replace(/^[^,]*,\s*/, '').trim(), // Remove first part (often building name)
+            address.replace(/^[^,]*,[^,]*,\s*/, '').trim(), // Remove first two parts
+            address.split(',').slice(-2).join(',').trim(), // Last two parts (usually area + postcode)
+            address.split(',').slice(-1)[0].trim(), // Just the postcode/area
+            // Extract street name without building references
+            address.replace(/^.*?(\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:Road|Street|Lane|Avenue|Close|Drive|Way|Place|Crescent|Gardens|Square|Terrace)).*$/i, '$1'),
+            // Extract just the main street and area
+            address.replace(/^[^,]*,?\s*([A-Z\s]+(?:ROAD|STREET|LANE|AVENUE|CLOSE|DRIVE|WAY|PLACE|CRESCENT|GARDENS))[,\s]+([A-Z\s]+).*$/i, '$1, $2'),
+            // Just the postcode
+            address.match(/([A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2})/i)?.[1]?.trim(),
+            // Extract just the town/city
+            address.match(/([A-Z\s]+)(?:,\s*[A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2})?$/i)?.[1]?.trim()
+        ].filter((addr, index, arr) => addr && addr.length > 2 && arr.indexOf(addr) === index); // Remove duplicates and short strings
+        
+        let bestResult = null;
+        let bestScore = 0;
+        
+        for (const searchAddr of searchStrategies) {
+            try {
+                console.log(`[Geocoding] Trying strategy: "${searchAddr}"`);
+                
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchAddr)}&format=json&limit=3&countrycodes=gb&addressdetails=1`,
+                    {
+                        headers: {
+                            'User-Agent': 'VehicleIntelligenceSystem/1.0'
+                        }
+                    }
+                );
+                
+                if (!response.ok) {
+                    console.warn(`[Geocoding] HTTP error ${response.status} for "${searchAddr}"`);
+                    // If rate limited, wait longer before continuing
+                    if (response.status === 429) {
+                        console.warn('[Geocoding] Rate limited! Waiting 5 seconds...');
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                    }
+                    continue;
+                }
+                
+                // Check if response is actually JSON before parsing
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    console.warn(`[Geocoding] Non-JSON response for "${searchAddr}": ${contentType}`);
+                    continue;
+                }
+                
+                let data;
+                try {
+                    data = await response.json();
+                } catch (jsonError) {
+                    console.warn(`[Geocoding] JSON parse error for "${searchAddr}":`, jsonError);
+                    continue;
+                }
+                
+                console.log(`[Geocoding] Found ${data.length} results for "${searchAddr}"`);
+                
+                if (data && data.length > 0) {
+                    // Score results based on relevance to original address
+                    for (const result of data) {
+                        let score = 0;
+                        const displayName = result.display_name.toLowerCase();
+                        const originalLower = address.toLowerCase();
+                        
+                        // Scoring system
+                        if (result.importance) score += result.importance * 10;
+                        if (displayName.includes(originalLower.split(',')[0]?.trim())) score += 5;
+                        if (result.address?.postcode && originalLower.includes(result.address.postcode.toLowerCase())) score += 8;
+                        if (result.address?.city && originalLower.includes(result.address.city.toLowerCase())) score += 6;
+                        if (result.address?.town && originalLower.includes(result.address.town.toLowerCase())) score += 6;
+                        if (result.address?.road && originalLower.includes(result.address.road.toLowerCase())) score += 7;
+                        
+                        console.log(`[Geocoding] Result score: ${score.toFixed(2)} for "${result.display_name}"`);
+                        
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestResult = {
+                                lat: parseFloat(result.lat),
+                                lng: parseFloat(result.lon),
+                                displayName: result.display_name,
+                                searchStrategy: searchAddr,
+                                confidence: Math.min(score / 10, 1)
+                            };
+                        }
+                    }
+                    
+                    // If we found a good result, break early
+                    if (bestScore > 8) {
+                        console.log(`[Geocoding] High confidence result found, stopping search`);
+                        break;
+                    }
+                }
+                
+                // Rate limiting: wait 1000ms (1 second) between requests to respect Nominatim usage policy
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+            } catch (strategyError) {
+                console.warn(`[Geocoding] Strategy failed for "${searchAddr}":`, strategyError);
+            }
+        }
+        
+        if (bestResult) {
+            console.log(`[Geocoding] SUCCESS: Found coordinates for "${address}" using strategy "${bestResult.searchStrategy}"`);
+            console.log(`[Geocoding] Result: ${bestResult.lat}, ${bestResult.lng} (confidence: ${(bestResult.confidence * 100).toFixed(1)}%)`);
+            
+            // Cache the result
+            localStorage.setItem(cacheKey, JSON.stringify({
+                coords: bestResult,
+                timestamp: Date.now()
+            }));
+            
+            return bestResult;
+        } else {
+            console.warn(`[Geocoding] FAILED: No coordinates found for "${address}"`);
+            return null;
+        }
+        
+    } catch (error) {
+        console.error(`[Geocoding] ERROR for "${address}":`, error);
+        return null;
+    }
+};
+
 // --- AddSightingModal Component ---
 const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
     const { apiCall } = useAuth();
