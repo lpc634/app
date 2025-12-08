@@ -93,9 +93,35 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
             modalMarkerRef.current.remove();
         }
         
-        // Add new marker
-        modalMarkerRef.current = window.L.marker([coords.lat, coords.lng]).addTo(modalMapInstance.current);
-        modalMarkerRef.current.bindPopup(`<b>Selected Location</b><br/>${coords.displayName || address}`);
+        // Add new DRAGGABLE marker
+        modalMarkerRef.current = window.L.marker([coords.lat, coords.lng], { draggable: true }).addTo(modalMapInstance.current);
+        modalMarkerRef.current.bindPopup(`<b>Selected Location</b><br/>${coords.displayName || address}<br/><small>(Drag pin to adjust location)</small>`);
+        
+        // Add dragend event to update coordinates when marker is dragged
+        modalMarkerRef.current.on('dragend', function(e) {
+            const newPos = e.target.getLatLng();
+            const newCoords = {
+                lat: newPos.lat,
+                lng: newPos.lng,
+                displayName: `${newPos.lat.toFixed(6)}, ${newPos.lng.toFixed(6)}`
+            };
+            setCoordinates(newCoords);
+            
+            // Reverse geocode to get address
+            setGeocodingLoading(true);
+            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${newCoords.lat}&lon=${newCoords.lng}&format=json`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.display_name) {
+                        newCoords.displayName = data.display_name;
+                        modalMarkerRef.current.getPopup().setContent(`<b>Selected Location</b><br/>${data.display_name}<br/><small>(Drag pin to adjust location)</small>`);
+                    }
+                })
+                .catch(console.error)
+                .finally(() => setGeocodingLoading(false));
+            
+            toast.success('Location updated!');
+        });
         
         // Center map on location
         modalMapInstance.current.setView([coords.lat, coords.lng], 15);
@@ -555,6 +581,7 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                 <li>Include area name (e.g., "Southam, CV47 1AS")</li>
                                 <li>Or click "Use Current Location" for GPS location</li>
                                 <li>You can also click directly on the map below</li>
+                                <li><strong>Drag the pin</strong> on the map to adjust the exact location</li>
                             </ul>
                         </div>
                         
@@ -984,15 +1011,22 @@ const VehicleSearchPage = () => {
         }
         
         try {
-            // Multiple search strategies for UK addresses
+            // Multiple search strategies for UK addresses - improved to handle building names and units
             const searchStrategies = [
                 address, // Original address
                 address.replace(/([A-Z]{1,2}\d{1,2}[A-Z]?)(\d[A-Z]{2})/i, '$1 $2'), // Fix postcode spacing
-                address.replace(/^[\d\s]*([A-Z\s]+)$/i, '$1').trim(), // Remove house numbers for street-only searches
+                // Remove unit/flat/building numbers and names for better street matching
+                address.replace(/^(Unit|Flat|Apartment|Building|Block)\s*[A-Z0-9]+[,\s]*/i, '').trim(),
+                address.replace(/^[^,]*,\s*/, '').trim(), // Remove first part (often building name)
+                address.replace(/^[^,]*,[^,]*,\s*/, '').trim(), // Remove first two parts
                 address.split(',').slice(-2).join(',').trim(), // Last two parts (usually area + postcode)
                 address.split(',').slice(-1)[0].trim(), // Just the postcode/area
+                // Extract street name without building references
+                address.replace(/^.*?(\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:Road|Street|Lane|Avenue|Close|Drive|Way|Place|Crescent|Gardens|Square|Terrace)).*$/i, '$1'),
                 // Extract just the main street and area
                 address.replace(/^[^,]*,?\s*([A-Z\s]+(?:ROAD|STREET|LANE|AVENUE|CLOSE|DRIVE|WAY|PLACE|CRESCENT|GARDENS))[,\s]+([A-Z\s]+).*$/i, '$1, $2'),
+                // Just the postcode
+                address.match(/([A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2})/i)?.[1]?.trim(),
                 // Extract just the town/city
                 address.match(/([A-Z\s]+)(?:,\s*[A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2})?$/i)?.[1]?.trim()
             ].filter((addr, index, arr) => addr && addr.length > 2 && arr.indexOf(addr) === index); // Remove duplicates and short strings
@@ -1057,8 +1091,8 @@ const VehicleSearchPage = () => {
                         }
                     }
                     
-                    // Rate limiting: wait 100ms between requests
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    // Rate limiting: wait 1000ms (1 second) between requests to respect Nominatim usage policy
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                     
                 } catch (strategyError) {
                     console.warn(`[Geocoding] Strategy failed for "${searchAddr}":`, strategyError);
