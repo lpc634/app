@@ -776,6 +776,30 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                 {geocodingLoading ? 'Getting Location...' : 'Use Current Location'}
                             </button>
                             
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (coordinates) {
+                                        window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${coordinates.lat},${coordinates.lng}`, '_blank');
+                                    }
+                                }}
+                                disabled={!coordinates}
+                                className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium"
+                                style={{
+                                    backgroundColor: coordinates ? '#1976d2' : '#525252',
+                                    color: 'white',
+                                    opacity: coordinates ? 1 : 0.5,
+                                    minHeight: '44px',
+                                    cursor: coordinates ? 'pointer' : 'not-allowed'
+                                }}
+                                title={coordinates ? 'Open in Google Street View' : 'Select a location first'}
+                            >
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                                </svg>
+                                Street View
+                            </button>
+                            
                             {coordinates && (
                                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: '#065f46', color: '#a7f3d0' }}>
                                     <MapPin className="w-4 h-4" />
@@ -1825,6 +1849,31 @@ const VehicleSearchPage = () => {
                                                     </div>
                                                 )}
                                             </div>
+                                            
+                                            {/* Street View Button */}
+                                            {(selectedSighting.latitude && selectedSighting.longitude) && (
+                                                <div className="mt-4">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${selectedSighting.latitude},${selectedSighting.longitude}`, '_blank');
+                                                        }}
+                                                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium w-full sm:w-auto"
+                                                        style={{
+                                                            backgroundColor: '#1976d2',
+                                                            color: 'white',
+                                                            minHeight: '44px'
+                                                        }}
+                                                        onMouseEnter={e => e.target.style.backgroundColor = '#1565c0'}
+                                                        onMouseLeave={e => e.target.style.backgroundColor = '#1976d2'}
+                                                    >
+                                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                                                        </svg>
+                                                        Open in Google Street View
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </>
