@@ -4,24 +4,18 @@ import { toast } from 'sonner';
 
 export default function EFlyerPage() {
   const [loading, setLoading] = useState(true);
-  const pdfUrl = '/static/V3-E-flyer.pdf';
+  const eflyerUrl = 'https://v3-app-49c3d1eff914.herokuapp.com/e-flyer';
 
   const handleCopyLink = () => {
-    const link = `${window.location.origin}/eflyer`;
-    navigator.clipboard.writeText(link);
+    navigator.clipboard.writeText(eflyerUrl);
     toast.success('Link copied to clipboard', {
       description: 'You can now paste this link in your email campaigns'
     });
   };
 
-  const handleDownload = () => {
-    const a = document.createElement('a');
-    a.href = pdfUrl;
-    a.download = 'V3-Services-E-Flyer.pdf';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    toast.success('Download started');
+  const handleOpenNewTab = () => {
+    window.open(eflyerUrl, '_blank');
+    toast.success('Opening e-flyer in new tab');
   };
 
   return (
@@ -50,11 +44,11 @@ export default function EFlyerPage() {
             Copy Link
           </button>
           <button
-            onClick={handleDownload}
+            onClick={handleOpenNewTab}
             className="btn-ghost flex items-center gap-2"
           >
-            <Download className="h-4 w-4" />
-            Download PDF
+            <Share2 className="h-4 w-4" />
+            Open E-Flyer
           </button>
         </div>
       </div>
@@ -72,7 +66,7 @@ export default function EFlyerPage() {
             </p>
             <div className="flex items-center gap-2">
               <code className="flex-1 px-3 py-2 bg-v3-bg-dark border border-v3-border rounded-md text-sm text-v3-text-lightest font-mono break-all">
-                {window.location.origin}/eflyer
+                {eflyerUrl}
               </code>
               <button
                 onClick={handleCopyLink}
@@ -100,7 +94,7 @@ export default function EFlyerPage() {
         </div>
         <div className="relative w-full bg-v3-bg-darkest" style={{ height: 'calc(100vh - 400px)', minHeight: '600px' }}>
           <iframe
-            src={pdfUrl}
+            src={eflyerUrl}
             className="w-full h-full border-0"
             title="V3 Services E-Flyer"
             onLoad={() => setLoading(false)}
