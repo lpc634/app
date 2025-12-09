@@ -780,7 +780,8 @@ const AddSightingModal = ({ isOpen, onClose, onSightingAdded }) => {
                                 type="button"
                                 onClick={() => {
                                     if (coordinates) {
-                                        window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${coordinates.lat},${coordinates.lng}`, '_blank');
+                                        // Open directly in Street View mode
+                                        window.open(`https://www.google.com/maps?layer=c&cbll=${coordinates.lat},${coordinates.lng}`, '_blank');
                                     }
                                 }}
                                 disabled={!coordinates}
@@ -1856,7 +1857,8 @@ const VehicleSearchPage = () => {
                                                     <button
                                                         type="button"
                                                         onClick={() => {
-                                                            window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${selectedSighting.latitude},${selectedSighting.longitude}`, '_blank');
+                                                            // Open directly in Street View mode
+                                                            window.open(`https://www.google.com/maps?layer=c&cbll=${selectedSighting.latitude},${selectedSighting.longitude}`, '_blank');
                                                         }}
                                                         className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium w-full sm:w-auto"
                                                         style={{

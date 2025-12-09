@@ -393,7 +393,8 @@ const LocationPicker = ({
             type="button"
             onClick={() => {
               if (Number.isFinite(pendingLocation.lat) && Number.isFinite(pendingLocation.lng)) {
-                window.open(`https://www.google.com/maps/@${pendingLocation.lat},${pendingLocation.lng},18z`, '_blank');
+                // Open directly in Street View mode
+                window.open(`https://www.google.com/maps?layer=c&cbll=${pendingLocation.lat},${pendingLocation.lng}`, '_blank');
               }
             }}
             disabled={!Number.isFinite(pendingLocation.lat) || !Number.isFinite(pendingLocation.lng)}
@@ -402,7 +403,7 @@ const LocationPicker = ({
               backgroundColor: (Number.isFinite(pendingLocation.lat) && Number.isFinite(pendingLocation.lng)) ? '#1976d2' : '#525252',
               color: 'white'
             }}
-            title={(Number.isFinite(pendingLocation.lat) && Number.isFinite(pendingLocation.lng)) ? 'Open in Google Maps (drag Street View person)' : 'Select a location first'}
+            title={(Number.isFinite(pendingLocation.lat) && Number.isFinite(pendingLocation.lng)) ? 'Open in Google Street View' : 'Select a location first'}
           >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
