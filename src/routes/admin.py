@@ -18,6 +18,12 @@ import requests
 import io
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch, cm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 admin_bp = Blueprint('admin', __name__)
 @admin_bp.route('/admin/agents/minimal', methods=['GET'])
@@ -3233,3 +3239,393 @@ def get_job_v3_reports(job_id):
 	except Exception as e:
 		current_app.logger.error(f"Error fetching V3 reports for job {job_id}: {str(e)}")
 		return jsonify({'error': 'Failed to fetch reports'}), 500
+
+
+# ============================================================================
+# V3 Job Report PDF Export
+# ============================================================================
+
+def generate_v3_report_pdf(report, agent_name=None):
+	"""
+	Generates a professional PDF for a V3 job report.
+	Returns bytes of the PDF file.
+	"""
+	buffer = io.BytesIO()
+	doc = SimpleDocTemplate(
+		buffer,
+		pagesize=A4,
+		rightMargin=1.5*cm,
+		leftMargin=1.5*cm,
+		topMargin=1.5*cm,
+		bottomMargin=1.5*cm
+	)
+
+	# Styles
+	styles = getSampleStyleSheet()
+	styles.add(ParagraphStyle(
+		name='ReportTitle',
+		parent=styles['Heading1'],
+		fontSize=20,
+		spaceAfter=20,
+		alignment=TA_CENTER,
+		textColor=colors.HexColor('#1a1a2e')
+	))
+	styles.add(ParagraphStyle(
+		name='SectionTitle',
+		parent=styles['Heading2'],
+		fontSize=14,
+		spaceBefore=15,
+		spaceAfter=10,
+		textColor=colors.HexColor('#ff6b35'),
+		borderPadding=(0, 0, 5, 0)
+	))
+	styles.add(ParagraphStyle(
+		name='FieldLabel',
+		parent=styles['Normal'],
+		fontSize=10,
+		textColor=colors.HexColor('#666666'),
+		fontName='Helvetica-Bold'
+	))
+	styles.add(ParagraphStyle(
+		name='FieldValue',
+		parent=styles['Normal'],
+		fontSize=11,
+		textColor=colors.HexColor('#1a1a2e'),
+		spaceAfter=8
+	))
+	styles.add(ParagraphStyle(
+		name='TimelineTime',
+		parent=styles['Normal'],
+		fontSize=10,
+		textColor=colors.HexColor('#ff6b35'),
+		fontName='Helvetica-Bold'
+	))
+	styles.add(ParagraphStyle(
+		name='TimelineText',
+		parent=styles['Normal'],
+		fontSize=10,
+		textColor=colors.HexColor('#333333'),
+		leftIndent=20
+	))
+
+	elements = []
+	report_data = report.report_data or {}
+
+	# Form type names
+	form_type_names = {
+		'traveller_eviction': 'Traveller Eviction Report',
+		'traveller_serve': 'Traveller Serve Report',
+		'squatter_serve': 'Squatter Serve Report',
+		'squatter_eviction': 'Squatter Eviction Report',
+	}
+	report_title = form_type_names.get(report.form_type, 'Job Report')
+
+	# Title
+	elements.append(Paragraph(report_title, styles['ReportTitle']))
+	elements.append(Paragraph(f"Report ID: {report.id}", styles['Normal']))
+	elements.append(Spacer(1, 0.3*inch))
+
+	# Helper function to format values
+	def format_value(key, value):
+		if value is None or value == '':
+			return None
+		if isinstance(value, bool):
+			return 'Yes' if value else 'No'
+		if isinstance(value, dict):
+			# Timeline entries
+			entries = [(k, v) for k, v in value.items() if v and str(v).strip()]
+			if not entries:
+				return None
+			return entries
+		return str(value)
+
+	# Field labels
+	field_labels = {
+		'client': 'Client',
+		'address1': 'Address Line 1',
+		'address2': 'Address Line 2',
+		'city': 'City',
+		'postcode': 'Postcode',
+		'date': 'Date',
+		'arrival_time': 'Arrival Time',
+		'departure_time': 'Departure Time',
+		'completion_date': 'Completion Date',
+		'prior_notice_served': 'Prior Notice Served',
+		'property_condition': 'Property Condition',
+		'property_damage': 'Property Damage',
+		'damage_details': 'Damage Details',
+		'aggressive': 'Squatters Aggressive',
+		'aggression_details': 'Aggression Details',
+		'dogs_on_site': 'Dogs on Site',
+		'dog_details': 'Dog Details',
+		'num_males': 'Adult Males',
+		'num_females': 'Adult Females',
+		'num_children': 'Children',
+		'police_attendance': 'Police Attendance',
+		'cad_number': 'CAD Number',
+		'police_force': 'Police Force',
+		'police_notes': 'Police Notes',
+		'additional_notes': 'Additional Notes',
+	}
+
+	def get_label(key):
+		if key in field_labels:
+			return field_labels[key]
+		if key.startswith('agent_'):
+			num = key.split('_')[1]
+			return f"Agent {num}" if num != '1' else "Lead Agent"
+		return key.replace('_', ' ').title()
+
+	# Metadata section
+	elements.append(Paragraph("Report Information", styles['SectionTitle']))
+	meta_data = [
+		['Submitted By:', agent_name or 'Unknown'],
+		['Submitted At:', report.submitted_at.strftime('%d %b %Y at %H:%M') if report.submitted_at else 'Unknown'],
+		['Status:', (report.status or 'submitted').capitalize()],
+	]
+	if report.reviewed_at:
+		meta_data.append(['Reviewed At:', report.reviewed_at.strftime('%d %b %Y at %H:%M')])
+
+	meta_table = Table(meta_data, colWidths=[2.5*inch, 4.5*inch])
+	meta_table.setStyle(TableStyle([
+		('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+		('FONTSIZE', (0, 0), (-1, -1), 10),
+		('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
+		('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a2e')),
+		('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+		('VALIGN', (0, 0), (-1, -1), 'TOP'),
+	]))
+	elements.append(meta_table)
+	elements.append(Spacer(1, 0.2*inch))
+
+	# Job Details section
+	elements.append(Paragraph("Job Details", styles['SectionTitle']))
+	job_fields = ['client', 'address1', 'address2', 'city', 'postcode', 'date', 'arrival_time']
+	job_data = []
+	for field in job_fields:
+		value = format_value(field, report_data.get(field))
+		if value:
+			job_data.append([get_label(field) + ':', value])
+
+	if job_data:
+		job_table = Table(job_data, colWidths=[2.5*inch, 4.5*inch])
+		job_table.setStyle(TableStyle([
+			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+			('FONTSIZE', (0, 0), (-1, -1), 10),
+			('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
+			('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a2e')),
+			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+			('VALIGN', (0, 0), (-1, -1), 'TOP'),
+		]))
+		elements.append(job_table)
+	elements.append(Spacer(1, 0.2*inch))
+
+	# Agents section
+	elements.append(Paragraph("Agents on Site", styles['SectionTitle']))
+	agent_data = []
+	for i in range(1, 21):
+		field = f'agent_{i}'
+		value = format_value(field, report_data.get(field))
+		if value:
+			label = "Lead Agent:" if i == 1 else f"Agent {i}:"
+			agent_data.append([label, value])
+
+	if agent_data:
+		agent_table = Table(agent_data, colWidths=[2.5*inch, 4.5*inch])
+		agent_table.setStyle(TableStyle([
+			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+			('FONTSIZE', (0, 0), (-1, -1), 10),
+			('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
+			('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a2e')),
+			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+			('VALIGN', (0, 0), (-1, -1), 'TOP'),
+		]))
+		elements.append(agent_table)
+	elements.append(Spacer(1, 0.2*inch))
+
+	# Property Details section
+	elements.append(Paragraph("Property Details", styles['SectionTitle']))
+	prop_fields = ['prior_notice_served', 'property_condition', 'property_damage', 'damage_details',
+				   'aggressive', 'aggression_details', 'dogs_on_site', 'dog_details',
+				   'num_males', 'num_females', 'num_children']
+	prop_data = []
+	for field in prop_fields:
+		value = format_value(field, report_data.get(field))
+		if value:
+			prop_data.append([get_label(field) + ':', value])
+
+	if prop_data:
+		prop_table = Table(prop_data, colWidths=[2.5*inch, 4.5*inch])
+		prop_table.setStyle(TableStyle([
+			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+			('FONTSIZE', (0, 0), (-1, -1), 10),
+			('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
+			('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a2e')),
+			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+			('VALIGN', (0, 0), (-1, -1), 'TOP'),
+		]))
+		elements.append(prop_table)
+	elements.append(Spacer(1, 0.2*inch))
+
+	# Timeline sections
+	for day_num in range(1, 8):
+		timeline_key = f'timeline_day{day_num}'
+		timeline_data = report_data.get(timeline_key)
+		if timeline_data and isinstance(timeline_data, dict):
+			entries = [(k, v) for k, v in timeline_data.items() if v and str(v).strip()]
+			if entries:
+				day_label = "Day 1 Timeline" if day_num == 1 else f"Day {day_num} Timeline"
+				elements.append(Paragraph(day_label, styles['SectionTitle']))
+
+				timeline_table_data = []
+				for time, text in sorted(entries, key=lambda x: x[0]):
+					# Wrap long text
+					wrapped_text = Paragraph(str(text), styles['TimelineText'])
+					timeline_table_data.append([time, wrapped_text])
+
+				if timeline_table_data:
+					timeline_table = Table(timeline_table_data, colWidths=[1*inch, 5.5*inch])
+					timeline_table.setStyle(TableStyle([
+						('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+						('FONTSIZE', (0, 0), (0, -1), 10),
+						('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#ff6b35')),
+						('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+						('VALIGN', (0, 0), (-1, -1), 'TOP'),
+						('LEFTPADDING', (0, 0), (0, -1), 0),
+						('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8f9fa')),
+						('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e9ecef')),
+						('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#e9ecef')),
+					]))
+					elements.append(timeline_table)
+				elements.append(Spacer(1, 0.15*inch))
+
+	# Police Details section
+	police_fields = ['police_attendance', 'cad_number', 'police_force', 'police_notes']
+	police_data = []
+	for field in police_fields:
+		value = format_value(field, report_data.get(field))
+		if value:
+			police_data.append([get_label(field) + ':', value])
+
+	if police_data:
+		elements.append(Paragraph("Police Details", styles['SectionTitle']))
+		police_table = Table(police_data, colWidths=[2.5*inch, 4.5*inch])
+		police_table.setStyle(TableStyle([
+			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+			('FONTSIZE', (0, 0), (-1, -1), 10),
+			('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
+			('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a2e')),
+			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+			('VALIGN', (0, 0), (-1, -1), 'TOP'),
+		]))
+		elements.append(police_table)
+		elements.append(Spacer(1, 0.2*inch))
+
+	# Completion section
+	elements.append(Paragraph("Completion", styles['SectionTitle']))
+	completion_fields = ['departure_time', 'completion_date', 'additional_notes']
+	completion_data = []
+	for field in completion_fields:
+		value = format_value(field, report_data.get(field))
+		if value:
+			# Wrap additional notes if long
+			if field == 'additional_notes' and len(str(value)) > 80:
+				completion_data.append([get_label(field) + ':', Paragraph(str(value), styles['FieldValue'])])
+			else:
+				completion_data.append([get_label(field) + ':', value])
+
+	if completion_data:
+		completion_table = Table(completion_data, colWidths=[2.5*inch, 4.5*inch])
+		completion_table.setStyle(TableStyle([
+			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+			('FONTSIZE', (0, 0), (-1, -1), 10),
+			('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
+			('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a2e')),
+			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+			('VALIGN', (0, 0), (-1, -1), 'TOP'),
+		]))
+		elements.append(completion_table)
+
+	# Photos note
+	photo_count = len(report.photo_urls or [])
+	if photo_count > 0:
+		elements.append(Spacer(1, 0.3*inch))
+		elements.append(Paragraph(f"Photos & Evidence", styles['SectionTitle']))
+		elements.append(Paragraph(
+			f"This report includes {photo_count} photo(s). View the full report online to see all images.",
+			styles['Normal']
+		))
+
+	# Footer
+	elements.append(Spacer(1, 0.5*inch))
+	elements.append(Paragraph(
+		f"Generated on {datetime.now().strftime('%d %b %Y at %H:%M')} | V3 Services",
+		ParagraphStyle(
+			name='Footer',
+			parent=styles['Normal'],
+			fontSize=8,
+			textColor=colors.HexColor('#999999'),
+			alignment=TA_CENTER
+		)
+	))
+
+	# Build PDF
+	doc.build(elements)
+	buffer.seek(0)
+	return buffer.getvalue()
+
+
+@admin_bp.route('/admin/v3-reports/<int:report_id>/pdf', methods=['GET'])
+@jwt_required()
+def export_v3_report_pdf(report_id):
+	"""Export a V3 job report as PDF."""
+	user = require_admin()
+	if not user:
+		return jsonify({'error': 'Access denied. Admin role required.'}), 403
+
+	try:
+		from src.models.v3_report import V3JobReport
+
+		# Get the report
+		report = V3JobReport.query.get(report_id)
+		if not report:
+			return jsonify({'error': 'Report not found'}), 404
+
+		# Get agent name
+		agent = User.query.get(report.agent_id)
+		agent_name = f"{agent.first_name} {agent.last_name}".strip() if agent else 'Unknown'
+
+		# Generate PDF
+		pdf_bytes = generate_v3_report_pdf(report, agent_name)
+
+		# Upload to S3
+		filename = f"reports/v3_report_{report_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+
+		if s3_client.is_configured():
+			s3_key = s3_client.upload_file(
+				io.BytesIO(pdf_bytes),
+				filename,
+				content_type='application/pdf'
+			)
+			if s3_key:
+				# Generate presigned URL for download
+				pdf_url = s3_client.generate_presigned_url(s3_key, expiration=3600)
+				return jsonify({
+					'pdf_url': pdf_url,
+					's3_key': s3_key,
+					'filename': filename
+				})
+
+		# Fallback: return PDF directly if S3 not configured
+		return send_file(
+			io.BytesIO(pdf_bytes),
+			mimetype='application/pdf',
+			as_attachment=True,
+			download_name=f'report_{report_id}.pdf'
+		)
+
+	except Exception as e:
+		current_app.logger.error(f"Error generating PDF for report {report_id}: {str(e)}")
+		import traceback
+		current_app.logger.error(traceback.format_exc())
+		return jsonify({'error': 'Failed to generate PDF'}), 500
