@@ -100,11 +100,20 @@ export default function PublicReportPage() {
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
     try {
-      // For public reports, we need to generate PDF on the fly
-      // We'll open the print dialog as a fallback
-      window.print();
+      const response = await fetch(`/api/public/report/${reportId}/pdf`);
+      if (!response.ok) throw new Error('Failed to generate PDF');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `V3_Report_${reportId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
     } catch (err) {
-      alert('Failed to download PDF');
+      alert('Failed to download PDF: ' + err.message);
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -527,7 +536,7 @@ export default function PublicReportPage() {
               disabled={isDownloadingPdf}
             >
               <FileDown size={18} />
-              {isDownloadingPdf ? 'Preparing...' : 'Print / Save as PDF'}
+              {isDownloadingPdf ? 'Generating PDF...' : 'Download PDF'}
             </button>
 
             {photos.length > 0 && (

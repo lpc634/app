@@ -3247,18 +3247,70 @@ def get_job_v3_reports(job_id):
 
 def generate_v3_report_pdf(report, agent_name=None):
 	"""
-	Generates a professional PDF for a V3 job report.
+	Generates a professional PDF for a V3 job report with V3 headed template.
 	Returns bytes of the PDF file.
 	"""
+	from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate
+	from reportlab.lib.units import mm
+
 	buffer = io.BytesIO()
-	doc = SimpleDocTemplate(
+
+	# V3 Brand colors
+	V3_ORANGE = colors.HexColor('#E85D1F')
+	INK_DARK = colors.HexColor('#1a1a2e')
+	INK_MID = colors.HexColor('#666666')
+
+	def draw_header_footer(canvas, doc):
+		"""Draw V3 headed template on each page."""
+		canvas.saveState()
+		page_width, page_height = A4
+
+		# Header background - orange stripe at top
+		canvas.setFillColor(V3_ORANGE)
+		canvas.rect(0, page_height - 25*mm, page_width, 25*mm, fill=True, stroke=False)
+
+		# Company name in header
+		canvas.setFillColor(colors.white)
+		canvas.setFont('Helvetica-Bold', 18)
+		canvas.drawString(15*mm, page_height - 17*mm, 'V3 SERVICES LTD')
+
+		# Contact info on right side of header
+		canvas.setFont('Helvetica', 9)
+		canvas.drawRightString(page_width - 15*mm, page_height - 12*mm, 'www.v3services.co.uk')
+		canvas.drawRightString(page_width - 15*mm, page_height - 17*mm, 'info@v3services.co.uk')
+		canvas.drawRightString(page_width - 15*mm, page_height - 22*mm, '117 Dartford Road, Dartford, DA1 3EN')
+
+		# Footer
+		canvas.setFillColor(INK_MID)
+		canvas.setFont('Helvetica', 8)
+		canvas.drawString(15*mm, 12*mm, f'V3 Services Ltd | Company Report')
+		canvas.drawRightString(page_width - 15*mm, 12*mm, f'Page {canvas.getPageNumber()}')
+
+		# Footer line
+		canvas.setStrokeColor(colors.HexColor('#e0e0e0'))
+		canvas.setLineWidth(0.5)
+		canvas.line(15*mm, 18*mm, page_width - 15*mm, 18*mm)
+
+		canvas.restoreState()
+
+	doc = BaseDocTemplate(
 		buffer,
 		pagesize=A4,
 		rightMargin=1.5*cm,
 		leftMargin=1.5*cm,
-		topMargin=1.5*cm,
-		bottomMargin=1.5*cm
+		topMargin=3.5*cm,  # More space for header
+		bottomMargin=2.5*cm  # Space for footer
 	)
+
+	# Create frame and page template with header/footer
+	frame = Frame(
+		doc.leftMargin, doc.bottomMargin,
+		doc.width, doc.height,
+		leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0
+	)
+	doc.addPageTemplates([
+		PageTemplate(id='headed', frames=[frame], onPage=draw_header_footer)
+	])
 
 	# Styles
 	styles = getSampleStyleSheet()
@@ -3556,12 +3608,12 @@ def generate_v3_report_pdf(report, agent_name=None):
 			styles['Normal']
 		))
 
-	# Footer
-	elements.append(Spacer(1, 0.5*inch))
+	# Generation timestamp (footer is now in the header/footer template)
+	elements.append(Spacer(1, 0.3*inch))
 	elements.append(Paragraph(
-		f"Generated on {datetime.now().strftime('%d %b %Y at %H:%M')} | V3 Services",
+		f"Report generated on {datetime.now().strftime('%d %b %Y at %H:%M')}",
 		ParagraphStyle(
-			name='Footer',
+			name='Timestamp',
 			parent=styles['Normal'],
 			fontSize=8,
 			textColor=colors.HexColor('#999999'),
@@ -3794,3 +3846,42 @@ def download_report_photos(report_id):
 	except Exception as e:
 		current_app.logger.error(f"Error downloading photos: {str(e)}")
 		return jsonify({'error': 'Failed to download photos'}), 500
+
+
+@admin_bp.route('/public/report/<int:report_id>/pdf', methods=['GET'])
+def download_public_report_pdf(report_id):
+	"""Public endpoint to download report as PDF (no auth required)."""
+	try:
+		from src.models.v3_report import V3JobReport
+
+		report = V3JobReport.query.get(report_id)
+		if not report:
+			return jsonify({'error': 'Report not found'}), 404
+
+		# Get agent name
+		agent = User.query.get(report.agent_id)
+		agent_name = f"{agent.first_name} {agent.last_name}".strip() if agent else 'Unknown'
+
+		# Generate PDF using the same function
+		pdf_bytes = generate_v3_report_pdf(report, agent_name)
+
+		# Create a BytesIO buffer for the response
+		pdf_buffer = io.BytesIO(pdf_bytes)
+		pdf_buffer.seek(0)
+
+		# Create filename from client name and date
+		report_data = report.report_data or {}
+		client_name = report_data.get('client', 'Unknown').replace(' ', '_')[:30]
+		date_str = report.submitted_at.strftime('%Y%m%d') if report.submitted_at else 'undated'
+		filename = f'V3_Report_{client_name}_{date_str}.pdf'
+
+		return send_file(
+			pdf_buffer,
+			mimetype='application/pdf',
+			as_attachment=True,
+			download_name=filename
+		)
+
+	except Exception as e:
+		current_app.logger.error(f"Error generating public PDF: {str(e)}")
+		return jsonify({'error': 'Failed to generate PDF'}), 500
