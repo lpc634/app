@@ -133,7 +133,10 @@ export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
 
   const reportName = formTypeNames[report.form_type] || report.form_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Job Report';
   const photos = report.photo_urls || [];
-  const reportData = report.report_data || {};
+
+  // Handle potential nested structure - data might be in report_data directly or in report_data.formData
+  const rawReportData = report.report_data || {};
+  const reportData = rawReportData.formData || rawReportData;
 
   const handlePhotoClick = (index) => {
     setCurrentPhotoIndex(index);
@@ -196,8 +199,11 @@ export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
   };
 
   // Debug: log report data to see what fields exist
-  console.log('📋 Report data:', reportData);
+  console.log('📋 Raw report.report_data:', rawReportData);
+  console.log('📋 Processed reportData:', reportData);
   console.log('📋 Report form_type:', report.form_type);
+  console.log('📋 Key fields check - client:', reportData.client, 'address1:', reportData.address1, 'agent_1:', reportData.agent_1);
+  console.log('📋 All keys in reportData:', Object.keys(reportData));
 
   // Get label for a field
   const getLabel = (key) => {
@@ -484,6 +490,22 @@ export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
                       />
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Debug: Show all raw data if sections aren't rendering */}
+            {Object.keys(reportData).length > 0 && (
+              <div className="report-viewer__section" style={{ marginBottom: '1rem', padding: '1rem', background: 'rgba(255, 107, 53, 0.1)', borderRadius: '8px', border: '1px dashed rgba(255, 107, 53, 0.3)' }}>
+                <h3 className="section-title" style={{ fontSize: '0.85rem', color: '#ff6b35' }}>
+                  <FileText size={16} />
+                  Debug: Raw Form Data ({Object.keys(reportData).length} fields)
+                </h3>
+                <div style={{ fontSize: '0.75rem', color: '#9ca3af', maxHeight: '200px', overflow: 'auto' }}>
+                  <strong>client:</strong> "{reportData.client || '(empty)'}"<br/>
+                  <strong>address1:</strong> "{reportData.address1 || '(empty)'}"<br/>
+                  <strong>agent_1:</strong> "{reportData.agent_1 || '(empty)'}"<br/>
+                  <strong>All keys:</strong> {Object.keys(reportData).join(', ')}
                 </div>
               </div>
             )}
