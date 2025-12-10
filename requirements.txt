@@ -25,3 +25,4 @@ pytest-flask
 openpyxl
 openai
 flask-limiter>=3.5.0
+PyPDF2>=3.0.0

@@ -3247,70 +3247,25 @@ def get_job_v3_reports(job_id):
 
 def generate_v3_report_pdf(report, agent_name=None):
 	"""
-	Generates a professional PDF for a V3 job report with V3 headed template.
+	Generates a professional PDF for a V3 job report using the V3 headed template.
 	Returns bytes of the PDF file.
 	"""
-	from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate
-	from reportlab.lib.units import mm
+	from PyPDF2 import PdfReader, PdfWriter
+	import os
 
-	buffer = io.BytesIO()
+	# Path to the headed template
+	template_path = os.path.join(os.path.dirname(__file__), '..', 'templates', 'headed_template.pdf')
 
-	# V3 Brand colors
-	V3_ORANGE = colors.HexColor('#E85D1F')
-	INK_DARK = colors.HexColor('#1a1a2e')
-	INK_MID = colors.HexColor('#666666')
-
-	def draw_header_footer(canvas, doc):
-		"""Draw V3 headed template on each page."""
-		canvas.saveState()
-		page_width, page_height = A4
-
-		# Header background - orange stripe at top
-		canvas.setFillColor(V3_ORANGE)
-		canvas.rect(0, page_height - 25*mm, page_width, 25*mm, fill=True, stroke=False)
-
-		# Company name in header
-		canvas.setFillColor(colors.white)
-		canvas.setFont('Helvetica-Bold', 18)
-		canvas.drawString(15*mm, page_height - 17*mm, 'V3 SERVICES LTD')
-
-		# Contact info on right side of header
-		canvas.setFont('Helvetica', 9)
-		canvas.drawRightString(page_width - 15*mm, page_height - 12*mm, 'www.v3services.co.uk')
-		canvas.drawRightString(page_width - 15*mm, page_height - 17*mm, 'info@v3services.co.uk')
-		canvas.drawRightString(page_width - 15*mm, page_height - 22*mm, '117 Dartford Road, Dartford, DA1 3EN')
-
-		# Footer
-		canvas.setFillColor(INK_MID)
-		canvas.setFont('Helvetica', 8)
-		canvas.drawString(15*mm, 12*mm, f'V3 Services Ltd | Company Report')
-		canvas.drawRightString(page_width - 15*mm, 12*mm, f'Page {canvas.getPageNumber()}')
-
-		# Footer line
-		canvas.setStrokeColor(colors.HexColor('#e0e0e0'))
-		canvas.setLineWidth(0.5)
-		canvas.line(15*mm, 18*mm, page_width - 15*mm, 18*mm)
-
-		canvas.restoreState()
-
-	doc = BaseDocTemplate(
-		buffer,
+	# First, generate the content PDF
+	content_buffer = io.BytesIO()
+	doc = SimpleDocTemplate(
+		content_buffer,
 		pagesize=A4,
 		rightMargin=1.5*cm,
 		leftMargin=1.5*cm,
-		topMargin=3.5*cm,  # More space for header
-		bottomMargin=2.5*cm  # Space for footer
+		topMargin=3.2*cm,  # Space for header (logo + address)
+		bottomMargin=2.0*cm  # Space for footer
 	)
-
-	# Create frame and page template with header/footer
-	frame = Frame(
-		doc.leftMargin, doc.bottomMargin,
-		doc.width, doc.height,
-		leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0
-	)
-	doc.addPageTemplates([
-		PageTemplate(id='headed', frames=[frame], onPage=draw_header_footer)
-	])
 
 	# Styles
 	styles = getSampleStyleSheet()
@@ -3608,7 +3563,7 @@ def generate_v3_report_pdf(report, agent_name=None):
 			styles['Normal']
 		))
 
-	# Generation timestamp (footer is now in the header/footer template)
+	# Generation timestamp
 	elements.append(Spacer(1, 0.3*inch))
 	elements.append(Paragraph(
 		f"Report generated on {datetime.now().strftime('%d %b %Y at %H:%M')}",
@@ -3621,10 +3576,42 @@ def generate_v3_report_pdf(report, agent_name=None):
 		)
 	))
 
-	# Build PDF
+	# Build content PDF
 	doc.build(elements)
-	buffer.seek(0)
-	return buffer.getvalue()
+	content_buffer.seek(0)
+
+	# Now merge content with the headed template
+	try:
+		# Read the template
+		template_reader = PdfReader(template_path)
+		template_page = template_reader.pages[0]
+
+		# Read the content we just generated
+		content_reader = PdfReader(content_buffer)
+
+		# Create output PDF
+		output = PdfWriter()
+
+		# For each page of content, merge with template
+		for i, content_page in enumerate(content_reader.pages):
+			# Create a copy of the template for each page
+			from copy import copy
+			new_page = copy(template_page)
+			# Merge the content on top of the template
+			new_page.merge_page(content_page)
+			output.add_page(new_page)
+
+		# Write to buffer
+		output_buffer = io.BytesIO()
+		output.write(output_buffer)
+		output_buffer.seek(0)
+		return output_buffer.getvalue()
+
+	except Exception as merge_error:
+		# If merging fails, fall back to content-only PDF
+		current_app.logger.warning(f"Template merge failed, using content only: {str(merge_error)}")
+		content_buffer.seek(0)
+		return content_buffer.getvalue()
 
 
 @admin_bp.route('/admin/v3-reports/<int:report_id>/pdf', methods=['GET'])
