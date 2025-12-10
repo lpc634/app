@@ -3642,3 +3642,53 @@ def export_v3_report_pdf(report_id):
 		import traceback
 		current_app.logger.error(traceback.format_exc())
 		return jsonify({'error': 'Failed to generate PDF'}), 500
+
+
+@admin_bp.route('/admin/v3-reports/<int:report_id>', methods=['DELETE'])
+@jwt_required()
+def delete_v3_report(report_id):
+	"""Delete a V3 report and its associated photos from S3"""
+	try:
+		current_user_id = get_jwt_identity()
+		user = User.query.get(current_user_id)
+
+		if not user or not user.is_admin:
+			return jsonify({'error': 'Admin access required'}), 403
+
+		# Find the report
+		report = V3Report.query.get(report_id)
+		if not report:
+			return jsonify({'error': 'Report not found'}), 404
+
+		current_app.logger.info(f"Admin {user.email} deleting report {report_id}")
+
+		# Try to delete associated photos from S3
+		if report.photo_urls:
+			try:
+				for photo in report.photo_urls:
+					if isinstance(photo, dict) and 's3_key' in photo:
+						s3_key = photo['s3_key']
+						try:
+							s3_client.s3_client.delete_object(
+								Bucket=s3_client.bucket_name,
+								Key=s3_key
+							)
+							current_app.logger.info(f"Deleted S3 object: {s3_key}")
+						except Exception as s3_err:
+							current_app.logger.warning(f"Failed to delete S3 object {s3_key}: {str(s3_err)}")
+			except Exception as photo_err:
+				current_app.logger.warning(f"Error processing photo deletions: {str(photo_err)}")
+
+		# Delete the report from the database
+		db.session.delete(report)
+		db.session.commit()
+
+		current_app.logger.info(f"Successfully deleted report {report_id}")
+		return jsonify({'message': 'Report deleted successfully'}), 200
+
+	except Exception as e:
+		current_app.logger.error(f"Error deleting report {report_id}: {str(e)}")
+		import traceback
+		current_app.logger.error(traceback.format_exc())
+		db.session.rollback()
+		return jsonify({'error': 'Failed to delete report'}), 500

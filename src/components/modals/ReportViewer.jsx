@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { X, FileText, Calendar, User, Image as ImageIcon, Download, ChevronLeft, ChevronRight, MapPin, Clock, Users, Shield, Dog, Home, AlertTriangle, FileDown } from 'lucide-react';
+import { X, FileText, Calendar, User, Image as ImageIcon, Download, ChevronLeft, ChevronRight, MapPin, Clock, Users, Shield, Dog, Home, AlertTriangle, FileDown, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import '../../styles/admin/report-viewer.css';
 
@@ -115,10 +115,12 @@ const SECTIONS = {
   ]
 };
 
-export default function ReportViewer({ report, isOpen, onClose }) {
+export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showPhotoGallery, setShowPhotoGallery] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (!report) return null;
 
@@ -336,6 +338,37 @@ export default function ReportViewer({ report, isOpen, onClose }) {
     }
   };
 
+  // Delete report
+  const handleDeleteReport = async () => {
+    setIsDeleting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/admin/v3-reports/${report.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete report');
+      }
+
+      setShowDeleteConfirm(false);
+      onClose();
+      // Call onDelete callback to refresh the parent component
+      if (onDelete) {
+        onDelete(report.id);
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete report: ' + error.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -358,6 +391,14 @@ export default function ReportViewer({ report, isOpen, onClose }) {
               >
                 <FileDown size={18} />
                 {isExporting ? 'Exporting...' : 'Export PDF'}
+              </button>
+              <button
+                className="report-viewer__delete-btn"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={isDeleting}
+                title="Delete Report"
+              >
+                <Trash2 size={18} />
               </button>
               <button
                 className="report-viewer__close-btn"
@@ -493,6 +534,39 @@ export default function ReportViewer({ report, isOpen, onClose }) {
                   <ChevronRight size={32} />
                 </button>
               )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent className="delete-confirm-modal">
+            <div className="delete-confirm-content">
+              <div className="delete-confirm-icon">
+                <AlertTriangle size={48} />
+              </div>
+              <h3 className="delete-confirm-title">Delete Report?</h3>
+              <p className="delete-confirm-message">
+                Are you sure you want to delete this report? This action cannot be undone and will also remove all associated photos.
+              </p>
+              <div className="delete-confirm-actions">
+                <button
+                  className="delete-confirm-cancel"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="delete-confirm-delete"
+                  onClick={handleDeleteReport}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete Report'}
+                </button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
