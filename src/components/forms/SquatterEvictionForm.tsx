@@ -53,16 +53,16 @@ const THEME_CSS = String.raw`
  *  ===================== */
 const schema = z.object({
   // Header / basics
-  client: z.string().default("").min(1, "Client is required"),
-  address1: z.string().default("").min(1, "Address line 1 is required"),
-  address2: z.string().default("").optional(),
-  city: z.string().default("").min(1, "City is required"),
-  postcode: z.string().default("").min(1, "Postal / Zip Code is required"),
-  date: z.string().default("").min(1, "Date is required"),
-  arrival_time: z.string().default("").min(1, "Arrival time is required"),
+  client: z.string().min(1, "Client is required").default(""),
+  address1: z.string().min(1, "Address line 1 is required").default(""),
+  address2: z.string().optional().default(""),
+  city: z.string().min(1, "City is required").default(""),
+  postcode: z.string().min(1, "Postal / Zip Code is required").default(""),
+  date: z.string().min(1, "Date is required").default(""),
+  arrival_time: z.string().min(1, "Arrival time is required").default(""),
 
   // Agents (1-20 with toggle for 11-20)
-  agent_1: z.string().default("").min(1, "Lead Agent is required"),
+  agent_1: z.string().min(1, "Lead Agent is required").default(""),
   agent_2: z.string().optional(), agent_3: z.string().optional(), agent_4: z.string().optional(),
   agent_5: z.string().optional(), agent_6: z.string().optional(), agent_7: z.string().optional(), agent_8: z.string().optional(),
   agent_9: z.string().optional(), agent_10: z.string().optional(),
@@ -73,16 +73,16 @@ const schema = z.object({
 
   // Property details
   prior_notice_served: z.boolean().default(false),
-  property_condition: z.string().default("").min(1, "Property condition is required"),
+  property_condition: z.string().min(1, "Property condition is required").default(""),
   property_damage: z.boolean().default(false),
   damage_details: z.string().optional(),
   aggressive: z.boolean().default(false),
   aggression_details: z.string().optional(),
   dogs_on_site: z.boolean().default(false),
   dog_details: z.string().optional(),
-  num_males: z.coerce.number().default(0).min(0),
-  num_children: z.coerce.number().default(0).min(0),
-  num_females: z.coerce.number().default(0).min(0),
+  num_males: z.coerce.number().min(0).default(0),
+  num_children: z.coerce.number().min(0).default(0),
+  num_females: z.coerce.number().min(0).default(0),
 
   // Timeline (1..10) + optional reveal for 6..10
   need_more_entries: z.boolean().default(false),
@@ -143,8 +143,8 @@ const schema = z.object({
 
   // Footer
   additional_notes: z.string().optional(),
-  departure_time: z.string().default("").min(1, "Departure time is required"),
-  completion_date: z.string().default("").min(1, "Completion date is required"),
+  departure_time: z.string().min(1, "Departure time is required").default(""),
+  completion_date: z.string().min(1, "Completion date is required").default(""),
 });
 
 /** =====================
