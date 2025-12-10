@@ -185,11 +185,21 @@ function Field({ label, required=false, children }){
     </div>
   );
 }
-const TextInput = (p)=> <input className="v3-input" {...p}/>;
-const TextArea = (p)=> <textarea className="v3-textarea" {...p}/>;
-const DateInput = (p)=> <input type="date" className="v3-input" {...p}/>;
-const TimeInput = (p)=> <input type="time" className="v3-input" {...p}/>;
-const SelectInput = (p)=> <select className="v3-input" {...p}/>;
+const TextInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => (
+  <input className="v3-input" ref={ref} {...props} />
+));
+const TextArea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>((props, ref) => (
+  <textarea className="v3-textarea" ref={ref} {...props} />
+));
+const DateInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => (
+  <input type="date" className="v3-input" ref={ref} {...props} />
+));
+const TimeInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => (
+  <input type="time" className="v3-input" ref={ref} {...props} />
+));
+const SelectInput = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>((props, ref) => (
+  <select className="v3-input" ref={ref} {...props} />
+));
 
 // Hourly timeline helpers (align with other forms)
 const Hours = Array.from({ length: 18 }, (_, i) => 6 + i);
