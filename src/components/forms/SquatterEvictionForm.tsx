@@ -55,7 +55,7 @@ const schema = z.object({
   // Header / basics
   client: z.string().default("").min(1, "Client is required"),
   address1: z.string().default("").min(1, "Address line 1 is required"),
-  address2: z.string().optional().default(""),
+  address2: z.string().default("").optional(),
   city: z.string().default("").min(1, "City is required"),
   postcode: z.string().default("").min(1, "Postal / Zip Code is required"),
   date: z.string().default("").min(1, "Date is required"),
@@ -80,9 +80,9 @@ const schema = z.object({
   aggression_details: z.string().optional(),
   dogs_on_site: z.boolean().default(false),
   dog_details: z.string().optional(),
-  num_males: z.coerce.number().min(0).default(0),
-  num_children: z.coerce.number().min(0).default(0),
-  num_females: z.coerce.number().min(0).default(0),
+  num_males: z.coerce.number().default(0).min(0),
+  num_children: z.coerce.number().default(0).min(0),
+  num_females: z.coerce.number().default(0).min(0),
 
   // Timeline (1..10) + optional reveal for 6..10
   need_more_entries: z.boolean().default(false),
