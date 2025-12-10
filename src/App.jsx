@@ -36,6 +36,7 @@ import AdminExpenses from './Pages/AdminExpenses';
 import PoliceInteractionsPage from './Pages/PoliceInteractionsPage.jsx';
 import AdminContactForms from './Pages/AdminContactForms.jsx';
 import CRMPage from './Pages/CRMPage.jsx';
+import PublicReportPage from './Pages/PublicReportPage.jsx';
 
 import NotificationsPage from './Pages/NotificationsPage';
 import ProfilePage from './Pages/ProfilePage';
@@ -92,6 +93,7 @@ function App() {
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
           <Route path="/signup" element={<PublicRoute><SignUpPage /></PublicRoute>} />
           <Route path="/form/:token" element={<PublicAuthorityToActPage />} />
+          <Route path="/report/:token" element={<PublicReportPage />} />
           <Route path="/eflyer" element={<EFlyerRedirect />} />
           <Route path="/contact" element={<ContactFormPage />} />
           

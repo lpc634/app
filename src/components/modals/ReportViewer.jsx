@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { X, FileText, Calendar, User, Image as ImageIcon, Download, ChevronLeft, ChevronRight, MapPin, Clock, Users, Shield, Dog, Home, AlertTriangle, FileDown, Trash2 } from 'lucide-react';
+import { X, FileText, Calendar, User, Image as ImageIcon, Download, ChevronLeft, ChevronRight, MapPin, Clock, Users, Shield, Dog, Home, AlertTriangle, FileDown, Trash2, Share2, Copy, Check, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import '../../styles/admin/report-viewer.css';
 
@@ -121,6 +121,10 @@ export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [shareLink, setShareLink] = useState(report?.share_token ? `${window.location.origin}/report/${report.share_token}` : null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   if (!report) return null;
 
@@ -197,13 +201,6 @@ export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
 
     return value;
   };
-
-  // Debug: log report data to see what fields exist
-  console.log('📋 Raw report.report_data:', rawReportData);
-  console.log('📋 Processed reportData:', reportData);
-  console.log('📋 Report form_type:', report.form_type);
-  console.log('📋 Key fields check - client:', reportData.client, 'address1:', reportData.address1, 'agent_1:', reportData.agent_1);
-  console.log('📋 All keys in reportData:', Object.keys(reportData));
 
   // Get label for a field
   const getLabel = (key) => {
@@ -375,6 +372,78 @@ export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
     }
   };
 
+  // Generate shareable link
+  const handleGenerateShareLink = async () => {
+    setIsGeneratingLink(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/admin/v3-reports/${report.id}/share`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to generate share link');
+      }
+
+      const data = await response.json();
+      setShareLink(data.share_url);
+      setShowShareModal(true);
+    } catch (error) {
+      console.error('Share link error:', error);
+      alert('Failed to generate share link: ' + error.message);
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
+  // Copy link to clipboard
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (error) {
+      console.error('Copy error:', error);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = shareLink;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    }
+  };
+
+  // Revoke share link
+  const handleRevokeShareLink = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/admin/v3-reports/${report.id}/share`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to revoke share link');
+      }
+
+      setShareLink(null);
+      setShowShareModal(false);
+    } catch (error) {
+      console.error('Revoke error:', error);
+      alert('Failed to revoke share link: ' + error.message);
+    }
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -389,6 +458,15 @@ export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
               <p className="report-viewer__subtitle">Report #{report.id}</p>
             </div>
             <div className="report-viewer__header-actions">
+              <button
+                className="report-viewer__share-btn"
+                onClick={shareLink ? () => setShowShareModal(true) : handleGenerateShareLink}
+                disabled={isGeneratingLink}
+                title={shareLink ? 'View Share Link' : 'Generate Share Link'}
+              >
+                <Share2 size={18} />
+                {isGeneratingLink ? 'Generating...' : shareLink ? 'Share Link' : 'Share'}
+              </button>
               <button
                 className="report-viewer__export-btn"
                 onClick={handleExportPDF}
@@ -494,22 +572,6 @@ export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
               </div>
             )}
 
-            {/* Debug: Show all raw data if sections aren't rendering */}
-            {Object.keys(reportData).length > 0 && (
-              <div className="report-viewer__section" style={{ marginBottom: '1rem', padding: '1rem', background: 'rgba(255, 107, 53, 0.1)', borderRadius: '8px', border: '1px dashed rgba(255, 107, 53, 0.3)' }}>
-                <h3 className="section-title" style={{ fontSize: '0.85rem', color: '#ff6b35' }}>
-                  <FileText size={16} />
-                  Debug: Raw Form Data ({Object.keys(reportData).length} fields)
-                </h3>
-                <div style={{ fontSize: '0.75rem', color: '#9ca3af', maxHeight: '200px', overflow: 'auto' }}>
-                  <strong>client:</strong> "{reportData.client || '(empty)'}"<br/>
-                  <strong>address1:</strong> "{reportData.address1 || '(empty)'}"<br/>
-                  <strong>agent_1:</strong> "{reportData.agent_1 || '(empty)'}"<br/>
-                  <strong>All keys:</strong> {Object.keys(reportData).join(', ')}
-                </div>
-              </div>
-            )}
-
             {/* Organized Report Sections */}
             {renderSections()}
 
@@ -587,6 +649,55 @@ export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
                   disabled={isDeleting}
                 >
                   {isDeleting ? 'Deleting...' : 'Delete Report'}
+                </button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Share Link Modal */}
+      {showShareModal && (
+        <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+          <DialogContent className="share-modal">
+            <div className="share-modal-content">
+              <div className="share-modal-icon">
+                <Link2 size={48} />
+              </div>
+              <h3 className="share-modal-title">Share Report</h3>
+              <p className="share-modal-message">
+                Share this link with your client so they can view the report. They'll be able to see all details and download photos.
+              </p>
+              <div className="share-link-container">
+                <input
+                  type="text"
+                  value={shareLink || ''}
+                  readOnly
+                  className="share-link-input"
+                />
+                <button
+                  className="share-copy-btn"
+                  onClick={handleCopyLink}
+                  title="Copy link"
+                >
+                  {linkCopied ? <Check size={18} /> : <Copy size={18} />}
+                </button>
+              </div>
+              {linkCopied && (
+                <p className="share-copied-message">Link copied to clipboard!</p>
+              )}
+              <div className="share-modal-actions">
+                <button
+                  className="share-revoke-btn"
+                  onClick={handleRevokeShareLink}
+                >
+                  Revoke Link
+                </button>
+                <button
+                  className="share-done-btn"
+                  onClick={() => setShowShareModal(false)}
+                >
+                  Done
                 </button>
               </div>
             </div>
