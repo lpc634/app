@@ -1,7 +1,6 @@
 from src.extensions import db
 from datetime import datetime
 import json
-import secrets
 
 
 class V3JobReport(db.Model):
@@ -23,10 +22,6 @@ class V3JobReport(db.Model):
 
     # Photo/Evidence URLs (stored as JSON array)
     photo_urls = db.Column(db.JSON, nullable=True)  # Array of S3 URLs
-
-    # Public sharing
-    share_token = db.Column(db.String(64), unique=True, nullable=True, index=True)
-    share_token_created_at = db.Column(db.DateTime, nullable=True)
 
     # Timestamps
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -52,17 +47,6 @@ class V3JobReport(db.Model):
             'reviewed_at': self.reviewed_at.isoformat() if self.reviewed_at else None,
             'reviewed_by': self.reviewed_by,
         }
-
-    def generate_share_token(self):
-        """Generate a unique share token for public access."""
-        self.share_token = secrets.token_urlsafe(32)
-        self.share_token_created_at = datetime.utcnow()
-        return self.share_token
-
-    def revoke_share_token(self):
-        """Revoke the share token."""
-        self.share_token = None
-        self.share_token_created_at = None
 
     @staticmethod
     def from_dict(data):
