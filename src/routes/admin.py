@@ -3598,25 +3598,38 @@ def export_v3_report_pdf(report_id):
 		# Generate PDF
 		pdf_bytes = generate_v3_report_pdf(report, agent_name)
 
-		# Upload to S3
-		filename = f"reports/v3_report_{report_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-
+		# Try to upload to S3 using the raw boto3 client
 		if s3_client.is_configured():
-			s3_key = s3_client.upload_file(
-				io.BytesIO(pdf_bytes),
-				filename,
-				content_type='application/pdf'
-			)
-			if s3_key:
-				# Generate presigned URL for download
-				pdf_url = s3_client.generate_presigned_url(s3_key, expiration=3600)
-				return jsonify({
-					'pdf_url': pdf_url,
-					's3_key': s3_key,
-					'filename': filename
-				})
+			try:
+				import boto3
 
-		# Fallback: return PDF directly if S3 not configured
+				# Access the underlying boto3 client from s3_client
+				s3 = s3_client.s3_client if hasattr(s3_client, 's3_client') else None
+				bucket = s3_client.bucket_name if hasattr(s3_client, 'bucket_name') else None
+				s3_key = f"reports/v3_report_{report_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+
+				if s3 and bucket:
+					# Upload to S3
+					s3.put_object(
+						Bucket=bucket,
+						Key=s3_key,
+						Body=pdf_bytes,
+						ContentType='application/pdf',
+						ServerSideEncryption='AES256'
+					)
+
+					# Generate presigned URL for download
+					pdf_url = s3_client.generate_presigned_url(s3_key, expiration=3600)
+					if pdf_url:
+						return jsonify({
+							'pdf_url': pdf_url,
+							's3_key': s3_key,
+							'filename': f'report_{report_id}.pdf'
+						})
+			except Exception as s3_error:
+				current_app.logger.warning(f"S3 upload failed, falling back to direct download: {str(s3_error)}")
+
+		# Fallback: return PDF directly if S3 not configured or failed
 		return send_file(
 			io.BytesIO(pdf_bytes),
 			mimetype='application/pdf',

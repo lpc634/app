@@ -148,16 +148,20 @@ export default function ReportViewer({ report, isOpen, onClose }) {
 
   // Format a field value for display
   const formatValue = (key, value) => {
-    if (value === null || value === undefined || value === '') return null;
+    // Handle null/undefined but NOT empty string or false or 0
+    if (value === null || value === undefined) return null;
 
-    // Boolean values
+    // Boolean values - always show Yes/No
     if (typeof value === 'boolean') {
       return value ? 'Yes' : 'No';
     }
 
+    // Empty string - skip
+    if (value === '') return null;
+
     // Timeline objects (hourly entries)
     if (key.startsWith('timeline_day') && typeof value === 'object') {
-      const entries = Object.entries(value).filter(([_, v]) => v && v.trim());
+      const entries = Object.entries(value).filter(([_, v]) => v && String(v).trim());
       if (entries.length === 0) return null;
       return (
         <div className="timeline-entries">
@@ -171,7 +175,7 @@ export default function ReportViewer({ report, isOpen, onClose }) {
       );
     }
 
-    // Numbers
+    // Numbers - show even if 0
     if (typeof value === 'number') {
       return value.toString();
     }
@@ -188,6 +192,10 @@ export default function ReportViewer({ report, isOpen, onClose }) {
 
     return value;
   };
+
+  // Debug: log report data to see what fields exist
+  console.log('📋 Report data:', reportData);
+  console.log('📋 Report form_type:', report.form_type);
 
   // Get label for a field
   const getLabel = (key) => {
