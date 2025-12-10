@@ -98,7 +98,7 @@ const schema = z.object({
   ev10_text: z.string().optional(), ev10_time: z.string().optional(),
 
   // Hourly timeline fields (multi-day)
-  timeline_day1: z.record(z.string(), z.string().optional()),
+  timeline_day1: z.record(z.string(), z.string().optional()).optional(),
   timeline_day2: z.record(z.string(), z.string().optional()).optional(),
   timeline_day3: z.record(z.string(), z.string().optional()).optional(),
   timeline_day4: z.record(z.string(), z.string().optional()).optional(),
@@ -137,7 +137,7 @@ const schema = z.object({
   police_notes: z.string().optional(),
 
   // Photos
-  photo_of_serve: z.any(),
+  photo_of_serve: z.any().optional(),
   need_more_photos: z.boolean().default(false),
   p2: z.any().optional(), p3: z.any().optional(), p4: z.any().optional(), p5: z.any().optional(), p6: z.any().optional(), p7: z.any().optional(), p8: z.any().optional(), p9: z.any().optional(), p10: z.any().optional(), p11: z.any().optional(), p12: z.any().optional(), p13: z.any().optional(),
 
@@ -237,6 +237,10 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
     prior_notice_served:false, property_damage:false, aggressive:false, dogs_on_site:false, police_attendance:false,
     day2_enabled:false, day3_enabled:false, day4_enabled:false, day5_enabled:false, day6_enabled:false, day7_enabled:false,
     day2_same_agents:true, day3_same_agents:true, day4_same_agents:true, day5_same_agents:true, day6_same_agents:true, day7_same_agents:true,
+    timeline_day1: {},
+    num_males: 0,
+    num_females: 0,
+    num_children: 0,
   }});
   const { register, handleSubmit, watch, setValue } = methods;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -328,7 +332,17 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
     console.log('❌ VALIDATION ERRORS:', errors);
     console.log('❌ Error count:', Object.keys(errors).length);
     console.log('❌ First few errors:', Object.entries(errors).slice(0, 10));
-    alert(`Form has ${Object.keys(errors).length} validation error(s). Check console for details.`);
+    
+    // Create a user-friendly error message
+    const errorList = Object.entries(errors)
+      .slice(0, 5) // Show first 5 errors
+      .map(([field, error]) => `• ${field}: ${error.message}`)
+      .join('\n');
+    
+    const totalErrors = Object.keys(errors).length;
+    const errorMessage = `Form has ${totalErrors} validation error(s):\n\n${errorList}${totalErrors > 5 ? '\n\n...and ' + (totalErrors - 5) + ' more. Check console for full details.' : ''}`;
+    
+    alert(errorMessage);
   };
 
   return (
