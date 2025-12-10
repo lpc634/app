@@ -3652,7 +3652,7 @@ def delete_v3_report(report_id):
 		current_user_id = get_jwt_identity()
 		user = User.query.get(current_user_id)
 
-		if not user or not user.is_admin:
+		if not user or user.role != 'admin':
 			return jsonify({'error': 'Admin access required'}), 403
 
 		# Find the report
