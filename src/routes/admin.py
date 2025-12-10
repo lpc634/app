@@ -3696,81 +3696,16 @@ def delete_v3_report(report_id):
 		return jsonify({'error': 'Failed to delete report'}), 500
 
 
-@admin_bp.route('/admin/v3-reports/<int:report_id>/share', methods=['POST'])
-@jwt_required()
-def generate_share_link(report_id):
-	"""Generate a shareable link for a V3 report."""
+
+@admin_bp.route('/public/report/<int:report_id>', methods=['GET'])
+def get_public_report(report_id):
+	"""Public endpoint to view a report (no auth required)."""
 	try:
 		from src.models.v3_report import V3JobReport
-
-		current_user_id = get_jwt_identity()
-		user = User.query.get(current_user_id)
-
-		if not user or user.role != 'admin':
-			return jsonify({'error': 'Admin access required'}), 403
 
 		report = V3JobReport.query.get(report_id)
 		if not report:
 			return jsonify({'error': 'Report not found'}), 404
-
-		# Generate or return existing token
-		if not report.share_token:
-			report.generate_share_token()
-			db.session.commit()
-
-		# Build the share URL
-		base_url = request.host_url.rstrip('/')
-		share_url = f"{base_url}/report/{report.share_token}"
-
-		return jsonify({
-			'share_url': share_url,
-			'share_token': report.share_token,
-			'created_at': report.share_token_created_at.isoformat() if report.share_token_created_at else None
-		})
-
-	except Exception as e:
-		current_app.logger.error(f"Error generating share link for report {report_id}: {str(e)}")
-		db.session.rollback()
-		return jsonify({'error': 'Failed to generate share link'}), 500
-
-
-@admin_bp.route('/admin/v3-reports/<int:report_id>/share', methods=['DELETE'])
-@jwt_required()
-def revoke_share_link(report_id):
-	"""Revoke a shareable link for a V3 report."""
-	try:
-		from src.models.v3_report import V3JobReport
-
-		current_user_id = get_jwt_identity()
-		user = User.query.get(current_user_id)
-
-		if not user or user.role != 'admin':
-			return jsonify({'error': 'Admin access required'}), 403
-
-		report = V3JobReport.query.get(report_id)
-		if not report:
-			return jsonify({'error': 'Report not found'}), 404
-
-		report.revoke_share_token()
-		db.session.commit()
-
-		return jsonify({'message': 'Share link revoked successfully'})
-
-	except Exception as e:
-		current_app.logger.error(f"Error revoking share link for report {report_id}: {str(e)}")
-		db.session.rollback()
-		return jsonify({'error': 'Failed to revoke share link'}), 500
-
-
-@admin_bp.route('/public/report/<share_token>', methods=['GET'])
-def get_public_report(share_token):
-	"""Public endpoint to view a shared report (no auth required)."""
-	try:
-		from src.models.v3_report import V3JobReport
-
-		report = V3JobReport.query.filter_by(share_token=share_token).first()
-		if not report:
-			return jsonify({'error': 'Report not found or link has expired'}), 404
 
 		# Get agent name
 		agent = User.query.get(report.agent_id)
@@ -3804,18 +3739,18 @@ def get_public_report(share_token):
 		return jsonify({'error': 'Failed to load report'}), 500
 
 
-@admin_bp.route('/public/report/<share_token>/photos/download', methods=['GET'])
-def download_report_photos(share_token):
-	"""Download all photos from a shared report as a ZIP file."""
+@admin_bp.route('/public/report/<int:report_id>/photos/download', methods=['GET'])
+def download_report_photos(report_id):
+	"""Download all photos from a report as a ZIP file."""
 	try:
 		import zipfile
 		import io
 		import requests
 		from src.models.v3_report import V3JobReport
 
-		report = V3JobReport.query.filter_by(share_token=share_token).first()
+		report = V3JobReport.query.get(report_id)
 		if not report:
-			return jsonify({'error': 'Report not found or link has expired'}), 404
+			return jsonify({'error': 'Report not found'}), 404
 
 		if not report.photo_urls:
 			return jsonify({'error': 'No photos in this report'}), 404

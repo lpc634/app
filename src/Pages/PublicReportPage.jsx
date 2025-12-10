@@ -65,7 +65,8 @@ const formTypeNames = {
 };
 
 export default function PublicReportPage() {
-  const { token } = useParams();
+  const { token } = useParams(); // This is actually the report ID now
+  const reportId = token;
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -76,11 +77,11 @@ export default function PublicReportPage() {
 
   useEffect(() => {
     fetchReport();
-  }, [token]);
+  }, [reportId]);
 
   const fetchReport = async () => {
     try {
-      const response = await fetch(`/api/public/report/${token}`);
+      const response = await fetch(`/api/public/report/${reportId}`);
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('Report not found or link has expired');
@@ -112,7 +113,7 @@ export default function PublicReportPage() {
   const handleDownloadPhotos = async () => {
     setIsDownloadingPhotos(true);
     try {
-      const response = await fetch(`/api/public/report/${token}/photos/download`);
+      const response = await fetch(`/api/public/report/${reportId}/photos/download`);
       if (!response.ok) throw new Error('Failed to download photos');
 
       const blob = await response.blob();
