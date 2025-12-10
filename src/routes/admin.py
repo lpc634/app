@@ -3649,6 +3649,8 @@ def export_v3_report_pdf(report_id):
 def delete_v3_report(report_id):
 	"""Delete a V3 report and its associated photos from S3"""
 	try:
+		from src.models.v3_report import V3JobReport
+
 		current_user_id = get_jwt_identity()
 		user = User.query.get(current_user_id)
 
@@ -3656,7 +3658,7 @@ def delete_v3_report(report_id):
 			return jsonify({'error': 'Admin access required'}), 403
 
 		# Find the report
-		report = V3Report.query.get(report_id)
+		report = V3JobReport.query.get(report_id)
 		if not report:
 			return jsonify({'error': 'Report not found'}), 404
 
