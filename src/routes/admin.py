@@ -3553,15 +3553,73 @@ def generate_v3_report_pdf(report, agent_name=None):
 		]))
 		elements.append(completion_table)
 
-	# Photos note
-	photo_count = len(report.photo_urls or [])
-	if photo_count > 0:
+	# Photos section - embed actual images
+	photo_urls = report.photo_urls or []
+	if photo_urls:
 		elements.append(Spacer(1, 0.3*inch))
-		elements.append(Paragraph(f"Photos & Evidence", styles['SectionTitle']))
-		elements.append(Paragraph(
-			f"This report includes {photo_count} photo(s). View the full report online to see all images.",
-			styles['Normal']
-		))
+		elements.append(Paragraph(f"Photos & Evidence ({len(photo_urls)})", styles['SectionTitle']))
+		elements.append(Spacer(1, 0.1*inch))
+
+		# Download and embed each photo
+		photo_images = []
+		for i, photo in enumerate(photo_urls):
+			try:
+				s3_key = photo.get('url') if isinstance(photo, dict) else photo
+				if s3_key and s3_client.is_configured():
+					signed_url = s3_client.generate_presigned_url(s3_key, expiration=300)
+					if signed_url:
+						# Download the image
+						img_response = requests.get(signed_url, timeout=30)
+						if img_response.status_code == 200:
+							# Create image from bytes
+							img_buffer = io.BytesIO(img_response.content)
+							try:
+								# Create ReportLab Image
+								img = Image(img_buffer)
+								# Scale to fit nicely (max 2.5 inches wide, maintain aspect ratio)
+								img_width = img.drawWidth
+								img_height = img.drawHeight
+								max_width = 2.4 * inch
+								max_height = 2.4 * inch
+
+								# Scale proportionally
+								scale = min(max_width / img_width, max_height / img_height, 1.0)
+								img.drawWidth = img_width * scale
+								img.drawHeight = img_height * scale
+
+								photo_images.append(img)
+							except Exception as img_err:
+								current_app.logger.warning(f"Failed to process image {i}: {str(img_err)}")
+			except Exception as photo_err:
+				current_app.logger.warning(f"Failed to download photo {i}: {str(photo_err)}")
+
+		# Arrange photos in a grid (3 per row)
+		if photo_images:
+			# Create rows of 3 images
+			rows = []
+			for i in range(0, len(photo_images), 3):
+				row = photo_images[i:i+3]
+				# Pad row to 3 columns if needed
+				while len(row) < 3:
+					row.append('')
+				rows.append(row)
+
+			# Create table with photos
+			photo_table = Table(rows, colWidths=[2.5*inch, 2.5*inch, 2.5*inch])
+			photo_table.setStyle(TableStyle([
+				('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+				('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+				('LEFTPADDING', (0, 0), (-1, -1), 5),
+				('RIGHTPADDING', (0, 0), (-1, -1), 5),
+				('TOPPADDING', (0, 0), (-1, -1), 5),
+				('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+			]))
+			elements.append(photo_table)
+		else:
+			elements.append(Paragraph(
+				f"Photos could not be loaded. View the full report online to see all {len(photo_urls)} images.",
+				styles['Normal']
+			))
 
 	# Generation timestamp
 	elements.append(Spacer(1, 0.3*inch))
