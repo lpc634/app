@@ -325,13 +325,27 @@ export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
         throw new Error('Failed to generate PDF');
       }
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type');
 
-      if (data.pdf_url) {
-        // Open PDF in new tab or download
-        window.open(data.pdf_url, '_blank');
+      if (contentType && contentType.includes('application/json')) {
+        // S3 URL response
+        const data = await response.json();
+        if (data.pdf_url) {
+          window.open(data.pdf_url, '_blank');
+        } else {
+          throw new Error('No PDF URL returned');
+        }
       } else {
-        throw new Error('No PDF URL returned');
+        // Direct PDF blob response
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `V3_Report_${report.id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
       }
     } catch (error) {
       console.error('PDF export error:', error);
