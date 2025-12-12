@@ -1180,12 +1180,7 @@ export default function JobManagement() {
                             <div className="invoice-header">
                               <span className="invoice-number">{invoice.invoice_number}</span>
                               <Badge
-                                className="invoice-status"
-                                style={{
-                                  backgroundColor: invoice.status === 'paid' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                                  color: invoice.status === 'paid' ? '#22c55e' : '#ef4444',
-                                  border: invoice.status === 'paid' ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)'
-                                }}
+                                className={`invoice-status ${invoice.status === 'paid' ? 'paid' : 'unpaid'}`}
                               >
                                 {invoice.status?.toUpperCase()}
                               </Badge>
