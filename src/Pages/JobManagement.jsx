@@ -1179,11 +1179,11 @@ export default function JobManagement() {
                           <div key={invoice.id} className="invoice-item">
                             <div className="invoice-header">
                               <span className="invoice-number">{invoice.invoice_number}</span>
-                              <Badge
+                              <span
                                 className={`invoice-status ${invoice.status === 'paid' ? 'paid' : 'unpaid'}`}
                               >
                                 {invoice.status?.toUpperCase()}
-                              </Badge>
+                              </span>
                             </div>
                             {invoice.agent_invoice_number && (
                               <div className="text-sm mb-2" style={{ color: 'var(--v3-text-muted)' }}>
