@@ -1176,7 +1176,7 @@ export default function JobManagement() {
                     ) : jobInvoices.length > 0 ? (
                       <div className="invoice-list">
                         {jobInvoices.map((invoice) => (
-                          <div key={invoice.id} className="invoice-item">
+                          <div key={invoice.id} className={`invoice-item ${invoice.status === 'paid' ? 'paid' : ''}`}>
                             <div className="invoice-header">
                               <span className="invoice-number">{invoice.invoice_number}</span>
                               <span
