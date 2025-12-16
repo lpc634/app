@@ -1080,6 +1080,10 @@ def create_invoice():
         extra_agents_count = data.get('extra_agents_count')
         extra_agents_total_hours = data.get('extra_agents_total_hours')
 
+        # Extras (Lance Carstairs feature - additional charges with description)
+        extras_amount = data.get('extras_amount')
+        extras_description = data.get('extras_description')
+
         # Support both old (job_items) and new (time_entries) formats
         if not job_items and not time_entries:
             return jsonify({'error': 'No items or time entries provided for invoicing.'}), 400
@@ -1233,6 +1237,15 @@ def create_invoice():
                     total_amount += extra_agents_bonus
             except (ValueError, InvalidOperation):
                 pass  # Ignore invalid extra_agents values
+
+        # --- Add Extras to total_amount ---
+        if extras_amount and not is_supplier_invoice:
+            try:
+                extras_fee = Decimal(str(extras_amount))
+                if extras_fee > 0:
+                    total_amount += extras_fee
+            except (ValueError, InvalidOperation):
+                pass  # Ignore invalid extras_amount values
 
         # --- Flexible Agent Invoice Number Handling ---
         final_agent_invoice_number = None
@@ -1485,6 +1498,41 @@ def create_invoice():
                         jobs_to_invoice.append(extra_agents_item)
             except (ValueError, InvalidOperation):
                 pass  # Ignore invalid extra_agents values
+
+        # Add Extras line item if applicable
+        if extras_amount and not is_supplier_invoice:
+            try:
+                extras_fee = Decimal(str(extras_amount))
+                if extras_fee > 0:
+                    description = extras_description or 'Additional charges'
+
+                    # Create a synthetic entry for extras
+                    extras_item = {
+                        'job': None,
+                        'date': actual_job_date,
+                        'hours': 1,
+                        'rate': float(extras_fee),
+                        'amount': float(extras_fee),
+                        'job_type': None,
+                        'description': description,
+                        'is_extras': True
+                    }
+
+                    # Add to the appropriate list depending on format
+                    if time_entries_to_invoice:
+                        time_entries_to_invoice.append({
+                            'job': None,
+                            'work_date': actual_job_date,
+                            'hours': Decimal('1'),
+                            'rate_net': extras_fee,
+                            'line_net': extras_fee,
+                            'notes': description,
+                            'is_extras': True
+                        })
+                    elif jobs_to_invoice:
+                        jobs_to_invoice.append(extras_item)
+            except (ValueError, InvalidOperation):
+                pass  # Ignore invalid extras values
 
         # Prepare jobs data for PDF and totals with VAT
         if is_supplier_invoice:

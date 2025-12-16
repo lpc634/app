@@ -25,6 +25,10 @@ const CreateInvoiceFromJobs = () => {
   // State for Extra Agents Onsite bonus (Lance Carstairs only - £5/hr per extra agent)
   const [extraAgentsCount, setExtraAgentsCount] = useState('');
 
+  // State for Extras (Lance Carstairs only - additional charges with description)
+  const [extrasAmount, setExtrasAmount] = useState('');
+  const [extrasDescription, setExtrasDescription] = useState('');
+
   useEffect(() => {
     const fetchJobs = async () => {
       try {
@@ -107,6 +111,13 @@ const CreateInvoiceFromJobs = () => {
     }
   };
 
+  const handleExtrasAmountChange = (value) => {
+    // Allow only numbers and a single decimal point
+    if (/^\d*\.?\d*$/.test(value)) {
+      setExtrasAmount(value);
+    }
+  };
+
   // Calculate total hours from selected jobs
   const totalHours = useMemo(() => {
     return Object.values(selected).reduce((acc, job) => {
@@ -146,9 +157,12 @@ const CreateInvoiceFromJobs = () => {
       }
     }
 
-    // Add First Hour Premium + Adjusted Jobs Total + Extra Agents Bonus
-    return (hasFirstHourPremium ? firstHourFee : 0) + adjustedJobsTotal + extraAgentsBonus;
-  }, [selected, firstHourRate, extraAgentsBonus, totalHours]);
+    // Add Extras if applicable
+    const extras = parseFloat(extrasAmount) || 0;
+
+    // Add First Hour Premium + Adjusted Jobs Total + Extra Agents Bonus + Extras
+    return (hasFirstHourPremium ? firstHourFee : 0) + adjustedJobsTotal + extraAgentsBonus + extras;
+  }, [selected, firstHourRate, extraAgentsBonus, totalHours, extrasAmount]);
 
   const showVat = !!(user?.vat_number);
   const VAT_RATE = 0.20;
@@ -188,6 +202,13 @@ const CreateInvoiceFromJobs = () => {
     if (extraAgents && extraAgents > 0) {
       payload.extra_agents_count = extraAgents;
       payload.extra_agents_total_hours = totalHours;
+    }
+
+    // Include Extras if applicable
+    const extras = parseFloat(extrasAmount);
+    if (extras && extras > 0) {
+      payload.extras_amount = extras;
+      payload.extras_description = extrasDescription.trim() || 'Additional charges';
     }
 
     // Submit to backend to create invoice
@@ -342,6 +363,41 @@ const CreateInvoiceFromJobs = () => {
             )}
             <p className="text-xs text-v3-text-muted mt-1">
               £5 per hour per extra agent will be added as a separate line item.
+            </p>
+          </div>
+        )}
+
+        {/* Extras - Only for Lance Carstairs */}
+        {user && (user.first_name === 'Lance' && user.last_name === 'Carstairs') && (
+          <div className="mb-3 pb-3 border-b border-v3-border">
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="extras-amount" className="text-lg font-semibold text-v3-text-lightest">
+                Extras:
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-v3-text-muted">£</span>
+                <input
+                  id="extras-amount"
+                  type="text"
+                  placeholder="0.00"
+                  value={extrasAmount}
+                  onChange={(e) => handleExtrasAmountChange(e.target.value)}
+                  className="w-24 text-right bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+                />
+              </div>
+            </div>
+            <div>
+              <input
+                id="extras-description"
+                type="text"
+                placeholder="Brief description (e.g., Performance bonus, Equipment hire)"
+                value={extrasDescription}
+                onChange={(e) => setExtrasDescription(e.target.value)}
+                className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange text-sm"
+              />
+            </div>
+            <p className="text-xs text-v3-text-muted mt-2">
+              Any additional charges will appear as a separate line item on your invoice.
             </p>
           </div>
         )}
