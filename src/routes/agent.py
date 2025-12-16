@@ -1198,11 +1198,27 @@ def create_invoice():
                 jobs_to_invoice.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
 
         # --- Add First Hour Premium to total_amount ---
+        # When First Hour Premium is used, the first hour is charged at premium rate instead of standard rate
+        # So we subtract 1 hour of standard rate and add the premium rate
         if first_hour_rate and not is_supplier_invoice:
             try:
                 first_hour_fee = Decimal(str(first_hour_rate))
                 if first_hour_fee > 0:
-                    total_amount += first_hour_fee
+                    # Find the first job's rate to subtract 1 hour of standard rate
+                    first_job_rate = Decimal('0')
+                    if time_entries_to_invoice:
+                        for entry in time_entries_to_invoice:
+                            if entry.get('rate_net'):
+                                first_job_rate = entry['rate_net']
+                                break
+                    elif jobs_to_invoice:
+                        for item in jobs_to_invoice:
+                            if item.get('rate'):
+                                first_job_rate = Decimal(str(item['rate']))
+                                break
+
+                    # Subtract 1 hour at standard rate, add 1 hour at premium rate
+                    total_amount = total_amount - first_job_rate + first_hour_fee
             except (ValueError, InvalidOperation):
                 pass  # Ignore invalid first_hour_rate values
 
@@ -1372,22 +1388,39 @@ def create_invoice():
                 ))
 
         # --- PDF and Emailing ---
+        # Get the actual job date BEFORE adding any synthetic line items
+        actual_job_date = issue_date
+        if time_entries_to_invoice and time_entries_to_invoice[0].get('work_date'):
+            actual_job_date = time_entries_to_invoice[0]['work_date']
+        elif jobs_to_invoice and jobs_to_invoice[0].get('job'):
+            actual_job_date = jobs_to_invoice[0]['job'].arrival_time.date()
+
         # Add First Hour Premium charge to the beginning of jobs list if requested
+        # Also subtract 1 hour from the first job (the first hour is charged at premium rate)
         if first_hour_rate and not is_supplier_invoice:
             try:
                 first_hour_fee = Decimal(str(first_hour_rate))
                 if first_hour_fee > 0:
-                    # Get date from the first job to keep everything on the same date
-                    job_date = issue_date
-                    if time_entries_to_invoice and time_entries_to_invoice[0].get('work_date'):
-                        job_date = time_entries_to_invoice[0]['work_date']
-                    elif jobs_to_invoice and jobs_to_invoice[0].get('job'):
-                        job_date = jobs_to_invoice[0]['job'].arrival_time.date()
+                    # Subtract 1 hour from the first job entry (since first hour is at premium rate)
+                    if time_entries_to_invoice:
+                        for entry in time_entries_to_invoice:
+                            if entry.get('hours') and entry['hours'] >= 1:
+                                entry['hours'] = entry['hours'] - Decimal('1')
+                                # Recalculate line_net
+                                entry['line_net'] = entry['hours'] * entry.get('rate_net', Decimal('0'))
+                                break
+                    elif jobs_to_invoice:
+                        for item in jobs_to_invoice:
+                            if item.get('hours') and item['hours'] >= 1:
+                                item['hours'] = item['hours'] - 1
+                                # Recalculate amount
+                                item['amount'] = item['hours'] * item.get('rate', 0)
+                                break
 
                     # Create a synthetic job entry for the premium charge
                     first_hour_item = {
                         'job': None,  # No associated job
-                        'date': job_date,
+                        'date': actual_job_date,
                         'hours': 1,
                         'rate': float(first_hour_fee),
                         'amount': float(first_hour_fee),
@@ -1401,7 +1434,7 @@ def create_invoice():
                         # For time_entries format, insert at the beginning
                         time_entries_to_invoice.insert(0, {
                             'job': None,
-                            'work_date': job_date,
+                            'work_date': actual_job_date,
                             'hours': Decimal('1'),
                             'rate_net': first_hour_fee,
                             'line_net': first_hour_fee,
@@ -1422,20 +1455,13 @@ def create_invoice():
                 if agents > 0 and total_hrs > 0:
                     bonus_amount = Decimal('5') * agents * total_hrs
 
-                    # Get date from the first job
-                    job_date = issue_date
-                    if time_entries_to_invoice and time_entries_to_invoice[0].get('work_date'):
-                        job_date = time_entries_to_invoice[0]['work_date']
-                    elif jobs_to_invoice and jobs_to_invoice[0].get('job'):
-                        job_date = jobs_to_invoice[0]['job'].arrival_time.date()
-
                     # Description that clearly shows the calculation
                     description = f'Extra Agents Bonus ({agents} agent{"s" if agents != 1 else ""} @ £5/hr × {float(total_hrs)} hrs)'
 
                     # Create a synthetic entry for the extra agents bonus
                     extra_agents_item = {
                         'job': None,
-                        'date': job_date,
+                        'date': actual_job_date,
                         'hours': float(total_hrs),
                         'rate': float(Decimal('5') * agents),  # Combined rate per hour
                         'amount': float(bonus_amount),
@@ -1448,7 +1474,7 @@ def create_invoice():
                     if time_entries_to_invoice:
                         time_entries_to_invoice.append({
                             'job': None,
-                            'work_date': job_date,
+                            'work_date': actual_job_date,
                             'hours': total_hrs,
                             'rate_net': Decimal('5') * agents,
                             'line_net': bonus_amount,

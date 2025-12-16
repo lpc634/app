@@ -122,18 +122,33 @@ const CreateInvoiceFromJobs = () => {
   }, [extraAgentsCount, totalHours]);
 
   const totalAmount = useMemo(() => {
+    const firstHourFee = parseFloat(firstHourRate) || 0;
+    const hasFirstHourPremium = firstHourFee > 0;
+
+    // Calculate jobs total, subtracting 1 hour from total if First Hour Premium is used
+    // The first hour is charged at the premium rate, remaining hours at standard rate
     const jobsTotal = Object.values(selected).reduce((acc, job) => {
       const hours = parseFloat(job.hours) || 0;
       const rate = parseFloat(job.rate) || 0;
       return acc + (hours * rate);
     }, 0);
 
-    // Add First Hour Premium if applicable
-    const firstHourFee = parseFloat(firstHourRate) || 0;
+    // If First Hour Premium is used, subtract 1 hour worth of the standard rate
+    // (because that hour is charged at the premium rate instead)
+    let adjustedJobsTotal = jobsTotal;
+    if (hasFirstHourPremium && totalHours >= 1) {
+      // Get the average rate across selected jobs to subtract
+      const selectedJobs = Object.values(selected).filter(j => parseFloat(j.hours) > 0 && parseFloat(j.rate) > 0);
+      if (selectedJobs.length > 0) {
+        // Use the first job's rate for the hour deduction
+        const firstJobRate = parseFloat(selectedJobs[0].rate) || 0;
+        adjustedJobsTotal = jobsTotal - firstJobRate; // Subtract 1 hour at standard rate
+      }
+    }
 
-    // Add Extra Agents Bonus if applicable
-    return jobsTotal + firstHourFee + extraAgentsBonus;
-  }, [selected, firstHourRate, extraAgentsBonus]);
+    // Add First Hour Premium + Adjusted Jobs Total + Extra Agents Bonus
+    return (hasFirstHourPremium ? firstHourFee : 0) + adjustedJobsTotal + extraAgentsBonus;
+  }, [selected, firstHourRate, extraAgentsBonus, totalHours]);
 
   const showVat = !!(user?.vat_number);
   const VAT_RATE = 0.20;
@@ -296,7 +311,7 @@ const CreateInvoiceFromJobs = () => {
               </div>
             </div>
             <p className="text-xs text-v3-text-muted mt-2">
-              The first hour will appear as a separate line item. Enter remaining hours in the job fields above.
+              Enter your total hours worked above. The first hour will be charged at this premium rate, remaining hours at your standard rate.
             </p>
           </div>
         )}
