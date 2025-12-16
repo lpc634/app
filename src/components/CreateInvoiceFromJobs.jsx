@@ -125,12 +125,15 @@ const CreateInvoiceFromJobs = () => {
     }, 0);
   }, [selected]);
 
-  // Calculate extra agents bonus (£5/hr per extra agent × total hours)
+  // Calculate extra agents bonus (£5/hr per extra agent × remaining hours after first hour)
   const EXTRA_AGENT_RATE = 5;
   const extraAgentsBonus = useMemo(() => {
     const agents = parseInt(extraAgentsCount) || 0;
-    return agents * EXTRA_AGENT_RATE * totalHours;
-  }, [extraAgentsCount, totalHours]);
+    const firstHourFee = parseFloat(firstHourRate) || 0;
+    // If first hour premium is used, extra agents bonus only applies to remaining hours
+    const hoursForBonus = firstHourFee > 0 ? Math.max(0, totalHours - 1) : totalHours;
+    return agents * EXTRA_AGENT_RATE * hoursForBonus;
+  }, [extraAgentsCount, totalHours, firstHourRate]);
 
   const totalAmount = useMemo(() => {
     const firstHourFee = parseFloat(firstHourRate) || 0;
@@ -201,7 +204,9 @@ const CreateInvoiceFromJobs = () => {
     const extraAgents = parseInt(extraAgentsCount);
     if (extraAgents && extraAgents > 0) {
       payload.extra_agents_count = extraAgents;
-      payload.extra_agents_total_hours = totalHours;
+      // If first hour premium is used, extra agents bonus only applies to remaining hours
+      const hoursForBonus = firstHourFee > 0 ? Math.max(0, totalHours - 1) : totalHours;
+      payload.extra_agents_total_hours = hoursForBonus;
     }
 
     // Include Extras if applicable
@@ -358,7 +363,7 @@ const CreateInvoiceFromJobs = () => {
             </div>
             {extraAgentsBonus > 0 && (
               <p className="text-sm text-v3-orange mt-2">
-                Bonus: {extraAgentsCount} agent{parseInt(extraAgentsCount) !== 1 ? 's' : ''} × £5/hr × {totalHours} hrs = £{extraAgentsBonus.toFixed(2)}
+                Bonus: {extraAgentsCount} agent{parseInt(extraAgentsCount) !== 1 ? 's' : ''} × £5/hr × {parseFloat(firstHourRate) > 0 ? Math.max(0, totalHours - 1) : totalHours} hrs = £{extraAgentsBonus.toFixed(2)}
               </p>
             )}
             <p className="text-xs text-v3-text-muted mt-1">
