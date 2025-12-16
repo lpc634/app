@@ -1076,6 +1076,10 @@ def create_invoice():
         # First Hour Premium rate (Lance Carstairs feature)
         first_hour_rate = data.get('first_hour_rate')
 
+        # Extra Agents Onsite bonus (Lance Carstairs feature - £5/hr per extra agent)
+        extra_agents_count = data.get('extra_agents_count')
+        extra_agents_total_hours = data.get('extra_agents_total_hours')
+
         # Support both old (job_items) and new (time_entries) formats
         if not job_items and not time_entries:
             return jsonify({'error': 'No items or time entries provided for invoicing.'}), 400
@@ -1201,6 +1205,18 @@ def create_invoice():
                     total_amount += first_hour_fee
             except (ValueError, InvalidOperation):
                 pass  # Ignore invalid first_hour_rate values
+
+        # --- Add Extra Agents Bonus to total_amount (£5/hr per extra agent) ---
+        extra_agents_bonus = Decimal('0')
+        if extra_agents_count and extra_agents_total_hours and not is_supplier_invoice:
+            try:
+                agents = int(extra_agents_count)
+                hours = Decimal(str(extra_agents_total_hours))
+                if agents > 0 and hours > 0:
+                    extra_agents_bonus = Decimal('5') * agents * hours
+                    total_amount += extra_agents_bonus
+            except (ValueError, InvalidOperation):
+                pass  # Ignore invalid extra_agents values
 
         # --- Flexible Agent Invoice Number Handling ---
         final_agent_invoice_number = None
@@ -1397,6 +1413,52 @@ def create_invoice():
                         jobs_to_invoice.insert(0, first_hour_item)
             except (ValueError, InvalidOperation):
                 pass  # Ignore invalid first_hour_rate values
+
+        # Add Extra Agents Bonus line item if applicable (£5/hr per extra agent)
+        if extra_agents_count and extra_agents_total_hours and not is_supplier_invoice:
+            try:
+                agents = int(extra_agents_count)
+                total_hrs = Decimal(str(extra_agents_total_hours))
+                if agents > 0 and total_hrs > 0:
+                    bonus_amount = Decimal('5') * agents * total_hrs
+
+                    # Get date from the first job
+                    job_date = issue_date
+                    if time_entries_to_invoice and time_entries_to_invoice[0].get('work_date'):
+                        job_date = time_entries_to_invoice[0]['work_date']
+                    elif jobs_to_invoice and jobs_to_invoice[0].get('job'):
+                        job_date = jobs_to_invoice[0]['job'].arrival_time.date()
+
+                    # Description that clearly shows the calculation
+                    description = f'Extra Agents Bonus ({agents} agent{"s" if agents != 1 else ""} @ £5/hr × {float(total_hrs)} hrs)'
+
+                    # Create a synthetic entry for the extra agents bonus
+                    extra_agents_item = {
+                        'job': None,
+                        'date': job_date,
+                        'hours': float(total_hrs),
+                        'rate': float(Decimal('5') * agents),  # Combined rate per hour
+                        'amount': float(bonus_amount),
+                        'job_type': None,
+                        'description': description,
+                        'is_extra_agents_bonus': True
+                    }
+
+                    # Add to the appropriate list depending on format
+                    if time_entries_to_invoice:
+                        time_entries_to_invoice.append({
+                            'job': None,
+                            'work_date': job_date,
+                            'hours': total_hrs,
+                            'rate_net': Decimal('5') * agents,
+                            'line_net': bonus_amount,
+                            'notes': description,
+                            'is_extra_agents_bonus': True
+                        })
+                    elif jobs_to_invoice:
+                        jobs_to_invoice.append(extra_agents_item)
+            except (ValueError, InvalidOperation):
+                pass  # Ignore invalid extra_agents values
 
         # Prepare jobs data for PDF and totals with VAT
         if is_supplier_invoice:

@@ -22,6 +22,9 @@ const CreateInvoiceFromJobs = () => {
   // State for First Hour Premium charge (Lance Carstairs only)
   const [firstHourRate, setFirstHourRate] = useState('');
 
+  // State for Extra Agents Onsite bonus (Lance Carstairs only - £5/hr per extra agent)
+  const [extraAgentsCount, setExtraAgentsCount] = useState('');
+
   useEffect(() => {
     const fetchJobs = async () => {
       try {
@@ -97,6 +100,27 @@ const CreateInvoiceFromJobs = () => {
     }
   };
 
+  const handleExtraAgentsChange = (value) => {
+    // Allow only whole numbers
+    if (/^\d*$/.test(value)) {
+      setExtraAgentsCount(value);
+    }
+  };
+
+  // Calculate total hours from selected jobs
+  const totalHours = useMemo(() => {
+    return Object.values(selected).reduce((acc, job) => {
+      return acc + (parseFloat(job.hours) || 0);
+    }, 0);
+  }, [selected]);
+
+  // Calculate extra agents bonus (£5/hr per extra agent × total hours)
+  const EXTRA_AGENT_RATE = 5;
+  const extraAgentsBonus = useMemo(() => {
+    const agents = parseInt(extraAgentsCount) || 0;
+    return agents * EXTRA_AGENT_RATE * totalHours;
+  }, [extraAgentsCount, totalHours]);
+
   const totalAmount = useMemo(() => {
     const jobsTotal = Object.values(selected).reduce((acc, job) => {
       const hours = parseFloat(job.hours) || 0;
@@ -106,8 +130,10 @@ const CreateInvoiceFromJobs = () => {
 
     // Add First Hour Premium if applicable
     const firstHourFee = parseFloat(firstHourRate) || 0;
-    return jobsTotal + firstHourFee;
-  }, [selected, firstHourRate]);
+
+    // Add Extra Agents Bonus if applicable
+    return jobsTotal + firstHourFee + extraAgentsBonus;
+  }, [selected, firstHourRate, extraAgentsBonus]);
 
   const showVat = !!(user?.vat_number);
   const VAT_RATE = 0.20;
@@ -140,6 +166,13 @@ const CreateInvoiceFromJobs = () => {
     const firstHourFee = parseFloat(firstHourRate);
     if (firstHourFee && firstHourFee > 0) {
       payload.first_hour_rate = firstHourFee;
+    }
+
+    // Include Extra Agents Bonus if applicable
+    const extraAgents = parseInt(extraAgentsCount);
+    if (extraAgents && extraAgents > 0) {
+      payload.extra_agents_count = extraAgents;
+      payload.extra_agents_total_hours = totalHours;
     }
 
     // Submit to backend to create invoice
@@ -264,6 +297,36 @@ const CreateInvoiceFromJobs = () => {
             </div>
             <p className="text-xs text-v3-text-muted mt-2">
               The first hour will appear as a separate line item. Enter remaining hours in the job fields above.
+            </p>
+          </div>
+        )}
+
+        {/* Extra Agents Onsite Bonus - Only for Lance Carstairs */}
+        {user && (user.first_name === 'Lance' && user.last_name === 'Carstairs') && (
+          <div className="mb-3 pb-3 border-b border-v3-border">
+            <div className="flex items-center justify-between">
+              <label htmlFor="extra-agents" className="text-lg font-semibold text-v3-text-lightest">
+                Extra Agents Onsite:
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="extra-agents"
+                  type="text"
+                  placeholder="0"
+                  value={extraAgentsCount}
+                  onChange={(e) => handleExtraAgentsChange(e.target.value)}
+                  className="w-16 text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+                />
+                <span className="text-v3-text-muted">agents</span>
+              </div>
+            </div>
+            {extraAgentsBonus > 0 && (
+              <p className="text-sm text-v3-orange mt-2">
+                Bonus: {extraAgentsCount} agent{parseInt(extraAgentsCount) !== 1 ? 's' : ''} × £5/hr × {totalHours} hrs = £{extraAgentsBonus.toFixed(2)}
+              </p>
+            )}
+            <p className="text-xs text-v3-text-muted mt-1">
+              £5 per hour per extra agent will be added as a separate line item.
             </p>
           </div>
         )}
