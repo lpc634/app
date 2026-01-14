@@ -322,6 +322,7 @@ export default function AbandonedVehicleForm({
 }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const formRef = React.useRef<HTMLFormElement>(null);
 
   const methods = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -354,30 +355,42 @@ export default function AbandonedVehicleForm({
 
   const { register, formState: { errors }, handleSubmit: rhfHandleSubmit } = methods;
 
-  // Calculate progress based on filled fields
+  // Calculate progress based on scroll position (matches other forms)
   useEffect(() => {
-    const subscription = methods.watch((data) => {
-      const requiredFields = [
-        "client",
-        "address1",
-        "date",
-        "arrival_time",
-        "enforcement_manager",
-        "vehicle_registration",
-        "vehicle_vin",
-        "departure_time",
-      ];
-      
-      const filled = requiredFields.filter((field) => {
-        const value = data[field as keyof FormData];
-        return value !== undefined && value !== "";
-      }).length;
-      
-      setProgress((filled / requiredFields.length) * 100);
-    });
-    
-    return () => subscription.unsubscribe();
-  }, [methods]);
+    // Find the scrollable parent container (the modal's overflow-y-auto div)
+    const findScrollableParent = (element: any): any => {
+      if (!element) return null;
+      const parent = element.parentElement;
+      if (!parent) return null;
+
+      const hasOverflow = getComputedStyle(parent).overflowY;
+      if (hasOverflow === "auto" || hasOverflow === "scroll") {
+        return parent;
+      }
+      return findScrollableParent(parent);
+    };
+
+    const scrollContainer = findScrollableParent(formRef.current) || window;
+
+    const onScroll = () => {
+      if (scrollContainer === window) {
+        const d = document.documentElement;
+        setProgress(
+          window.scrollY / (d.scrollHeight - window.innerHeight || 1)
+        );
+      } else {
+        // Calculate progress for container scroll
+        const scrollTop = scrollContainer.scrollTop;
+        const scrollHeight = scrollContainer.scrollHeight;
+        const clientHeight = scrollContainer.clientHeight;
+        setProgress(scrollTop / (scrollHeight - clientHeight || 1));
+      }
+    };
+
+    scrollContainer.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => scrollContainer.removeEventListener("scroll", onScroll);
+  }, []);
 
   const onFormSubmit = async (data: FormData) => {
     try {
@@ -439,7 +452,7 @@ export default function AbandonedVehicleForm({
             <motion.div
               className="progress-bar"
               initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
+              animate={{ width: `${Math.round(progress * 100)}%` }}
               transition={{ duration: 0.3 }}
             />
           </div>
@@ -447,13 +460,13 @@ export default function AbandonedVehicleForm({
             className="sub"
             style={{ marginTop: 6, fontSize: "0.75rem", textAlign: "right" }}
           >
-            {Math.round(progress)}% Complete
+            {Math.round(progress * 100)}% Complete
           </div>
         </div>
       </StarBorder>
 
       <FormProvider {...methods}>
-        <form onSubmit={rhfHandleSubmit(onFormSubmit)}>
+        <form ref={formRef} onSubmit={rhfHandleSubmit(onFormSubmit)}>
           <div className="page-shell">
             {/* SERVE REPORT DETAILS */}
             <section className="dashboard-card" style={{ marginBottom: 32 }}>
