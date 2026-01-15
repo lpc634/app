@@ -350,16 +350,21 @@ def get_notice_types():
 @jwt_required()
 def generate_notice():
     """Generate a notice PDF"""
-    user = require_admin()
-    if not user:
-        return jsonify({'error': 'Forbidden'}), 403
-    
     try:
+        user = require_admin()
+        if not user:
+            current_app.logger.error("Access denied - user is not admin")
+            return jsonify({'error': 'Forbidden'}), 403
+        
         data = request.json
+        if not data:
+            current_app.logger.error("No JSON data received")
+            return jsonify({'error': 'No data provided'}), 400
+            
         notice_type = data.get('notice_type')
         notice_data = data.get('data', {})
         
-        current_app.logger.info(f"Generating notice type: {notice_type}")
+        current_app.logger.info(f"Admin {user.email} generating notice type: {notice_type}")
         current_app.logger.info(f"Notice data: {notice_data}")
         
         # Generate PDF
@@ -377,6 +382,8 @@ def generate_notice():
         else:
             filename = f"Notice_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         
+        current_app.logger.info(f"Successfully generated {filename}")
+        
         return send_file(
             pdf_buffer,
             mimetype='application/pdf',
@@ -386,5 +393,5 @@ def generate_notice():
     except Exception as e:
         current_app.logger.error(f"Error generating notice: {str(e)}")
         import traceback
-        traceback.print_exc()
+        current_app.logger.error(traceback.format_exc())
         return jsonify({'error': f'Failed to generate notice: {str(e)}'}), 500
