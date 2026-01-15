@@ -38,8 +38,8 @@ def generate_notice_pdf(notice_type, notice_data):
         pagesize=A4,
         rightMargin=1.5*cm,
         leftMargin=1.5*cm,
-        topMargin=3.2*cm,  # Space for header (logo + address)
-        bottomMargin=2.0*cm  # Space for footer
+        topMargin=2.4*cm,  # REDUCED - fit on one page
+        bottomMargin=1.0*cm  # REDUCED - fit on one page
     )
     
     # Styles
@@ -47,17 +47,18 @@ def generate_notice_pdf(notice_type, notice_data):
     styles.add(ParagraphStyle(
         name='NoticeTitle',
         parent=styles['Heading1'],
-        fontSize=20,
-        spaceAfter=20,
+        fontSize=16,  # REDUCED from 20
+        spaceAfter=12,  # REDUCED from 20
         alignment=TA_CENTER,
-        textColor=colors.HexColor('#ff0000')  # Red for legal notices
+        textColor=colors.HexColor('#ff0000'),  # Red for legal notices
+        underline=1  # ADD UNDERLINE
     ))
     styles.add(ParagraphStyle(
         name='SectionTitle',
         parent=styles['Heading2'],
-        fontSize=14,
-        spaceBefore=15,
-        spaceAfter=10,
+        fontSize=11,  # REDUCED from 14
+        spaceBefore=8,  # REDUCED from 15
+        spaceAfter=6,  # REDUCED from 10
         textColor=colors.HexColor('#ff6b35')
     ))
     styles.add(ParagraphStyle(
@@ -70,16 +71,16 @@ def generate_notice_pdf(notice_type, notice_data):
     styles.add(ParagraphStyle(
         name='FieldValue',
         parent=styles['Normal'],
-        fontSize=11,
+        fontSize=9,  # REDUCED from 11
         textColor=colors.HexColor('#1a1a2e'),
-        spaceAfter=8
+        spaceAfter=4  # REDUCED from 8
     ))
     styles.add(ParagraphStyle(
         name='LegalText',
         parent=styles['Normal'],
-        fontSize=10,
+        fontSize=8.5,  # REDUCED from 10
         textColor=colors.HexColor('#333333'),
-        spaceBefore=5
+        spaceBefore=2  # REDUCED from 5
     ))
     
     elements = []
@@ -134,32 +135,34 @@ def generate_notice_to_vacate_content(data, styles):
     
     # Title - smaller font
     elements.append(Paragraph("LEGAL NOTICE TO VACATE PREMISES", styles['NoticeTitle']))
-    elements.append(Spacer(1, 0.15*inch))  # Reduced from 0.3
+    elements.append(Spacer(1, 0.08*inch))  # REDUCED to fit on one page
     
     # Property Address
     elements.append(Paragraph("PROPERTY ADDRESS", styles['SectionTitle']))
     address_text = data.get('property_address', '[ADDRESS NOT PROVIDED]')
     elements.append(Paragraph(address_text, styles['FieldValue']))
-    elements.append(Spacer(1, 0.1*inch))  # Reduced from 0.2
+    elements.append(Spacer(1, 0.05*inch))  # REDUCED to fit one page
     
     # Date
-    notice_date = data.get('date', datetime.now().strftime('%d %B %Y'))
+    notice_date = data.get('date', datetime.now().strftime('%d/%m/%Y'))  # Changed to DD/MM/YYYY
     date_data = [['Date:', notice_date]]
-    date_table = Table(date_data, colWidths=[1*inch, 5.5*inch])
+    date_table = Table(date_data, colWidths=[0.6*inch, 1.5*inch])  # Tightened - reduced gap
     date_table.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),  # Reduced from 11
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # Reduced from 8
+        ('FONTSIZE', (0, 0), (-1, -1), 9),  # REDUCED to fit one page
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),  # REDUCED to fit one page
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),  # Left align
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),  # Left align date value
     ]))
     elements.append(date_table)
-    elements.append(Spacer(1, 0.1*inch))  # Reduced from 0.2
+    elements.append(Spacer(1, 0.05*inch))  # REDUCED to fit one page
     
     # To Occupiers
     elements.append(Paragraph("TO: THE OCCUPIERS", styles['SectionTitle']))
     client_name = data.get('client_name', 'the legal owner')
     intro_text = f"We are writing on behalf of {client_name} of the above property."
     elements.append(Paragraph(intro_text, styles['FieldValue']))
-    elements.append(Spacer(1, 0.1*inch))  # Reduced from 0.2
+    elements.append(Spacer(1, 0.05*inch))  # REDUCED to fit one page
     
     # Take Notice
     elements.append(Paragraph("TAKE NOTICE:", styles['SectionTitle']))
@@ -183,9 +186,9 @@ def generate_notice_to_vacate_content(data, styles):
         if notice:
             elements.append(Paragraph(notice, styles['LegalText']))
         else:
-            elements.append(Spacer(1, 0.05*inch))  # Reduced from 0.1
+            elements.append(Spacer(1, 0.02*inch))  # REDUCED to fit one page
     
-    elements.append(Spacer(1, 0.1*inch))  # Reduced from 0.2
+    elements.append(Spacer(1, 0.05*inch))  # REDUCED to fit one page
     
     # Legal Warning - more compact
     elements.append(Paragraph("LEGAL WARNING", styles['SectionTitle']))
@@ -193,12 +196,11 @@ def generate_notice_to_vacate_content(data, styles):
     you are committing an act of trespass. The property owner is entitled to take lawful action to recover possession. 
     This notice serves as formal notification that you must leave immediately. The property owner reserves all legal rights."""
     elements.append(Paragraph(warning_text, styles['LegalText']))
-    elements.append(Spacer(1, 0.15*inch))  # Reduced from 0.3
+    elements.append(Spacer(1, 0.08*inch))  # REDUCED to fit one page
     
-    # Issued By - compact table
+    # Issued By - compact table (NO DIRECTOR LINE)
     issued_data = [
         ['Issued by:', 'V3 Services Ltd'],
-        ['Director:', data.get('director_name', 'Lance Johnson')],
         ['Contact:', data.get('contact_phone', '0203 576 1343')],
         ['Email:', data.get('contact_email', 'Info@V3-Services.com')],
     ]
@@ -206,8 +208,8 @@ def generate_notice_to_vacate_content(data, styles):
     issued_table = Table(issued_data, colWidths=[1.5*inch, 5*inch])
     issued_table.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),  # Reduced from 10
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),  # Reduced from 6
+        ('FONTSIZE', (0, 0), (-1, -1), 8),  # REDUCED to fit one page
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),  # REDUCED to fit one page
     ]))
     elements.append(issued_table)
     
@@ -224,7 +226,7 @@ def generate_abandoned_vehicle_content(data, styles):
     # Report Details
     elements.append(Paragraph("REPORT DETAILS", styles['SectionTitle']))
     report_data = [
-        ['Date Reported:', data.get('date', datetime.now().strftime('%d %B %Y'))],
+        ['Date Reported:', data.get('date', datetime.now().strftime('%d/%m/%Y'))],  # Changed to DD/MM/YYYY
         ['Location:', data.get('location', '[LOCATION NOT PROVIDED]')],
         ['Client:', data.get('client_name', '[CLIENT NAME NOT PROVIDED]')],
     ]
@@ -319,7 +321,6 @@ def get_notice_types():
                 {'name': 'property_address', 'label': 'Property Address', 'type': 'textarea', 'required': True},
                 {'name': 'client_name', 'label': 'Client Name', 'type': 'text', 'required': True},
                 {'name': 'date', 'label': 'Date Notice Served', 'type': 'date', 'required': True},
-                {'name': 'director_name', 'label': 'Director Name', 'type': 'text', 'required': False, 'default': 'Lance Johnson'},
                 {'name': 'contact_phone', 'label': 'Contact Phone', 'type': 'text', 'required': False, 'default': '0203 576 1343'},
                 {'name': 'contact_email', 'label': 'Contact Email', 'type': 'email', 'required': False, 'default': 'Info@V3-Services.com'},
             ]
