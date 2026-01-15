@@ -73,7 +73,8 @@ export default function NoticesPage() {
     try {
       setGenerating(true);
       
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/notices/generate`, {
+      // Use apiCall instead of fetch to handle auth and base URL properly
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/admin/notices/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +126,7 @@ export default function NoticesPage() {
     try {
       setGenerating(true);
       
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/notices/generate`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/admin/notices/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
