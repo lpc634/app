@@ -1,17 +1,17 @@
 # src/routes/notices.py
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, jsonify, request, send_file, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import User
 from datetime import datetime
 import io
+import os
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch, cm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib import colors
-from reportlab.pdfgen import canvas
-import os
+from PyPDF2 import PdfReader, PdfWriter
 
 notices_bp = Blueprint('notices', __name__)
 
@@ -23,253 +23,286 @@ def require_admin():
         return None
     return user
 
-def create_notice_header(c, width, height):
-    """Create V3 Services header on PDF"""
-    # Add V3 logo if exists - check multiple possible locations
-    logo_paths = [
-        'static/v3_logo.png',
-        'static/v3-logo.png',
-        os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'v3_logo.png'),
-        os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'v3-logo.png')
-    ]
+def generate_notice_pdf(notice_type, notice_data):
+    """
+    Generate a notice PDF using the same template system as V3 job reports.
+    Returns bytes of the PDF file.
+    """
+    # Path to the headed template
+    template_path = os.path.join(os.path.dirname(__file__), '..', 'templates', 'headed_template.pdf')
     
-    logo_added = False
-    for logo_path in logo_paths:
-        if os.path.exists(logo_path):
-            try:
-                c.drawImage(logo_path, 50, height - 100, width=80, height=80, preserveAspectRatio=True, mask='auto')
-                logo_added = True
-                break
-            except Exception as e:
-                print(f"Could not load logo from {logo_path}: {e}")
-                continue
+    # First, generate the content PDF
+    content_buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        content_buffer,
+        pagesize=A4,
+        rightMargin=1.5*cm,
+        leftMargin=1.5*cm,
+        topMargin=3.2*cm,  # Space for header (logo + address)
+        bottomMargin=2.0*cm  # Space for footer
+    )
     
-    # Company details - right aligned
-    c.setFont("Helvetica-Bold", 11)
-    c.drawRightString(width - 50, height - 50, "V3 Services Ltd")
+    # Styles
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name='NoticeTitle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        spaceAfter=20,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#ff0000')  # Red for legal notices
+    ))
+    styles.add(ParagraphStyle(
+        name='SectionTitle',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceBefore=15,
+        spaceAfter=10,
+        textColor=colors.HexColor('#ff6b35')
+    ))
+    styles.add(ParagraphStyle(
+        name='FieldLabel',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#666666'),
+        fontName='Helvetica-Bold'
+    ))
+    styles.add(ParagraphStyle(
+        name='FieldValue',
+        parent=styles['Normal'],
+        fontSize=11,
+        textColor=colors.HexColor('#1a1a2e'),
+        spaceAfter=8
+    ))
+    styles.add(ParagraphStyle(
+        name='LegalText',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#333333'),
+        spaceBefore=5
+    ))
     
-    c.setFont("Helvetica", 9)
-    c.drawRightString(width - 50, height - 65, "117 Dartford Road")
-    c.drawRightString(width - 50, height - 78, "Dartford, DA1 3EN")
-    c.drawRightString(width - 50, height - 91, "Tel: 0203 576 1343")
-    c.drawRightString(width - 50, height - 104, "www.V3-Services.com")
+    elements = []
     
-    # Services line at top
-    c.setFont("Helvetica", 7)
-    c.setFillColorRGB(0.5, 0.5, 0.5)
-    services_text = "Investigation | Surveillance | Traveller Evictions | Squatter Evictions | Security | CCTV"
-    c.drawCentredString(width/2, height - 30, services_text)
+    if notice_type == 'notice_to_vacate':
+        elements = generate_notice_to_vacate_content(notice_data, styles)
+    elif notice_type == 'abandoned_vehicle':
+        elements = generate_abandoned_vehicle_content(notice_data, styles)
+    else:
+        raise ValueError('Invalid notice type')
     
-    # Horizontal line
-    c.setStrokeColorRGB(0.8, 0.8, 0.8)
-    c.line(50, height - 120, width - 50, height - 120)
+    # Build content PDF
+    doc.build(elements)
+    content_buffer.seek(0)
     
-    # Footer services line
-    c.setFont("Helvetica", 7)
-    c.setFillColorRGB(1, 0, 0)  # Red text
-    c.drawCentredString(width/2, 50, services_text)
+    # Now merge content with the headed template
+    try:
+        # Read the template
+        template_reader = PdfReader(template_path)
+        template_page = template_reader.pages[0]
+        
+        # Read the content we just generated
+        content_reader = PdfReader(content_buffer)
+        
+        # Create output PDF
+        output = PdfWriter()
+        
+        # For each page of content, merge with template
+        for i, content_page in enumerate(content_reader.pages):
+            # Create a copy of the template for each page
+            from copy import copy
+            new_page = copy(template_page)
+            # Merge the content on top of the template
+            new_page.merge_page(content_page)
+            output.add_page(new_page)
+        
+        # Write to buffer
+        output_buffer = io.BytesIO()
+        output.write(output_buffer)
+        output_buffer.seek(0)
+        return output_buffer.getvalue()
     
-    c.setFillColorRGB(0, 0, 0)  # Reset to black
+    except Exception as merge_error:
+        # If merging fails, fall back to content-only PDF
+        current_app.logger.warning(f"Template merge failed, using content only: {str(merge_error)}")
+        content_buffer.seek(0)
+        return content_buffer.getvalue()
 
-def generate_notice_to_vacate_pdf(data):
-    """Generate Notice to Vacate PDF"""
-    buffer = io.BytesIO()
-    
-    # Create PDF
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-    
-    # Add header
-    create_notice_header(c, width, height)
-    
-    # Start content below header
-    y_position = height - 160
+def generate_notice_to_vacate_content(data, styles):
+    """Generate content for Notice to Vacate"""
+    elements = []
     
     # Title
-    c.setFont("Helvetica-Bold", 18)
-    c.setFillColorRGB(1, 0, 0)  # Red
-    title = "LEGAL NOTICE TO VACATE PREMISES"
-    c.drawCentredString(width/2, y_position, title)
-    c.setFillColorRGB(0, 0, 0)  # Back to black
-    y_position -= 40
+    elements.append(Paragraph("LEGAL NOTICE TO VACATE PREMISES", styles['NoticeTitle']))
+    elements.append(Spacer(1, 0.3*inch))
     
     # Property Address
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(80, y_position, "PROPERTY ADDRESS:")
-    y_position -= 15
-    c.setFont("Helvetica", 10)
-    c.drawString(80, y_position, data.get('property_address', '[ADDRESS]'))
-    y_position -= 30
+    elements.append(Paragraph("PROPERTY ADDRESS", styles['SectionTitle']))
+    address_text = data.get('property_address', '[ADDRESS NOT PROVIDED]')
+    elements.append(Paragraph(address_text, styles['FieldValue']))
+    elements.append(Spacer(1, 0.2*inch))
     
     # Date
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(80, y_position, f"DATE: {data.get('date', datetime.now().strftime('%d %B %Y'))}")
-    y_position -= 30
+    notice_date = data.get('date', datetime.now().strftime('%d %B %Y'))
+    date_data = [['Date:', notice_date]]
+    date_table = Table(date_data, colWidths=[1*inch, 5.5*inch])
+    date_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(date_table)
+    elements.append(Spacer(1, 0.2*inch))
     
     # To Occupiers
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(80, y_position, "TO: THE OCCUPIERS")
-    y_position -= 25
+    elements.append(Paragraph("TO: THE OCCUPIERS", styles['SectionTitle']))
+    client_name = data.get('client_name', 'the legal owner')
+    intro_text = f"We are writing on behalf of {client_name} of the above property."
+    elements.append(Paragraph(intro_text, styles['FieldValue']))
+    elements.append(Spacer(1, 0.2*inch))
     
-    c.setFont("Helvetica", 10)
-    c.drawString(80, y_position, f"We are writing on behalf of {data.get('client_name', 'the legal owner')} of the above property.")
-    y_position -= 30
+    # Take Notice
+    elements.append(Paragraph("TAKE NOTICE:", styles['SectionTitle']))
     
-    # TAKE NOTICE
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(80, y_position, "TAKE NOTICE:")
-    y_position -= 20
-    
-    # Notice points
-    c.setFont("Helvetica", 10)
     notices = [
-        "1. You are currently occupying the above premises WITHOUT the permission or",
-        "   authority of the legal owner.",
+        "1. You are currently occupying the above premises WITHOUT the permission or authority of the legal owner.",
         "",
         "2. Your occupation constitutes TRESPASS under English Law.",
         "",
-        "3. The legal owner has NOT granted you any right, licence, or permission to occupy",
-        "   these premises.",
+        "3. The legal owner has NOT granted you any right, licence, or permission to occupy these premises.",
         "",
-        "4. You are hereby required to VACATE THE PREMISES IMMEDIATELY and remove",
-        "   all of your belongings and any persons under your control.",
+        "4. You are hereby required to VACATE THE PREMISES IMMEDIATELY and remove all of your belongings and any persons under your control.",
         "",
-        "5. V3 Services Ltd has been instructed by the legal owner to take all lawful steps",
-        "   necessary to secure possession of this property.",
+        "5. V3 Services Ltd has been instructed by the legal owner to take all lawful steps necessary to secure possession of this property.",
         "",
-        "6. Failure to vacate will result in the legal owner pursuing formal possession",
-        "   proceedings through the County Court, which may result in a Court Order for",
-        "   possession and costs being awarded against you.",
+        "6. Failure to vacate will result in the legal owner pursuing formal possession proceedings through the County Court, which may result in a Court Order for possession and costs being awarded against you.",
         "",
-        "7. Any damage to the property, theft, or interference with utilities will be reported",
-        "   to the police and may result in criminal prosecution.",
+        "7. Any damage to the property, theft, or interference with utilities will be reported to the police and may result in criminal prosecution.",
     ]
     
     for notice in notices:
-        c.drawString(80, y_position, notice)
-        y_position -= 14
+        if notice:
+            elements.append(Paragraph(notice, styles['LegalText']))
+        else:
+            elements.append(Spacer(1, 0.1*inch))
     
-    y_position -= 10
+    elements.append(Spacer(1, 0.2*inch))
     
     # Legal Warning
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(80, y_position, "LEGAL WARNING:")
-    y_position -= 18
+    elements.append(Paragraph("LEGAL WARNING", styles['SectionTitle']))
+    warning_text = """Under Section 144 of the Legal Aid, Sentencing and Punishment of Offenders Act 2012, 
+    whilst this property is non-residential, you are still committing an act of trespass. The property owner 
+    is entitled to take lawful action to recover possession. This notice serves as formal notification that 
+    you must leave immediately. The property owner reserves all legal rights and remedies available."""
+    elements.append(Paragraph(warning_text, styles['LegalText']))
+    elements.append(Spacer(1, 0.3*inch))
     
-    c.setFont("Helvetica", 9)
-    warning_text = [
-        "Under Section 144 of the Legal Aid, Sentencing and Punishment of Offenders Act 2012,",
-        "whilst this property is non-residential, you are still committing an act of trespass. The",
-        "property owner is entitled to take lawful action to recover possession.",
-        "",
-        "This notice serves as formal notification that you must leave immediately. The property",
-        "owner reserves all legal rights and remedies available.",
+    # Issued By
+    issued_data = [
+        ['Issued by:', 'V3 Services Ltd'],
+        ['Director:', data.get('director_name', 'Lance Johnson')],
+        ['Contact:', data.get('contact_phone', '0203 576 1343')],
+        ['Email:', data.get('contact_email', 'Info@V3-Services.com')],
     ]
     
-    for line in warning_text:
-        c.drawString(80, y_position, line)
-        y_position -= 12
+    issued_table = Table(issued_data, colWidths=[1.5*inch, 5*inch])
+    issued_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(issued_table)
     
-    y_position -= 20
-    
-    # Issued by
-    c.setFont("Helvetica", 10)
-    c.drawString(80, y_position, "Issued by:")
-    y_position -= 15
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(80, y_position, "V3 Services Ltd")
-    y_position -= 15
-    c.setFont("Helvetica", 9)
-    c.drawString(80, y_position, f"Director: {data.get('director_name', 'Lance Johnson')}")
-    y_position -= 12
-    c.drawString(80, y_position, f"Contact: {data.get('contact_phone', '0203 576 1343')}")
-    y_position -= 12
-    c.drawString(80, y_position, f"Email: {data.get('contact_email', 'Info@V3-Services.com')}")
-    
-    # Finish PDF
-    c.save()
-    buffer.seek(0)
-    return buffer
+    return elements
 
-def generate_abandoned_vehicle_pdf(data):
-    """Generate Abandoned Vehicle Report PDF"""
-    buffer = io.BytesIO()
-    
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-    
-    # Add header
-    create_notice_header(c, width, height)
-    
-    y_position = height - 160
+def generate_abandoned_vehicle_content(data, styles):
+    """Generate content for Abandoned Vehicle Report"""
+    elements = []
     
     # Title
-    c.setFont("Helvetica-Bold", 18)
-    c.setFillColorRGB(1, 0, 0)
-    title = "ABANDONED VEHICLE REPORT"
-    c.drawCentredString(width/2, y_position, title)
-    c.setFillColorRGB(0, 0, 0)
-    y_position -= 40
+    elements.append(Paragraph("ABANDONED VEHICLE REPORT", styles['NoticeTitle']))
+    elements.append(Spacer(1, 0.3*inch))
     
-    # Report details
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(80, y_position, "REPORT DETAILS")
-    y_position -= 20
+    # Report Details
+    elements.append(Paragraph("REPORT DETAILS", styles['SectionTitle']))
+    report_data = [
+        ['Date Reported:', data.get('date', datetime.now().strftime('%d %B %Y'))],
+        ['Location:', data.get('location', '[LOCATION NOT PROVIDED]')],
+        ['Client:', data.get('client_name', '[CLIENT NAME NOT PROVIDED]')],
+    ]
     
-    c.setFont("Helvetica", 10)
-    details = [
-        f"Date Reported: {data.get('date', datetime.now().strftime('%d %B %Y'))}",
-        f"Location: {data.get('location', '[LOCATION]')}",
-        f"Client: {data.get('client_name', '[CLIENT NAME]')}",
-        "",
-        "VEHICLE DETAILS",
-        f"Registration: {data.get('registration', '[REG]')}",
-        f"Make/Model: {data.get('make_model', '[MAKE/MODEL]')}",
-        f"Colour: {data.get('colour', '[COLOUR]')}",
-        f"Condition: {data.get('condition', '[CONDITION]')}",
-        "",
-        "DESCRIPTION",
-        f"{data.get('description', 'Vehicle appears to have been abandoned on the property.')}",
-        "",
-        "ACTION TAKEN",
+    report_table = Table(report_data, colWidths=[2*inch, 4.5*inch])
+    report_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(report_table)
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Vehicle Details
+    elements.append(Paragraph("VEHICLE DETAILS", styles['SectionTitle']))
+    vehicle_data = [
+        ['Registration:', data.get('registration', '[REG NOT PROVIDED]')],
+        ['Make/Model:', data.get('make_model', '[NOT PROVIDED]')],
+        ['Colour:', data.get('colour', '[NOT PROVIDED]')],
+        ['Condition:', data.get('condition', '[NOT PROVIDED]')],
+    ]
+    
+    vehicle_table = Table(vehicle_data, colWidths=[2*inch, 4.5*inch])
+    vehicle_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(vehicle_table)
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Description
+    elements.append(Paragraph("DESCRIPTION", styles['SectionTitle']))
+    description = data.get('description', 'Vehicle appears to have been abandoned on the property.')
+    elements.append(Paragraph(description, styles['FieldValue']))
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Action Taken
+    elements.append(Paragraph("ACTION TAKEN", styles['SectionTitle']))
+    actions = [
         "• Vehicle documented with photographs",
         "• DVLA lookup completed",
         "• Notice affixed to vehicle",
         f"• Property owner notified: {data.get('client_name', '[CLIENT]')}",
-        "",
-        "RECOMMENDATIONS",
+    ]
+    for action in actions:
+        elements.append(Paragraph(action, styles['LegalText']))
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Recommendations
+    elements.append(Paragraph("RECOMMENDATIONS", styles['SectionTitle']))
+    recommendations = [
         "• Property owner to contact local authority for removal",
         "• Continue monitoring for 7 days",
         "• If not removed, escalate to legal action",
     ]
+    for rec in recommendations:
+        elements.append(Paragraph(rec, styles['LegalText']))
+    elements.append(Spacer(1, 0.3*inch))
     
-    for detail in details:
-        if detail.startswith("VEHICLE DETAILS") or detail.startswith("DESCRIPTION") or detail.startswith("ACTION TAKEN") or detail.startswith("RECOMMENDATIONS"):
-            c.setFont("Helvetica-Bold", 11)
-            y_position -= 5
-        else:
-            c.setFont("Helvetica", 10)
-        
-        c.drawString(80, y_position, detail)
-        y_position -= 14
+    # Report By
+    report_by_data = [
+        ['Report compiled by:', 'V3 Services Ltd'],
+        ['Agent:', data.get('agent_name', '[AGENT NAME]')],
+        ['Contact:', '0203 576 1343'],
+    ]
     
-    y_position -= 20
+    report_by_table = Table(report_by_data, colWidths=[2*inch, 4.5*inch])
+    report_by_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(report_by_table)
     
-    # Report by
-    c.setFont("Helvetica", 10)
-    c.drawString(80, y_position, "Report compiled by:")
-    y_position -= 15
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(80, y_position, "V3 Services Ltd")
-    y_position -= 15
-    c.setFont("Helvetica", 9)
-    c.drawString(80, y_position, f"Agent: {data.get('agent_name', '[AGENT NAME]')}")
-    y_position -= 12
-    c.drawString(80, y_position, f"Contact: 0203 576 1343")
-    
-    c.save()
-    buffer.seek(0)
-    return buffer
+    return elements
 
 @notices_bp.route('/admin/notices/types', methods=['GET'])
 @jwt_required()
@@ -326,18 +359,23 @@ def generate_notice():
         notice_type = data.get('notice_type')
         notice_data = data.get('data', {})
         
-        print(f"Generating notice type: {notice_type}")
-        print(f"Notice data: {notice_data}")
+        current_app.logger.info(f"Generating notice type: {notice_type}")
+        current_app.logger.info(f"Notice data: {notice_data}")
         
-        # Generate PDF based on notice type
+        # Generate PDF
+        pdf_bytes = generate_notice_pdf(notice_type, notice_data)
+        
+        # Create buffer
+        pdf_buffer = io.BytesIO(pdf_bytes)
+        pdf_buffer.seek(0)
+        
+        # Create filename
         if notice_type == 'notice_to_vacate':
-            pdf_buffer = generate_notice_to_vacate_pdf(notice_data)
             filename = f"Notice_to_Vacate_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         elif notice_type == 'abandoned_vehicle':
-            pdf_buffer = generate_abandoned_vehicle_pdf(notice_data)
             filename = f"Abandoned_Vehicle_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         else:
-            return jsonify({'error': 'Invalid notice type'}), 400
+            filename = f"Notice_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         
         return send_file(
             pdf_buffer,
@@ -346,7 +384,7 @@ def generate_notice():
             download_name=filename
         )
     except Exception as e:
-        print(f"Error generating notice: {str(e)}")
+        current_app.logger.error(f"Error generating notice: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Failed to generate notice: {str(e)}'}), 500
