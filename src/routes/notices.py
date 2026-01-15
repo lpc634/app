@@ -132,15 +132,15 @@ def generate_notice_to_vacate_content(data, styles):
     """Generate content for Notice to Vacate"""
     elements = []
     
-    # Title
+    # Title - smaller font
     elements.append(Paragraph("LEGAL NOTICE TO VACATE PREMISES", styles['NoticeTitle']))
-    elements.append(Spacer(1, 0.3*inch))
+    elements.append(Spacer(1, 0.15*inch))  # Reduced from 0.3
     
     # Property Address
     elements.append(Paragraph("PROPERTY ADDRESS", styles['SectionTitle']))
     address_text = data.get('property_address', '[ADDRESS NOT PROVIDED]')
     elements.append(Paragraph(address_text, styles['FieldValue']))
-    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Spacer(1, 0.1*inch))  # Reduced from 0.2
     
     # Date
     notice_date = data.get('date', datetime.now().strftime('%d %B %Y'))
@@ -148,56 +148,54 @@ def generate_notice_to_vacate_content(data, styles):
     date_table = Table(date_data, colWidths=[1*inch, 5.5*inch])
     date_table.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 11),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),  # Reduced from 11
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # Reduced from 8
     ]))
     elements.append(date_table)
-    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Spacer(1, 0.1*inch))  # Reduced from 0.2
     
     # To Occupiers
     elements.append(Paragraph("TO: THE OCCUPIERS", styles['SectionTitle']))
     client_name = data.get('client_name', 'the legal owner')
     intro_text = f"We are writing on behalf of {client_name} of the above property."
     elements.append(Paragraph(intro_text, styles['FieldValue']))
-    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Spacer(1, 0.1*inch))  # Reduced from 0.2
     
     # Take Notice
     elements.append(Paragraph("TAKE NOTICE:", styles['SectionTitle']))
     
+    # Compact notice points - combine some to save space
     notices = [
-        "1. You are currently occupying the above premises WITHOUT the permission or authority of the legal owner.",
+        "1. You are currently occupying the above premises WITHOUT the permission or authority of the legal owner. Your occupation constitutes TRESPASS under English Law.",
         "",
-        "2. Your occupation constitutes TRESPASS under English Law.",
+        "2. The legal owner has NOT granted you any right, licence, or permission to occupy these premises.",
         "",
-        "3. The legal owner has NOT granted you any right, licence, or permission to occupy these premises.",
+        "3. You are hereby required to VACATE THE PREMISES IMMEDIATELY and remove all of your belongings and any persons under your control.",
         "",
-        "4. You are hereby required to VACATE THE PREMISES IMMEDIATELY and remove all of your belongings and any persons under your control.",
+        "4. V3 Services Ltd has been instructed by the legal owner to take all lawful steps necessary to secure possession of this property.",
         "",
-        "5. V3 Services Ltd has been instructed by the legal owner to take all lawful steps necessary to secure possession of this property.",
+        "5. Failure to vacate will result in the legal owner pursuing formal possession proceedings through the County Court, which may result in a Court Order for possession and costs being awarded against you.",
         "",
-        "6. Failure to vacate will result in the legal owner pursuing formal possession proceedings through the County Court, which may result in a Court Order for possession and costs being awarded against you.",
-        "",
-        "7. Any damage to the property, theft, or interference with utilities will be reported to the police and may result in criminal prosecution.",
+        "6. Any damage to the property, theft, or interference with utilities will be reported to the police and may result in criminal prosecution.",
     ]
     
     for notice in notices:
         if notice:
             elements.append(Paragraph(notice, styles['LegalText']))
         else:
-            elements.append(Spacer(1, 0.1*inch))
+            elements.append(Spacer(1, 0.05*inch))  # Reduced from 0.1
     
-    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Spacer(1, 0.1*inch))  # Reduced from 0.2
     
-    # Legal Warning
+    # Legal Warning - more compact
     elements.append(Paragraph("LEGAL WARNING", styles['SectionTitle']))
     warning_text = """Under Section 144 of the Legal Aid, Sentencing and Punishment of Offenders Act 2012, 
-    whilst this property is non-residential, you are still committing an act of trespass. The property owner 
-    is entitled to take lawful action to recover possession. This notice serves as formal notification that 
-    you must leave immediately. The property owner reserves all legal rights and remedies available."""
+    you are committing an act of trespass. The property owner is entitled to take lawful action to recover possession. 
+    This notice serves as formal notification that you must leave immediately. The property owner reserves all legal rights."""
     elements.append(Paragraph(warning_text, styles['LegalText']))
-    elements.append(Spacer(1, 0.3*inch))
+    elements.append(Spacer(1, 0.15*inch))  # Reduced from 0.3
     
-    # Issued By
+    # Issued By - compact table
     issued_data = [
         ['Issued by:', 'V3 Services Ltd'],
         ['Director:', data.get('director_name', 'Lance Johnson')],
@@ -208,8 +206,8 @@ def generate_notice_to_vacate_content(data, styles):
     issued_table = Table(issued_data, colWidths=[1.5*inch, 5*inch])
     issued_table.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),  # Reduced from 10
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),  # Reduced from 6
     ]))
     elements.append(issued_table)
     
