@@ -16,6 +16,7 @@ const navigation = [
   { name: 'Vehicle Search', href: '/admin/vehicle-search', icon: Search },
   { name: 'Police Interactions', href: '/police-interactions', icon: FileText },
   { name: 'V3 Job Reports', href: '/admin/v3-reports', icon: FileEdit },
+  { name: 'Notices', href: '/admin/notices', icon: FileText, adminOnly: true },
   { name: 'Authority to Act', href: '/admin/authority-to-act', icon: FileSignature, adminOnly: true },
   { name: 'Contact Forms', href: '/admin/contact-forms', icon: MessageSquare, adminOnly: true },
   { name: 'E-Flyer', href: '/admin/eflyer', icon: Mail, adminOnly: true },
