@@ -78,7 +78,7 @@ export default function NoticesPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`  // Fixed: use 'token' not 'jwt_token'
         },
         body: JSON.stringify({
           notice_type: selectedNoticeType.id,
@@ -130,7 +130,7 @@ export default function NoticesPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`  // Fixed: use 'token' not 'jwt_token'
         },
         body: JSON.stringify({
           notice_type: selectedNoticeType.id,
