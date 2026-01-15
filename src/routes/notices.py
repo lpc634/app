@@ -25,10 +25,24 @@ def require_admin():
 
 def create_notice_header(c, width, height):
     """Create V3 Services header on PDF"""
-    # Add V3 logo if exists
-    logo_path = 'static/v3_logo.png'
-    if os.path.exists(logo_path):
-        c.drawImage(logo_path, 50, height - 100, width=80, height=80, preserveAspectRatio=True, mask='auto')
+    # Add V3 logo if exists - check multiple possible locations
+    logo_paths = [
+        'static/v3_logo.png',
+        'static/v3-logo.png',
+        os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'v3_logo.png'),
+        os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'v3-logo.png')
+    ]
+    
+    logo_added = False
+    for logo_path in logo_paths:
+        if os.path.exists(logo_path):
+            try:
+                c.drawImage(logo_path, 50, height - 100, width=80, height=80, preserveAspectRatio=True, mask='auto')
+                logo_added = True
+                break
+            except Exception as e:
+                print(f"Could not load logo from {logo_path}: {e}")
+                continue
     
     # Company details - right aligned
     c.setFont("Helvetica-Bold", 11)
@@ -307,23 +321,32 @@ def generate_notice():
     if not user:
         return jsonify({'error': 'Forbidden'}), 403
     
-    data = request.json
-    notice_type = data.get('notice_type')
-    notice_data = data.get('data', {})
-    
-    # Generate PDF based on notice type
-    if notice_type == 'notice_to_vacate':
-        pdf_buffer = generate_notice_to_vacate_pdf(notice_data)
-        filename = f"Notice_to_Vacate_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    elif notice_type == 'abandoned_vehicle':
-        pdf_buffer = generate_abandoned_vehicle_pdf(notice_data)
-        filename = f"Abandoned_Vehicle_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    else:
-        return jsonify({'error': 'Invalid notice type'}), 400
-    
-    return send_file(
-        pdf_buffer,
-        mimetype='application/pdf',
-        as_attachment=True,
-        download_name=filename
-    )
+    try:
+        data = request.json
+        notice_type = data.get('notice_type')
+        notice_data = data.get('data', {})
+        
+        print(f"Generating notice type: {notice_type}")
+        print(f"Notice data: {notice_data}")
+        
+        # Generate PDF based on notice type
+        if notice_type == 'notice_to_vacate':
+            pdf_buffer = generate_notice_to_vacate_pdf(notice_data)
+            filename = f"Notice_to_Vacate_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        elif notice_type == 'abandoned_vehicle':
+            pdf_buffer = generate_abandoned_vehicle_pdf(notice_data)
+            filename = f"Abandoned_Vehicle_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        else:
+            return jsonify({'error': 'Invalid notice type'}), 400
+        
+        return send_file(
+            pdf_buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        print(f"Error generating notice: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to generate notice: {str(e)}'}), 500
