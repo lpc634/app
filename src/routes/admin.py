@@ -3264,7 +3264,7 @@ def generate_v3_report_pdf(report, agent_name=None):
 		pagesize=A4,
 		rightMargin=1.5*cm,
 		leftMargin=1.5*cm,
-		topMargin=3.2*cm,  # Space for header (logo + address)
+		topMargin=4.2*cm,  # Space for header (logo + address) - increased for better spacing
 		bottomMargin=2.0*cm  # Space for footer
 	)
 
@@ -3488,11 +3488,12 @@ def generate_v3_report_pdf(report, agent_name=None):
 				# Add each timeline entry as a separate table for proper spacing
 				sorted_entries = sorted(entries, key=lambda x: x[0])
 				for i, (time, text) in enumerate(sorted_entries):
-					# Format text: add line breaks before sub-timestamps (e.g., "07:10", "10:30")
+					# Format text: add line breaks before sub-timestamps and make them bold
 					formatted_text = str(text)
-					# Add <br/><br/> before time patterns that appear after text (space or punctuation before them)
-					# Match timestamps like "07:10" or "13:45" that follow a space, period, or other text
-					formatted_text = re.sub(r'(\s)(\d{1,2}:\d{2}\s)', r'<br/><br/>\2', formatted_text)
+					# First, make all timestamps bold (e.g., "07:10" becomes "<b>07:10</b>")
+					formatted_text = re.sub(r'(\d{1,2}:\d{2})', r'<b>\1</b>', formatted_text)
+					# Then add line break before timestamps that appear after text (not at start)
+					formatted_text = re.sub(r'(\s)(<b>\d{1,2}:\d{2}</b>\s)', r'<br/>\2', formatted_text)
 					wrapped_text = Paragraph(formatted_text, styles['TimelineText'])
 
 					# Create individual table for each timeline entry
