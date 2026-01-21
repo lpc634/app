@@ -3199,15 +3199,10 @@ def get_job_v3_reports(job_id):
 		for report in reports:
 			report_dict = report.to_dict()
 
-			# Add agent name - use override if set for display
+			# Add agent name
 			agent = User.query.get(report.agent_id)
 			if agent:
-				original_agent_name = f"{agent.first_name} {agent.last_name}".strip()
-				# Use getattr for backwards compatibility if column doesn't exist yet
-				submitted_by_override = getattr(report, 'submitted_by_override', None)
-				report_dict['agent_name'] = submitted_by_override or original_agent_name
-				report_dict['original_agent_name'] = original_agent_name
-				report_dict['submitted_by_override'] = submitted_by_override
+				report_dict['agent_name'] = f"{agent.first_name} {agent.last_name}".strip()
 				report_dict['agent_email'] = agent.email
 
 			# Convert S3 keys to signed URLs
@@ -3703,13 +3698,9 @@ def export_v3_report_pdf(report_id):
 		if not report:
 			return jsonify({'error': 'Report not found'}), 404
 
-		# Get agent name - use override if set, otherwise use actual agent name
-		submitted_by_override = getattr(report, 'submitted_by_override', None)
-		if submitted_by_override:
-			agent_name = submitted_by_override
-		else:
-			agent = User.query.get(report.agent_id)
-			agent_name = f"{agent.first_name} {agent.last_name}".strip() if agent else 'Unknown'
+		# Get agent name
+		agent = User.query.get(report.agent_id)
+		agent_name = f"{agent.first_name} {agent.last_name}".strip() if agent else 'Unknown'
 
 		# Generate PDF
 		pdf_bytes = generate_v3_report_pdf(report, agent_name)
@@ -3758,47 +3749,6 @@ def export_v3_report_pdf(report_id):
 		import traceback
 		current_app.logger.error(traceback.format_exc())
 		return jsonify({'error': 'Failed to generate PDF'}), 500
-
-
-@admin_bp.route('/admin/v3-reports/<int:report_id>/submitted-by', methods=['PATCH'])
-@jwt_required()
-def update_v3_report_submitted_by(report_id):
-	"""Update the submitted_by_override field for a V3 report"""
-	try:
-		from src.models.v3_report import V3JobReport
-
-		current_user_id = get_jwt_identity()
-		user = User.query.get(current_user_id)
-
-		if not user or user.role != 'admin':
-			return jsonify({'error': 'Admin access required'}), 403
-
-		report = V3JobReport.query.get(report_id)
-		if not report:
-			return jsonify({'error': 'Report not found'}), 404
-
-		data = request.get_json()
-		submitted_by_override = data.get('submitted_by_override', '').strip()
-
-		# Check if column exists (migration may not have run yet)
-		if not hasattr(report, 'submitted_by_override'):
-			return jsonify({'error': 'Database migration required. Please run: flask db upgrade'}), 500
-
-		# Allow empty string to clear the override (will use original agent name)
-		report.submitted_by_override = submitted_by_override if submitted_by_override else None
-		db.session.commit()
-
-		current_app.logger.info(f"Admin {user.email} updated submitted_by_override for report {report_id} to: {submitted_by_override or '(cleared)'}")
-
-		return jsonify({
-			'success': True,
-			'submitted_by_override': report.submitted_by_override
-		})
-
-	except Exception as e:
-		current_app.logger.error(f"Error updating submitted_by_override: {str(e)}")
-		db.session.rollback()
-		return jsonify({'error': 'Failed to update submitted by'}), 500
 
 
 @admin_bp.route('/admin/v3-reports/<int:report_id>', methods=['DELETE'])
@@ -3963,13 +3913,9 @@ def download_public_report_pdf(report_id):
 		if not report:
 			return jsonify({'error': 'Report not found'}), 404
 
-		# Get agent name - use override if set, otherwise use actual agent name
-		submitted_by_override = getattr(report, 'submitted_by_override', None)
-		if submitted_by_override:
-			agent_name = submitted_by_override
-		else:
-			agent = User.query.get(report.agent_id)
-			agent_name = f"{agent.first_name} {agent.last_name}".strip() if agent else 'Unknown'
+		# Get agent name
+		agent = User.query.get(report.agent_id)
+		agent_name = f"{agent.first_name} {agent.last_name}".strip() if agent else 'Unknown'
 
 		# Generate PDF using the same function
 		pdf_bytes = generate_v3_report_pdf(report, agent_name)

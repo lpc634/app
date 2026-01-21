@@ -23,9 +23,6 @@ class V3JobReport(db.Model):
     # Photo/Evidence URLs (stored as JSON array)
     photo_urls = db.Column(db.JSON, nullable=True)  # Array of S3 URLs
 
-    # Submitted By Override (allows admin to change the displayed name)
-    submitted_by_override = db.Column(db.String(100), nullable=True)
-
     # Timestamps
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     reviewed_at = db.Column(db.DateTime, nullable=True)
@@ -49,7 +46,6 @@ class V3JobReport(db.Model):
             'submitted_at': self.submitted_at.isoformat() if self.submitted_at else None,
             'reviewed_at': self.reviewed_at.isoformat() if self.reviewed_at else None,
             'reviewed_by': self.reviewed_by,
-            'submitted_by_override': getattr(self, 'submitted_by_override', None),
         }
 
     @staticmethod
