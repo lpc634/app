@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { X, FileText, Calendar, User, Image as ImageIcon, ChevronLeft, ChevronRight, Clock, Users, Shield, Home, AlertTriangle, FileDown, Trash2, Copy, Check } from 'lucide-react';
+import { X, FileText, Calendar, User, Image as ImageIcon, ChevronLeft, ChevronRight, Clock, Users, Shield, Home, AlertTriangle, FileDown, Trash2, Copy, Check, Pencil, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import '../../styles/admin/report-viewer.css';
 
@@ -115,13 +115,16 @@ const SECTIONS = {
   ]
 };
 
-export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
+export default function ReportViewer({ report, isOpen, onClose, onDelete, onReportUpdate }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showPhotoGallery, setShowPhotoGallery] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [isEditingSubmittedBy, setIsEditingSubmittedBy] = useState(false);
+  const [submittedByName, setSubmittedByName] = useState(report?.agent_name || '');
+  const [isSavingSubmittedBy, setIsSavingSubmittedBy] = useState(false);
 
   if (!report) return null;
 
@@ -405,6 +408,48 @@ export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
     }
   };
 
+  // Save submitted by override
+  const handleSaveSubmittedBy = async () => {
+    setIsSavingSubmittedBy(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/admin/v3-reports/${report.id}/submitted-by`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ submitted_by_override: submittedByName }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update submitted by');
+      }
+
+      const data = await response.json();
+      setIsEditingSubmittedBy(false);
+
+      // Notify parent component to refresh the report data
+      if (onReportUpdate) {
+        onReportUpdate(report.id, {
+          agent_name: submittedByName || report.original_agent_name,
+          submitted_by_override: data.submitted_by_override
+        });
+      }
+    } catch (error) {
+      console.error('Error saving submitted by:', error);
+      alert('Failed to save changes: ' + error.message);
+    } finally {
+      setIsSavingSubmittedBy(false);
+    }
+  };
+
+  // Cancel editing and reset to original value
+  const handleCancelEditSubmittedBy = () => {
+    setSubmittedByName(report.agent_name || '');
+    setIsEditingSubmittedBy(false);
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -458,11 +503,51 @@ export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
           <div className="report-viewer__body">
             {/* Metadata */}
             <div className="report-viewer__metadata">
-              <div className="metadata-item">
+              <div className="metadata-item metadata-item--editable">
                 <User size={16} />
-                <span>
-                  <strong>Submitted by:</strong> {report.agent_name || 'Unknown'}
-                </span>
+                {isEditingSubmittedBy ? (
+                  <span className="submitted-by-edit">
+                    <strong>Submitted by:</strong>
+                    <input
+                      type="text"
+                      value={submittedByName}
+                      onChange={(e) => setSubmittedByName(e.target.value)}
+                      className="submitted-by-input"
+                      placeholder="Enter name..."
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleSaveSubmittedBy}
+                      disabled={isSavingSubmittedBy}
+                      className="submitted-by-btn submitted-by-btn--save"
+                      title="Save"
+                    >
+                      <Save size={14} />
+                    </button>
+                    <button
+                      onClick={handleCancelEditSubmittedBy}
+                      disabled={isSavingSubmittedBy}
+                      className="submitted-by-btn submitted-by-btn--cancel"
+                      title="Cancel"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                ) : (
+                  <span>
+                    <strong>Submitted by:</strong> {report.agent_name || 'Unknown'}
+                    {report.original_agent_name && report.agent_name !== report.original_agent_name && (
+                      <span className="original-name-hint"> (was: {report.original_agent_name})</span>
+                    )}
+                    <button
+                      onClick={() => setIsEditingSubmittedBy(true)}
+                      className="submitted-by-edit-btn"
+                      title="Edit submitted by name"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                  </span>
+                )}
               </div>
               <div className="metadata-item">
                 <Calendar size={16} />
