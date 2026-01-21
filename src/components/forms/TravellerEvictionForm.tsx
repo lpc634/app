@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -343,7 +344,7 @@ function CountSelect({ name, label, required = false }) {
 /** ===== Main component ===== */
 export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmit, onCancel }) {
   const form = useForm<ReportValues>({
-    // resolver: zodResolver(ReportSchema),
+    resolver: zodResolver(ReportSchema),
     mode: 'onSubmit', // Only validate on submit
     defaultValues: {
       client: "",
