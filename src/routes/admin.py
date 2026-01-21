@@ -3490,8 +3490,9 @@ def generate_v3_report_pdf(report, agent_name=None):
 				for i, (time, text) in enumerate(sorted_entries):
 					# Format text: add line breaks before sub-timestamps (e.g., "07:10", "10:30")
 					formatted_text = str(text)
-					# Add <br/> before time patterns that aren't at the start of the text
-					formatted_text = re.sub(r'(?<!^)(\d{1,2}:\d{2})', r'<br/>\1', formatted_text)
+					# Add <br/><br/> before time patterns that appear after text (space or punctuation before them)
+					# Match timestamps like "07:10" or "13:45" that follow a space, period, or other text
+					formatted_text = re.sub(r'(\s)(\d{1,2}:\d{2}\s)', r'<br/><br/>\2', formatted_text)
 					wrapped_text = Paragraph(formatted_text, styles['TimelineText'])
 
 					# Create individual table for each timeline entry
