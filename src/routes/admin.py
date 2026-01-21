@@ -16,6 +16,7 @@ import json
 import logging
 import requests
 import io
+import re
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from reportlab.lib.pagesizes import A4
@@ -3487,8 +3488,11 @@ def generate_v3_report_pdf(report, agent_name=None):
 				# Add each timeline entry as a separate table for proper spacing
 				sorted_entries = sorted(entries, key=lambda x: x[0])
 				for i, (time, text) in enumerate(sorted_entries):
-					# Wrap long text
-					wrapped_text = Paragraph(str(text), styles['TimelineText'])
+					# Format text: add line breaks before sub-timestamps (e.g., "07:10", "10:30")
+					formatted_text = str(text)
+					# Add <br/> before time patterns that aren't at the start of the text
+					formatted_text = re.sub(r'(?<!^)(\d{1,2}:\d{2})', r'<br/>\1', formatted_text)
+					wrapped_text = Paragraph(formatted_text, styles['TimelineText'])
 
 					# Create individual table for each timeline entry
 					entry_table = Table([[time, wrapped_text]], colWidths=[1*inch, 5.5*inch])
