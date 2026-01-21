@@ -3484,26 +3484,30 @@ def generate_v3_report_pdf(report, agent_name=None):
 				day_label = "Day 1 Timeline" if day_num == 1 else f"Day {day_num} Timeline"
 				elements.append(Paragraph(day_label, styles['SectionTitle']))
 
-				timeline_table_data = []
-				for time, text in sorted(entries, key=lambda x: x[0]):
+				# Add each timeline entry as a separate table for proper spacing
+				sorted_entries = sorted(entries, key=lambda x: x[0])
+				for i, (time, text) in enumerate(sorted_entries):
 					# Wrap long text
 					wrapped_text = Paragraph(str(text), styles['TimelineText'])
-					timeline_table_data.append([time, wrapped_text])
 
-				if timeline_table_data:
-					timeline_table = Table(timeline_table_data, colWidths=[1*inch, 5.5*inch])
-					timeline_table.setStyle(TableStyle([
-						('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-						('FONTSIZE', (0, 0), (0, -1), 10),
-						('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#ff6b35')),
-						('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+					# Create individual table for each timeline entry
+					entry_table = Table([[time, wrapped_text]], colWidths=[1*inch, 5.5*inch])
+					entry_table.setStyle(TableStyle([
+						('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+						('FONTSIZE', (0, 0), (0, 0), 10),
+						('TEXTCOLOR', (0, 0), (0, 0), colors.HexColor('#ff6b35')),
+						('TOPPADDING', (0, 0), (-1, -1), 6),
+						('BOTTOMPADDING', (0, 0), (-1, -1), 6),
 						('VALIGN', (0, 0), (-1, -1), 'TOP'),
-						('LEFTPADDING', (0, 0), (0, -1), 0),
-						# ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8f9fa')),  # Commented out to show watermark
-						# ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e9ecef')),  # Commented out to show watermark
-						('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#e9ecef')),
+						('LEFTPADDING', (0, 0), (0, 0), 0),
+						('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#e9ecef')),
 					]))
-					elements.append(timeline_table)
+					elements.append(entry_table)
+
+					# Add spacer between entries (except after the last one)
+					if i < len(sorted_entries) - 1:
+						elements.append(Spacer(1, 0.1*inch))
+
 				elements.append(Spacer(1, 0.15*inch))
 
 	# Police Details section
