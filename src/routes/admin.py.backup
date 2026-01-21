@@ -3499,8 +3499,8 @@ def generate_v3_report_pdf(report, agent_name=None):
 						('BOTTOMPADDING', (0, 0), (-1, -1), 8),
 						('VALIGN', (0, 0), (-1, -1), 'TOP'),
 						('LEFTPADDING', (0, 0), (0, -1), 0),
-						# ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8f9fa')),  # Commented out to show watermark
-						# ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e9ecef')),  # Commented out to show watermark
+						('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8f9fa')),
+						('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e9ecef')),
 						('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#e9ecef')),
 					]))
 					elements.append(timeline_table)
