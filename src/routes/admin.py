@@ -3389,7 +3389,6 @@ def generate_v3_report_pdf(report, agent_name=None):
 	meta_data = [
 		['Submitted By:', agent_name or 'Unknown'],
 		['Submitted At:', report.submitted_at.strftime('%d %b %Y at %H:%M') if report.submitted_at else 'Unknown'],
-		['Status:', (report.status or 'submitted').capitalize()],
 	]
 	if report.reviewed_at:
 		meta_data.append(['Reviewed At:', report.reviewed_at.strftime('%d %b %Y at %H:%M')])
