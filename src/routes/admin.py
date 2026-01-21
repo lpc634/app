@@ -22,7 +22,7 @@ from openpyxl.utils import get_column_letter
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, cm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak, KeepTogether
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
@@ -3407,7 +3407,6 @@ def generate_v3_report_pdf(report, agent_name=None):
 	elements.append(Spacer(1, 0.2*inch))
 
 	# Job Details section
-	elements.append(Paragraph("Job Details", styles['SectionTitle']))
 	job_fields = ['client', 'address1', 'address2', 'city', 'postcode', 'date', 'arrival_time']
 	job_data = []
 	for field in job_fields:
@@ -3416,6 +3415,8 @@ def generate_v3_report_pdf(report, agent_name=None):
 			job_data.append([get_label(field) + ':', value])
 
 	if job_data:
+		job_section = []
+		job_section.append(Paragraph("Job Details", styles['SectionTitle']))
 		job_table = Table(job_data, colWidths=[2.5*inch, 4.5*inch])
 		job_table.setStyle(TableStyle([
 			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
@@ -3425,11 +3426,11 @@ def generate_v3_report_pdf(report, agent_name=None):
 			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
 			('VALIGN', (0, 0), (-1, -1), 'TOP'),
 		]))
-		elements.append(job_table)
-	elements.append(Spacer(1, 0.2*inch))
+		job_section.append(job_table)
+		job_section.append(Spacer(1, 0.2*inch))
+		elements.append(KeepTogether(job_section))
 
 	# Agents section
-	elements.append(Paragraph("Agents on Site", styles['SectionTitle']))
 	agent_data = []
 	for i in range(1, 21):
 		field = f'agent_{i}'
@@ -3439,6 +3440,8 @@ def generate_v3_report_pdf(report, agent_name=None):
 			agent_data.append([label, value])
 
 	if agent_data:
+		agent_section = []
+		agent_section.append(Paragraph("Agents on Site", styles['SectionTitle']))
 		agent_table = Table(agent_data, colWidths=[2.5*inch, 4.5*inch])
 		agent_table.setStyle(TableStyle([
 			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
@@ -3448,11 +3451,11 @@ def generate_v3_report_pdf(report, agent_name=None):
 			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
 			('VALIGN', (0, 0), (-1, -1), 'TOP'),
 		]))
-		elements.append(agent_table)
-	elements.append(Spacer(1, 0.2*inch))
+		agent_section.append(agent_table)
+		agent_section.append(Spacer(1, 0.2*inch))
+		elements.append(KeepTogether(agent_section))
 
 	# Property Details section
-	elements.append(Paragraph("Property Details", styles['SectionTitle']))
 	prop_fields = ['prior_notice_served', 'property_condition', 'property_damage', 'damage_details',
 				   'aggressive', 'aggression_details', 'dogs_on_site', 'dog_details',
 				   'num_males', 'num_females', 'num_children']
@@ -3463,6 +3466,8 @@ def generate_v3_report_pdf(report, agent_name=None):
 			prop_data.append([get_label(field) + ':', value])
 
 	if prop_data:
+		prop_section = []
+		prop_section.append(Paragraph("Property Details", styles['SectionTitle']))
 		prop_table = Table(prop_data, colWidths=[2.5*inch, 4.5*inch])
 		prop_table.setStyle(TableStyle([
 			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
@@ -3472,8 +3477,9 @@ def generate_v3_report_pdf(report, agent_name=None):
 			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
 			('VALIGN', (0, 0), (-1, -1), 'TOP'),
 		]))
-		elements.append(prop_table)
-	elements.append(Spacer(1, 0.2*inch))
+		prop_section.append(prop_table)
+		prop_section.append(Spacer(1, 0.2*inch))
+		elements.append(KeepTogether(prop_section))
 
 	# Timeline sections
 	for day_num in range(1, 8):
@@ -3525,7 +3531,8 @@ def generate_v3_report_pdf(report, agent_name=None):
 			police_data.append([get_label(field) + ':', value])
 
 	if police_data:
-		elements.append(Paragraph("Police Details", styles['SectionTitle']))
+		police_section = []
+		police_section.append(Paragraph("Police Details", styles['SectionTitle']))
 		police_table = Table(police_data, colWidths=[2.5*inch, 4.5*inch])
 		police_table.setStyle(TableStyle([
 			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
@@ -3535,11 +3542,11 @@ def generate_v3_report_pdf(report, agent_name=None):
 			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
 			('VALIGN', (0, 0), (-1, -1), 'TOP'),
 		]))
-		elements.append(police_table)
-		elements.append(Spacer(1, 0.2*inch))
+		police_section.append(police_table)
+		police_section.append(Spacer(1, 0.2*inch))
+		elements.append(KeepTogether(police_section))
 
 	# Completion section
-	elements.append(Paragraph("Completion", styles['SectionTitle']))
 	completion_fields = ['departure_time', 'completion_date', 'additional_notes']
 	completion_data = []
 	for field in completion_fields:
@@ -3552,6 +3559,8 @@ def generate_v3_report_pdf(report, agent_name=None):
 				completion_data.append([get_label(field) + ':', value])
 
 	if completion_data:
+		completion_section = []
+		completion_section.append(Paragraph("Completion", styles['SectionTitle']))
 		completion_table = Table(completion_data, colWidths=[2.5*inch, 4.5*inch])
 		completion_table.setStyle(TableStyle([
 			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
@@ -3561,7 +3570,8 @@ def generate_v3_report_pdf(report, agent_name=None):
 			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
 			('VALIGN', (0, 0), (-1, -1), 'TOP'),
 		]))
-		elements.append(completion_table)
+		completion_section.append(completion_table)
+		elements.append(KeepTogether(completion_section))
 
 	# Photos section - embed actual images
 	photo_urls = report.photo_urls or []
