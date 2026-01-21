@@ -3203,8 +3203,11 @@ def get_job_v3_reports(job_id):
 			agent = User.query.get(report.agent_id)
 			if agent:
 				original_agent_name = f"{agent.first_name} {agent.last_name}".strip()
-				report_dict['agent_name'] = report.submitted_by_override or original_agent_name
+				# Use getattr for backwards compatibility if column doesn't exist yet
+				submitted_by_override = getattr(report, 'submitted_by_override', None)
+				report_dict['agent_name'] = submitted_by_override or original_agent_name
 				report_dict['original_agent_name'] = original_agent_name
+				report_dict['submitted_by_override'] = submitted_by_override
 				report_dict['agent_email'] = agent.email
 
 			# Convert S3 keys to signed URLs
@@ -3701,8 +3704,9 @@ def export_v3_report_pdf(report_id):
 			return jsonify({'error': 'Report not found'}), 404
 
 		# Get agent name - use override if set, otherwise use actual agent name
-		if report.submitted_by_override:
-			agent_name = report.submitted_by_override
+		submitted_by_override = getattr(report, 'submitted_by_override', None)
+		if submitted_by_override:
+			agent_name = submitted_by_override
 		else:
 			agent = User.query.get(report.agent_id)
 			agent_name = f"{agent.first_name} {agent.last_name}".strip() if agent else 'Unknown'
@@ -3775,6 +3779,10 @@ def update_v3_report_submitted_by(report_id):
 
 		data = request.get_json()
 		submitted_by_override = data.get('submitted_by_override', '').strip()
+
+		# Check if column exists (migration may not have run yet)
+		if not hasattr(report, 'submitted_by_override'):
+			return jsonify({'error': 'Database migration required. Please run: flask db upgrade'}), 500
 
 		# Allow empty string to clear the override (will use original agent name)
 		report.submitted_by_override = submitted_by_override if submitted_by_override else None
@@ -3956,8 +3964,9 @@ def download_public_report_pdf(report_id):
 			return jsonify({'error': 'Report not found'}), 404
 
 		# Get agent name - use override if set, otherwise use actual agent name
-		if report.submitted_by_override:
-			agent_name = report.submitted_by_override
+		submitted_by_override = getattr(report, 'submitted_by_override', None)
+		if submitted_by_override:
+			agent_name = submitted_by_override
 		else:
 			agent = User.query.get(report.agent_id)
 			agent_name = f"{agent.first_name} {agent.last_name}".strip() if agent else 'Unknown'

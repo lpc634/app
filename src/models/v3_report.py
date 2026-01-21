@@ -49,7 +49,7 @@ class V3JobReport(db.Model):
             'submitted_at': self.submitted_at.isoformat() if self.submitted_at else None,
             'reviewed_at': self.reviewed_at.isoformat() if self.reviewed_at else None,
             'reviewed_by': self.reviewed_by,
-            'submitted_by_override': self.submitted_by_override,
+            'submitted_by_override': getattr(self, 'submitted_by_override', None),
         }
 
     @staticmethod
