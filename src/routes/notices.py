@@ -403,8 +403,17 @@ def generate_rough_sleeper_content(data, styles):
     must vacate this land with all your belongings by:"""
     elements.append(Paragraph(intro_text, styles['RSLegalText']))
 
-    # Vacate Deadline - Red, centered, bold
-    vacate_date = data.get('vacate_date', '[DATE]')
+    # Vacate Deadline - Red, centered, bold - format to UK date
+    vacate_date_raw = data.get('vacate_date', '')
+    if vacate_date_raw:
+        try:
+            # Parse ISO format and convert to UK format
+            dt = datetime.strptime(vacate_date_raw, '%Y-%m-%d')
+            vacate_date = dt.strftime('%d/%m/%Y')
+        except ValueError:
+            vacate_date = vacate_date_raw
+    else:
+        vacate_date = '[DATE]'
     vacate_time = data.get('vacate_time', '12:00')
     deadline_text = f'<u>{vacate_time} – {vacate_date}</u>'
     elements.append(Paragraph(deadline_text, styles['RSDeadline']))
@@ -467,8 +476,17 @@ def generate_rough_sleeper_content(data, styles):
 
     elements.append(Paragraph("<b>On behalf of the Landowner</b>", styles['RSBoldText']))
 
-    # Date Served
-    date_served = data.get('date_served', datetime.now().strftime('%d %B %Y'))
+    # Date Served - format to UK date
+    date_served_raw = data.get('date_served', '')
+    if date_served_raw:
+        try:
+            # Parse ISO format and convert to UK format
+            dt = datetime.strptime(date_served_raw, '%Y-%m-%d')
+            date_served = dt.strftime('%d/%m/%Y')
+        except ValueError:
+            date_served = date_served_raw
+    else:
+        date_served = datetime.now().strftime('%d/%m/%Y')
     elements.append(Paragraph(f"Dated: {date_served}", styles['RSLegalText']))
     elements.append(Spacer(1, 0.15*inch))
 
