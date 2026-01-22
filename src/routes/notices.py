@@ -7,9 +7,9 @@ import io
 import os
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch, cm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from reportlab.lib import colors
 from PyPDF2 import PdfReader, PdfWriter
 
@@ -89,6 +89,8 @@ def generate_notice_pdf(notice_type, notice_data):
         elements = generate_notice_to_vacate_content(notice_data, styles)
     elif notice_type == 'abandoned_vehicle':
         elements = generate_abandoned_vehicle_content(notice_data, styles)
+    elif notice_type == 'rough_sleeper':
+        elements = generate_rough_sleeper_content(notice_data, styles)
     else:
         raise ValueError('Invalid notice type')
     
@@ -301,8 +303,243 @@ def generate_abandoned_vehicle_content(data, styles):
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
     ]))
     elements.append(report_by_table)
-    
+
     return elements
+
+
+def generate_rough_sleeper_content(data, styles):
+    """Generate content for Rough Sleeper Notice - 2 pages"""
+    elements = []
+
+    # Custom styles for rough sleeper notice
+    styles.add(ParagraphStyle(
+        name='RSTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        spaceAfter=12,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1a1a2e'),
+        fontName='Helvetica-Bold'
+    ))
+    styles.add(ParagraphStyle(
+        name='RSSubtitle',
+        parent=styles['Normal'],
+        fontSize=12,
+        spaceAfter=8,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#333333'),
+        fontName='Helvetica-Bold'
+    ))
+    styles.add(ParagraphStyle(
+        name='RSLegalText',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=colors.HexColor('#333333'),
+        spaceBefore=6,
+        spaceAfter=6,
+        alignment=TA_JUSTIFY,
+        leading=12
+    ))
+    styles.add(ParagraphStyle(
+        name='RSBoldText',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#1a1a2e'),
+        fontName='Helvetica-Bold',
+        spaceBefore=8,
+        spaceAfter=4
+    ))
+    styles.add(ParagraphStyle(
+        name='RSCharityTitle',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceBefore=10,
+        spaceAfter=8,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#ff6b35')
+    ))
+    styles.add(ParagraphStyle(
+        name='RSCharityText',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=colors.HexColor('#333333'),
+        alignment=TA_CENTER,
+        spaceAfter=4
+    ))
+
+    # ============ PAGE 1: LEGAL NOTICE ============
+
+    # Title
+    elements.append(Paragraph("NOTICE TO PERSONS UNKNOWN", styles['RSTitle']))
+    elements.append(Spacer(1, 0.1*inch))
+
+    # Property Address Section
+    property_address = data.get('property_address', '[PROPERTY ADDRESS]')
+    elements.append(Paragraph(f"<b>Property:</b> {property_address}", styles['RSBoldText']))
+    elements.append(Spacer(1, 0.1*inch))
+
+    # Landowner Details
+    landowner_name = data.get('landowner_name', '[LANDOWNER NAME]')
+    elements.append(Paragraph(f"<b>On behalf of:</b> {landowner_name} (the Landowner)", styles['RSBoldText']))
+    elements.append(Spacer(1, 0.15*inch))
+
+    # Main Notice Text
+    notice_text = """TAKE NOTICE that you are unlawfully occupying the above property without the permission or consent
+    of the Landowner. The Landowner has not granted you any licence, tenancy, or right to occupy this land or any
+    structure upon it."""
+    elements.append(Paragraph(notice_text, styles['RSLegalText']))
+
+    # Vacate Deadline
+    vacate_date = data.get('vacate_date', '[DATE]')
+    vacate_time = data.get('vacate_time', '12:00')
+    deadline_text = f"""<b>YOU ARE HEREBY REQUIRED TO VACATE THE PROPERTY BY {vacate_time} ON {vacate_date}</b>"""
+    elements.append(Paragraph(deadline_text, styles['RSBoldText']))
+    elements.append(Spacer(1, 0.1*inch))
+
+    # Legal Warning Section - Torts Act
+    torts_text = """<b>TORTS (INTERFERENCE WITH GOODS) ACT 1977 - SECTION 12</b><br/><br/>
+    Any personal property left on the land after the deadline stated above will be deemed abandoned.
+    The Landowner will be entitled to dispose of such property as they see fit without further notice to you.
+    The Landowner accepts no liability for any items left on the property after this date."""
+    elements.append(Paragraph(torts_text, styles['RSLegalText']))
+    elements.append(Spacer(1, 0.1*inch))
+
+    # Additional Legal Text
+    legal_text = """This notice is served in accordance with the common law rights of the Landowner to recover
+    possession of their property from trespassers. Failure to vacate by the deadline may result in the Landowner
+    seeking a possession order from the County Court. You may be liable for the Landowner's legal costs."""
+    elements.append(Paragraph(legal_text, styles['RSLegalText']))
+    elements.append(Spacer(1, 0.1*inch))
+
+    # Liability Disclaimer
+    disclaimer_text = """The Landowner and their agents accept no responsibility for any personal injury or damage
+    to property that may occur whilst you remain on this land. You remain on the property entirely at your own risk."""
+    elements.append(Paragraph(disclaimer_text, styles['RSLegalText']))
+    elements.append(Spacer(1, 0.2*inch))
+
+    # Date Served
+    date_served = data.get('date_served', datetime.now().strftime('%d/%m/%Y'))
+    elements.append(Paragraph(f"<b>Date of Notice:</b> {date_served}", styles['RSBoldText']))
+    elements.append(Spacer(1, 0.15*inch))
+
+    # Signature and Stamp Section
+    signature_data = [
+        ['Served by:', 'V3 Services Ltd'],
+        ['On behalf of:', landowner_name],
+    ]
+
+    signature_table = Table(signature_data, colWidths=[1.5*inch, 4*inch])
+    signature_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    elements.append(signature_table)
+    elements.append(Spacer(1, 0.2*inch))
+
+    # Try to add V3 stamp image
+    stamp_path = os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'notice-assets', 'v3-stamp.png')
+    if os.path.exists(stamp_path):
+        try:
+            stamp_img = Image(stamp_path, width=1.5*inch, height=1.5*inch)
+            elements.append(stamp_img)
+        except Exception as e:
+            current_app.logger.warning(f"Could not load stamp image: {e}")
+
+    # ============ PAGE 2: CHARITY SUPPORT ============
+    elements.append(PageBreak())
+
+    # Page 2 Title
+    elements.append(Paragraph("SUPPORT AND RESOURCES", styles['RSCharityTitle']))
+    elements.append(Spacer(1, 0.1*inch))
+
+    intro_text = """If you are experiencing homelessness or housing difficulties, the following organisations
+    may be able to provide support and assistance:"""
+    elements.append(Paragraph(intro_text, styles['RSCharityText']))
+    elements.append(Spacer(1, 0.2*inch))
+
+    # Charity logos directory
+    assets_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'notice-assets')
+
+    # Define charities with their details
+    charities = [
+        {
+            'name': 'Shelter',
+            'logo': 'shelter-logo.png',
+            'phone': '0808 800 4444',
+            'website': 'www.shelter.org.uk',
+            'description': 'Housing advice and support'
+        },
+        {
+            'name': 'Crisis',
+            'logo': 'crisis-logo.png',
+            'phone': '0300 636 1967',
+            'website': 'www.crisis.org.uk',
+            'description': 'Ending homelessness'
+        },
+        {
+            'name': 'Mind',
+            'logo': 'mind-logo.png',
+            'phone': '0300 123 3393',
+            'website': 'www.mind.org.uk',
+            'description': 'Mental health support'
+        },
+        {
+            'name': 'Samaritans',
+            'logo': 'samaritans-logo.png',
+            'phone': '116 123',
+            'website': 'www.samaritans.org',
+            'description': '24/7 emotional support'
+        },
+        {
+            'name': 'The Big Issue Foundation',
+            'logo': 'big-issue-logo.png',
+            'phone': '020 7526 3200',
+            'website': 'www.bigissue.org.uk',
+            'description': 'Support for Big Issue vendors'
+        },
+    ]
+
+    # Create charity entries
+    for charity in charities:
+        charity_section = []
+
+        # Try to load logo
+        logo_path = os.path.join(assets_dir, charity['logo'])
+        if os.path.exists(logo_path):
+            try:
+                logo_img = Image(logo_path, width=1.2*inch, height=0.6*inch)
+                logo_img.hAlign = 'CENTER'
+                charity_section.append(logo_img)
+            except Exception:
+                charity_section.append(Paragraph(f"<b>{charity['name']}</b>", styles['RSSubtitle']))
+        else:
+            charity_section.append(Paragraph(f"<b>{charity['name']}</b>", styles['RSSubtitle']))
+
+        # Charity details
+        charity_section.append(Paragraph(charity['description'], styles['RSCharityText']))
+        charity_section.append(Paragraph(f"<b>Phone:</b> {charity['phone']}", styles['RSCharityText']))
+        charity_section.append(Paragraph(f"<b>Website:</b> {charity['website']}", styles['RSCharityText']))
+        charity_section.append(Spacer(1, 0.15*inch))
+
+        elements.extend(charity_section)
+
+    elements.append(Spacer(1, 0.2*inch))
+
+    # Local Authority Section
+    local_authority = data.get('local_authority', '')
+    if local_authority:
+        elements.append(Paragraph("<b>Local Authority Housing Services</b>", styles['RSSubtitle']))
+        elements.append(Paragraph(f"Contact {local_authority} Housing Department for assistance with housing.", styles['RSCharityText']))
+        elements.append(Spacer(1, 0.1*inch))
+
+    # Final message
+    final_text = """These organisations provide free, confidential support. Please reach out if you need help."""
+    elements.append(Paragraph(final_text, styles['RSCharityText']))
+
+    return elements
+
 
 @notices_bp.route('/admin/notices/types', methods=['GET'])
 @jwt_required()
@@ -339,6 +576,19 @@ def get_notice_types():
                 {'name': 'description', 'label': 'Description', 'type': 'textarea', 'required': True},
                 {'name': 'agent_name', 'label': 'Agent Name', 'type': 'text', 'required': True},
                 {'name': 'date', 'label': 'Report Date', 'type': 'date', 'required': True},
+            ]
+        },
+        {
+            'id': 'rough_sleeper',
+            'name': 'Rough Sleeper Notice',
+            'description': 'Notice for rough sleepers with charity support information',
+            'fields': [
+                {'name': 'property_address', 'label': 'Property Address', 'type': 'textarea', 'required': True},
+                {'name': 'landowner_name', 'label': 'Landowner Name', 'type': 'text', 'required': True},
+                {'name': 'date_served', 'label': 'Date Served', 'type': 'date', 'required': True},
+                {'name': 'vacate_date', 'label': 'Vacate By Date', 'type': 'date', 'required': True},
+                {'name': 'vacate_time', 'label': 'Vacate By Time', 'type': 'text', 'required': False, 'default': '12:00'},
+                {'name': 'local_authority', 'label': 'Local Authority (optional)', 'type': 'text', 'required': False},
             ]
         }
     ]
@@ -378,6 +628,8 @@ def generate_notice():
             filename = f"Notice_to_Vacate_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         elif notice_type == 'abandoned_vehicle':
             filename = f"Abandoned_Vehicle_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        elif notice_type == 'rough_sleeper':
+            filename = f"Rough_Sleeper_Notice_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         else:
             filename = f"Notice_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         
