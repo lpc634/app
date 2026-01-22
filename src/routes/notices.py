@@ -315,11 +315,13 @@ def generate_rough_sleeper_content(data, styles):
     styles.add(ParagraphStyle(
         name='RSTitle',
         parent=styles['Heading1'],
-        fontSize=18,
-        spaceAfter=12,
+        fontSize=16,
+        spaceAfter=16,
+        spaceBefore=8,
         alignment=TA_CENTER,
-        textColor=colors.HexColor('#1a1a2e'),
-        fontName='Helvetica-Bold'
+        textColor=colors.HexColor('#cc0000'),  # Red color
+        fontName='Helvetica-Bold',
+        underline=1  # Underlined
     ))
     styles.add(ParagraphStyle(
         name='RSSubtitle',
@@ -333,12 +335,12 @@ def generate_rough_sleeper_content(data, styles):
     styles.add(ParagraphStyle(
         name='RSLegalText',
         parent=styles['Normal'],
-        fontSize=9,
+        fontSize=10,
         textColor=colors.HexColor('#333333'),
         spaceBefore=6,
         spaceAfter=6,
         alignment=TA_JUSTIFY,
-        leading=12
+        leading=13
     ))
     styles.add(ParagraphStyle(
         name='RSBoldText',
@@ -348,6 +350,16 @@ def generate_rough_sleeper_content(data, styles):
         fontName='Helvetica-Bold',
         spaceBefore=8,
         spaceAfter=4
+    ))
+    styles.add(ParagraphStyle(
+        name='RSDeadline',
+        parent=styles['Normal'],
+        fontSize=12,
+        textColor=colors.HexColor('#cc0000'),  # Red color
+        fontName='Helvetica-Bold',
+        alignment=TA_CENTER,
+        spaceBefore=12,
+        spaceAfter=12
     ))
     styles.add(ParagraphStyle(
         name='RSCharityTitle',
@@ -369,86 +381,114 @@ def generate_rough_sleeper_content(data, styles):
 
     # ============ PAGE 1: LEGAL NOTICE ============
 
-    # Title
-    elements.append(Paragraph("NOTICE TO PERSONS UNKNOWN", styles['RSTitle']))
-    elements.append(Spacer(1, 0.1*inch))
-
-    # Property Address Section
+    # Header - "To Persons Unknown and Belongings" with property address
     property_address = data.get('property_address', '[PROPERTY ADDRESS]')
-    elements.append(Paragraph(f"<b>Property:</b> {property_address}", styles['RSBoldText']))
-    elements.append(Spacer(1, 0.1*inch))
-
-    # Landowner Details
     landowner_name = data.get('landowner_name', '[LANDOWNER NAME]')
-    elements.append(Paragraph(f"<b>On behalf of:</b> {landowner_name} (the Landowner)", styles['RSBoldText']))
+
+    header_text = f'To Persons Unknown and Belongings ("the Belongings") at<br/>{property_address}'
+    elements.append(Paragraph(header_text, styles['RSSubtitle']))
+    elements.append(Spacer(1, 0.25*inch))
+
+    # Title - Red and underlined
+    elements.append(Paragraph('<u>NOTICE TO VACATE PRIVATE PROPERTY</u>', styles['RSTitle']))
     elements.append(Spacer(1, 0.15*inch))
 
-    # Main Notice Text
-    notice_text = """TAKE NOTICE that you are unlawfully occupying the above property without the permission or consent
-    of the Landowner. The Landowner has not granted you any licence, tenancy, or right to occupy this land or any
-    structure upon it."""
-    elements.append(Paragraph(notice_text, styles['RSLegalText']))
+    # Main Notice Text - landowner intro
+    intro_text = f"""<b>{landowner_name} ("the Landowner")</b> is the Landowner of the land on which you are
+    trespassing. You are here without permission, license or consent, and have no right to
+    remain. Therefore, we are giving you notice that the Landowner requires you to leave. You
+    must vacate this land with all your belongings by:"""
+    elements.append(Paragraph(intro_text, styles['RSLegalText']))
 
-    # Vacate Deadline
+    # Vacate Deadline - Red, centered, bold
     vacate_date = data.get('vacate_date', '[DATE]')
     vacate_time = data.get('vacate_time', '12:00')
-    deadline_text = f"""<b>YOU ARE HEREBY REQUIRED TO VACATE THE PROPERTY BY {vacate_time} ON {vacate_date}</b>"""
-    elements.append(Paragraph(deadline_text, styles['RSBoldText']))
+    deadline_text = f'<u>{vacate_time} – {vacate_date}</u>'
+    elements.append(Paragraph(deadline_text, styles['RSDeadline']))
     elements.append(Spacer(1, 0.1*inch))
 
-    # Legal Warning Section - Torts Act
-    torts_text = """<b>TORTS (INTERFERENCE WITH GOODS) ACT 1977 - SECTION 12</b><br/><br/>
-    Any personal property left on the land after the deadline stated above will be deemed abandoned.
-    The Landowner will be entitled to dispose of such property as they see fit without further notice to you.
-    The Landowner accepts no liability for any items left on the property after this date."""
-    elements.append(Paragraph(torts_text, styles['RSLegalText']))
+    # Self-help warning (in red)
+    selfhelp_text = """If you fail to vacate site and remove the Belongings, the Landowner will exercise its right of
+    self-help to remove you and the Belongings from the land, even in your absence, and have
+    Enforcement Agents to do so on its behalf."""
+    styles.add(ParagraphStyle(
+        name='RSRedText',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#cc0000'),
+        spaceBefore=6,
+        spaceAfter=6,
+        alignment=TA_JUSTIFY,
+        leading=13
+    ))
+    elements.append(Paragraph(selfhelp_text, styles['RSRedText']))
     elements.append(Spacer(1, 0.1*inch))
 
-    # Additional Legal Text
-    legal_text = """This notice is served in accordance with the common law rights of the Landowner to recover
-    possession of their property from trespassers. Failure to vacate by the deadline may result in the Landowner
-    seeking a possession order from the County Court. You may be liable for the Landowner's legal costs."""
-    elements.append(Paragraph(legal_text, styles['RSLegalText']))
+    # Torts Act section (in red)
+    torts_text = """Please note, under Section 12 of the Torts (Interference with Goods) Act 1977, the
+    Landowner intends to dispose of and/or destroy any belongings left on the site unless they
+    are removed by the time and date specified above."""
+    elements.append(Paragraph(torts_text, styles['RSRedText']))
     elements.append(Spacer(1, 0.1*inch))
 
-    # Liability Disclaimer
-    disclaimer_text = """The Landowner and their agents accept no responsibility for any personal injury or damage
-    to property that may occur whilst you remain on this land. You remain on the property entirely at your own risk."""
-    elements.append(Paragraph(disclaimer_text, styles['RSLegalText']))
-    elements.append(Spacer(1, 0.2*inch))
+    # Abandoned belongings warning (bold black)
+    abandoned_text = """<b>ANY BELONGINGS LEFT ON SITE AFTER THIS TIME WILL BE DEEMED ABANDONED.</b>"""
+    elements.append(Paragraph(abandoned_text, styles['RSBoldText']))
+    elements.append(Spacer(1, 0.1*inch))
+
+    # Liability Disclaimer (bold black, all caps style)
+    disclaimer_text = """<b>PLEASE NOTE THAT THE LANDOWNER WILL NOT BE LIABLE FOR ANY ACTUAL OR
+    CONSEQUENTIAL LOSS SUFFERED BY YOU OR ANY THIRD PARTY AS A RESULT OF
+    DISPOSING OR DESTROYING SAID BELONGINGS.</b>"""
+    elements.append(Paragraph(disclaimer_text, styles['RSBoldText']))
+    elements.append(Spacer(1, 0.25*inch))
+
+    # Signature Section - matching competitor layout
+    # Signature image placeholder or text
+    elements.append(Paragraph("Signed: <i>V3 Services</i>", styles['RSLegalText']))
+    elements.append(Paragraph("<b>On behalf of the Landowner</b>", styles['RSBoldText']))
 
     # Date Served
-    date_served = data.get('date_served', datetime.now().strftime('%d/%m/%Y'))
-    elements.append(Paragraph(f"<b>Date of Notice:</b> {date_served}", styles['RSBoldText']))
-    elements.append(Spacer(1, 0.15*inch))
-
-    # Signature and Stamp Section
-    signature_data = [
-        ['Served by:', 'V3 Services Ltd'],
-        ['On behalf of:', landowner_name],
-    ]
-
-    signature_table = Table(signature_data, colWidths=[1.5*inch, 4*inch])
-    signature_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
-    elements.append(signature_table)
+    date_served = data.get('date_served', datetime.now().strftime('%d %B %Y'))
+    elements.append(Paragraph(f"Dated: {date_served}", styles['RSLegalText']))
     elements.append(Spacer(1, 0.2*inch))
 
-    # Try to add V3 stamp image
+    # V3 Stamp image
     stamp_path = os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'notice-assets', 'v3-stamp.png')
     if os.path.exists(stamp_path):
         try:
-            stamp_img = Image(stamp_path, width=1.5*inch, height=1.5*inch)
+            stamp_img = Image(stamp_path, width=1.2*inch, height=1.2*inch)
             elements.append(stamp_img)
         except Exception as e:
             current_app.logger.warning(f"Could not load stamp image: {e}")
 
+    elements.append(Spacer(1, 0.15*inch))
+
+    # Contact details section
+    elements.append(Paragraph("<i>Any queries in relation to this notice should be sent in writing to:</i>", styles['RSLegalText']))
+    elements.append(Spacer(1, 0.1*inch))
+
+    # Contact table - V3 Services details
+    contact_data = [
+        ['V3 Services Ltd', 'Tel:', '0203 576 1343'],
+        ['', 'Email:', 'Info@V3-Services.com'],
+    ]
+
+    contact_table = Table(contact_data, colWidths=[2.5*inch, 0.8*inch, 3*inch])
+    contact_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    elements.append(contact_table)
+
     # ============ PAGE 2: CHARITY SUPPORT ============
     elements.append(PageBreak())
+
+    # Add spacer to push content down from header
+    elements.append(Spacer(1, 0.5*inch))
 
     # Page 2 Title
     elements.append(Paragraph("SUPPORT AND RESOURCES", styles['RSCharityTitle']))
