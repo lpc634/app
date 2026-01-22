@@ -381,6 +381,9 @@ def generate_rough_sleeper_content(data, styles):
 
     # ============ PAGE 1: LEGAL NOTICE ============
 
+    # Add spacer to push content down from header
+    elements.append(Spacer(1, 1.2*inch))
+
     # Header - "To Persons Unknown and Belongings" with property address
     property_address = data.get('property_address', '[PROPERTY ADDRESS]')
     landowner_name = data.get('landowner_name', '[LANDOWNER NAME]')
@@ -488,7 +491,7 @@ def generate_rough_sleeper_content(data, styles):
     elements.append(PageBreak())
 
     # Add spacer to push content down from header
-    elements.append(Spacer(1, 0.5*inch))
+    elements.append(Spacer(1, 1.2*inch))
 
     # Page 2 Title
     elements.append(Paragraph("SUPPORT AND RESOURCES", styles['RSCharityTitle']))
