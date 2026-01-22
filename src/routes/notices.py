@@ -5,6 +5,7 @@ from src.models.user import User
 from datetime import datetime
 import io
 import os
+import re
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch, cm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak, KeepTogether
@@ -12,8 +13,100 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from reportlab.lib import colors
 from PyPDF2 import PdfReader, PdfWriter
+from docx import Document
 
 notices_bp = Blueprint('notices', __name__)
+
+
+def generate_rough_sleeper_docx(notice_data):
+    """
+    Generate a Rough Sleeper Notice using the Word template.
+    Replaces placeholder text with actual form data.
+    Returns bytes of the .docx file.
+    """
+    template_path = os.path.join(os.path.dirname(__file__), '..', 'templates', 'rough_sleeper_template.docx')
+
+    # Load the template
+    doc = Document(template_path)
+
+    # Get form data with defaults
+    property_address = notice_data.get('property_address', '[PROPERTY ADDRESS]')
+    landowner_name = notice_data.get('landowner_name', '[LANDOWNER NAME]')
+
+    # Format dates to UK format
+    vacate_date_raw = notice_data.get('vacate_date', '')
+    if vacate_date_raw:
+        try:
+            dt = datetime.strptime(vacate_date_raw, '%Y-%m-%d')
+            vacate_date = dt.strftime('%d/%m/%Y')
+        except ValueError:
+            vacate_date = vacate_date_raw
+    else:
+        vacate_date = '[DATE]'
+
+    vacate_time = notice_data.get('vacate_time', '12:00')
+
+    date_served_raw = notice_data.get('date_served', '')
+    if date_served_raw:
+        try:
+            dt = datetime.strptime(date_served_raw, '%Y-%m-%d')
+            date_served = dt.strftime('%d/%m/%Y')
+        except ValueError:
+            date_served = date_served_raw
+    else:
+        date_served = datetime.now().strftime('%d/%m/%Y')
+
+    # Define replacement mappings - template text -> new value
+    replacements = {
+        # Property address (the example in template)
+        '11 Berkshire Road Camberley Surrey GU15 4DG': property_address,
+        # Landowner name (the example in template)
+        'CIVIC LTD': landowner_name,
+        # Vacate deadline (the example in template)
+        '12:00-23/01/2026': f'{vacate_time}-{vacate_date}',
+        # Date served (the example in template)
+        '22/01/2026': date_served,
+    }
+
+    # Replace text in all paragraphs
+    for para in doc.paragraphs:
+        for old_text, new_text in replacements.items():
+            if old_text in para.text:
+                # Preserve formatting by replacing in runs
+                for run in para.runs:
+                    if old_text in run.text:
+                        run.text = run.text.replace(old_text, new_text)
+                # Also check if text is split across runs
+                if old_text in para.text:
+                    # Full paragraph replacement as fallback
+                    inline = para.runs
+                    full_text = para.text
+                    new_full_text = full_text.replace(old_text, new_text)
+                    if full_text != new_full_text:
+                        # Clear and rewrite
+                        for run in inline:
+                            run.text = ''
+                        if inline:
+                            inline[0].text = new_full_text
+
+    # Replace text in tables if any
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for para in cell.paragraphs:
+                    for old_text, new_text in replacements.items():
+                        if old_text in para.text:
+                            for run in para.runs:
+                                if old_text in run.text:
+                                    run.text = run.text.replace(old_text, new_text)
+
+    # Save to buffer
+    docx_buffer = io.BytesIO()
+    doc.save(docx_buffer)
+    docx_buffer.seek(0)
+
+    return docx_buffer.getvalue()
+
 
 def require_admin():
     """Helper to check if current user is admin"""
@@ -662,7 +755,8 @@ def get_notice_types():
         {
             'id': 'rough_sleeper',
             'name': 'Rough Sleeper Notice',
-            'description': 'Notice for rough sleepers with charity support information',
+            'description': 'Notice for rough sleepers with charity support information. Downloads as Word document for editing before printing as PDF.',
+            'output_format': 'docx',
             'fields': [
                 {'name': 'property_address', 'label': 'Property Address', 'type': 'textarea', 'required': True},
                 {'name': 'landowner_name', 'label': 'Landowner Name', 'type': 'text', 'required': True},
@@ -679,43 +773,55 @@ def get_notice_types():
 @notices_bp.route('/admin/notices/generate', methods=['POST'])
 @jwt_required()
 def generate_notice():
-    """Generate a notice PDF"""
+    """Generate a notice document (PDF or Word depending on type)"""
     try:
         user = require_admin()
         if not user:
             current_app.logger.error("Access denied - user is not admin")
             return jsonify({'error': 'Forbidden'}), 403
-        
+
         data = request.json
         if not data:
             current_app.logger.error("No JSON data received")
             return jsonify({'error': 'No data provided'}), 400
-            
+
         notice_type = data.get('notice_type')
         notice_data = data.get('data', {})
-        
+
         current_app.logger.info(f"Admin {user.email} generating notice type: {notice_type}")
         current_app.logger.info(f"Notice data: {notice_data}")
-        
-        # Generate PDF
+
+        # Rough sleeper uses Word template - returns .docx for editing
+        if notice_type == 'rough_sleeper':
+            docx_bytes = generate_rough_sleeper_docx(notice_data)
+            docx_buffer = io.BytesIO(docx_bytes)
+            docx_buffer.seek(0)
+            filename = f"Rough_Sleeper_Notice_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+            current_app.logger.info(f"Successfully generated {filename}")
+            return send_file(
+                docx_buffer,
+                mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                as_attachment=True,
+                download_name=filename
+            )
+
+        # Other notice types use PDF generation
         pdf_bytes = generate_notice_pdf(notice_type, notice_data)
-        
+
         # Create buffer
         pdf_buffer = io.BytesIO(pdf_bytes)
         pdf_buffer.seek(0)
-        
+
         # Create filename
         if notice_type == 'notice_to_vacate':
             filename = f"Notice_to_Vacate_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         elif notice_type == 'abandoned_vehicle':
             filename = f"Abandoned_Vehicle_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        elif notice_type == 'rough_sleeper':
-            filename = f"Rough_Sleeper_Notice_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         else:
             filename = f"Notice_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        
+
         current_app.logger.info(f"Successfully generated {filename}")
-        
+
         return send_file(
             pdf_buffer,
             mimetype='application/pdf',
