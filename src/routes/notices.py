@@ -447,42 +447,62 @@ def generate_rough_sleeper_content(data, styles):
     elements.append(Spacer(1, 0.25*inch))
 
     # Signature Section - matching competitor layout
-    # Signature image placeholder or text
-    elements.append(Paragraph("Signed: <i>V3 Services</i>", styles['RSLegalText']))
+    assets_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'notice-assets')
+    signature_path = os.path.join(assets_dir, 'signature.png')
+
+    # Signature with image
+    if os.path.exists(signature_path):
+        try:
+            sig_img = Image(signature_path, width=1.5*inch, height=0.6*inch)
+            sig_table = Table([['Signed:', sig_img]], colWidths=[0.8*inch, 2*inch])
+            sig_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+                ('FONTSIZE', (0, 0), (0, 0), 10),
+            ]))
+            elements.append(sig_table)
+        except Exception:
+            elements.append(Paragraph("Signed: <i>V3 Services</i>", styles['RSLegalText']))
+    else:
+        elements.append(Paragraph("Signed: <i>V3 Services</i>", styles['RSLegalText']))
+
     elements.append(Paragraph("<b>On behalf of the Landowner</b>", styles['RSBoldText']))
 
     # Date Served
     date_served = data.get('date_served', datetime.now().strftime('%d %B %Y'))
     elements.append(Paragraph(f"Dated: {date_served}", styles['RSLegalText']))
-    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Spacer(1, 0.15*inch))
 
     # V3 Stamp image
-    stamp_path = os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'notice-assets', 'v3-stamp.png')
+    stamp_path = os.path.join(assets_dir, 'v3-stamp.png')
     if os.path.exists(stamp_path):
         try:
-            stamp_img = Image(stamp_path, width=1.2*inch, height=1.2*inch)
+            stamp_img = Image(stamp_path, width=1.0*inch, height=1.0*inch)
             elements.append(stamp_img)
         except Exception as e:
             current_app.logger.warning(f"Could not load stamp image: {e}")
 
-    elements.append(Spacer(1, 0.15*inch))
+    elements.append(Spacer(1, 0.2*inch))
 
     # Contact details section
     elements.append(Paragraph("<i>Any queries in relation to this notice should be sent in writing to:</i>", styles['RSLegalText']))
-    elements.append(Spacer(1, 0.1*inch))
+    elements.append(Spacer(1, 0.15*inch))
 
-    # Contact table - V3 Services details
+    # Contact table - V3 Services details matching competitor layout
     contact_data = [
         ['V3 Services Ltd', 'Tel:', '0203 576 1343'],
-        ['', 'Email:', 'Info@V3-Services.com'],
+        ['117 Dartford Road', 'Email:', 'Info@V3-Services.com'],
+        ['Dartford, DA1 3EN', '', ''],
     ]
 
-    contact_table = Table(contact_data, colWidths=[2.5*inch, 0.8*inch, 3*inch])
+    contact_table = Table(contact_data, colWidths=[2.5*inch, 0.7*inch, 2.5*inch])
     contact_table.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 1), (0, -1), 'Helvetica'),
         ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTNAME', (2, 0), (2, -1), 'Helvetica'),
         ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
     elements.append(contact_table)
