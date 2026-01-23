@@ -37,8 +37,6 @@ import PoliceInteractionsPage from './Pages/PoliceInteractionsPage.jsx';
 import AdminContactForms from './Pages/AdminContactForms.jsx';
 import CRMPage from './Pages/CRMPage.jsx';
 import PublicReportPage from './Pages/PublicReportPage.jsx';
-import NoticesPage from './Pages/NoticesPage.jsx';
-import AgentNoticesPage from './Pages/AgentNoticesPage.jsx';
 
 import NotificationsPage from './Pages/NotificationsPage';
 import ProfilePage from './Pages/ProfilePage';
@@ -128,7 +126,6 @@ function App() {
           <Route path="/police-interactions" element={<ProtectedRoute allowedRoles={['admin', 'manager', 'agent']}><Layout><PoliceInteractionsPage /></Layout></ProtectedRoute>} />
           <Route path="/admin/contact-forms" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout><AdminContactForms /></Layout></ProtectedRoute>} />
           <Route path="/admin/crm" element={<ProtectedRoute allowedRoles={['admin']}><Layout><CRMPage /></Layout></ProtectedRoute>} />
-          <Route path="/admin/notices" element={<ProtectedRoute allowedRoles={['admin']}><Layout><NoticesPage /></Layout></ProtectedRoute>} />
 
           {/* Agent Routes */}
           <Route element={<ProtectedRoute allowedRoles={['agent', 'admin', 'manager']}><AgentLayout /></ProtectedRoute>}>
@@ -148,7 +145,6 @@ function App() {
             <Route path="/agent/v3-reports" element={<V3JobReports />} />
             <Route path="/agent/notifications" element={<NotificationsPage />} />
             <Route path="/agent/police-interactions" element={<PoliceInteractionsPage />} />
-            <Route path="/agent/notices" element={<AgentNoticesPage />} />
             <Route path="/agent/profile" element={<AgentProfile />} />
           </Route>
           

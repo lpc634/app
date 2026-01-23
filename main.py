@@ -57,7 +57,6 @@ from src.routes.forms import forms_bp
 from src.routes.authority_to_act import authority_bp
 from src.routes.contact_forms import contact_forms_bp
 from src.routes.crm import crm_bp
-from src.routes.notices import notices_bp
 
 
 # --- Flask App Initialization ---
@@ -220,7 +219,6 @@ app.register_blueprint(forms_bp, url_prefix='/api')
 app.register_blueprint(authority_bp, url_prefix='/api')
 app.register_blueprint(contact_forms_bp, url_prefix='/api')
 app.register_blueprint(crm_bp, url_prefix='/api/crm')
-app.register_blueprint(notices_bp, url_prefix='/api')
 
 # ==================== CONTACT FORM AUTOMATION ====================
 # Contact Form Endpoint with OpenAI Auto-Reply, Telegram & Email Integration

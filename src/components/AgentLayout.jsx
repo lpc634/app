@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { Home, ClipboardList, Calendar, Bell, Power, User as UserIcon, FileText as InvoiceIcon, Menu, X, Search, Shield, FileEdit, FileDown } from 'lucide-react';
+import { Home, ClipboardList, Calendar, Bell, Power, User as UserIcon, FileText as InvoiceIcon, Menu, X, Search, Shield, FileEdit } from 'lucide-react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetTrigger } from './ui/sheet';
@@ -16,7 +16,6 @@ const agentNavItems = [
   { name: 'Police Interactions', path: '/agent/police-interactions', icon: Shield },
   { name: 'Job Reports', path: '/agent/reports', icon: ClipboardList },
   { name: 'V3 Job Reports', path: '/agent/v3-reports', icon: FileEdit, badge: 'NEW' },
-  { name: 'Notices', path: '/agent/notices', icon: FileDown },
   { name: 'Notifications', path: '/agent/notifications', icon: Bell },
   { name: 'My Profile', path: '/agent/profile', icon: UserIcon },
 ];
