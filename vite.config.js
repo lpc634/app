@@ -8,7 +8,17 @@ export default defineConfig({
   build: {
     target: ['safari13'],
     cssTarget: 'safari13',
-    sourcemap: true
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui': ['lucide-react', 'sonner'],
+          'firebase': ['firebase/app', 'firebase/messaging'],
+          'recharts': ['recharts'],
+        }
+      }
+    }
   },
   resolve: {
     alias: {
