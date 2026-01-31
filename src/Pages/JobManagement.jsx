@@ -15,6 +15,7 @@ import ReportViewer from '@/components/modals/ReportViewer.jsx';
 import InvoicePdfViewer from '@/components/admin/invoices/InvoicePdfViewer.jsx';
 import { usePageHeader } from "@/components/layout/PageHeaderContext.jsx";
 import { useAuth } from '../useAuth.jsx';
+import { useApiData } from '@/hooks/useApiCache.js';
 import { extractUkPostcode } from '../utils/ukPostcode';
 import { JOB_TYPES } from '../constants/jobTypes.js';
 import { toast } from 'sonner';
@@ -59,9 +60,9 @@ const initialJobState = {
 
 export default function JobManagement() {
   const { register } = usePageHeader();
-  const [jobs, setJobs] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const { data: jobsData, loading, error: jobsError, refetch: refetchJobs } = useApiData('/jobs')
+  const jobs = jobsData?.jobs || []
+  const error = jobsError ? 'Failed to load jobs' : ''
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   // Parent state machine for modal management
@@ -170,27 +171,10 @@ export default function JobManagement() {
   }
 
 
-  const fetchJobs = async () => {
-    try {
-      setLoading(true)
-      const data = await apiCall('/jobs')
-      setJobs(data.jobs || [])
-    } catch (error) {
-      setError('Failed to load jobs')
-      console.error('Jobs error:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
     const count = Number(newJob.agents_required)
     setBillingAgentCount(String(Number.isFinite(count) && count > 0 ? count : 1))
   }, [newJob.agents_required])
-
-  useEffect(() => {
-    fetchJobs()
-  }, [])
 
   useEffect(() => {
     register({
@@ -349,7 +333,7 @@ export default function JobManagement() {
       setBillingNoticeFeeNet('')
       setLoc({ lat: null, lng: null, maps_link: '' })
       setMapOpen(false)
-      fetchJobs()
+      refetchJobs()
     } catch (error) {
       toast.error("Error", {
   description: error.message || "Failed to create job",
@@ -370,7 +354,7 @@ export default function JobManagement() {
   description: `Job status changed to ${newStatus}`,
 })
 
-      fetchJobs()
+      refetchJobs()
     } catch (error) {
       toast.error("Error", {
   description: error.message || "Failed to update job",
@@ -383,7 +367,7 @@ export default function JobManagement() {
       if (!confirm('Delete this job? This cannot be undone.')) return;
       await apiCall(`/admin/jobs/${jobId}`, { method: 'DELETE' })
       toast.success('Job deleted')
-      fetchJobs()
+      refetchJobs()
     } catch (error) {
       toast.error('Failed to delete job', { description: error.message })
     }
@@ -522,7 +506,7 @@ export default function JobManagement() {
     )
   }
 
-  if (loading) {
+  if (loading && !jobsData) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">

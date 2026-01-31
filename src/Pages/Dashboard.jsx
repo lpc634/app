@@ -5,10 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../useAuth.jsx';
 import { useToast } from '../use-toast.js';
 import { Link } from 'react-router-dom';
-import { 
-  PlusCircle, 
-  Briefcase, 
-  Users, 
+import {
+  PlusCircle,
+  Briefcase,
+  Users,
   Clock,
   RefreshCw,
   ServerCrash,
@@ -20,15 +20,10 @@ import {
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch.jsx';
 import { usePageHeader } from '@/components/layout/PageHeaderContext.jsx';
+import { useApiData } from '@/hooks/useApiCache.js';
 
 export default function Dashboard() {
   const { register } = usePageHeader();
-  const [liveJobs, setLiveJobs] = useState([]);
-  const [availableAgents, setAvailableAgents] = useState([]);
-  const [pendingDocuments, setPendingDocuments] = useState([]);
-  const [documentStats, setDocumentStats] = useState({ pending: 0, total: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [jobFilter, setJobFilter] = useState('open');
   const [actionLoading, setActionLoading] = useState({});
   const { apiCall, user } = useAuth();
@@ -36,76 +31,50 @@ export default function Dashboard() {
   const [savingToggle, setSavingToggle] = useState(false);
   const { toast } = useToast();
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      const jobsPromise = apiCall('/jobs');
-      
-      const today = new Date().toISOString().split('T')[0];
-      const params = new URLSearchParams({ date: today }).toString();
-      const agentsPromise = apiCall(`/agents/available?${params}`);
+  // --- Each section loads independently (no more Promise.all blocking) ---
+  const today = new Date().toISOString().split('T')[0];
+  const { data: jobsData, loading: jobsLoading, error: jobsError, refetch: refetchJobs } = useApiData('/jobs');
+  const { data: agentsData, loading: agentsLoading } = useApiData(`/agents/available?date=${today}`);
 
-      // Only fetch document data for admin users
-      const promises = [jobsPromise, agentsPromise];
-      if (user?.role === 'admin') {
-        promises.push(apiCall('/admin/documents/pending'));
-        promises.push(apiCall('/admin/agents/documents'));
-        // Also fetch notifications setting
-        promises.push(apiCall('/admin/settings/notifications'));
-      }
+  const isAdmin = user?.role === 'admin';
+  const { data: pendingDocsData } = useApiData('/admin/documents/pending', { enabled: isAdmin });
+  const { data: allAgentsData } = useApiData('/admin/agents/documents', { enabled: isAdmin });
+  const { data: notifData } = useApiData('/admin/settings/notifications', { enabled: isAdmin });
 
-      const responses = await Promise.all(promises);
-      
-      setLiveJobs(responses[0].jobs || []);
-      setAvailableAgents(responses[1].available_agents || []);
+  // Derive state from cached data
+  const liveJobs = jobsData?.jobs || [];
+  const availableAgents = agentsData?.available_agents || [];
+  const pendingDocuments = pendingDocsData?.pending_documents || [];
+  const documentStats = (allAgentsData?.agents || []).reduce(
+    (acc, agent) => {
+      acc.total++;
+      if (agent.verification_status === 'pending') acc.pending++;
+      return acc;
+    },
+    { pending: 0, total: 0 }
+  );
 
-      // Handle document data for admin users
-      if (user?.role === 'admin' && responses.length > 2) {
-        setPendingDocuments(responses[2].pending_documents || []);
-        const agentsData = responses[3].agents || [];
-        const stats = agentsData.reduce((acc, agent) => {
-          acc.total++;
-          if (agent.verification_status === 'pending') acc.pending++;
-          return acc;
-        }, { pending: 0, total: 0 });
-        setDocumentStats(stats);
-        const notif = responses[4];
-        if (typeof notif?.enabled !== 'undefined') setNotificationsEnabled(Boolean(notif.enabled));
-      }
-
-    } catch (error) {
-      setError('Failed to load dashboard data. Please try again.');
-      console.error('Dashboard error:', error);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (notifData && typeof notifData.enabled !== 'undefined') {
+      setNotificationsEnabled(Boolean(notifData.enabled));
     }
-  };
+  }, [notifData]);
 
   const markJobComplete = async (jobId) => {
     try {
       setActionLoading(prev => ({ ...prev, [`complete_${jobId}`]: true }));
-      
+
       const response = await apiCall(`/jobs/${jobId}/complete`, {
         method: 'POST'
       });
-      
+
       if (response && response.success) {
         toast({
           title: "Success",
           description: response.message || "Job marked as complete",
           variant: "default"
         });
-        
-        // Update the job in the current state instead of refetching all data
-        setLiveJobs(prevJobs => 
-          prevJobs.map(job => 
-            job.id === jobId 
-              ? { ...job, status: 'completed' }
-              : job
-          )
-        );
+        refetchJobs();
       }
     } catch (error) {
       console.error('Error completing job:', error);
@@ -123,23 +92,21 @@ export default function Dashboard() {
     if (!confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
       return;
     }
-    
+
     try {
       setActionLoading(prev => ({ ...prev, [`delete_${jobId}`]: true }));
-      
+
       const response = await apiCall(`/jobs/${jobId}`, {
         method: 'DELETE'
       });
-      
+
       if (response && response.success) {
         toast({
           title: "Success",
           description: response.message || "Job deleted successfully",
           variant: "default"
         });
-        
-        // Remove the job from the current state instead of refetching all data
-        setLiveJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+        refetchJobs();
       }
     } catch (error) {
       console.error('Error deleting job:', error);
@@ -167,9 +134,6 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    fetchData();
-  }, []);
-  useEffect(() => {
     register({
       title: 'Dashboard',
       action: (
@@ -182,26 +146,14 @@ export default function Dashboard() {
       )
     });
   }, [register]);
-  
-  if (loading) {
-    return (
-      <div className="space-y-8 animate-pulse">
-        <div className="h-10 w-48 bg-v3-bg-card rounded-md"></div>
-        <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-2 h-72 bg-v3-bg-card rounded-lg"></div>
-            <div className="h-72 bg-v3-bg-card rounded-lg"></div>
-        </div>
-      </div>
-    );
-  }
-  
-  if (error) {
+
+  if (jobsError && !jobsData) {
     return (
       <div className="dashboard-card text-center p-8">
          <ServerCrash className="mx-auto h-16 w-16 text-v3-orange mb-4" />
          <h2 className="text-xl font-bold mb-2">Connection Error</h2>
-         <p className="text-v3-text-muted mb-6">{error}</p>
-         <Button onClick={fetchData} className="button-refresh">
+         <p className="text-v3-text-muted mb-6">Failed to load dashboard data. Please try again.</p>
+         <Button onClick={refetchJobs} className="button-refresh">
             <RefreshCw className="mr-2 h-4 w-4" />
             Try Again
          </Button>
@@ -356,7 +308,14 @@ export default function Dashboard() {
                   </button>
                 </div>
               )}
-              
+
+              {jobsLoading && !jobsData ? (
+                <div className="space-y-4 animate-pulse">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-20 bg-v3-bg-dark rounded-lg" />
+                  ))}
+                </div>
+              ) : (
               <div className="space-y-4">
                 {filteredJobs.length > 0 ? filteredJobs.map(job => (
                   <div key={job.id} className={`p-3 sm:p-4 rounded-lg bg-v3-bg-dark ${job.status === 'completed' ? 'opacity-75' : ''}`}>
@@ -422,6 +381,7 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -436,6 +396,13 @@ export default function Dashboard() {
                <CardDescription>Agents marked as available for today.</CardDescription>
             </CardHeader>
             <CardContent>
+                {agentsLoading && !agentsData ? (
+                  <div className="space-y-3 animate-pulse">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="h-5 bg-v3-bg-dark rounded w-2/3" />
+                    ))}
+                  </div>
+                ) : (
                 <div className="space-y-3">
                     {availableAgents.length > 0 ? availableAgents.map(agent => (
                         <div key={agent.id} className="flex items-center gap-3">
@@ -450,6 +417,7 @@ export default function Dashboard() {
                         </div>
                     )}
                 </div>
+                )}
             </CardContent>
           </Card>
           
