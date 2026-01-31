@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth, AuthProvider } from './useAuth';
 import { Toaster as SonnerToaster } from "./components/ui/sonner.jsx";
@@ -10,42 +10,95 @@ import Layout from './Layout';
 import AdminLayoutOutlet from './components/layout/AdminLayoutOutlet.jsx';
 import VersionBadge from './components/VersionBadge';
 
+// --- Route import functions (used for both lazy() and preloading) ---
+const routeImports = {
+  Dashboard: () => import('./Pages/Dashboard'),
+  JobManagement: () => import('./Pages/JobManagement'),
+  AgentManagement: () => import('./Pages/AgentManagement'),
+  AdminAgentInvoices: () => import('./Pages/AdminAgentInvoices'),
+  AgentDashboard: () => import('./components/AgentDashboard'),
+  JobReports: () => import('./Pages/JobReports'),
+  V3JobReports: () => import('./Pages/V3JobReports'),
+  DebugPage: () => import('./Pages/DebugPage'),
+  JobDetails: () => import('./components/JobDetails'),
+  AgentLayout: () => import('./components/AgentLayout'),
+  SignUpPage: () => import('./Pages/SignUpPage'),
+  AgentProfile: () => import('./components/AgentProfile.jsx'),
+  AgentInvoices: () => import('./components/AgentInvoices'),
+  CreateInvoicePage: () => import('./components/CreateInvoicePage'),
+  CreateInvoiceFromJobs: () => import('./components/CreateInvoiceFromJobs'),
+  CreateMiscInvoice: () => import('./components/CreateMiscInvoice'),
+  ReviewInvoicePage: () => import('./components/ReviewInvoicePage'),
+  AdminMore: () => import('./Pages/admin/AdminMore.jsx'),
+  MessageAgents: () => import('./Pages/admin/communications/MessageAgents.jsx'),
+  AuthorityToActManager: () => import('./Pages/admin/AuthorityToActManager.jsx'),
+  PublicAuthorityToActPage: () => import('./Pages/PublicAuthorityToActPage.jsx'),
+  EFlyerPage: () => import('./Pages/EFlyerPage.jsx'),
+  EFlyerRedirect: () => import('./Pages/EFlyerRedirect.jsx'),
+  ContactFormPage: () => import('./Pages/ContactFormPage.jsx'),
+  Analytics: () => import('./Pages/Analytics'),
+  AvailabilityPage: () => import('./Pages/AvailabilityPage'),
+  AdminDocumentReview: () => import('./components/AdminDocumentReview'),
+  AdminExpenses: () => import('./Pages/AdminExpenses'),
+  PoliceInteractionsPage: () => import('./Pages/PoliceInteractionsPage.jsx'),
+  AdminContactForms: () => import('./Pages/AdminContactForms.jsx'),
+  CRMPage: () => import('./Pages/CRMPage.jsx'),
+  PublicReportPage: () => import('./Pages/PublicReportPage.jsx'),
+  NotificationsPage: () => import('./Pages/NotificationsPage'),
+  VehicleSearchPage: () => import('./Pages/VehicleSearchPage.jsx'),
+  UpdateInvoicePage: () => import('./components/UpdateInvoicePage'),
+};
+
 // --- Lazy loaded pages ---
-const Dashboard = lazy(() => import('./Pages/Dashboard'));
-const JobManagement = lazy(() => import('./Pages/JobManagement'));
-const AgentManagement = lazy(() => import('./Pages/AgentManagement'));
-const AdminAgentInvoices = lazy(() => import('./Pages/AdminAgentInvoices'));
-const AgentDashboard = lazy(() => import('./components/AgentDashboard'));
-const JobReports = lazy(() => import('./Pages/JobReports'));
-const V3JobReports = lazy(() => import('./Pages/V3JobReports'));
-const DebugPage = lazy(() => import('./Pages/DebugPage'));
-const JobDetails = lazy(() => import('./components/JobDetails'));
-const AgentLayout = lazy(() => import('./components/AgentLayout'));
-const SignUpPage = lazy(() => import('./Pages/SignUpPage'));
-const AgentProfile = lazy(() => import('./components/AgentProfile.jsx'));
-const AgentInvoices = lazy(() => import('./components/AgentInvoices'));
-const CreateInvoicePage = lazy(() => import('./components/CreateInvoicePage'));
-const CreateInvoiceFromJobs = lazy(() => import('./components/CreateInvoiceFromJobs'));
-const CreateMiscInvoice = lazy(() => import('./components/CreateMiscInvoice'));
-const ReviewInvoicePage = lazy(() => import('./components/ReviewInvoicePage'));
-const AdminMore = lazy(() => import('./Pages/admin/AdminMore.jsx'));
-const MessageAgents = lazy(() => import('./Pages/admin/communications/MessageAgents.jsx'));
-const AuthorityToActManager = lazy(() => import('./Pages/admin/AuthorityToActManager.jsx'));
-const PublicAuthorityToActPage = lazy(() => import('./Pages/PublicAuthorityToActPage.jsx'));
-const EFlyerPage = lazy(() => import('./Pages/EFlyerPage.jsx'));
-const EFlyerRedirect = lazy(() => import('./Pages/EFlyerRedirect.jsx'));
-const ContactFormPage = lazy(() => import('./Pages/ContactFormPage.jsx'));
-const Analytics = lazy(() => import('./Pages/Analytics'));
-const AvailabilityPage = lazy(() => import('./Pages/AvailabilityPage'));
-const AdminDocumentReview = lazy(() => import('./components/AdminDocumentReview'));
-const AdminExpenses = lazy(() => import('./Pages/AdminExpenses'));
-const PoliceInteractionsPage = lazy(() => import('./Pages/PoliceInteractionsPage.jsx'));
-const AdminContactForms = lazy(() => import('./Pages/AdminContactForms.jsx'));
-const CRMPage = lazy(() => import('./Pages/CRMPage.jsx'));
-const PublicReportPage = lazy(() => import('./Pages/PublicReportPage.jsx'));
-const NotificationsPage = lazy(() => import('./Pages/NotificationsPage'));
-const VehicleSearchPage = lazy(() => import('./Pages/VehicleSearchPage.jsx'));
-const UpdateInvoicePage = lazy(() => import('./components/UpdateInvoicePage'));
+const Dashboard = lazy(routeImports.Dashboard);
+const JobManagement = lazy(routeImports.JobManagement);
+const AgentManagement = lazy(routeImports.AgentManagement);
+const AdminAgentInvoices = lazy(routeImports.AdminAgentInvoices);
+const AgentDashboard = lazy(routeImports.AgentDashboard);
+const JobReports = lazy(routeImports.JobReports);
+const V3JobReports = lazy(routeImports.V3JobReports);
+const DebugPage = lazy(routeImports.DebugPage);
+const JobDetails = lazy(routeImports.JobDetails);
+const AgentLayout = lazy(routeImports.AgentLayout);
+const SignUpPage = lazy(routeImports.SignUpPage);
+const AgentProfile = lazy(routeImports.AgentProfile);
+const AgentInvoices = lazy(routeImports.AgentInvoices);
+const CreateInvoicePage = lazy(routeImports.CreateInvoicePage);
+const CreateInvoiceFromJobs = lazy(routeImports.CreateInvoiceFromJobs);
+const CreateMiscInvoice = lazy(routeImports.CreateMiscInvoice);
+const ReviewInvoicePage = lazy(routeImports.ReviewInvoicePage);
+const AdminMore = lazy(routeImports.AdminMore);
+const MessageAgents = lazy(routeImports.MessageAgents);
+const AuthorityToActManager = lazy(routeImports.AuthorityToActManager);
+const PublicAuthorityToActPage = lazy(routeImports.PublicAuthorityToActPage);
+const EFlyerPage = lazy(routeImports.EFlyerPage);
+const EFlyerRedirect = lazy(routeImports.EFlyerRedirect);
+const ContactFormPage = lazy(routeImports.ContactFormPage);
+const Analytics = lazy(routeImports.Analytics);
+const AvailabilityPage = lazy(routeImports.AvailabilityPage);
+const AdminDocumentReview = lazy(routeImports.AdminDocumentReview);
+const AdminExpenses = lazy(routeImports.AdminExpenses);
+const PoliceInteractionsPage = lazy(routeImports.PoliceInteractionsPage);
+const AdminContactForms = lazy(routeImports.AdminContactForms);
+const CRMPage = lazy(routeImports.CRMPage);
+const PublicReportPage = lazy(routeImports.PublicReportPage);
+const NotificationsPage = lazy(routeImports.NotificationsPage);
+const VehicleSearchPage = lazy(routeImports.VehicleSearchPage);
+const UpdateInvoicePage = lazy(routeImports.UpdateInvoicePage);
+
+// --- Preload all route chunks in background after login ---
+function usePreloadRoutes() {
+  const { user } = useAuth();
+  useEffect(() => {
+    if (!user) return;
+    const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 200));
+    idle(() => {
+      Object.values(routeImports).forEach((importFn) => {
+        importFn().catch(() => {});
+      });
+    });
+  }, [user]);
+}
 
 // --- Loading fallback ---
 function PageLoader() {
@@ -91,12 +144,11 @@ function PublicRoute({ children }) {
   return children;
 }
 
-function App() {
+function AppRoutes() {
+  usePreloadRoutes();
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
             <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
             <Route path="/signup" element={<PublicRoute><SignUpPage /></PublicRoute>} />
             <Route path="/form/:token" element={<PublicAuthorityToActPage />} />
@@ -156,6 +208,14 @@ function App() {
             <Route path="*" element={<div className="p-4">Page Not Found</div>} />
           </Routes>
         </Suspense>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRoutes />
         <SonnerToaster />
         <VersionBadge />
       </AuthProvider>
