@@ -506,28 +506,7 @@ export default function JobManagement() {
     )
   }
 
-  if (loading && !jobsData) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight">Job Management</h1>
-        </div>
-        <div className="grid gap-4">
-          {[...Array(3)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="pt-6">
-                <div className="space-y-3">
-                  <div className="h-4 w-1/3 bg-muted animate-pulse rounded"></div>
-                  <div className="h-3 w-1/2 bg-muted animate-pulse rounded"></div>
-                  <div className="h-3 w-2/3 bg-muted animate-pulse rounded"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    )
-  }
+  const isFirstLoad = loading && !jobsData;
 
   return (
     <div className="space-y-6">
@@ -864,15 +843,29 @@ export default function JobManagement() {
 
       {/* Jobs List */}
       <div>
-        {filteredJobs.length === 0 ? (
+        {isFirstLoad ? (
+          <div className="grid gap-4">
+            {[...Array(3)].map((_, i) => (
+              <Card key={i}>
+                <CardContent className="pt-6">
+                  <div className="space-y-3">
+                    <div className="h-4 w-1/3 bg-muted animate-pulse rounded"></div>
+                    <div className="h-3 w-1/2 bg-muted animate-pulse rounded"></div>
+                    <div className="h-3 w-2/3 bg-muted animate-pulse rounded"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : filteredJobs.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
                 <Briefcase className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No jobs found</h3>
                 <p className="text-muted-foreground">
-                  {searchTerm || statusFilter !== 'all' 
-                    ? 'Try adjusting your search or filters' 
+                  {searchTerm || statusFilter !== 'all'
+                    ? 'Try adjusting your search or filters'
                     : 'Create your first job to get started'
                   }
                 </p>
