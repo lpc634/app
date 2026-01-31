@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
-import { BarChart3, Search, FileText, DollarSign, Bug, MessageCircle, FileEdit, FileSignature, Mail, Shield, MessageSquare, Users } from "lucide-react";
+import { BarChart3, Search, FileText, DollarSign, Bug, MessageCircle, FileEdit, FileSignature, Mail, Shield, MessageSquare, Users, LogOut } from "lucide-react";
+import { useAuth } from "@/useAuth.jsx";
 
 export default function AdminMore() {
+  const { user, logout } = useAuth();
+
   const links = [
     { to: "/admin/crm", label: "CRM System", icon: Users, description: "Manage clients, prospects, and partners" },
     { to: "/admin/vehicle-search", label: "Vehicle Search", icon: Search, description: "Search vehicle registration data" },
@@ -49,8 +52,26 @@ export default function AdminMore() {
           );
         })}
       </div>
+
+      {/* Account Section */}
+      <div className="rounded-lg border border-border bg-card p-4 mt-6">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white font-bold flex-shrink-0">
+            {user?.first_name?.[0]}{user?.last_name?.[0]}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">{user?.first_name} {user?.last_name}</p>
+            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+          </div>
+        </div>
+        <button
+          onClick={logout}
+          className="w-full flex items-center gap-3 mt-4 px-3 py-3 rounded-lg text-red-500 hover:bg-red-900/20 transition-colors tap-target"
+        >
+          <LogOut className="h-5 w-5 flex-shrink-0" />
+          <span className="font-medium">Sign Out</span>
+        </button>
+      </div>
     </div>
   );
 }
-
-
