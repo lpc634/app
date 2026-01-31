@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../useAuth';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, AlertCircle, CheckSquare, Square } from 'lucide-react';
+import { Loader2, ArrowLeft, AlertCircle, CheckSquare, Square, Plus, Trash2 } from 'lucide-react';
 
 const CreateInvoiceFromJobs = () => {
   const { apiCall, user } = useAuth();
@@ -10,12 +10,12 @@ const CreateInvoiceFromJobs = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // State to track selected jobs and their hours, e.g., { jobId: { hours: 8, rate: 25.50 }, ... }
+  // State to track selected jobs: { jobId: { rate: '', days: [{ date: '', hours: '' }] } }
   const [selected, setSelected] = useState({});
 
   // State for custom invoice number (agents can specify their own numbering)
   const [customInvoiceNumber, setCustomInvoiceNumber] = useState('');
-  
+
   // State for suggested next invoice number (fetched from backend)
   const [suggestedInvoiceNumber, setSuggestedInvoiceNumber] = useState(null);
 
@@ -52,7 +52,6 @@ const CreateInvoiceFromJobs = () => {
         setSuggestedInvoiceNumber(data.suggested);
       } catch (error) {
         console.error('Failed to fetch suggested invoice number:', error);
-        // Silently fail - placeholder will just show default text
       }
     };
     fetchSuggestedNumber();
@@ -64,26 +63,15 @@ const CreateInvoiceFromJobs = () => {
       if (newSelected[job.id]) {
         delete newSelected[job.id]; // Uncheck
       } else {
-        // Default work_date to the job's arrival date
+        // Default first day to the job's arrival date
         const jobDate = job.arrival_time ? job.arrival_time.split('T')[0] : new Date().toISOString().split('T')[0];
-        newSelected[job.id] = { hours: '', rate: '', work_date: jobDate };
+        newSelected[job.id] = { rate: '', days: [{ date: jobDate, hours: '' }] };
       }
       return newSelected;
     });
   };
 
-  const handleHoursChange = (jobId, hours) => {
-    // Allow only numbers and a single decimal point
-    if (/^\d*\.?\d*$/.test(hours)) {
-      setSelected(prev => ({
-        ...prev,
-        [jobId]: { ...prev[jobId], hours: hours }
-      }));
-    }
-  };
-
   const handleRateChange = (jobId, rate) => {
-    // Allow only numbers and a single decimal point
     if (/^\d*\.?\d*$/.test(rate)) {
       setSelected(prev => ({
         ...prev,
@@ -92,45 +80,81 @@ const CreateInvoiceFromJobs = () => {
     }
   };
 
-  const handleWorkDateChange = (jobId, date) => {
-    setSelected(prev => ({
-      ...prev,
-      [jobId]: { ...prev[jobId], work_date: date }
-    }));
+  const handleDayDateChange = (jobId, dayIndex, date) => {
+    setSelected(prev => {
+      const job = { ...prev[jobId] };
+      const days = [...job.days];
+      days[dayIndex] = { ...days[dayIndex], date };
+      return { ...prev, [jobId]: { ...job, days } };
+    });
+  };
+
+  const handleDayHoursChange = (jobId, dayIndex, hours) => {
+    if (/^\d*\.?\d*$/.test(hours)) {
+      setSelected(prev => {
+        const job = { ...prev[jobId] };
+        const days = [...job.days];
+        days[dayIndex] = { ...days[dayIndex], hours };
+        return { ...prev, [jobId]: { ...job, days } };
+      });
+    }
+  };
+
+  const handleAddDay = (jobId) => {
+    setSelected(prev => {
+      const jobData = { ...prev[jobId] };
+      const days = [...jobData.days];
+      // Default new day to day after the last entry
+      const lastDate = days[days.length - 1]?.date;
+      let nextDate = '';
+      if (lastDate) {
+        const d = new Date(lastDate);
+        d.setDate(d.getDate() + 1);
+        nextDate = d.toISOString().split('T')[0];
+      }
+      days.push({ date: nextDate, hours: '' });
+      return { ...prev, [jobId]: { ...jobData, days } };
+    });
+  };
+
+  const handleRemoveDay = (jobId, dayIndex) => {
+    setSelected(prev => {
+      const jobData = { ...prev[jobId] };
+      const days = [...jobData.days];
+      days.splice(dayIndex, 1);
+      return { ...prev, [jobId]: { ...jobData, days } };
+    });
   };
 
   const handleInvoiceNumberChange = (value) => {
-    // Allow only positive integers
     if (/^\d*$/.test(value)) {
       setCustomInvoiceNumber(value);
     }
   };
 
   const handleFirstHourRateChange = (value) => {
-    // Allow only numbers and a single decimal point
     if (/^\d*\.?\d*$/.test(value)) {
       setFirstHourRate(value);
     }
   };
 
   const handleExtraAgentsChange = (value) => {
-    // Allow only whole numbers
     if (/^\d*$/.test(value)) {
       setExtraAgentsCount(value);
     }
   };
 
   const handleExtrasAmountChange = (value) => {
-    // Allow only numbers and a single decimal point
     if (/^\d*\.?\d*$/.test(value)) {
       setExtrasAmount(value);
     }
   };
 
-  // Calculate total hours from selected jobs
+  // Calculate total hours from all selected jobs and all days
   const totalHours = useMemo(() => {
     return Object.values(selected).reduce((acc, job) => {
-      return acc + (parseFloat(job.hours) || 0);
+      const jobHours = job.days.reduce((dayAcc, day) => dayAcc + (parseFloat(day.hours) || 0), 0);
+      return acc + jobHours;
     }, 0);
   }, [selected]);
 
@@ -139,7 +163,6 @@ const CreateInvoiceFromJobs = () => {
   const extraAgentsBonus = useMemo(() => {
     const agents = parseInt(extraAgentsCount) || 0;
     const firstHourFee = parseFloat(firstHourRate) || 0;
-    // If first hour premium is used, extra agents bonus only applies to remaining hours
     const hoursForBonus = firstHourFee > 0 ? Math.max(0, totalHours - 1) : totalHours;
     return agents * EXTRA_AGENT_RATE * hoursForBonus;
   }, [extraAgentsCount, totalHours, firstHourRate]);
@@ -148,31 +171,24 @@ const CreateInvoiceFromJobs = () => {
     const firstHourFee = parseFloat(firstHourRate) || 0;
     const hasFirstHourPremium = firstHourFee > 0;
 
-    // Calculate jobs total, subtracting 1 hour from total if First Hour Premium is used
-    // The first hour is charged at the premium rate, remaining hours at standard rate
+    // Calculate jobs total from all days
     const jobsTotal = Object.values(selected).reduce((acc, job) => {
-      const hours = parseFloat(job.hours) || 0;
       const rate = parseFloat(job.rate) || 0;
-      return acc + (hours * rate);
+      const jobHours = job.days.reduce((dayAcc, day) => dayAcc + (parseFloat(day.hours) || 0), 0);
+      return acc + (jobHours * rate);
     }, 0);
 
     // If First Hour Premium is used, subtract 1 hour worth of the standard rate
-    // (because that hour is charged at the premium rate instead)
     let adjustedJobsTotal = jobsTotal;
     if (hasFirstHourPremium && totalHours >= 1) {
-      // Get the average rate across selected jobs to subtract
-      const selectedJobs = Object.values(selected).filter(j => parseFloat(j.hours) > 0 && parseFloat(j.rate) > 0);
+      const selectedJobs = Object.values(selected).filter(j => parseFloat(j.rate) > 0 && j.days.some(d => parseFloat(d.hours) > 0));
       if (selectedJobs.length > 0) {
-        // Use the first job's rate for the hour deduction
         const firstJobRate = parseFloat(selectedJobs[0].rate) || 0;
-        adjustedJobsTotal = jobsTotal - firstJobRate; // Subtract 1 hour at standard rate
+        adjustedJobsTotal = jobsTotal - firstJobRate;
       }
     }
 
-    // Add Extras if applicable
     const extras = parseFloat(extrasAmount) || 0;
-
-    // Add First Hour Premium + Adjusted Jobs Total + Extra Agents Bonus + Extras
     return (hasFirstHourPremium ? firstHourFee : 0) + adjustedJobsTotal + extraAgentsBonus + extras;
   }, [selected, firstHourRate, extraAgentsBonus, totalHours, extrasAmount]);
 
@@ -182,22 +198,37 @@ const CreateInvoiceFromJobs = () => {
   const grandTotal = useMemo(() => totalAmount + vatAmount, [totalAmount, vatAmount]);
 
   const handleReviewInvoice = () => {
-    const itemsToInvoice = Object.entries(selected)
-      .filter(([_, job]) => parseFloat(job.hours) > 0 && parseFloat(job.rate) > 0)
-      .map(([jobId, jobData]) => ({
-        jobId: parseInt(jobId),
-        hours: parseFloat(jobData.hours),
-        rate: parseFloat(jobData.rate),
-        work_date: jobData.work_date || null
-      }));
+    // Build time_entries format for multi-day support
+    const timeEntries = [];
 
-    if (itemsToInvoice.length === 0) {
-      toast.error("No jobs selected", { description: "Please select at least one job and enter both hours worked and your rate." });
+    Object.entries(selected).forEach(([jobId, jobData]) => {
+      const rate = parseFloat(jobData.rate);
+      if (!rate || rate <= 0) return;
+
+      const entries = jobData.days
+        .filter(day => parseFloat(day.hours) > 0 && day.date)
+        .map(day => ({
+          work_date: day.date,
+          hours: parseFloat(day.hours),
+          rate_net: rate,
+          notes: ''
+        }));
+
+      if (entries.length > 0) {
+        timeEntries.push({
+          jobId: parseInt(jobId),
+          entries
+        });
+      }
+    });
+
+    if (timeEntries.length === 0) {
+      toast.error("No jobs selected", { description: "Please select at least one job and enter a rate and hours for each day." });
       return;
     }
 
-    // Build the payload
-    const payload = { items: itemsToInvoice };
+    // Build the payload using time_entries format
+    const payload = { time_entries: timeEntries };
 
     // Include custom invoice number if provided
     if (customInvoiceNumber && parseInt(customInvoiceNumber) > 0) {
@@ -214,7 +245,6 @@ const CreateInvoiceFromJobs = () => {
     const extraAgents = parseInt(extraAgentsCount);
     if (extraAgents && extraAgents > 0) {
       payload.extra_agents_count = extraAgents;
-      // If first hour premium is used, extra agents bonus only applies to remaining hours
       const hoursForBonus = firstHourFee > 0 ? Math.max(0, totalHours - 1) : totalHours;
       payload.extra_agents_total_hours = hoursForBonus;
     }
@@ -226,7 +256,6 @@ const CreateInvoiceFromJobs = () => {
       payload.extras_description = extrasDescription.trim() || 'Additional charges';
     }
 
-    // Submit to backend to create invoice
     console.log("Invoice data to be reviewed:", {
       ...payload,
       total: grandTotal
@@ -242,6 +271,11 @@ const CreateInvoiceFromJobs = () => {
     });
   };
 
+  // Helper to get total hours for a specific job
+  const getJobTotalHours = (jobData) => {
+    return jobData.days.reduce((acc, day) => acc + (parseFloat(day.hours) || 0), 0);
+  };
+
   if (loading) {
     return <div className="text-center p-8"><Loader2 className="h-8 w-8 animate-spin mx-auto text-v3-orange" /></div>;
   }
@@ -254,19 +288,13 @@ const CreateInvoiceFromJobs = () => {
           <span>Back to Invoice Type Selection</span>
         </Link>
         <h1 className="text-3xl font-bold tracking-tight">Create Invoice from Jobs</h1>
-        <p className="text-muted-foreground">Select completed jobs and enter the hours worked for each.</p>
+        <p className="text-muted-foreground">Select completed jobs and enter the hours worked for each day.</p>
       </div>
-      
+
       <div className="dashboard-card p-0">
          <div className="p-6 border-b border-v3-border">
             <h2 className="text-xl font-bold text-v3-text-lightest mb-4">Uninvoiced Jobs</h2>
             <div className="flex items-end gap-4 justify-end">
-              <div className="w-24">
-                <label className="block text-sm font-medium text-v3-text-muted mb-1">Rate (£/h)</label>
-              </div>
-              <div className="w-24">
-                <label className="block text-sm font-medium text-v3-text-muted mb-1">Hours</label>
-              </div>
               <div className="w-32">
                 <label htmlFor="invoice-number" className="block text-sm font-medium text-v3-text-muted mb-1">Invoice #</label>
                 <input
@@ -290,7 +318,8 @@ const CreateInvoiceFromJobs = () => {
         ) : (
           <div className="divide-y divide-v3-border">
             {jobs.map(job => (
-              <div key={job.id} className={`p-4 flex flex-col gap-4 ${selected[job.id] ? 'bg-v3-bg-dark' : ''}`}>
+              <div key={job.id} className={`p-4 ${selected[job.id] ? 'bg-v3-bg-dark' : ''}`}>
+                {/* Job header row - checkbox, address, rate */}
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
                   <div className="flex items-center gap-4 flex-shrink-0 cursor-pointer" onClick={() => handleToggleJob(job)}>
                     {selected[job.id] ? <CheckSquare className="w-6 h-6 text-v3-orange" /> : <Square className="w-6 h-6 text-v3-text-muted" />}
@@ -299,38 +328,64 @@ const CreateInvoiceFromJobs = () => {
                       <p className="text-sm text-v3-text-muted">Job Date: {new Date(job.arrival_time).toLocaleDateString('en-GB')}</p>
                     </div>
                   </div>
-                  <div className="flex-grow flex items-center justify-end gap-4 w-full md:w-auto">
-                      <div className="w-24">
-                         <input
-                            type="text"
-                            placeholder="Rate (£/hr)"
-                            value={selected[job.id]?.rate || ''}
-                            onChange={(e) => handleRateChange(job.id, e.target.value)}
-                            disabled={!selected[job.id]}
-                            className="w-full text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange disabled:bg-v3-bg-card disabled:opacity-50"
-                          />
-                      </div>
-                      <div className="w-24">
-                         <input
-                            type="text"
-                            placeholder="Hours"
-                            value={selected[job.id]?.hours || ''}
-                            onChange={(e) => handleHoursChange(job.id, e.target.value)}
-                            disabled={!selected[job.id]}
-                            className="w-full text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange disabled:bg-v3-bg-card disabled:opacity-50"
-                          />
-                      </div>
-                  </div>
+                  {selected[job.id] && (
+                    <div className="flex items-center gap-2 ml-auto">
+                      <label className="text-sm text-v3-text-muted">Rate (£/hr):</label>
+                      <input
+                        type="text"
+                        placeholder="0.00"
+                        value={selected[job.id]?.rate || ''}
+                        onChange={(e) => handleRateChange(job.id, e.target.value)}
+                        className="w-24 text-center bg-v3-bg-dark border border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+                      />
+                    </div>
+                  )}
                 </div>
+
+                {/* Day entries */}
                 {selected[job.id] && (
-                  <div className="flex items-center gap-2 ml-10">
-                    <label className="text-sm text-v3-text-muted whitespace-nowrap">Date Worked:</label>
-                    <input
-                      type="date"
-                      value={selected[job.id]?.work_date || ''}
-                      onChange={(e) => handleWorkDateChange(job.id, e.target.value)}
-                      className="bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-1.5 px-3 text-sm text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
-                    />
+                  <div className="mt-3 ml-10 space-y-2">
+                    {selected[job.id].days.map((day, dayIndex) => (
+                      <div key={dayIndex} className="flex items-center gap-3 flex-wrap">
+                        <span className="text-sm font-medium text-v3-text-muted w-14">Day {dayIndex + 1}:</span>
+                        <input
+                          type="date"
+                          value={day.date || ''}
+                          onChange={(e) => handleDayDateChange(job.id, dayIndex, e.target.value)}
+                          className="bg-v3-bg-dark border border-v3-border rounded-md shadow-sm py-1.5 px-3 text-sm text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Hours"
+                          value={day.hours || ''}
+                          onChange={(e) => handleDayHoursChange(job.id, dayIndex, e.target.value)}
+                          className="w-20 text-center bg-v3-bg-dark border border-v3-border rounded-md shadow-sm py-1.5 px-3 text-sm text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+                        />
+                        <span className="text-sm text-v3-text-muted">hrs</span>
+                        {selected[job.id].days.length > 1 && (
+                          <button
+                            onClick={() => handleRemoveDay(job.id, dayIndex)}
+                            className="text-red-500 hover:text-red-400 p-1"
+                            title="Remove day"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => handleAddDay(job.id)}
+                      className="flex items-center gap-1.5 text-sm text-v3-orange hover:text-orange-400 mt-1 py-1"
+                    >
+                      <Plus size={16} />
+                      Add Day
+                    </button>
+                    {/* Job hours subtotal */}
+                    {selected[job.id].days.length > 1 && (
+                      <p className="text-sm text-v3-text-muted mt-1">
+                        Total: {getJobTotalHours(selected[job.id])} hrs × £{selected[job.id].rate || '0'} = £{(getJobTotalHours(selected[job.id]) * (parseFloat(selected[job.id].rate) || 0)).toFixed(2)}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
