@@ -547,17 +547,17 @@ export default function JobManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Job Management</h1>
-          <p className="text-muted-foreground">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Job Management</h1>
+          <p className="text-sm text-muted-foreground">
             Create and manage field agent assignments
           </p>
         </div>
-        
+
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto shrink-0">
               <Plus className="mr-2 h-4 w-4" />
               Create Job
             </Button>
@@ -571,20 +571,22 @@ export default function JobManagement() {
             </DialogHeader>
             <form onSubmit={handleCreateJob}>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Label htmlFor="title">Job Title/Label</Label>
-                      <input
-                        type="checkbox"
-                        id="use_address_as_title"
-                        checked={newJob.use_address_as_title}
-                        onChange={(e) => handleUseAddressAsTitle(e.target.checked)}
-                        className="h-4 w-4"
-                      />
-                      <Label htmlFor="use_address_as_title" className="text-xs text-muted-foreground">
-                        Use address as title
-                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          id="use_address_as_title"
+                          checked={newJob.use_address_as_title}
+                          onChange={(e) => handleUseAddressAsTitle(e.target.checked)}
+                          className="h-4 w-4"
+                        />
+                        <Label htmlFor="use_address_as_title" className="text-xs text-muted-foreground">
+                          Use address
+                        </Label>
+                      </div>
                     </div>
                     <Input
                       id="title"
@@ -632,9 +634,9 @@ export default function JobManagement() {
                   )}
                 </div>
 
-                <div className="rounded-lg border border-[var(--v3-border)] bg-[var(--v3-bg-dark)] p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
+                <div className="rounded-lg border border-[var(--v3-border)] bg-[var(--v3-bg-dark)] p-3 sm:p-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
+                    <div className="min-w-0">
                       <h3 className="text-sm font-semibold" style={{ color: 'var(--v3-text-lightest)' }}>Entrance location</h3>
                       <p className="text-xs" style={{ color: 'var(--v3-text-muted)' }}>Drop a pin so agents can navigate to the exact entrance.</p>
                     </div>
@@ -642,7 +644,7 @@ export default function JobManagement() {
                       type="button"
                       ref={selectPinBtnRef}
                       onClick={handleOpenMap}
-                      className="button-refresh flex items-center gap-2 px-3 py-2 text-sm"
+                      className="button-refresh flex items-center justify-center gap-2 px-3 py-2 text-sm w-full sm:w-auto shrink-0"
                     >
                       <Navigation className="h-4 w-4" />
                       Select Pin
@@ -683,7 +685,7 @@ export default function JobManagement() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="arrival_time">Arrival Time</Label>
                     <Input
@@ -707,7 +709,7 @@ export default function JobManagement() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="lead_agent_name">Lead Agent Name</Label>
                     <Input
@@ -719,8 +721,8 @@ export default function JobManagement() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="urgency_level">Urgency Level</Label>
-                    <Select 
-                      value={newJob.urgency_level} 
+                    <Select
+                      value={newJob.urgency_level}
                       onValueChange={(value) => setNewJob({...newJob, urgency_level: value})}
                     >
                       <SelectTrigger>
@@ -745,14 +747,14 @@ export default function JobManagement() {
                   />
                 </div>
 
-                <div className="rounded-lg border border-[var(--v3-border)] bg-[var(--v3-bg-dark)] p-4 space-y-4">
+                <div className="rounded-lg border border-[var(--v3-border)] bg-[var(--v3-bg-dark)] p-3 sm:p-4 space-y-4">
                   <div>
                     <h3 className="text-sm font-semibold" style={{ color: 'var(--v3-text-lightest)' }}>Client Pricing (per agent)</h3>
                     <p className="text-xs" style={{ color: 'var(--v3-text-muted)' }}>
                       Agent costs will appear after agents submit their invoices.
                     </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="billingAgentCount">Billable Agents</Label>
                       <Input
@@ -799,7 +801,7 @@ export default function JobManagement() {
                         onChange={(e) => setBillingVatRate(e.target.value)}
                       />
                     </div>
-                    <div className="space-y-2 col-span-2">
+                    <div className="space-y-2 sm:col-span-2">
                       <Label htmlFor="billingNoticeFeeNet">Notice Fee (net)</Label>
                       <Input
                         id="billingNoticeFeeNet"
@@ -815,7 +817,7 @@ export default function JobManagement() {
                 </div>
 
                 {/* Agent Notification Section */}
-                <div className="rounded-lg border border-[var(--v3-border)] bg-[var(--v3-bg-dark)] p-4 space-y-3">
+                <div className="rounded-lg border border-[var(--v3-border)] bg-[var(--v3-bg-dark)] p-3 sm:p-4 space-y-3">
                   <div>
                     <h3 className="text-sm font-semibold" style={{ color: 'var(--v3-text-lightest)' }}>Notify Agents</h3>
                     <p className="text-xs" style={{ color: 'var(--v3-text-muted)' }}>
@@ -905,8 +907,8 @@ export default function JobManagement() {
               { key: 'actions', header: 'Actions' },
             ]}
             renderCard={(job) => (
-              <Card 
-                key={job.id} 
+              <Card
+                key={job.id}
                 className="cursor-pointer hover:border-[var(--v3-orange)] transition-all"
                 onClick={() => {
                   setSelectedJob(job)
@@ -914,63 +916,57 @@ export default function JobManagement() {
                   fetchJobDetails(job.id)
                 }}
               >
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <CardTitle className="flex items-center gap-2">
-                        {job.address}
+                <CardHeader className="p-3 sm:p-6">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <CardTitle className="flex items-center gap-2 flex-wrap text-base sm:text-lg">
+                        <span className="break-words">{job.address}</span>
                         {getUrgencyBadge(job.urgency_level)}
                       </CardTitle>
-                      <CardDescription className="flex items-center gap-4">
+                      <CardDescription className="flex flex-wrap items-center gap-2 sm:gap-4">
                         <span className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
+                          <MapPin className="h-4 w-4 shrink-0" />
                           {job.job_type}
                         </span>
                         <span className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
+                          <Calendar className="h-4 w-4 shrink-0" />
                           {new Date(job.arrival_time).toLocaleString()}
                         </span>
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="shrink-0">
                       {getStatusBadge(job.status)}
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium mb-1">Address</p>
-                        <p className="text-sm text-muted-foreground">{job.address}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium mb-1">Requirements</p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Users className="h-4 w-4" />
-                            {job.agents_required} agents needed
-                          </span>
-                          {job.lead_agent_name && (
-                            <span>Lead: {job.lead_agent_name}</span>
-                          )}
-                        </div>
+                <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-medium mb-1">Requirements</p>
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Users className="h-4 w-4 shrink-0" />
+                          {job.agents_required} agents needed
+                        </span>
+                        {job.lead_agent_name && (
+                          <span>Lead: {job.lead_agent_name}</span>
+                        )}
                       </div>
                     </div>
                     {job.instructions && (
                       <div>
                         <p className="text-sm font-medium mb-1">Instructions</p>
-                        <p className="text-sm text-muted-foreground">{job.instructions}</p>
+                        <p className="text-sm text-muted-foreground break-words">{job.instructions}</p>
                       </div>
                     )}
-                    <div className="flex gap-2 pt-2 border-t">
+                    <div className="flex flex-wrap gap-2 pt-2 border-t">
                       {job.status === 'open' && (
                         <>
-                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleUpdateJobStatus(job.id, 'cancelled'); }}>Cancel Job</Button>
-                          <Button size="sm" onClick={(e) => { e.stopPropagation(); handleUpdateJobStatus(job.id, 'filled'); }}>Mark as Filled</Button>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleUpdateJobStatus(job.id, 'cancelled'); }}>Cancel</Button>
+                          <Button size="sm" onClick={(e) => { e.stopPropagation(); handleUpdateJobStatus(job.id, 'filled'); }}>Filled</Button>
                         </>
                       )}
-                      <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleDeleteJob(job.id); }}>Delete Job</Button>
+                      <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleDeleteJob(job.id); }}>Delete</Button>
                     </div>
                   </div>
                 </CardContent>
