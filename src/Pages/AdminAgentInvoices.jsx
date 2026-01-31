@@ -252,13 +252,13 @@ const AdminAgentInvoices = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Agent Invoices</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Agent Invoices</h1>
         <p className="text-muted-foreground">
           Manage job invoices and download agent submissions
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left Panel - Jobs List */}
         <div className="lg:col-span-1">
           <Card>
@@ -362,15 +362,15 @@ const AdminAgentInvoices = () => {
               {/* Job Header */}
               <Card>
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-xl">{selectedJob.title || 'Untitled Job'}</CardTitle>
-                      <CardDescription className="flex items-center gap-4 mt-2">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
-                          {selectedJob.address}
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="min-w-0">
+                      <CardTitle className="text-lg sm:text-xl truncate">{selectedJob.title || 'Untitled Job'}</CardTitle>
+                      <CardDescription className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2">
+                        <span className="flex items-center gap-1 min-w-0">
+                          <MapPin className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{selectedJob.address}</span>
                         </span>
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-1 shrink-0">
                           <Calendar className="h-4 w-4" />
                           {formatDate(selectedJob.arrival_time)}
                         </span>
@@ -510,7 +510,7 @@ const AdminAgentInvoices = () => {
                         {/* Revenue Section */}
                         <div>
                           <h4 className="font-medium mb-2">Revenue</h4>
-                          <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div className="grid grid-cols-3 gap-2 sm:gap-4 text-sm">
                             <div>
                               <p className="text-muted-foreground">Net</p>
                               <p className="font-bold text-green-600">
@@ -533,7 +533,7 @@ const AdminAgentInvoices = () => {
                           
                           {/* Billing details */}
                           <div className="mt-3 p-3 bg-muted/30 rounded text-xs">
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2">
                               <span>Hours: {jobFinance.billing?.billable_hours_calculated || 0} 
                                 {jobFinance.billing?.billable_hours_override && (
                                   <span className="text-yellow-500"> (overridden)</span>
@@ -568,7 +568,7 @@ const AdminAgentInvoices = () => {
                         {/* Profit Section */}
                         <div className="border-t pt-3">
                           <h4 className="font-medium mb-2">Profit</h4>
-                          <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="grid grid-cols-2 gap-2 sm:gap-4 text-sm">
                             <div>
                               <p className="text-muted-foreground">Net Profit</p>
                               <p className={`font-bold ${(jobFinance.profit?.profit_net || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>

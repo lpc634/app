@@ -236,17 +236,15 @@ export default function Dashboard() {
             <CardDescription>When off, the system will not send Telegram or other notifications. Safe for testing.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Enable notifications</p>
-              </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="font-medium">Enable notifications</p>
               <div className="flex items-center gap-3">
                 <Switch
                   checked={notificationsEnabled}
                   onCheckedChange={(val) => toggleNotifications(val)}
                   disabled={savingToggle}
                 />
-                <Button variant="outline" onClick={() => toggleNotifications()} disabled={savingToggle}>
+                <Button variant="outline" size="sm" onClick={() => toggleNotifications()} disabled={savingToggle}>
                   {notificationsEnabled ? 'Disable' : 'Enable'}
                 </Button>
               </div>
@@ -254,13 +252,13 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
-      <div className="flex justify-between items-center">
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dispatch Center</h1>
-            <p className="text-muted-foreground">Live overview of jobs and agent availability.</p>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dispatch Center</h1>
+            <p className="text-sm text-muted-foreground">Live overview of jobs and agent availability.</p>
         </div>
-        <Link to="/jobs">
-          <Button className="button-refresh flex items-center gap-2">
+        <Link to="/admin/jobs" className="shrink-0">
+          <Button className="button-refresh flex items-center gap-2 w-full sm:w-auto">
             <PlusCircle className="h-5 w-5" />
             Create New Job
           </Button>
@@ -269,7 +267,7 @@ export default function Dashboard() {
 
       {/* Document Review Section - Only for Admin Users */}
       {user?.role === 'admin' && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -335,85 +333,82 @@ export default function Dashboard() {
             <CardContent>
               {/* Job Filter Tabs */}
               {user?.role === 'admin' && (
-                <div className="flex gap-4 mb-6">
-                  <button 
+                <div className="flex flex-wrap gap-2 sm:gap-4 mb-6">
+                  <button
                     onClick={() => setJobFilter('open')}
-                    className={`px-4 py-2 rounded-lg ${jobFilter === 'open' ? 'button-refresh' : 'bg-v3-bg-dark text-v3-text-muted'}`}
+                    className={`px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base ${jobFilter === 'open' ? 'button-refresh' : 'bg-v3-bg-dark text-v3-text-muted'}`}
                   >
-                    Open Jobs
+                    Open
                   </button>
-                  
-                  <button 
+
+                  <button
                     onClick={() => setJobFilter('completed')}
-                    className={`px-4 py-2 rounded-lg ${jobFilter === 'completed' ? 'button-refresh' : 'bg-v3-bg-dark text-v3-text-muted'}`}
+                    className={`px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base ${jobFilter === 'completed' ? 'button-refresh' : 'bg-v3-bg-dark text-v3-text-muted'}`}
                   >
-                    Completed Jobs
+                    Completed
                   </button>
-                  
-                  <button 
+
+                  <button
                     onClick={() => setJobFilter('all')}
-                    className={`px-4 py-2 rounded-lg ${jobFilter === 'all' ? 'button-refresh' : 'bg-v3-bg-dark text-v3-text-muted'}`}
+                    className={`px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base ${jobFilter === 'all' ? 'button-refresh' : 'bg-v3-bg-dark text-v3-text-muted'}`}
                   >
-                    All Jobs
+                    All
                   </button>
                 </div>
               )}
               
               <div className="space-y-4">
                 {filteredJobs.length > 0 ? filteredJobs.map(job => (
-                  <div key={job.id} className={`p-4 rounded-lg bg-v3-bg-dark ${job.status === 'completed' ? 'opacity-75' : ''}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-v3-text-lightest">{job.address}</h3>
+                  <div key={job.id} className={`p-3 sm:p-4 rounded-lg bg-v3-bg-dark ${job.status === 'completed' ? 'opacity-75' : ''}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="font-semibold text-v3-text-lightest text-sm sm:text-base break-words">{job.address}</h3>
                           {job.status === 'completed' && (
-                            <span className="px-2 py-1 bg-green-900/50 text-green-400 border border-green-500/50 rounded-full text-xs">
+                            <span className="px-2 py-0.5 bg-green-900/50 text-green-400 border border-green-500/50 rounded-full text-xs whitespace-nowrap">
                               Completed
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-v3-text-muted">{job.address}</p>
                       </div>
-                      <div className="text-right flex items-center gap-4">
-                        <div>
-                          <div className={`text-lg font-bold ${job.agents_allocated >= job.agents_required ? 'text-green-400' : 'text-v3-orange'}`}>
-                            {job.agents_allocated} / {job.agents_required}
-                          </div>
-                          <p className="text-xs text-v3-text-muted">Allocated</p>
+                      <div className="text-right shrink-0">
+                        <div className={`text-lg font-bold ${job.agents_allocated >= job.agents_required ? 'text-green-400' : 'text-v3-orange'}`}>
+                          {job.agents_allocated} / {job.agents_required}
                         </div>
-                        
-                        {/* Action Buttons - Admin Only */}
-                        {user?.role === 'admin' && (
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => markJobComplete(job.id)}
-                              className="button-refresh px-3 py-1 text-sm flex items-center gap-1"
-                              disabled={job.status === 'completed' || actionLoading[`complete_${job.id}`]}
-                            >
-                              {actionLoading[`complete_${job.id}`] ? (
-                                <RefreshCw className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <CheckCircle className="h-4 w-4" />
-                              )}
-                              {actionLoading[`complete_${job.id}`] ? 'Completing...' : 'Complete'}
-                            </button>
-                            
-                            <button
-                              onClick={() => deleteJob(job.id)}
-                              className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                              disabled={actionLoading[`delete_${job.id}`]}
-                            >
-                              {actionLoading[`delete_${job.id}`] ? (
-                                <RefreshCw className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                              {actionLoading[`delete_${job.id}`] ? 'Deleting...' : 'Delete'}
-                            </button>
-                          </div>
-                        )}
+                        <p className="text-xs text-v3-text-muted">Allocated</p>
                       </div>
                     </div>
+
+                    {/* Action Buttons - Admin Only */}
+                    {user?.role === 'admin' && (
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => markJobComplete(job.id)}
+                          className="button-refresh px-3 py-1.5 text-sm flex items-center gap-1 flex-1 sm:flex-none justify-center"
+                          disabled={job.status === 'completed' || actionLoading[`complete_${job.id}`]}
+                        >
+                          {actionLoading[`complete_${job.id}`] ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle className="h-4 w-4" />
+                          )}
+                          <span>{actionLoading[`complete_${job.id}`] ? 'Completing...' : 'Complete'}</span>
+                        </button>
+
+                        <button
+                          onClick={() => deleteJob(job.id)}
+                          className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-none justify-center"
+                          disabled={actionLoading[`delete_${job.id}`]}
+                        >
+                          {actionLoading[`delete_${job.id}`] ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                          <span>{actionLoading[`delete_${job.id}`] ? 'Deleting...' : 'Delete'}</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )) : (
                   <div className="text-center py-10">

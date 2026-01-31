@@ -17,3 +17,39 @@
 
 .bg-white\/2 { background-color: rgba(255,255,255,0.02); }
 
+/* ===== ADMIN MOBILE FIXES ===== */
+@media (max-width: 767px) {
+  /* Prevent any element from overflowing the viewport */
+  #app-scroll {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  #app-scroll * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Tables should scroll horizontally, not break layout */
+  #app-scroll table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  /* Ensure cards don't overflow */
+  #app-scroll .space-y-6 > *,
+  #app-scroll .space-y-4 > * {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+
+  /* Make dialog/modal content mobile-friendly */
+  [role="dialog"] {
+    max-width: calc(100vw - 1.5rem) !important;
+    max-height: calc(100dvh - 2rem) !important;
+    overflow-y: auto;
+  }
+}
+

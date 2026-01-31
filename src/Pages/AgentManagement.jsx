@@ -303,7 +303,7 @@ export default function AgentManagement() {
       {activeTab === 'agents' ? (
         <>
           {/* Summary Cards */}
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Agents</CardTitle>
@@ -358,12 +358,12 @@ export default function AgentManagement() {
           </div>
 
           {/* Filters */}
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search agents by name or email..."
+                  placeholder="Search agents..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -373,7 +373,7 @@ export default function AgentManagement() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 rounded-md text-sm min-w-[200px] transition-all duration-200"
+              className="px-4 py-2 rounded-md text-sm w-full sm:min-w-[200px] sm:w-auto transition-all duration-200"
               style={{
                 background: 'var(--v3-bg-dark)',
                 border: '1px solid var(--v3-border)',
