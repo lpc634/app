@@ -86,11 +86,20 @@ const NotificationsPage = lazy(routeImports.NotificationsPage);
 const VehicleSearchPage = lazy(routeImports.VehicleSearchPage);
 const UpdateInvoicePage = lazy(routeImports.UpdateInvoicePage);
 
-// --- Preload all route chunks in background after login ---
+// --- Preload route chunks + prefetch critical API data after login ---
 function usePreloadRoutes() {
-  const { user } = useAuth();
+  const { user, apiCall } = useAuth();
   useEffect(() => {
     if (!user) return;
+
+    // Start fetching slow endpoints IMMEDIATELY (don't wait for idle)
+    import('./hooks/useApiCache.js').then(({ prefetch }) => {
+      prefetch('/jobs', apiCall);
+      const today = new Date().toISOString().split('T')[0];
+      prefetch(`/agents/available?date=${today}`, apiCall);
+    });
+
+    // Preload route JS chunks when browser is idle
     const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 200));
     idle(() => {
       Object.values(routeImports).forEach((importFn) => {

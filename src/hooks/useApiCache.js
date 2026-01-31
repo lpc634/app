@@ -58,3 +58,11 @@ export function invalidateCache(endpoint) {
   if (endpoint) cache.delete(endpoint);
   else cache.clear();
 }
+
+/** Eagerly fetch an endpoint and warm the cache (fire-and-forget) */
+export function prefetch(endpoint, apiCallFn) {
+  if (cache.has(endpoint)) return;
+  apiCallFn(endpoint)
+    .then((data) => cache.set(endpoint, data))
+    .catch(() => {});
+}
