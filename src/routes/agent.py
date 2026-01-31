@@ -517,7 +517,7 @@ def generate_invoice_pdf(agent,
             amount = _f(item.get('amount', hours * rate))
 
             # date + address - use helper functions for reliable extraction
-            when = item.get('date', item.get('arrival_time'))
+            when = item.get('date', item.get('work_date', item.get('arrival_time')))
             addr = item.get('address')
 
             if job_obj is not None:
@@ -1197,9 +1197,20 @@ def create_invoice():
                 else:
                     return jsonify({'error': f"Rate must be specified for job at {job.address}. Job hourly_rate is not set."}), 400
 
+                # Use agent-provided work_date if given, otherwise fall back to job arrival_time
+                work_date = None
+                work_date_str = item.get('work_date')
+                if work_date_str:
+                    try:
+                        work_date = datetime.strptime(work_date_str, '%Y-%m-%d').date()
+                    except (ValueError, TypeError):
+                        work_date = job.arrival_time.date() if job.arrival_time else date.today()
+                else:
+                    work_date = job.arrival_time.date() if job.arrival_time else date.today()
+
                 amount = hours * rate
                 total_amount += amount
-                jobs_to_invoice.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount})
+                jobs_to_invoice.append({'job': job, 'hours': hours, 'rate': rate, 'amount': amount, 'work_date': work_date})
 
         # --- Add First Hour Premium to total_amount ---
         # When First Hour Premium is used, the first hour is charged at premium rate instead of standard rate
@@ -1405,6 +1416,8 @@ def create_invoice():
         actual_job_date = issue_date
         if time_entries_to_invoice and time_entries_to_invoice[0].get('work_date'):
             actual_job_date = time_entries_to_invoice[0]['work_date']
+        elif jobs_to_invoice and jobs_to_invoice[0].get('work_date'):
+            actual_job_date = jobs_to_invoice[0]['work_date']
         elif jobs_to_invoice and jobs_to_invoice[0].get('job'):
             actual_job_date = jobs_to_invoice[0]['job'].arrival_time.date()
 

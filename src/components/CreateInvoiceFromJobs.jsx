@@ -64,7 +64,9 @@ const CreateInvoiceFromJobs = () => {
       if (newSelected[job.id]) {
         delete newSelected[job.id]; // Uncheck
       } else {
-        newSelected[job.id] = { hours: '', rate: '' }; // Check - agent must input their own rate
+        // Default work_date to the job's arrival date
+        const jobDate = job.arrival_time ? job.arrival_time.split('T')[0] : new Date().toISOString().split('T')[0];
+        newSelected[job.id] = { hours: '', rate: '', work_date: jobDate };
       }
       return newSelected;
     });
@@ -88,6 +90,13 @@ const CreateInvoiceFromJobs = () => {
         [jobId]: { ...prev[jobId], rate: rate }
       }));
     }
+  };
+
+  const handleWorkDateChange = (jobId, date) => {
+    setSelected(prev => ({
+      ...prev,
+      [jobId]: { ...prev[jobId], work_date: date }
+    }));
   };
 
   const handleInvoiceNumberChange = (value) => {
@@ -178,7 +187,8 @@ const CreateInvoiceFromJobs = () => {
       .map(([jobId, jobData]) => ({
         jobId: parseInt(jobId),
         hours: parseFloat(jobData.hours),
-        rate: parseFloat(jobData.rate)
+        rate: parseFloat(jobData.rate),
+        work_date: jobData.work_date || null
       }));
 
     if (itemsToInvoice.length === 0) {
@@ -280,36 +290,49 @@ const CreateInvoiceFromJobs = () => {
         ) : (
           <div className="divide-y divide-v3-border">
             {jobs.map(job => (
-              <div key={job.id} className={`p-4 flex flex-col md:flex-row items-start md:items-center gap-4 ${selected[job.id] ? 'bg-v3-bg-dark' : ''}`}>
-                <div className="flex items-center gap-4 flex-shrink-0 cursor-pointer" onClick={() => handleToggleJob(job)}>
-                  {selected[job.id] ? <CheckSquare className="w-6 h-6 text-v3-orange" /> : <Square className="w-6 h-6 text-v3-text-muted" />}
-                  <div>
-                    <p className="font-semibold text-v3-text-lightest">{job.address}</p>
-                    <p className="text-sm text-v3-text-muted">Completed: {new Date(job.arrival_time).toLocaleDateString('en-GB')}</p>
+              <div key={job.id} className={`p-4 flex flex-col gap-4 ${selected[job.id] ? 'bg-v3-bg-dark' : ''}`}>
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                  <div className="flex items-center gap-4 flex-shrink-0 cursor-pointer" onClick={() => handleToggleJob(job)}>
+                    {selected[job.id] ? <CheckSquare className="w-6 h-6 text-v3-orange" /> : <Square className="w-6 h-6 text-v3-text-muted" />}
+                    <div>
+                      <p className="font-semibold text-v3-text-lightest">{job.address}</p>
+                      <p className="text-sm text-v3-text-muted">Job Date: {new Date(job.arrival_time).toLocaleDateString('en-GB')}</p>
+                    </div>
+                  </div>
+                  <div className="flex-grow flex items-center justify-end gap-4 w-full md:w-auto">
+                      <div className="w-24">
+                         <input
+                            type="text"
+                            placeholder="Rate (£/hr)"
+                            value={selected[job.id]?.rate || ''}
+                            onChange={(e) => handleRateChange(job.id, e.target.value)}
+                            disabled={!selected[job.id]}
+                            className="w-full text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange disabled:bg-v3-bg-card disabled:opacity-50"
+                          />
+                      </div>
+                      <div className="w-24">
+                         <input
+                            type="text"
+                            placeholder="Hours"
+                            value={selected[job.id]?.hours || ''}
+                            onChange={(e) => handleHoursChange(job.id, e.target.value)}
+                            disabled={!selected[job.id]}
+                            className="w-full text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange disabled:bg-v3-bg-card disabled:opacity-50"
+                          />
+                      </div>
                   </div>
                 </div>
-                <div className="flex-grow flex items-center justify-end gap-4 w-full md:w-auto">
-                    <div className="w-24">
-                       <input
-                          type="text"
-                          placeholder="Rate (£/hr)"
-                          value={selected[job.id]?.rate || ''}
-                          onChange={(e) => handleRateChange(job.id, e.target.value)}
-                          disabled={!selected[job.id]}
-                          className="w-full text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange disabled:bg-v3-bg-card disabled:opacity-50"
-                        />
-                    </div>
-                    <div className="w-24">
-                       <input
-                          type="text"
-                          placeholder="Hours"
-                          value={selected[job.id]?.hours || ''}
-                          onChange={(e) => handleHoursChange(job.id, e.target.value)}
-                          disabled={!selected[job.id]}
-                          className="w-full text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange disabled:bg-v3-bg-card disabled:opacity-50"
-                        />
-                    </div>
-                </div>
+                {selected[job.id] && (
+                  <div className="flex items-center gap-2 ml-10">
+                    <label className="text-sm text-v3-text-muted whitespace-nowrap">Date Worked:</label>
+                    <input
+                      type="date"
+                      value={selected[job.id]?.work_date || ''}
+                      onChange={(e) => handleWorkDateChange(job.id, e.target.value)}
+                      className="bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-1.5 px-3 text-sm text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
