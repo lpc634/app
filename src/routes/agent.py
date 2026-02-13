@@ -1325,8 +1325,17 @@ def create_invoice():
             postcode = ''
             if first_job and hasattr(first_job, 'postcode') and first_job.postcode:
                 postcode = first_job.postcode.replace(' ', '').upper()
+            elif first_job and hasattr(first_job, 'address') and first_job.address:
+                # Fallback: extract UK postcode from address field
+                import re
+                uk_postcode_pattern = r'\b(GIR\s?0AA|(?:(?:[A-PR-UWYZ][0-9][0-9]?)|(?:[A-PR-UWYZ][A-HK-Y][0-9][0-9]?)|(?:[A-PR-UWYZ][0-9][A-HJKS-UW])|(?:[A-PR-UWYZ][A-HK-Y][0-9][ABEHMNPRV-Y]))\s?[0-9][ABD-HJLNP-UW-Z]{2})\b'
+                match = re.search(uk_postcode_pattern, first_job.address, re.IGNORECASE)
+                if match:
+                    postcode = match.group(0).replace(' ', '').upper()
+                else:
+                    postcode = 'NOPC'  # Fallback if no postcode found
             else:
-                postcode = 'NOPC'  # Fallback if no postcode
+                postcode = 'NOPC'  # Fallback if no job or address
 
             # Use agent's invoice number (their personal numbering system)
             invoice_num = final_agent_invoice_number if final_agent_invoice_number else new_invoice_id

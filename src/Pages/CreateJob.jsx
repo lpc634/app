@@ -89,8 +89,10 @@ const CreateJob = () => {
             // Past-dated jobs are allowed (for backfilling fast jobs)
 
             // Prepare job data
+            const postcode = extractUkPostcode(formData.address);
             const jobData = {
                 ...formData,
+                postcode,
                 agents_required: parseInt(formData.agents_required, 10),
                 hourly_rate: 0, // Set to 0 since agents handle their own rates
             };
