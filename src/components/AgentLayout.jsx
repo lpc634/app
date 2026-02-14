@@ -3,7 +3,7 @@ import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { Home, ClipboardList, Calendar, Bell, Power, User as UserIcon, FileText as InvoiceIcon, Menu, X, Search, Shield, FileEdit } from 'lucide-react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
-import { Sheet, SheetContent, SheetTrigger } from './ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from './ui/sheet';
 import '../styles/agent-mobile.css';
 import '../styles/agent-grid-fixes.css';
 import logo from '../assets/new_logo.png';
@@ -122,24 +122,24 @@ const AgentLayout = () => {
               {agentNavItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
-                  <NavLink
-                    key={item.name}
-                    to={item.path}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all tap-target min-w-0 ${
-                      isActive
-                        ? 'bg-v3-orange text-white'
-                        : 'text-v3-text-muted hover:bg-v3-bg-dark hover:text-v3-text-lightest'
-                    }`}
-                  >
-                    <item.icon size={20} className="flex-shrink-0" />
-                    <span className="truncate">{item.name}</span>
-                    {item.badge && (
-                      <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-v3-orange text-white rounded-md flex-shrink-0">
-                        {item.badge}
-                      </span>
-                    )}
-                  </NavLink>
+                  <SheetClose asChild key={item.name}>
+                    <NavLink
+                      to={item.path}
+                      className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all tap-target min-w-0 ${
+                        isActive
+                          ? 'bg-v3-orange text-white'
+                          : 'text-v3-text-muted hover:bg-v3-bg-dark hover:text-v3-text-lightest'
+                      }`}
+                    >
+                      <item.icon size={20} className="flex-shrink-0" />
+                      <span className="truncate">{item.name}</span>
+                      {item.badge && (
+                        <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-v3-orange text-white rounded-md flex-shrink-0">
+                          {item.badge}
+                        </span>
+                      )}
+                    </NavLink>
+                  </SheetClose>
                 );
               })}
             </div>
@@ -154,13 +154,15 @@ const AgentLayout = () => {
                   <p className="text-xs text-v3-text-muted truncate">{user?.email}</p>
                 </div>
               </div>
-              <button
-                onClick={() => { logout(); setMobileMenuOpen(false); }}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-900/20 tap-target min-w-0"
-              >
-                <Power size={20} className="flex-shrink-0" />
-                <span className="truncate">Sign Out</span>
-              </button>
+              <SheetClose asChild>
+                <button
+                  onClick={logout}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-900/20 tap-target min-w-0"
+                >
+                  <Power size={20} className="flex-shrink-0" />
+                  <span className="truncate">Sign Out</span>
+                </button>
+              </SheetClose>
             </div>
           </SheetContent>
         </Sheet>
