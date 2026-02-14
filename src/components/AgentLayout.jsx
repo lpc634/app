@@ -101,16 +101,21 @@ const AgentLayout = () => {
     <div className="agent-shell">
       {/* Mobile Header */}
       <div className="agent-mobile-header lg:hidden safe-pt">
-        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} modal={true}>
           <SheetTrigger asChild>
-            <button 
+            <button
               className="agent-mobile-menu-button tap-target"
               aria-label="Open navigation menu"
             >
               <Menu size={24} />
             </button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-80 max-w-[85vw] p-0 flex flex-col">
+          <SheetContent
+            side="left"
+            className="w-80 max-w-[85vw] p-0 flex flex-col"
+            onPointerDownOutside={() => setMobileMenuOpen(false)}
+            onEscapeKeyDown={() => setMobileMenuOpen(false)}
+          >
             <div className="flex items-center justify-between p-4 border-b border-v3-border">
               <div className="flex items-center gap-2 min-w-0">
                 <img src={logo} alt="Company Name Logo" className="h-8 w-auto max-w-full" />
@@ -122,24 +127,24 @@ const AgentLayout = () => {
               {agentNavItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
-                  <SheetClose asChild key={item.name}>
-                    <NavLink
-                      to={item.path}
-                      className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all tap-target min-w-0 ${
-                        isActive
-                          ? 'bg-v3-orange text-white'
-                          : 'text-v3-text-muted hover:bg-v3-bg-dark hover:text-v3-text-lightest'
-                      }`}
-                    >
-                      <item.icon size={20} className="flex-shrink-0" />
-                      <span className="truncate">{item.name}</span>
-                      {item.badge && (
-                        <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-v3-orange text-white rounded-md flex-shrink-0">
-                          {item.badge}
-                        </span>
-                      )}
-                    </NavLink>
-                  </SheetClose>
+                  <NavLink
+                    key={item.name}
+                    to={item.path}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all tap-target min-w-0 ${
+                      isActive
+                        ? 'bg-v3-orange text-white'
+                        : 'text-v3-text-muted hover:bg-v3-bg-dark hover:text-v3-text-lightest'
+                    }`}
+                  >
+                    <item.icon size={20} className="flex-shrink-0" />
+                    <span className="truncate">{item.name}</span>
+                    {item.badge && (
+                      <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-v3-orange text-white rounded-md flex-shrink-0">
+                        {item.badge}
+                      </span>
+                    )}
+                  </NavLink>
                 );
               })}
             </div>
@@ -154,15 +159,13 @@ const AgentLayout = () => {
                   <p className="text-xs text-v3-text-muted truncate">{user?.email}</p>
                 </div>
               </div>
-              <SheetClose asChild>
-                <button
-                  onClick={logout}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-900/20 tap-target min-w-0"
-                >
-                  <Power size={20} className="flex-shrink-0" />
-                  <span className="truncate">Sign Out</span>
-                </button>
-              </SheetClose>
+              <button
+                onClick={() => { setMobileMenuOpen(false); logout(); }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-900/20 tap-target min-w-0"
+              >
+                <Power size={20} className="flex-shrink-0" />
+                <span className="truncate">Sign Out</span>
+              </button>
             </div>
           </SheetContent>
         </Sheet>
