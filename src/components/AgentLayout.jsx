@@ -90,8 +90,12 @@ const AgentLayout = () => {
   }, [mobileMenuOpen]);
 
   const handleMenuClick = (path) => {
+    // Close menu first, then navigate
     setMobileMenuOpen(false);
-    navigate(path);
+    // Small delay to ensure menu closes before navigation
+    setTimeout(() => {
+      navigate(path);
+    }, 50);
   };
 
   return (
@@ -109,13 +113,42 @@ const AgentLayout = () => {
         <div className="w-11"></div>
       </div>
 
-      {/* Mobile Menu Overlay - Pure CSS, no Radix */}
-      <div className={`agent-mobile-menu-overlay lg:hidden ${mobileMenuOpen ? 'active' : ''}`}>
+      {/* Mobile Menu Overlay - Pure CSS with inline style fallback for iOS */}
+      <div
+        className="lg:hidden"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          display: mobileMenuOpen ? 'block' : 'none',
+          pointerEvents: mobileMenuOpen ? 'auto' : 'none',
+        }}
+      >
         <div
-          className="agent-mobile-menu-backdrop"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.6)',
+          }}
           onClick={() => setMobileMenuOpen(false)}
+          onTouchEnd={() => setMobileMenuOpen(false)}
         />
-        <div className={`agent-mobile-menu-panel ${mobileMenuOpen ? 'active' : ''}`}>
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: '20rem',
+            maxWidth: '85vw',
+            background: 'var(--v3-bg-card)',
+            borderRight: '1px solid var(--v3-border)',
+            display: 'flex',
+            flexDirection: 'column',
+            transform: mobileMenuOpen ? 'translateX(0)' : 'translateX(-100%)',
+            transition: 'transform 0.3s ease',
+          }}
+        >
           <div className="agent-mobile-menu-header">
             <div className="flex items-center gap-2 min-w-0">
               <img src={logo} alt="V3 Services" className="h-8 w-auto max-w-full" />
