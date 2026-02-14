@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Home, ClipboardList, Calendar, Bell, Power, User as UserIcon, FileText as InvoiceIcon, Menu, X, Search, Shield, FileEdit } from 'lucide-react';
 import { useAuth } from '../useAuth';
 import { toast } from 'sonner';
-import { Sheet, SheetContent } from './ui/sheet';
 import '../styles/agent-mobile.css';
 import '../styles/agent-grid-fixes.css';
 import logo from '../assets/new_logo.png';
@@ -34,6 +33,7 @@ function urlBase64ToUint8Array(base64String) {
 const AgentLayout = () => {
   const { logout, apiCall, user, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
   const location = useLocation();
 
   // Close mobile menu when route changes
@@ -50,7 +50,7 @@ const AgentLayout = () => {
 
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') return;
-      
+
       const registration = await navigator.serviceWorker.ready;
       let subscription = await registration.pushManager.getSubscription();
 
@@ -73,70 +73,82 @@ const AgentLayout = () => {
         }
       }
     };
-    
+
     setupNotifications();
   }, [apiCall, user, loading]);
 
-  // Body scroll lock
+  // Body scroll lock when menu is open
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
-    
     return () => {
       document.body.style.overflow = '';
     };
   }, [mobileMenuOpen]);
 
-  const handleMenuClick = () => {
-    // Small delay to ensure navigation happens first
-    setTimeout(() => {
-      setMobileMenuOpen(false);
-    }, 100);
+  const handleMenuClick = (path) => {
+    setMobileMenuOpen(false);
+    navigate(path);
   };
 
   return (
     <div className="agent-shell">
-      {/* Mobile Menu Sheet - rendered outside fixed header for proper z-index handling */}
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} modal={true}>
-        <SheetContent
-          side="left"
-          className="w-80 max-w-[85vw] p-0 flex flex-col lg:hidden"
-          onPointerDownOutside={() => setMobileMenuOpen(false)}
-          onEscapeKeyDown={() => setMobileMenuOpen(false)}
-          onInteractOutside={() => setMobileMenuOpen(false)}
+      {/* Mobile Header */}
+      <div className="agent-mobile-header lg:hidden safe-pt">
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="agent-mobile-menu-button tap-target"
+          aria-label="Open navigation menu"
         >
-          <div className="flex items-center justify-between p-4 border-b border-v3-border">
+          <Menu size={24} />
+        </button>
+        <img src={logo} alt="V3 Services" className="h-9 w-auto mx-auto max-w-full" />
+        <div className="w-11"></div>
+      </div>
+
+      {/* Mobile Menu Overlay - Pure CSS, no Radix */}
+      <div className={`agent-mobile-menu-overlay lg:hidden ${mobileMenuOpen ? 'active' : ''}`}>
+        <div
+          className="agent-mobile-menu-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+        <div className={`agent-mobile-menu-panel ${mobileMenuOpen ? 'active' : ''}`}>
+          <div className="agent-mobile-menu-header">
             <div className="flex items-center gap-2 min-w-0">
-              <img src={logo} alt="Company Name Logo" className="h-8 w-auto max-w-full" />
+              <img src={logo} alt="V3 Services" className="h-8 w-auto max-w-full" />
               <span className="font-semibold text-v3-text-lightest truncate">Agent Portal</span>
             </div>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="agent-mobile-menu-close tap-target"
+              aria-label="Close navigation menu"
+            >
+              <X size={24} />
+            </button>
           </div>
 
-          <div className="flex-1 p-4 space-y-2 overflow-y-auto">
+          <div className="agent-mobile-menu-items">
             {agentNavItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
-                <NavLink
+                <button
                   key={item.name}
-                  to={item.path}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all tap-target min-w-0 ${
-                    isActive
-                      ? 'bg-v3-orange text-white'
-                      : 'text-v3-text-muted hover:bg-v3-bg-dark hover:text-v3-text-lightest'
-                  }`}
+                  onClick={() => handleMenuClick(item.path)}
+                  className={`agent-mobile-menu-item ${isActive ? 'active' : ''}`}
+                  role="menuitem"
+                  tabIndex={mobileMenuOpen ? 0 : -1}
                 >
-                  <item.icon size={20} className="flex-shrink-0" />
+                  <item.icon size={20} />
                   <span className="truncate">{item.name}</span>
                   {item.badge && (
                     <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-v3-orange text-white rounded-md flex-shrink-0">
                       {item.badge}
                     </span>
                   )}
-                </NavLink>
+                </button>
               );
             })}
           </div>
@@ -153,33 +165,21 @@ const AgentLayout = () => {
             </div>
             <button
               onClick={() => { setMobileMenuOpen(false); logout(); }}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-900/20 tap-target min-w-0"
+              className="agent-mobile-menu-item text-red-500"
+              role="menuitem"
             >
-              <Power size={20} className="flex-shrink-0" />
-              <span className="truncate">Sign Out</span>
+              <Power size={20} />
+              <span>Sign Out</span>
             </button>
           </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Mobile Header */}
-      <div className="agent-mobile-header lg:hidden safe-pt">
-        <button
-          className="agent-mobile-menu-button tap-target"
-          aria-label="Open navigation menu"
-          onClick={() => setMobileMenuOpen(true)}
-        >
-          <Menu size={24} />
-        </button>
-        <img src={logo} alt="Company Name Logo" className="h-9 w-auto mx-auto max-w-full" />
-        <div className="w-11"></div>
+        </div>
       </div>
 
       {/* Desktop Sidebar */}
       <aside className="agent-sidebar hidden lg:flex">
         <div className="h-16 flex items-center px-4 border-b border-v3-border">
           <div className="flex items-center gap-2 min-w-0">
-            <img src={logo} alt="Company Name Logo" className="h-8 w-auto max-w-full" />
+            <img src={logo} alt="V3 Services" className="h-8 w-auto max-w-full" />
             <span className="font-semibold text-v3-text-lightest truncate">Agent Portal</span>
           </div>
         </div>
