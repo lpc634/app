@@ -277,6 +277,7 @@ const CreateJob = () => {
                                 <option value="LEASE_FORFEITURE">Lease Forfeiture</option>
                                 <option value="ROUGH_SLEEPER">Rough sleeper</option>
                                 <option value="AGENT_INVOICE">Agent Invoice</option>
+                                <option value="SURVEILLANCE">Surveillance</option>
                             </select>
                         </div>
 

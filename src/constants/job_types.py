@@ -10,6 +10,7 @@ JOB_TYPES = {
     "LEASE_FORFEITURE": "Lease Forfeiture",
     "ROUGH_SLEEPER": "Rough sleeper",
     "AGENT_INVOICE": "Agent Invoice",
+    "SURVEILLANCE": "Surveillance",
 }
 
 ALLOWED_JOB_TYPE_CODES = set(JOB_TYPES.keys())
