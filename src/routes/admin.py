@@ -3949,3 +3949,99 @@ def download_public_report_pdf(report_id):
 	except Exception as e:
 		current_app.logger.error(f"Error generating public PDF: {str(e)}")
 		return jsonify({'error': 'Failed to generate PDF'}), 500
+
+
+@admin_bp.route('/admin/backfill-invoice-jobs', methods=['POST'])
+@jwt_required()
+def backfill_invoice_jobs():
+	"""
+	One-time backfill: for every invoice that has InvoiceLines but no InvoiceJob records,
+	create the missing InvoiceJob records so the uninvoiced jobs filter works correctly.
+	"""
+	try:
+		current_user_id = get_jwt_identity()
+		user = User.query.get(int(current_user_id))
+		if not user or user.role != 'admin':
+			return jsonify({'error': 'Admin only'}), 403
+
+		fixed = 0
+		skipped = 0
+		errors = []
+
+		# Get all invoices that have lines but no invoice_jobs
+		invoices_with_lines = (
+			db.session.query(Invoice)
+			.join(InvoiceLine, InvoiceLine.invoice_id == Invoice.id)
+			.filter(~Invoice.id.in_(
+				db.session.query(InvoiceJob.invoice_id)
+			))
+			.distinct()
+			.all()
+		)
+
+		for invoice in invoices_with_lines:
+			try:
+				lines = InvoiceLine.query.filter_by(invoice_id=invoice.id).all()
+
+				# Group lines by job_assignment to find the linked job
+				# For time-entry invoices, lines may not have job_assignment_id
+				# In that case, try to find the job via the invoice's snapshotted address
+				job_id = None
+
+				# Try job_assignment_id on lines first
+				for line in lines:
+					if line.job_assignment_id:
+						assignment = JobAssignment.query.get(line.job_assignment_id)
+						if assignment:
+							job_id = assignment.job_id
+							break
+
+				# If still no job_id, try matching via agent's accepted assignments
+				# and the invoice's snapshotted address
+				if not job_id and invoice.agent_id and invoice.address:
+					matching_job = (
+						db.session.query(Job)
+						.join(JobAssignment)
+						.filter(
+							JobAssignment.agent_id == invoice.agent_id,
+							JobAssignment.status == 'accepted',
+							Job.address == invoice.address
+						)
+						.first()
+					)
+					if matching_job:
+						job_id = matching_job.id
+
+				if not job_id:
+					skipped += 1
+					continue
+
+				# Calculate totals from lines
+				total_hours = sum(float(ln.hours or 0) for ln in lines)
+				avg_rate = float(invoice.total_amount or 0) / total_hours if total_hours > 0 else 0
+
+				db.session.add(InvoiceJob(
+					invoice_id=invoice.id,
+					job_id=job_id,
+					hours_worked=total_hours,
+					hourly_rate_at_invoice=avg_rate
+				))
+				fixed += 1
+
+			except Exception as e:
+				errors.append(f"Invoice {invoice.id}: {str(e)}")
+				continue
+
+		db.session.commit()
+
+		return jsonify({
+			'message': f'Backfill complete. Fixed: {fixed}, Skipped (no job found): {skipped}',
+			'fixed': fixed,
+			'skipped': skipped,
+			'errors': errors
+		}), 200
+
+	except Exception as e:
+		db.session.rollback()
+		current_app.logger.error(f"Backfill error: {str(e)}")
+		return jsonify({'error': str(e)}), 500
