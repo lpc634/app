@@ -1301,11 +1301,14 @@ def create_invoice():
         new_invoice_id = (last_invoice.id + 1) if last_invoice else 1
 
         # Snapshot job details from the first job for PDF generation
+        # For time_entries format, jobs_to_invoice is empty — get first job from time_entries instead
         first_job = jobs_to_invoice[0]['job'] if jobs_to_invoice else None
+        if first_job is None and time_entries_to_invoice:
+            first_job = time_entries_to_invoice[0].get('job')
         job_type_snapshot = getattr(first_job, 'job_type', None) if first_job else None
         address_snapshot = getattr(first_job, 'address', None) if first_job else None
 
-        # Generate invoice number with format: AgentName-Postcode-AgentInvoiceNumber
+        # Generate invoice number with format: AgentName-InvoiceNumber-Postcode
         if is_supplier_invoice and supplier is not None:
             invoice_number = f"{supplier.invoice_prefix}{issue_date.year}-{new_invoice_id:04d}"
         else:
@@ -1322,26 +1325,25 @@ def create_invoice():
                 agent_name = 'Agent'
 
             # Get postcode from first job (remove spaces)
+            # Check job.postcode field first, then extract from address string
+            import re
+            uk_postcode_pattern = r'\b(GIR\s?0AA|(?:(?:[A-PR-UWYZ][0-9][0-9]?)|(?:[A-PR-UWYZ][A-HK-Y][0-9][0-9]?)|(?:[A-PR-UWYZ][0-9][A-HJKS-UW])|(?:[A-PR-UWYZ][A-HK-Y][0-9][ABEHMNPRV-Y]))\s?[0-9][ABD-HJLNP-UW-Z]{2})\b'
             postcode = ''
             if first_job and hasattr(first_job, 'postcode') and first_job.postcode:
                 postcode = first_job.postcode.replace(' ', '').upper()
-            elif first_job and hasattr(first_job, 'address') and first_job.address:
-                # Fallback: extract UK postcode from address field
-                import re
-                uk_postcode_pattern = r'\b(GIR\s?0AA|(?:(?:[A-PR-UWYZ][0-9][0-9]?)|(?:[A-PR-UWYZ][A-HK-Y][0-9][0-9]?)|(?:[A-PR-UWYZ][0-9][A-HJKS-UW])|(?:[A-PR-UWYZ][A-HK-Y][0-9][ABEHMNPRV-Y]))\s?[0-9][ABD-HJLNP-UW-Z]{2})\b'
+            if not postcode and first_job and hasattr(first_job, 'address') and first_job.address:
+                # Extract UK postcode from address — also handles no-space formats like 'Esher,KT10 9QS'
                 match = re.search(uk_postcode_pattern, first_job.address, re.IGNORECASE)
                 if match:
                     postcode = match.group(0).replace(' ', '').upper()
-                else:
-                    postcode = 'NOPC'  # Fallback if no postcode found
-            else:
-                postcode = 'NOPC'  # Fallback if no job or address
+            if not postcode:
+                postcode = 'NOPC'  # Fallback if no postcode found anywhere
 
             # Use agent's invoice number (their personal numbering system)
             invoice_num = final_agent_invoice_number if final_agent_invoice_number else new_invoice_id
 
-            # Format: AgentName-Postcode-Number
-            invoice_number = f"{agent_name}-{postcode}-{invoice_num}"
+            # Format: AgentName-InvoiceNumber-Postcode
+            invoice_number = f"{agent_name}-{invoice_num}-{postcode}"
         
         # Create invoice - only set agent_invoice_number if field exists
         invoice_kwargs = {
