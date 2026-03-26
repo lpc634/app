@@ -895,19 +895,55 @@ def get_invoiceable_jobs():
     """Fetches completed jobs for the current agent that have not yet been invoiced."""
     try:
         current_user_id = int(get_jwt_identity())
-        
-        invoiced_job_ids_query = db.session.query(InvoiceJob.job_id).join(Invoice).filter(Invoice.agent_id == current_user_id)
-        invoiced_job_ids = [item[0] for item in invoiced_job_ids_query.all()]
 
-        # Get all accepted jobs for this agent, regardless of arrival time
-        # Agents can invoice before job date if they know the amount
-        completed_jobs_query = db.session.query(Job).join(JobAssignment).filter(
-            JobAssignment.agent_id == current_user_id,
-            JobAssignment.status == 'accepted'
+        # Method 1: jobs linked via InvoiceJob table (legacy + new invoices)
+        invoiced_via_invoice_job = set(
+            row[0] for row in
+            db.session.query(InvoiceJob.job_id)
+            .join(Invoice, Invoice.id == InvoiceJob.invoice_id)
+            .filter(Invoice.agent_id == current_user_id)
+            .all()
         )
 
-        invoiceable_jobs = completed_jobs_query.filter(~Job.id.in_(invoiced_job_ids)).order_by(Job.arrival_time.desc()).all()
-        
+        # Method 2: jobs matched by arrival date against InvoiceLine work dates
+        # This catches old time-entry invoices that never had InvoiceJob records
+        agent_invoice_ids = set(
+            row[0] for row in
+            db.session.query(Invoice.id)
+            .filter(Invoice.agent_id == current_user_id)
+            .all()
+        )
+        invoiced_dates = set()
+        if agent_invoice_ids:
+            date_rows = (
+                db.session.query(InvoiceLine.work_date)
+                .filter(InvoiceLine.invoice_id.in_(agent_invoice_ids))
+                .all()
+            )
+            invoiced_dates = set(row[0] for row in date_rows if row[0])
+
+        # Get all accepted jobs for this agent
+        all_accepted_jobs = (
+            db.session.query(Job)
+            .join(JobAssignment)
+            .filter(
+                JobAssignment.agent_id == current_user_id,
+                JobAssignment.status == 'accepted'
+            )
+            .order_by(Job.arrival_time.desc())
+            .all()
+        )
+
+        # Exclude jobs that are already invoiced by either method
+        invoiceable_jobs = []
+        for job in all_accepted_jobs:
+            if job.id in invoiced_via_invoice_job:
+                continue
+            # Check if any invoice line date matches this job's arrival date
+            if job.arrival_time and job.arrival_time.date() in invoiced_dates:
+                continue
+            invoiceable_jobs.append(job)
+
         return jsonify([job.to_dict_agent_safe() for job in invoiceable_jobs]), 200
 
     except Exception as e:
