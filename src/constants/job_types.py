@@ -9,6 +9,7 @@ JOB_TYPES = {
     "VEHICLE_TORTS_NOTICE": "Vehicle Torts Notice",
     "LEASE_FORFEITURE": "Lease Forfeiture",
     "ROUGH_SLEEPER": "Rough sleeper",
+    "AGENT_INVOICE": "Agent Invoice",
 }
 
 ALLOWED_JOB_TYPE_CODES = set(JOB_TYPES.keys())

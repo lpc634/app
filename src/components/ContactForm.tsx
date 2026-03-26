@@ -126,11 +126,11 @@ export default function ContactForm({
   const labelClasses = "block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 ml-1";
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center md:p-4 font-sans">
+    <div className="bg-[#f0f2f5] py-6 md:py-10 px-2 md:px-4 font-sans">
       <style>{ANIMATION_STYLES}</style>
 
       {/* Container: no border radius on mobile for full screen, rounded on desktop */}
-      <div className="w-full max-w-xl bg-white md:rounded-2xl md:shadow-xl overflow-hidden animate-fade-up h-full md:h-auto">
+      <div className="w-full max-w-xl mx-auto bg-white md:rounded-2xl md:shadow-xl overflow-hidden animate-fade-up">
 
         {/* Header Section */}
         <div className="bg-gray-900 p-6 md:p-8 text-center relative overflow-hidden">

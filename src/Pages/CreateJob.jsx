@@ -10,7 +10,7 @@ import LocationPicker from '@/components/LocationPicker.jsx';
 const CreateJob = () => {
     const { apiCall, user } = useAuth();
     const [formData, setFormData] = useState({
-        job_type: 'Traveller Eviction',
+        job_type: 'TRAVELLER_EVICTION',
         address: '',
         arrival_time: '',
         agents_required: '1',
@@ -127,7 +127,7 @@ const CreateJob = () => {
             
             // Reset form data
             setFormData({
-                job_type: 'Traveller Eviction', 
+                job_type: 'TRAVELLER_EVICTION', 
                 address: '',
                 arrival_time: '', 
                 agents_required: '1', 
@@ -269,11 +269,14 @@ const CreateJob = () => {
                                 onChange={handleChange} 
                                 className="w-full bg-v3-bg-dark border border-v3-border rounded-lg px-4 py-3 text-v3-text-lightest focus:border-v3-orange focus:outline-none focus:ring-2 focus:ring-v3-orange-glow transition-all"
                             >
-                                <option value="Traveller Eviction">Traveller Eviction</option>
-                                <option value="Squatter Eviction">Squatter Eviction</option>
-                                <option value="Traveller Serve Notice">Traveller Serve Notice</option>
-                                <option value="Squatter Serve Notice">Squatter Serve Notice</option>
-                                <option value="Security">Security</option>
+                                <option value="TRAVELLER_EVICTION">Traveller Eviction</option>
+                                <option value="SQUATTER_EVICTION">Squatter Eviction</option>
+                                <option value="TRAVELLER_NOTICE_SERVE">Traveller Notice Serve</option>
+                                <option value="SQUATTER_NOTICE_SERVE">Squatter Notice Serve</option>
+                                <option value="VEHICLE_TORTS_NOTICE">Vehicle Torts Notice</option>
+                                <option value="LEASE_FORFEITURE">Lease Forfeiture</option>
+                                <option value="ROUGH_SLEEPER">Rough sleeper</option>
+                                <option value="AGENT_INVOICE">Agent Invoice</option>
                             </select>
                         </div>
 
