@@ -1409,6 +1409,24 @@ def create_invoice():
                     line_net=entry['line_net'],
                     notes=entry['notes']
                 ))
+            # Also create InvoiceJob records for each unique job so the
+            # 'uninvoiced jobs' filter works correctly
+            seen_job_ids = set()
+            total_hours_by_job = {}
+            for entry in time_entries_to_invoice:
+                job_obj = entry.get('job')
+                if job_obj and job_obj.id not in seen_job_ids:
+                    seen_job_ids.add(job_obj.id)
+                    total_hours_by_job[job_obj.id] = {'job': job_obj, 'hours': Decimal('0'), 'rate': entry.get('rate_net', Decimal('0'))}
+                if job_obj:
+                    total_hours_by_job[job_obj.id]['hours'] += entry.get('hours', Decimal('0'))
+            for job_id, job_data in total_hours_by_job.items():
+                db.session.add(InvoiceJob(
+                    invoice_id=new_invoice.id,
+                    job_id=job_id,
+                    hours_worked=job_data['hours'],
+                    hourly_rate_at_invoice=job_data['rate']
+                ))
         else:
             # Legacy job_items format - keep InvoiceJob for backward compatibility
             for item in jobs_to_invoice:
