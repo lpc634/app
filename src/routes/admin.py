@@ -1,7 +1,7 @@
 # src/routes/admin.py
 from flask import Blueprint, jsonify, request, current_app, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from src.models.user import User, Job, JobAssignment, AgentAvailability, Invoice, InvoiceJob, Notification, JobBilling, Expense, db
+from src.models.user import User, Job, JobAssignment, AgentAvailability, Invoice, InvoiceJob, InvoiceLine, Notification, JobBilling, Expense, db
 from src.models.admin_message import AdminMessage, AdminMessageDelivery
 from src.utils.s3_client import s3_client
 from src.utils.finance import (
