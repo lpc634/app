@@ -262,7 +262,9 @@ def notify_job_update(agent_id: int, job_title: str, update_message: str):
     """
     if _skip_if_muted('job_update', {"agent_id": agent_id}):
         return {"status": "skipped", "reason": "muted"}
-    title = f"Job Update: {job_title}"
+    # Truncate title to 95 chars to safely fit the notifications.title VARCHAR(100) column
+    raw_title = f"Job Update: {job_title}"
+    title = raw_title[:95] + '...' if len(raw_title) > 95 else raw_title
     body = update_message
     
     return notify_agent(agent_id, title, body, "job_update")

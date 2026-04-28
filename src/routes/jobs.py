@@ -1327,18 +1327,22 @@ def respond_to_assignment(assignment_id):
             # NOTE: Draft invoices are NO LONGER auto-created when jobs are accepted
             # Agents must manually create invoices with correct hours/rates via the invoice creation flow
 
+        # --- COMMIT FIRST: Save acceptance to DB before any notification calls ---
+        # This prevents the notification service's rollback from undoing the acceptance.
+        db.session.commit()
+
+        if response in ['accept', 'accepted']:
+            job = assignment.job
             # Send job acceptance notification via Telegram
             try:
                 from src.services.notifications import notify_job_update
                 notify_job_update(
                     current_user.id,
                     job.title or f"{job.job_type} at {job.address}",
-                    f"✅ You have successfully accepted the job assignment.\n\nJob Details:\n- Type: {job.job_type}\n- Location: {job.address}\n- Time: {job.arrival_time.strftime('%H:%M on %d/%m/%y')}\n\nThank you for accepting this assignment!"
+                    f"\u2705 You have successfully accepted the job assignment.\n\nJob Details:\n- Type: {job.job_type}\n- Location: {job.address}\n- Time: {job.arrival_time.strftime('%H:%M on %d/%m/%y')}\n\nThank you for accepting this assignment!"
                 )
             except Exception as e:
                 logger.warning(f"Failed to send job acceptance notification to agent {current_user.id}: {str(e)}")
-        
-        db.session.commit()
         
         return jsonify({
             'message': f'Assignment {response}ed successfully',
