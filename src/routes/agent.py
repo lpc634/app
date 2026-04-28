@@ -892,35 +892,19 @@ def update_agent_profile():
 @agent_bp.route('/agent/invoiceable-jobs', methods=['GET'])
 @jwt_required()
 def get_invoiceable_jobs():
-    """Fetches completed jobs for the current agent that have not yet been invoiced."""
+    """Fetches accepted jobs for the current agent that have not yet been invoiced."""
     try:
         current_user_id = int(get_jwt_identity())
 
-        # Method 1: jobs linked via InvoiceJob table (legacy + new invoices)
-        invoiced_via_invoice_job = set(
+        # Only use InvoiceJob records as the definitive source of truth.
+        # The old date/address heuristics were causing valid jobs to be wrongly excluded.
+        invoiced_job_ids = set(
             row[0] for row in
             db.session.query(InvoiceJob.job_id)
             .join(Invoice, Invoice.id == InvoiceJob.invoice_id)
             .filter(Invoice.agent_id == current_user_id)
             .all()
         )
-
-        # Method 2: jobs matched by arrival date against InvoiceLine work dates
-        # This catches old time-entry invoices that never had InvoiceJob records
-        agent_invoice_ids = set(
-            row[0] for row in
-            db.session.query(Invoice.id)
-            .filter(Invoice.agent_id == current_user_id)
-            .all()
-        )
-        invoiced_dates = set()
-        if agent_invoice_ids:
-            date_rows = (
-                db.session.query(InvoiceLine.work_date)
-                .filter(InvoiceLine.invoice_id.in_(agent_invoice_ids))
-                .all()
-            )
-            invoiced_dates = set(row[0] for row in date_rows if row[0])
 
         # Get all accepted jobs for this agent
         all_accepted_jobs = (
@@ -934,15 +918,11 @@ def get_invoiceable_jobs():
             .all()
         )
 
-        # Exclude jobs that are already invoiced by either method
-        invoiceable_jobs = []
-        for job in all_accepted_jobs:
-            if job.id in invoiced_via_invoice_job:
-                continue
-            # Check if any invoice line date matches this job's arrival date
-            if job.arrival_time and job.arrival_time.date() in invoiced_dates:
-                continue
-            invoiceable_jobs.append(job)
+        # Only exclude jobs that have a confirmed InvoiceJob record
+        invoiceable_jobs = [
+            job for job in all_accepted_jobs
+            if job.id not in invoiced_job_ids
+        ]
 
         return jsonify([job.to_dict_agent_safe() for job in invoiceable_jobs]), 200
 
