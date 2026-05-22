@@ -19,12 +19,10 @@ const CreateMiscInvoice = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- Bill To (Lance Carstairs only) ---
-  // 'v3'         → V3 Services Ltd (default, full V3 branding, V3 Ref shown)
-  // 'lh1_global' → LH1 Global (different address, no V3 Ref, shorter tax statement)
   const isLance = user && user.first_name === 'Lance' && user.last_name === 'Carstairs';
   const [billTo, setBillTo] = useState('v3');
 
-  const totalAmount = useMemo(() => {
+  const total = useMemo(() => {
     return lineItems.reduce((acc, item) => {
       const quantity = parseFloat(item.quantity) || 0;
       const price = parseFloat(item.unit_price) || 0;
@@ -59,7 +57,7 @@ const CreateMiscInvoice = () => {
       return;
     }
 
-    const validItems = lineItems.filter(item => 
+    const validItems = lineItems.filter(item =>
       item.description.trim() !== '' &&
       parseFloat(item.quantity) > 0 &&
       parseFloat(item.unit_price) > 0
@@ -70,24 +68,26 @@ const CreateMiscInvoice = () => {
       return;
     }
 
-    // Navigate to review page with invoice data
+    const today = new Date().toISOString().split('T')[0];
+
+    // Pass 'total' (not 'totalAmount') — ReviewInvoicePage reads 'total'
     const reviewData = {
       invoiceNumber: invoiceNumber.trim(),
       items: validItems.map((item, index) => ({
-        jobId: -(index + 1), // Negative IDs for misc items
+        jobId: -(index + 1),   // negative = misc item (no V3 job)
         title: item.description,
         hours: parseFloat(item.quantity),
-        rate: parseFloat(item.unit_price)
+        rate: parseFloat(item.unit_price),
+        date: today,           // needed so review page doesn't show "Invalid Date"
       })),
-      totalAmount: totalAmount,
-      // Pass bill_to so the review/submit step can forward it
+      total: total,            // ReviewInvoicePage reads 'total'
       bill_to: isLance ? billTo : 'v3',
     };
 
     navigate('/agent/invoices/review', { state: reviewData });
   };
 
-  const isReviewDisabled = !invoiceNumber.trim() || totalAmount === 0 || isSubmitting;
+  const isReviewDisabled = !invoiceNumber.trim() || total === 0 || isSubmitting;
 
   return (
     <div className="space-y-8">
@@ -104,6 +104,7 @@ const CreateMiscInvoice = () => {
       <div className="dashboard-card p-6">
         <h2 className="text-xl font-bold text-v3-text-lightest mb-4">Invoice Details</h2>
         <div className="space-y-4">
+
           {/* Bill To dropdown — only visible to Lance Carstairs */}
           {isLance && (
             <div>
@@ -135,7 +136,7 @@ const CreateMiscInvoice = () => {
             <input
               id="invoiceNumber"
               type="text"
-              placeholder="Enter your invoice number (e.g., INV-2024-001)"
+              placeholder="Enter your invoice number (e.g., 338)"
               value={invoiceNumber}
               onChange={(e) => setInvoiceNumber(e.target.value)}
               className="w-full bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
@@ -147,12 +148,12 @@ const CreateMiscInvoice = () => {
           </div>
         </div>
       </div>
-      
+
       <div className="dashboard-card p-0">
-         <div className="p-6">
-            <h2 className="text-xl font-bold text-v3-text-lightest">Line Items</h2>
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-v3-text-lightest">Line Items</h2>
         </div>
-        
+
         <div className="divide-y divide-v3-border border-t border-v3-border">
           {lineItems.map((item, index) => (
             <div key={item.id} className="p-4 flex flex-col md:flex-row items-center gap-4">
@@ -176,7 +177,7 @@ const CreateMiscInvoice = () => {
                   className="w-20 text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
                 />
                 <span className="text-v3-text-muted">x</span>
-                 <div className="relative">
+                <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-v3-text-muted">£</span>
                   <input
                     type="number"
@@ -185,41 +186,41 @@ const CreateMiscInvoice = () => {
                     onChange={(e) => handleItemChange(item.id, 'unit_price', e.target.value)}
                     className="w-32 text-center bg-v3-bg-dark border-v3-border rounded-md shadow-sm py-2 px-3 pl-8 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
                   />
-                 </div>
+                </div>
               </div>
               <button onClick={() => removeLineItem(item.id)} disabled={lineItems.length <= 1} className="text-v3-text-muted hover:text-red-500 disabled:opacity-50">
-                  <X size={20}/>
+                <X size={20} />
               </button>
             </div>
           ))}
         </div>
         <div className="p-4 border-t border-v3-border">
           <button onClick={addLineItem} className="button-refresh flex items-center space-x-2 w-full sm:w-auto">
-              <Plus size={16}/>
-              <span>Add Line Item</span>
+            <Plus size={16} />
+            <span>Add Line Item</span>
           </button>
         </div>
       </div>
 
       <div className="dashboard-card p-4 flex items-center justify-between">
-          <p className="text-lg font-semibold text-v3-text-lightest">Invoice Total:</p>
-          <p className="text-2xl font-bold text-v3-orange">£{totalAmount.toFixed(2)}</p>
+        <p className="text-lg font-semibold text-v3-text-lightest">Invoice Total:</p>
+        <p className="text-2xl font-bold text-v3-orange">£{total.toFixed(2)}</p>
       </div>
 
       <div className="flex justify-end">
-          <button 
-            onClick={handleReviewInvoice} 
-            className="button-refresh w-full sm:w-auto" 
-            disabled={isReviewDisabled}
-          >
-              {isSubmitting ? <Loader2 className="animate-spin"/> : 'Review Invoice'}
-          </button>
+        <button
+          onClick={handleReviewInvoice}
+          className="button-refresh w-full sm:w-auto"
+          disabled={isReviewDisabled}
+        >
+          {isSubmitting ? <Loader2 className="animate-spin" /> : 'Review Invoice'}
+        </button>
       </div>
 
       {isReviewDisabled && (
         <div className="text-center text-sm text-v3-text-muted">
           {!invoiceNumber.trim() && "Please enter an invoice number. "}
-          {totalAmount === 0 && "Please add at least one line item with valid values."}
+          {total === 0 && "Please add at least one line item with valid values."}
         </div>
       )}
 
