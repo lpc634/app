@@ -29,6 +29,17 @@ const CreateInvoiceFromJobs = () => {
   const [extrasAmount, setExtrasAmount] = useState('');
   const [extrasDescription, setExtrasDescription] = useState('');
 
+  // --- Bill To (Lance Carstairs only) ---
+  // 'v3'        → V3 Services Ltd (default, full V3 branding, V3 Ref shown)
+  // 'lh1_global' → LH1 Global (different address, no V3 Ref, shorter tax statement)
+  const isLance = user && user.first_name === 'Lance' && user.last_name === 'Carstairs';
+  const [billTo, setBillTo] = useState('v3');
+
+  const BILL_TO_OPTIONS = [
+    { value: 'v3',         label: 'V3 Services Ltd' },
+    { value: 'lh1_global', label: 'LH1 Global' },
+  ];
+
   useEffect(() => {
     const fetchJobs = async () => {
       try {
@@ -256,6 +267,11 @@ const CreateInvoiceFromJobs = () => {
       payload.extras_description = extrasDescription.trim() || 'Additional charges';
     }
 
+    // Bill To — only Lance can change this; all other agents always bill V3
+    if (isLance) {
+      payload.bill_to = billTo;
+    }
+
     console.log("Invoice data to be reviewed:", {
       ...payload,
       total: grandTotal
@@ -294,7 +310,30 @@ const CreateInvoiceFromJobs = () => {
       <div className="dashboard-card p-0">
          <div className="p-6 border-b border-v3-border">
             <h2 className="text-xl font-bold text-v3-text-lightest mb-4">Uninvoiced Jobs</h2>
-            <div className="flex items-end gap-4 justify-end">
+            <div className="flex items-end gap-4 justify-end flex-wrap">
+              {/* Bill To dropdown — only visible to Lance Carstairs */}
+              {isLance && (
+                <div>
+                  <label htmlFor="bill-to" className="block text-sm font-medium text-v3-text-muted mb-1">
+                    Bill To
+                  </label>
+                  <select
+                    id="bill-to"
+                    value={billTo}
+                    onChange={(e) => setBillTo(e.target.value)}
+                    className="bg-v3-bg-dark border border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+                  >
+                    {BILL_TO_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  {billTo !== 'v3' && (
+                    <p className="text-xs text-v3-orange mt-1">
+                      V3 Ref will be hidden on this invoice.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="w-32">
                 <label htmlFor="invoice-number" className="block text-sm font-medium text-v3-text-muted mb-1">Invoice #</label>
                 <input
@@ -396,7 +435,7 @@ const CreateInvoiceFromJobs = () => {
 
       <div className="dashboard-card p-4">
         {/* First Hour Premium Rate - Only for Lance Carstairs */}
-        {user && (user.first_name === 'Lance' && user.last_name === 'Carstairs') && (
+        {isLance && (
           <div className="mb-3 pb-3 border-b border-v3-border">
             <div className="flex items-center justify-between">
               <label htmlFor="first-hour-rate" className="text-lg font-semibold text-v3-text-lightest">
@@ -421,7 +460,7 @@ const CreateInvoiceFromJobs = () => {
         )}
 
         {/* Extra Agents Onsite Bonus - Only for Lance Carstairs */}
-        {user && (user.first_name === 'Lance' && user.last_name === 'Carstairs') && (
+        {isLance && (
           <div className="mb-3 pb-3 border-b border-v3-border">
             <div className="flex items-center justify-between">
               <label htmlFor="extra-agents" className="text-lg font-semibold text-v3-text-lightest">
@@ -451,7 +490,7 @@ const CreateInvoiceFromJobs = () => {
         )}
 
         {/* Extras - Only for Lance Carstairs */}
-        {user && (user.first_name === 'Lance' && user.last_name === 'Carstairs') && (
+        {isLance && (
           <div className="mb-3 pb-3 border-b border-v3-border">
             <div className="flex items-center justify-between mb-2">
               <label htmlFor="extras-amount" className="text-lg font-semibold text-v3-text-lightest">

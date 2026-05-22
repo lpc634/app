@@ -29,7 +29,36 @@ ROW_ALT   = HexColor("#F9FAFB")
 TOTAL_BG  = HexColor("#E85D1F")   # orange
 TOTAL_TXT = white
 
-# ===== Public API (signature unchanged) =====
+# ===== Client configuration =====
+# 'v3' is the default and controls the standard invoice behaviour.
+# Add new clients here if needed in future — no other code changes required.
+_CLIENT_CONFIG = {
+    'v3': {
+        'bill_to_name':    'V3 SERVICES LTD',
+        'bill_to_address': '117 Dartford Road<br/>Dartford, England<br/>DA1 3EN',
+        'show_v3_ref':     True,   # V3 Ref row appears in the meta table
+        'tax_statement': (
+            'I confirm that I am responsible for any Tax or National Insurance '
+            'due on all invoices that I have submitted to V3 Services Ltd.'
+        ),
+    },
+    'lh1_global': {
+        'bill_to_name':    'LH1 GLOBAL',
+        'bill_to_address': "INDEX HOUSE<br/>St George's Ln<br/>Ascot SL5 7ET",
+        'show_v3_ref':     False,  # V3 Ref row is hidden for non-V3 clients
+        'tax_statement': (
+            'I confirm that I am responsible for any Tax or National Insurance '
+            'due on all invoices.'
+        ),
+    },
+}
+
+def _get_client_cfg(client_key):
+    """Return config dict for client_key, falling back to 'v3' if unknown."""
+    return _CLIENT_CONFIG.get(client_key or 'v3', _CLIENT_CONFIG['v3'])
+
+
+# ===== Public API (signature unchanged for existing callers) =====
 def build_invoice_pdf(
     file_path,
     agent,
@@ -38,11 +67,12 @@ def build_invoice_pdf(
     invoice_number,
     invoice_date,
     agent_invoice_number=None,
-    invoice=None
+    invoice=None,
+    client_key='v3',
 ):
     """
     Build a professional single-page invoice PDF.
-    
+
     Args:
         file_path: output path
         agent: obj with first_name,last_name,address_line_1,address_line_2,city,postcode,
@@ -50,11 +80,16 @@ def build_invoice_pdf(
         jobs: list of dicts. Each may contain: date, arrival_time, hours, rate, amount,
               description, job_type, and optional 'job' object with .address and .job_type
         totals: dict with 'subtotal', 'vat', 'total'
-        invoice_number: V3 ref (e.g., 'INV-202508-0002')
+        invoice_number: ref string
         invoice_date: date|datetime|str
         agent_invoice_number: agent's own invoice number (int/str), optional
         invoice: optional obj with .address, .job_type, .issue_date
+        client_key: 'v3' (default) or 'lh1_global'.
+                    Controls: BILL TO block, V3 Ref row visibility, tax statement wording.
+                    When 'v3' -> full V3 branding; anything else -> generic wording, no V3 Ref.
     """
+    cfg = _get_client_cfg(client_key)
+
     doc = BaseDocTemplate(
         file_path,
         pagesize=A4,
@@ -77,7 +112,7 @@ def build_invoice_pdf(
     story = []
     story.append(_header_band())
     story.append(Spacer(1, 6*mm))
-    story.append(_top_meta_row(agent, invoice_date, invoice_number, agent_invoice_number))
+    story.append(_top_meta_row(agent, invoice_date, invoice_number, agent_invoice_number, cfg))
     story.append(Spacer(1, 6*mm))
 
     # SECTION TITLE = JOB ADDRESS (fallback to "SERVICES PROVIDED" if missing)
@@ -92,12 +127,13 @@ def build_invoice_pdf(
     story.append(_section_title("PAYMENT DETAILS"))
     story.extend(_payment_panel(agent))
     story.append(Spacer(1, 3*mm))
-    story.append(_tax_statement())
+    story.append(_tax_statement(cfg))
 
     doc.build(story)
 
 
 # ===== Layout pieces =====
+
 def _styles():
     return {
         "title": ParagraphStyle(
@@ -142,28 +178,29 @@ def _header_band():
         HRFlowable(width="100%", thickness=1.4, color=V3_ORANGE, spaceBefore=0, spaceAfter=0),
     ])
 
-def _top_meta_row(agent, invoice_date, invoice_number, agent_invoice_number):
+def _top_meta_row(agent, invoice_date, invoice_number, agent_invoice_number, cfg):
+    """
+    Renders the three-column header block (FROM | BILL TO | META).
+
+    cfg controls:
+      bill_to_name / bill_to_address  — the company the invoice is addressed to
+      show_v3_ref                     — whether the "V3 Ref" row appears in the meta table
+                                        True  = invoicing V3  (show it)
+                                        False = invoicing another client (hide it)
+    """
     s = _styles()
 
-    # FROM (Agent)
+    # ---- FROM block (agent details — always the same) ----
     agent_name = f"{_safe(agent.first_name)} {_safe(agent.last_name)}".strip() or "Agent"
 
-    # Build address lines, avoiding duplicates
     address_parts = []
     addr1 = _safe(agent.address_line_1)
     addr2 = _safe(agent.address_line_2)
-
-    # Only add address_line_1 if not empty
     if addr1 and addr1 != "Not provided":
         address_parts.append(addr1)
-
-    # Only add address_line_2 if it's not empty AND not already in address_line_1
     if addr2 and addr2 != "Not provided":
-        # Check if addr2 is not a duplicate of content in addr1
         if addr1 == "Not provided" or addr2.lower() not in addr1.lower():
             address_parts.append(addr2)
-
-    # Add city and postcode
     city = _safe(agent.city)
     postcode = _safe(agent.postcode)
     if city and city != "Not provided":
@@ -183,53 +220,65 @@ def _top_meta_row(agent, invoice_date, invoice_number, agent_invoice_number):
         Paragraph(f"<b>VAT Number:</b> {_safe(getattr(agent, 'vat_number', None))}", s["small"]),
     ], col_width=62*mm)
 
-    # BILL TO (V3)
+    # ---- BILL TO block (driven by cfg — changes per client) ----
     to_block = _boxed([
         Paragraph("<b>BILL TO</b>", s["kv_label"]),
         Spacer(1, 1*mm),
-        Paragraph("V3 SERVICES LTD", s["kv_value"]),
-        Paragraph("117 Dartford Road<br/>Dartford, England<br/>DA1 3EN", s["small"]),
+        Paragraph(cfg['bill_to_name'], s["kv_value"]),
+        Paragraph(cfg['bill_to_address'], s["small"]),
     ], col_width=48*mm)
 
-    # META
+    # ---- META table ----
+    # "V3 Ref" row: ONLY shown when invoicing V3 (cfg['show_v3_ref'] is True).
+    # When invoicing any other client it is completely absent from the PDF.
     meta_rows = []
     if agent_invoice_number is not None:
-        meta_rows.append([Paragraph("Invoice Number", s["kv_label"]), Paragraph(str(agent_invoice_number), s["kv_value"])])
-    meta_rows.append([Paragraph("Invoice Date", s["kv_label"]), Paragraph(_fmt_date(invoice_date), s["kv_value"])])
-    # V3 Ref: Use the invoice_number passed from backend (already formatted correctly)
-    meta_rows.append([Paragraph("V3 Ref", s["kv_label"]), Paragraph(str(invoice_number), s["kv_value"])])
+        meta_rows.append([
+            Paragraph("Invoice Number", s["kv_label"]),
+            Paragraph(str(agent_invoice_number), s["kv_value"]),
+        ])
+    meta_rows.append([
+        Paragraph("Invoice Date", s["kv_label"]),
+        Paragraph(_fmt_date(invoice_date), s["kv_value"]),
+    ])
+    if cfg['show_v3_ref']:
+        meta_rows.append([
+            Paragraph("V3 Ref", s["kv_label"]),
+            Paragraph(str(invoice_number), s["kv_value"]),
+        ])
 
     meta = Table(meta_rows, colWidths=[32*mm, 54*mm])
     meta.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,-1), FILL_SOFT),
-        ("BOX",        (0,0), (-1,-1), 0.9, GRID),
-        ("INNERGRID",  (0,0), (-1,-1), 0.5, GRID),
-        ("LEFTPADDING",(0,0), (-1,-1), 5),
-        ("RIGHTPADDING",(0,0),(-1,-1), 5),
-        ("TOPPADDING", (0,0), (-1,-1), 4),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 4),
-        ("VALIGN",     (0,0), (-1,-1), "MIDDLE"),
+        ("BACKGROUND",    (0,0), (-1,-1), FILL_SOFT),
+        ("BOX",           (0,0), (-1,-1), 0.9, GRID),
+        ("INNERGRID",     (0,0), (-1,-1), 0.5, GRID),
+        ("LEFTPADDING",   (0,0), (-1,-1), 5),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 5),
+        ("TOPPADDING",    (0,0), (-1,-1), 4),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
     ]))
 
     row = Table([[from_block, to_block, meta]], colWidths=[62*mm, 48*mm, None])
     row.setStyle(TableStyle([
-        ("VALIGN", (0,0), (-1,-1), "TOP"),
-        ("LEFTPADDING",(0,0), (-1,-1), 0),
-        ("RIGHTPADDING",(0,0), (-1,-1), 0),
-        ("TOPPADDING",(0,0), (-1,-1), 0),
-        ("BOTTOMPADDING",(0,0), (-1,-1), 0),
+        ("VALIGN",        (0,0), (-1,-1), "TOP"),
+        ("LEFTPADDING",   (0,0), (-1,-1), 0),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 0),
+        ("TOPPADDING",    (0,0), (-1,-1), 0),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 0),
     ]))
     return row
 
+
 def _section_title(text):
     s = _styles()
-    # Title pill with subtle underline
     band = Table([[Paragraph(text, s["h2"])]], colWidths=[None])
     band.setStyle(TableStyle([
-        ("LINEBELOW", (0,0), (-1,0), 1.0, GRID),
-        ("BOTTOMPADDING",(0,0), (-1,-1), 2),
+        ("LINEBELOW",     (0,0), (-1,0), 1.0, GRID),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 2),
     ]))
     return band
+
 
 def _services_table(jobs, job_type_default):
     """
@@ -237,76 +286,64 @@ def _services_table(jobs, job_type_default):
     The section title already shows the job address.
     """
     s = _styles()
-    
+
     headers = [
-        Paragraph("Date", s["th"]),
+        Paragraph("Date",        s["th"]),
         Paragraph("Description", s["th"]),
-        Paragraph("Hours", s["th"]),
-        Paragraph("Rate (£)", s["th"]),
-        Paragraph("Amount (£)", s["th"]),
+        Paragraph("Hours",       s["th"]),
+        Paragraph("Rate (£)",    s["th"]),
+        Paragraph("Amount (£)",  s["th"]),
     ]
     rows = [headers]
-    
+
     if jobs:
         for idx, line in enumerate(jobs):
-            # Date: prefer explicit date/arrival_time
-            dt = line.get("date") or line.get("arrival_time")
+            dt       = line.get("date") or line.get("arrival_time")
             date_txt = _fmt_date(dt)
 
-            # Description: use custom description if provided, otherwise get job_type from job object
-            custom_desc = line.get("description")
-            # DEBUG
-            job_obj = line.get("job")
+            job_obj         = line.get("job")
             actual_job_type = getattr(job_obj, 'job_type', None) if job_obj else None
-            print(f"PDF DEBUG Line {idx}: custom_desc='{custom_desc}', job={job_obj}, actual_job_type='{actual_job_type}'")
+            print(f"PDF DEBUG Line {idx}: desc='{line.get('description')}', "
+                  f"job={job_obj}, actual_job_type='{actual_job_type}'")
 
-            # CRITICAL FIX: Check if 'description' key exists in line dict AND has a value
-            # This ensures "First Hour Premium" and other custom descriptions are always used
             if "description" in line and line["description"]:
                 desc = line["description"]
             else:
-                # Get job_type from the job object if available
                 job_type = getattr(job_obj, 'job_type', None) if job_obj else line.get("job_type")
                 desc = job_type or job_type_default or "Service"
 
             rows.append([
-                Paragraph(date_txt, s["td"]),
-                Paragraph(desc, s["td"]),
+                Paragraph(date_txt,                         s["td"]),
+                Paragraph(desc,                             s["td"]),
                 Paragraph(_fmt_hours(line.get("hours", 0)), s["td"]),
-                Paragraph(_fmt_money(line.get("rate", 0)), s["td"]),
-                Paragraph(_fmt_money(line.get("amount", 0)), s["td"]),
+                Paragraph(_fmt_money(line.get("rate",  0)), s["td"]),
+                Paragraph(_fmt_money(line.get("amount",0)), s["td"]),
             ])
 
     tbl = Table(rows, colWidths=[28*mm, None, 22*mm, 25*mm, 28*mm], repeatRows=1)
     tbl.setStyle(TableStyle([
-        # Header
-        ("BACKGROUND", (0,0), (-1,0), INK_DARK),
-        ("TEXTCOLOR",  (0,0), (-1,0), PAPER),
-        ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
-        ("ALIGN",      (0,0), (-1,0), "CENTER"),
-        ("BOTTOMPADDING", (0,0), (-1,0), 5),
-        ("TOPPADDING",    (0,0), (-1,0), 5),
-
-        # Body
-        ("GRID",     (0,0), (-1,-1), 0.45, GRID),
+        ("BACKGROUND",     (0,0), (-1,0),  INK_DARK),
+        ("TEXTCOLOR",      (0,0), (-1,0),  PAPER),
+        ("FONTNAME",       (0,0), (-1,0),  "Helvetica-Bold"),
+        ("ALIGN",          (0,0), (-1,0),  "CENTER"),
+        ("BOTTOMPADDING",  (0,0), (-1,0),  5),
+        ("TOPPADDING",     (0,0), (-1,0),  5),
+        ("GRID",           (0,0), (-1,-1), 0.45, GRID),
         ("ROWBACKGROUNDS", (0,1), (-1,-1), [PAPER, ROW_ALT]),
-        ("VALIGN",   (0,1), (-1,-1), "MIDDLE"),
-        ("FONTNAME", (0,1), (-1,-1), "Helvetica"),
-        ("FONTSIZE", (0,1), (-1,-1), 8.8),
-
-        # Alignment
-        ("ALIGN", (0,1), (0,-1), "CENTER"),
-        ("ALIGN", (2,1), (2,-1), "CENTER"),
-        ("ALIGN", (3,1), (3,-1), "RIGHT"),
-        ("ALIGN", (4,1), (4,-1), "RIGHT"),
-
-        # Padding
-        ("LEFTPADDING",  (0,1), (-1,-1), 6),
-        ("RIGHTPADDING", (0,1), (-1,-1), 6),
-        ("TOPPADDING",   (0,1), (-1,-1), 3),
-        ("BOTTOMPADDING",(0,1), (-1,-1), 3),
+        ("VALIGN",         (0,1), (-1,-1), "MIDDLE"),
+        ("FONTNAME",       (0,1), (-1,-1), "Helvetica"),
+        ("FONTSIZE",       (0,1), (-1,-1), 8.8),
+        ("ALIGN",          (0,1), (0,-1),  "CENTER"),
+        ("ALIGN",          (2,1), (2,-1),  "CENTER"),
+        ("ALIGN",          (3,1), (3,-1),  "RIGHT"),
+        ("ALIGN",          (4,1), (4,-1),  "RIGHT"),
+        ("LEFTPADDING",    (0,1), (-1,-1), 6),
+        ("RIGHTPADDING",   (0,1), (-1,-1), 6),
+        ("TOPPADDING",     (0,1), (-1,-1), 3),
+        ("BOTTOMPADDING",  (0,1), (-1,-1), 3),
     ]))
     return [tbl]
+
 
 def _totals_box(totals):
     s = _styles()
@@ -314,113 +351,122 @@ def _totals_box(totals):
     vat      = totals.get("vat", 0)
     total    = totals.get("total", 0)
 
-    # Two-row card: (Subtotal, VAT) + highlighted TOTAL
     vat_pct = 0
     try:
         vat_pct = int(round(float(totals.get('vat_rate', 0)) * 100))
     except Exception:
         vat_pct = 0
+
     top = Table([
-        [Paragraph("Subtotal", s["kv_label"]), Paragraph(_fmt_money(subtotal), s["kv_value"])],
-        [Paragraph(f"VAT ({vat_pct}%)", s["kv_label"]), Paragraph(_fmt_money(vat), s["kv_value"])],
+        [Paragraph("Subtotal",          s["kv_label"]), Paragraph(_fmt_money(subtotal), s["kv_value"])],
+        [Paragraph(f"VAT ({vat_pct}%)", s["kv_label"]), Paragraph(_fmt_money(vat),      s["kv_value"])],
     ], colWidths=[35*mm, 35*mm])
     top.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,-1), FILL_SOFT),
-        ("BOX",        (0,0), (-1,-1), 0.9, GRID),
-        ("INNERGRID",  (0,0), (-1,-1), 0.5, GRID),
-        ("LEFTPADDING",(0,0), (-1,-1), 6),
-        ("RIGHTPADDING",(0,0),(-1,-1), 6),
-        ("TOPPADDING", (0,0), (-1,-1), 4),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 4),
-        ("ALIGN",      (1,0), (1,-1), "RIGHT"),
+        ("BACKGROUND",    (0,0), (-1,-1), FILL_SOFT),
+        ("BOX",           (0,0), (-1,-1), 0.9, GRID),
+        ("INNERGRID",     (0,0), (-1,-1), 0.5, GRID),
+        ("LEFTPADDING",   (0,0), (-1,-1), 6),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 6),
+        ("TOPPADDING",    (0,0), (-1,-1), 4),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+        ("ALIGN",         (1,0), (1,-1),  "RIGHT"),
     ]))
 
     bottom = Table([
         [Paragraph("TOTAL", s["total_emph"]), Paragraph(_fmt_money(total), s["total_emph"])]
     ], colWidths=[35*mm, 35*mm])
     bottom.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,-1), TOTAL_BG),
-        ("BOX",        (0,0), (-1,-1), 0.9, TOTAL_BG),
-        ("LEFTPADDING",(0,0), (-1,-1), 6),
-        ("RIGHTPADDING",(0,0),(-1,-1), 6),
-        ("TOPPADDING", (0,0), (-1,-1), 5),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 5),
-        ("ALIGN",      (1,0), (1,-1), "RIGHT"),
+        ("BACKGROUND",    (0,0), (-1,-1), TOTAL_BG),
+        ("BOX",           (0,0), (-1,-1), 0.9, TOTAL_BG),
+        ("LEFTPADDING",   (0,0), (-1,-1), 6),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 6),
+        ("TOPPADDING",    (0,0), (-1,-1), 5),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+        ("ALIGN",         (1,0), (1,-1),  "RIGHT"),
     ]))
 
     stack = Table([[top],[bottom]], colWidths=[70*mm])
     stack.setStyle(TableStyle([
-        ("LEFTPADDING",(0,0), (-1,-1), 0),
-        ("RIGHTPADDING",(0,0),(-1,-1), 0),
-        ("TOPPADDING", (0,0), (-1,-1), 0),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 0),
+        ("LEFTPADDING",   (0,0), (-1,-1), 0),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 0),
+        ("TOPPADDING",    (0,0), (-1,-1), 0),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 0),
     ]))
 
     container = Table([["", stack]], colWidths=[None, 72*mm])
     container.setStyle(TableStyle([
-        ("LEFTPADDING",(0,0), (-1,-1), 0),
-        ("RIGHTPADDING",(0,0),(-1,-1), 0),
-        ("TOPPADDING", (0,0), (-1,-1), 0),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 0),
+        ("LEFTPADDING",   (0,0), (-1,-1), 0),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 0),
+        ("TOPPADDING",    (0,0), (-1,-1), 0),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 0),
     ]))
     return container
+
 
 def _payment_panel(agent):
     s = _styles()
     name = f"{_safe(agent.first_name)} {_safe(agent.last_name)}".strip() or "Not provided"
 
     info = [
-        Paragraph("<b>Payment Method:</b> BACS Transfer Only", s["small"]),
-        Paragraph(f"<b>Account Name:</b> {name}", s["small"]),
-        Paragraph(f"<b>Bank Name:</b> {_safe(agent.bank_name)}", s["small"]),
+        Paragraph("<b>Payment Method:</b> BACS Transfer Only",                  s["small"]),
+        Paragraph(f"<b>Account Name:</b> {name}",                               s["small"]),
+        Paragraph(f"<b>Bank Name:</b> {_safe(agent.bank_name)}",                s["small"]),
         Paragraph(f"<b>Account Number:</b> {_safe(agent.bank_account_number)}", s["small"]),
-        Paragraph(f"<b>Sort Code:</b> {_safe(agent.bank_sort_code)}", s["small"]),
-        Paragraph(f"<b>UTR Number:</b> {_safe(agent.utr_number)}", s["small"]),
+        Paragraph(f"<b>Sort Code:</b> {_safe(agent.bank_sort_code)}",           s["small"]),
+        Paragraph(f"<b>UTR Number:</b> {_safe(agent.utr_number)}",              s["small"]),
     ]
     panel = _boxed(info, shaded=True)
     return [panel]
 
-def _tax_statement():
+
+def _tax_statement(cfg):
+    """
+    Renders the disclaimer box at the bottom of the invoice.
+
+    The text is taken from cfg['tax_statement']:
+      - V3 invoices:       "...all invoices that I have submitted to V3 Services Ltd."
+      - All other clients: "...all invoices."   (V3 name is absent)
+    """
     s = _styles()
-    txt = ("I confirm that I am responsible for any Tax or National Insurance "
-           "due on all invoices that I have submitted to V3 Services Ltd.")
-    # Render disclaimer in solid black for print legibility
     black_style = ParagraphStyle(
         "disclaimer_black",
         parent=s["small"],
         textColor=HexColor("#000000"),
     )
-    box = Table([[Paragraph(txt, black_style)]], colWidths=[None])
+    box = Table([[Paragraph(cfg['tax_statement'], black_style)]], colWidths=[None])
     box.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,-1), HexColor("#F1F5F9")),
-        ("BOX",        (0,0), (-1,-1), 0.8, GRID),
-        ("LEFTPADDING",(0,0), (-1,-1), 6),
-        ("RIGHTPADDING",(0,0),(-1,-1), 6),
-        ("TOPPADDING", (0,0), (-1,-1), 4),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 4),
+        ("BACKGROUND",    (0,0), (-1,-1), HexColor("#F1F5F9")),
+        ("BOX",           (0,0), (-1,-1), 0.8, GRID),
+        ("LEFTPADDING",   (0,0), (-1,-1), 6),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 6),
+        ("TOPPADDING",    (0,0), (-1,-1), 4),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
     ]))
     return box
+
 
 def _boxed(flowables, col_width=None, shaded=False):
     bg = FILL_SOFT if shaded else PAPER
     t = Table([[_stack(flowables)]], colWidths=[col_width or None])
     t.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,-1), bg),
-        ("BOX",        (0,0), (-1,-1), 0.9, GRID),
-        ("LEFTPADDING",(0,0), (-1,-1), 7),
-        ("RIGHTPADDING",(0,0),(-1,-1), 7),
-        ("TOPPADDING", (0,0), (-1,-1), 7),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 7),
+        ("BACKGROUND",    (0,0), (-1,-1), bg),
+        ("BOX",           (0,0), (-1,-1), 0.9, GRID),
+        ("LEFTPADDING",   (0,0), (-1,-1), 7),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 7),
+        ("TOPPADDING",    (0,0), (-1,-1), 7),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 7),
     ]))
     return t
 
+
 def _stack(items):
     return Table([[items]], colWidths=["*"], style=TableStyle([
-        ("LEFTPADDING",(0,0),(-1,-1),0),
-        ("RIGHTPADDING",(0,0),(-1,-1),0),
-        ("TOPPADDING",(0,0),(-1,-1),0),
-        ("BOTTOMPADDING",(0,0),(-1,-1),0),
+        ("LEFTPADDING",   (0,0), (-1,-1), 0),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 0),
+        ("TOPPADDING",    (0,0), (-1,-1), 0),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 0),
     ]))
+
 
 def _draw_footer(canvas, doc):
     canvas.saveState()
@@ -435,22 +481,19 @@ def _draw_footer(canvas, doc):
 
 
 # ===== Helpers =====
+
 def _resolve_job_info(jobs, invoice):
     """Return (job_type, job_address) from invoice or jobs[0].job / row fields."""
-    job_type = getattr(invoice, "job_type", "") if invoice else ""
-    job_address = getattr(invoice, "address", "") if invoice else ""
+    job_type    = getattr(invoice, "job_type", "") if invoice else ""
+    job_address = getattr(invoice, "address",  "") if invoice else ""
 
     if (not job_type or not job_address) and jobs:
-        first = jobs[0]
-        # Row-level hints
+        first    = jobs[0]
         job_type = job_type or first.get("job_type") or ""
-        # Embedded job object
-        job_obj = first.get("job")
+        job_obj  = first.get("job")
         if job_obj:
-            job_type = job_type or getattr(job_obj, "job_type", "") or ""
-            job_address = job_address or getattr(job_obj, "address", "") or ""
-
-        # Fallback: parse address from any row with 'address'
+            job_type    = job_type    or getattr(job_obj, "job_type", "") or ""
+            job_address = job_address or getattr(job_obj, "address",  "") or ""
         if not job_address:
             for ln in jobs:
                 if ln.get("address"):
@@ -458,6 +501,7 @@ def _resolve_job_info(jobs, invoice):
                     break
 
     return (job_type, job_address)
+
 
 def _fmt_date(dt):
     """Return DD/MM/YYYY (UK), robust parsing."""
@@ -476,28 +520,33 @@ def _fmt_date(dt):
         return "Invalid date"
     return "Invalid date"
 
+
 def _fmt_money(x):
     try:
-        if x is None: return "£0.00"
+        if x is None:              return "£0.00"
         if isinstance(x, Decimal): x = float(x)
-        if isinstance(x, str): x = float(x)
+        if isinstance(x, str):     x = float(x)
         return f"£{x:,.2f}"
     except Exception:
         return "£0.00"
 
+
 def _fmt_hours(x):
     try:
-        if x is None: return "0.0h"
+        if x is None:              return "0.0h"
         if isinstance(x, Decimal): x = float(x)
-        if isinstance(x, str): x = float(x)
+        if isinstance(x, str):     x = float(x)
         return f"{x:.1f}h"
     except Exception:
         return "0.0h"
+
 
 def _safe(val):
     if val is None: return "Not provided"
     txt = str(val).strip()
     return txt if txt else "Not provided"
+
+
 def _join_lines(lines):
     return "<br/>".join([l for l in lines if l and l != "Not provided"])
 

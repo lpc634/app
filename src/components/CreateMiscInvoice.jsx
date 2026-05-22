@@ -4,13 +4,25 @@ import { toast } from 'sonner';
 import { Loader2, ArrowLeft, Plus, X } from 'lucide-react';
 import { useAuth } from '../useAuth';
 
+const BILL_TO_OPTIONS = [
+  { value: 'v3',         label: 'V3 Services Ltd' },
+  { value: 'lh1_global', label: 'LH1 Global' },
+];
+
 const CreateMiscInvoice = () => {
   const navigate = useNavigate();
+  const { user, apiCall } = useAuth();
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [lineItems, setLineItems] = useState([
     { id: 1, description: '', quantity: '1', unit_price: '' }
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // --- Bill To (Lance Carstairs only) ---
+  // 'v3'         → V3 Services Ltd (default, full V3 branding, V3 Ref shown)
+  // 'lh1_global' → LH1 Global (different address, no V3 Ref, shorter tax statement)
+  const isLance = user && user.first_name === 'Lance' && user.last_name === 'Carstairs';
+  const [billTo, setBillTo] = useState('v3');
 
   const totalAmount = useMemo(() => {
     return lineItems.reduce((acc, item) => {
@@ -67,7 +79,9 @@ const CreateMiscInvoice = () => {
         hours: parseFloat(item.quantity),
         rate: parseFloat(item.unit_price)
       })),
-      totalAmount: totalAmount
+      totalAmount: totalAmount,
+      // Pass bill_to so the review/submit step can forward it
+      bill_to: isLance ? billTo : 'v3',
     };
 
     navigate('/agent/invoices/review', { state: reviewData });
@@ -86,10 +100,34 @@ const CreateMiscInvoice = () => {
         <p className="text-muted-foreground">Manually add line items for expenses or other charges.</p>
       </div>
 
-      {/* Invoice Number Field */}
+      {/* Invoice Details */}
       <div className="dashboard-card p-6">
         <h2 className="text-xl font-bold text-v3-text-lightest mb-4">Invoice Details</h2>
         <div className="space-y-4">
+          {/* Bill To dropdown — only visible to Lance Carstairs */}
+          {isLance && (
+            <div>
+              <label htmlFor="bill-to-misc" className="block text-sm font-medium text-v3-text-lightest mb-2">
+                Bill To
+              </label>
+              <select
+                id="bill-to-misc"
+                value={billTo}
+                onChange={(e) => setBillTo(e.target.value)}
+                className="bg-v3-bg-dark border border-v3-border rounded-md shadow-sm py-2 px-3 text-v3-text-lightest focus:outline-none focus:ring-v3-orange focus:border-v3-orange"
+              >
+                {BILL_TO_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              {billTo !== 'v3' && (
+                <p className="text-xs text-v3-orange mt-1">
+                  V3 Ref will be hidden on this invoice.
+                </p>
+              )}
+            </div>
+          )}
+
           <div>
             <label htmlFor="invoiceNumber" className="block text-sm font-medium text-v3-text-lightest mb-2">
               Invoice Number *

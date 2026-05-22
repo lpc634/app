@@ -345,7 +345,12 @@ class Invoice(db.Model):
     # Snapshotted job details for PDF generation
     job_type = db.Column(db.String(50), nullable=True)
     address = db.Column(db.String(200), nullable=True)
-    
+    # Which client this invoice is billed to.
+    # 'v3' (default) = V3 Services Ltd, full layout with V3 Ref and full tax statement.
+    # Other values (e.g. 'lh1_global') swap the BILL TO block, hide V3 Ref, shorten tax statement.
+    # See src/pdf/invoice_builder.py _CLIENT_CONFIG for the full list.
+    bill_to = db.Column(db.String(50), nullable=True, default='v3')
+
     # Unique constraint will be added by migration script
     
     agent = db.relationship('User', back_populates='invoices', foreign_keys=[agent_id])
