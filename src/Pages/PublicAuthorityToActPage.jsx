@@ -24,13 +24,38 @@ const V3_SUCCESS_CSS = String.raw`
 @keyframes star-movement-top{ 0%{transform:translate(0,0);opacity:1} 100%{transform:translate(100%,0);opacity:0} }
 `;
 
+// Phone photos are several MB each; shrink them so the upload is quick on a mobile connection
+async function shrinkPhoto(file) {
+  if (file.type !== "image/jpeg" || file.size < 1.5 * 1024 * 1024) return file;
+  const source = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = source;
+    await img.decode();
+    const scale = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    return blob && blob.size < file.size ? new File([blob], file.name, { type: "image/jpeg" }) : file;
+  } catch {
+    return file; // send the original rather than lose the photo
+  } finally {
+    URL.revokeObjectURL(source);
+  }
+}
+
 export default function PublicAuthorityToActPage() {
   const { token } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  const [progress, setProgress] = useState("");
   const scrollRef = useRef(null);
+  // Files already stored, by File object, so a second attempt doesn't upload them again
+  const uploadedRef = useRef(new Map());
 
   useEffect(() => {
     fetchFormData();
@@ -61,11 +86,45 @@ export default function PublicAuthorityToActPage() {
     }
   };
 
+  const uploadAttachment = async (file) => {
+    const body = new FormData();
+    body.append("file", await shrinkPhoto(file));
+    const response = await fetch(`/api/form/${token}/attachments`, { method: "POST", body });
+    if (!response.ok) throw new Error("Upload failed");
+    return response.json();
+  };
+
   const handleSubmit = async (submissionData) => {
+    if (progress) return; // already sending
     try {
+      // Files go up first, one at a time; the form then refers to each by its storage key
+      const files = submissionData.attachments || [];
+      const attachments = [];
+      const notUploaded = [];
+      for (const [i, file] of files.entries()) {
+        setProgress(`Uploading file ${i + 1} of ${files.length}…`);
+        try {
+          if (!uploadedRef.current.has(file)) {
+            uploadedRef.current.set(file, await uploadAttachment(file));
+          }
+          attachments.push(uploadedRef.current.get(file));
+        } catch {
+          notUploaded.push(file.name);
+        }
+      }
+      if (notUploaded.length && !window.confirm(
+        `We couldn't upload: ${notUploaded.join(", ")}.\n\n` +
+        `Press OK to submit the form without ${notUploaded.length === 1 ? "it" : "them"}, or Cancel to go back and try again.`
+      )) {
+        return;
+      }
+
+      setProgress("Submitting…");
       // Add client_name, client_email, property_address to top level for backend filtering
       const payload = {
         ...submissionData,
+        attachments,
+        attachmentsNotUploaded: notUploaded,
         client_name: `${submissionData.firstName} ${submissionData.lastName}`,
         client_email: submissionData.email,
         property_address: `${submissionData.siteAddress.line1}, ${submissionData.siteAddress.city}, ${submissionData.siteAddress.postcode}`,
@@ -88,6 +147,8 @@ export default function PublicAuthorityToActPage() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       alert("Error submitting form: " + err.message);
+    } finally {
+      setProgress("");
     }
   };
 
@@ -160,6 +221,14 @@ export default function PublicAuthorityToActPage() {
         onSubmit={handleSubmit}
         scrollContainer={scrollRef.current}
       />
+      {progress && (
+        <div
+          role="status"
+          style={{position:'fixed', inset:0, zIndex:50, display:'grid', placeItems:'center', background:'rgba(13,13,14,.8)', color:'#F8F8FA', fontSize:'1.1rem', fontWeight:600}}
+        >
+          {progress}
+        </div>
+      )}
     </div>
   );
 }

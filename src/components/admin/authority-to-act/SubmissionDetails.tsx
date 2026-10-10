@@ -30,8 +30,8 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
     }
   };
 
-  // Get attachments from submission data
-  const attachments = data.attachments || [];
+  // Get attachments from submission data (older submissions hold empty placeholders, which have no key)
+  const attachments = (data.attachments || []).filter((file: any) => file && file.key);
   console.log('SubmissionDetails - attachments:', attachments);
   console.log('SubmissionDetails - full data:', data);
 
@@ -50,16 +50,9 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
 
   console.log('SubmissionDetails - photos:', photos.length, 'files:', files.length);
 
-  const downloadFile = (file: any, index: number) => {
-    const blob = new Blob([file.data], { type: file.type || 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = file.name || `attachment-${index + 1}`;
-    document.body.appendChild(a);
-    a.click();
-    URL.revokeObjectURL(url);
-    a.remove();
+  // Files live in private storage; `url` is the temporary link the admin page fetched for each
+  const downloadFile = (file: any) => {
+    if (file.url) window.open(file.url, '_blank', 'noopener');
   };
 
   // Helper components matching the form structure
@@ -445,7 +438,7 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
               <div key={index} className="border border-[#2A2A2E] rounded-lg overflow-hidden bg-[#15161A]">
                 <div className="aspect-video bg-[#0D0D0E] flex items-center justify-center p-4">
                   <img
-                    src={photo.dataUrl || URL.createObjectURL(new Blob([photo.data]))}
+                    src={photo.url}
                     alt={photo.name}
                     className="max-w-full max-h-full object-contain"
                   />
@@ -458,7 +451,7 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => downloadFile(photo, index)}
+                    onClick={() => downloadFile(photo)}
                     className="ml-4 border-[#2A2A2E] hover:bg-[#1C1C1E]"
                   >
                     <Download className="h-4 w-4" />
@@ -502,7 +495,7 @@ export default function SubmissionDetails({ submission, open, onClose, onMarkRea
                 </div>
                 <Button
                   size="sm"
-                  onClick={() => downloadFile(file, index)}
+                  onClick={() => downloadFile(file)}
                   className="ml-4 bg-[#FF6A2B] hover:bg-[#FF7D42] text-white"
                 >
                   <Download className="h-4 w-4 mr-2" />

@@ -11,10 +11,11 @@ logger = logging.getLogger(__name__)
 class S3Client:
     def __init__(self):
         # Validate AWS environment variables first
-        self.aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-        self.aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-        self.aws_region = os.getenv('AWS_S3_REGION')
-        self.bucket_name = os.getenv('AWS_S3_BUCKET')
+        # (Heroku's Bucketeer add-on provides the same four under its own BUCKETEER_ names)
+        self.aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID') or os.getenv('BUCKETEER_AWS_ACCESS_KEY_ID')
+        self.aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY') or os.getenv('BUCKETEER_AWS_SECRET_ACCESS_KEY')
+        self.aws_region = os.getenv('AWS_S3_REGION') or os.getenv('BUCKETEER_AWS_REGION')
+        self.bucket_name = os.getenv('AWS_S3_BUCKET') or os.getenv('BUCKETEER_BUCKET_NAME')
         
         # Check if all required credentials are available
         missing_vars = []
@@ -160,6 +161,77 @@ class S3Client:
             logger.error(f"Error uploading agent document: {str(e)}")
             return {'success': False, 'error': str(e)}
 
+    def upload_form_attachment(self, file, filename, file_extension):
+        """
+        Upload a file a client attached to a public form (e.g. Authority to Act)
+
+        Args:
+            file: File object to upload (already validated by the caller)
+            filename (str): Sanitised original filename, kept as metadata
+            file_extension (str): Lower-case extension, without the dot
+
+        Returns:
+            dict: Upload result with the S3 key
+        """
+        if not self.configured:
+            return {
+                'success': False,
+                'error': f'S3 storage not configured: {self.error_message}'
+            }
+
+        try:
+            s3_key = f"authority-to-act/{uuid.uuid4().hex}.{file_extension}"
+
+            self.s3_client.upload_fileobj(
+                file,
+                self.bucket_name,
+                s3_key,
+                ExtraArgs={
+                    'ContentType': self._get_content_type(file_extension),
+                    'ServerSideEncryption': 'AES256',
+                    # Single-word keys: get_form_attachment reads 'filename' back, and
+                    # '_' and '-' in metadata names are not preserved by every S3 endpoint
+                    'Metadata': {
+                        'uploaded': datetime.utcnow().isoformat(),
+                        'filename': filename
+                    }
+                }
+            )
+
+            return {'success': True, 'file_key': s3_key}
+
+        except ClientError as e:
+            logger.error(f"AWS S3 error uploading form attachment: {str(e)}")
+            return {'success': False, 'error': f"S3 upload failed: {str(e)}"}
+        except Exception as e:
+            logger.error(f"Error uploading form attachment: {str(e)}")
+            return {'success': False, 'error': str(e)}
+
+    def get_form_attachment(self, file_key):
+        """
+        Describe a stored form attachment from S3's own record of it
+
+        Args:
+            file_key (str): S3 object key
+
+        Returns:
+            dict: key, name, size and type of the file, or None if it is not in storage
+        """
+        if not self.configured:
+            return None
+
+        try:
+            head_response = self.s3_client.head_object(Bucket=self.bucket_name, Key=file_key)
+            return {
+                'key': file_key,
+                'name': head_response.get('Metadata', {}).get('filename') or file_key.split('/')[-1],
+                'size': head_response.get('ContentLength'),
+                'type': head_response.get('ContentType'),
+            }
+        except ClientError as e:
+            logger.error(f"Form attachment not found in S3: {file_key} - {str(e)}")
+            return None
+
     def upload_invoice_pdf(self, agent_id, invoice_number, pdf_data, filename=None):
         """
         Upload invoice PDF to S3 with organized structure
@@ -290,14 +362,15 @@ class S3Client:
             logger.error(f"S3 UPLOAD FAILED: Traceback: {traceback.format_exc()}")
             return {'success': False, 'error': f"Upload failed: {str(e)}"}
 
-    def generate_presigned_url(self, file_key, expiration=3600):
+    def generate_presigned_url(self, file_key, expiration=3600, filename=None):
         """
         Generate a temporary signed URL for secure file access
-        
+
         Args:
             file_key (str): S3 object key
             expiration (int): URL expiration time in seconds (default: 1 hour)
-            
+            filename (str): Name the browser should give the file (default: the key's own name)
+
         Returns:
             str: Presigned URL or None if error
         """
@@ -331,7 +404,8 @@ class S3Client:
 
             # For images and PDFs, use inline display instead of attachment
             is_inline = content_type.startswith('image/') or content_type == 'application/pdf'
-            content_disposition = f'inline; filename="{file_key.split("/")[-1]}"' if is_inline else f'attachment; filename="{file_key.split("/")[-1]}"'
+            download_name = secure_filename(filename or '') or file_key.split("/")[-1]
+            content_disposition = f'inline; filename="{download_name}"' if is_inline else f'attachment; filename="{download_name}"'
 
             # Generate the presigned URL
             response = fresh_s3_client.generate_presigned_url(
@@ -918,6 +992,9 @@ except Exception as e:
             return {'success': False, 'error': f'S3 not configured: {self.error_message}'}
         def upload_invoice_pdf(self, *args, **kwargs): 
             return {'success': False, 'error': f'S3 not configured: {self.error_message}'}
+        def upload_form_attachment(self, *args, **kwargs):
+            return {'success': False, 'error': f'S3 not configured: {self.error_message}'}
+        def get_form_attachment(self, *args, **kwargs): return None
         def generate_presigned_url(self, *args, **kwargs): return None
         def list_agent_documents(self, *args, **kwargs): return []
         def delete_file(self, *args, **kwargs): return False

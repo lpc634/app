@@ -106,6 +106,16 @@ export default function AuthorityToActManager() {
     if (!submission.is_read) {
       await markAsRead(submission.id);
     }
+
+    // Attached files are private; fetch a temporary link for each so they can be opened
+    try {
+      const { attachments } = await apiCall(`/admin/authority-to-act/submissions/${submission.id}/attachments`);
+      setSelectedSubmission(prev => prev && prev.id === submission.id
+        ? { ...prev, submission_data: { ...prev.submission_data, attachments } }
+        : prev);
+    } catch (err) {
+      console.error("Failed to load attachments:", err);
+    }
   };
 
   const downloadPdf = async (submissionId, e) => {

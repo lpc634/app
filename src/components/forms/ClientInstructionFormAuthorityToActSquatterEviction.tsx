@@ -288,12 +288,27 @@ function NumberSelect({name,min=0,max=50}){
   );
 }
 
+// Kept in step with the upload endpoint (ATTACHMENT_SIGNATURES, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS)
+const FILE_TYPES = /\.(pdf|jpe?g|png)$/i;
+const MAX_FILE_MB = 10;
+const MAX_FILES = 10;
+
 function FilePicker({ name, label }){
   const { setValue, watch } = useFormContext();
   const files = watch(name) || [];
+  const [problem, setProblem] = useState("");
   function onChange(e){
     const list = Array.from(e.target.files || []);
-    setValue(name, [...files, ...list], { shouldDirty: true });
+    // Photos are shrunk before upload, so only other files are held to the size limit here
+    const ok = list.filter(f => FILE_TYPES.test(f.name) && (f.type === "image/jpeg" || f.size <= MAX_FILE_MB * 1024 * 1024));
+    const next = [...files, ...ok].slice(0, MAX_FILES);
+    setProblem(
+      ok.length < list.length ? `Only PDF, JPG and PNG files up to ${MAX_FILE_MB} MB can be attached.`
+      : files.length + ok.length > MAX_FILES ? `You can attach up to ${MAX_FILES} files.`
+      : ""
+    );
+    setValue(name, next, { shouldDirty: true });
+    e.target.value = ""; // so the same file can be chosen again after being removed
   }
   function removeAt(i){
     const next = [...files]; next.splice(i,1); setValue(name,next,{shouldDirty:true});
@@ -301,8 +316,9 @@ function FilePicker({ name, label }){
   return (
     <div className="files">
       <div className="file-row">
-        <input type="file" multiple onChange={onChange} />
+        <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={onChange} />
       </div>
+      {problem && <small className="error">{problem}</small>}
       <div className="inline" style={{flexWrap:'wrap'}}>
         {files.map((f,i)=> (
           <span key={i} className="file-chip">{f.name} <button type="button" onClick={()=>removeAt(i)} aria-label={`Remove ${f.name}`}>×</button></span>
@@ -555,7 +571,7 @@ export default function ClientAuthorityToActSquatterEviction({ onSubmit, scrollC
               </div>
             </div>
             <div>
-              <Field label="File Uploads" hint="Attach supporting documents, photos, and site plans (PDF, JPG, PNG, etc.)">
+              <Field label="File Uploads" hint="Attach supporting documents, photos, and site plans (PDF, JPG or PNG, up to 10 MB each)">
                 <FilePicker name="attachments" />
               </Field>
             </div>

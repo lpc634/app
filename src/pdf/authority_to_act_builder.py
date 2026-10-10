@@ -80,7 +80,8 @@ LAID_OUT = {
     'premisesOccupied', 'sitePlanAvailable', 'photosAvailable', 'trespassDescription',
     'tents', 'vehicles', 'persons', 'dogsOnSite', 'livestockOnSite', 'changeUndertaking',
     'haveSecurity', 'wantSecurityQuote', 'wantWasteQuote',
-    'authorityRole', 'docsLandRegistry', 'docsLease', 'docsManagement', 'docsOther', 'attachments',
+    'authorityRole', 'docsLandRegistry', 'docsLease', 'docsManagement', 'docsOther',
+    'attachments', 'attachmentsNotUploaded',
     'acceptTerms', 'sigTitle', 'sigFirst', 'sigLast', 'signatureDataUrl', 'signatureDate',
     'invoiceCompany', 'invoiceAddress', 'accountsTitle', 'accountsFirst', 'accountsLast',
     'accountsEmail', 'accountsPhone', 'vatNumber', 'poNumber',
@@ -158,6 +159,7 @@ def build_authority_to_act_pdf(file_obj, data, form_type=None, submitted_at=None
         Paragraph(OWNERSHIP_NOTICE, s["muted"]),
         _field_row([("I confirm that I am", AUTHORITY_ROLES.get(data.get('authorityRole'), data.get('authorityRole')))], s, w),
         _field_row([("Supporting documentation", ', '.join(docs) or 'None indicated')], s, w),
+        *_attachment_rows(data, s, w),
         Spacer(1, 3*mm),
         _statement(TERMS, data.get('acceptTerms'), s, w),
         Spacer(1, 4*mm),
@@ -305,6 +307,17 @@ def _long_field(label, value, s):
         Paragraph(_text(value) if value not in (None, '') else "—", s["value"]),
         HRFlowable(width="100%", thickness=0.5, color=GRID, spaceBefore=5, spaceAfter=0),
     ]
+
+
+def _attachment_rows(data, s, width):
+    """Names of the files sent with the form, and of any the client's browser failed to send."""
+    attached = [item.get('name') for item in data.get('attachments') or []
+                if isinstance(item, dict) and item.get('key')]
+    rows = [_field_row([("Files attached", ', '.join(str(name) for name in attached) or 'None')], s, width)]
+    failed = data.get('attachmentsNotUploaded')
+    if isinstance(failed, list) and failed:
+        rows.append(_field_row([("Files the client could not upload", ', '.join(str(name) for name in failed))], s, width))
+    return rows
 
 
 def _yes_no_rows(questions, data, s, width):

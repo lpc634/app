@@ -4,9 +4,13 @@ from src.models.user import User
 from src.models.authority_to_act import AuthorityToActToken
 from src.extensions import db
 from src.pdf.authority_to_act_builder import build_authority_to_act_pdf
+from src.utils.s3_client import s3_client
+from werkzeug.utils import secure_filename
 from datetime import datetime
 import logging
 import io
+import os
+import re
 import smtplib
 import threading
 from email.mime.multipart import MIMEMultipart
@@ -15,6 +19,17 @@ from email.utils import formataddr
 
 authority_bp = Blueprint('authority', __name__)
 logger = logging.getLogger(__name__)
+
+# Files a client may attach to the public form: allowed types, each with the bytes a real one starts with
+ATTACHMENT_SIGNATURES = {
+    'pdf': b'%PDF-',
+    'jpg': b'\xff\xd8\xff',
+    'jpeg': b'\xff\xd8\xff',
+    'png': b'\x89PNG\r\n\x1a\n',
+}
+ATTACHMENT_KEY = re.compile(r'^authority-to-act/[0-9a-f]{32}\.(pdf|jpg|jpeg|png)$')
+MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+MAX_ATTACHMENTS = 10
 
 
 def require_admin():
@@ -79,7 +94,8 @@ def notify_admins_of_submission(submission):
         email_body += f"Company: {data.get('company')}\n"
     email_body += f"Email: {data.get('client_email', 'Not provided')}\n"
     email_body += f"Phone: {data.get('phone', 'Not provided')}\n"
-    email_body += f"Property: {data.get('property_address', 'Not specified')}\n\n"
+    email_body += f"Property: {data.get('property_address', 'Not specified')}\n"
+    email_body += f"Files attached: {len(data.get('attachments') or [])}\n\n"
     email_body += "View the full submission:\n"
     email_body += f"{current_app.config.get('PUBLIC_BASE_URL')}/admin/authority-to-act\n"
 
@@ -96,6 +112,19 @@ def notify_admins_of_submission(submission):
                 logger.error(f"Failed to email submission notification: {e}")
 
     threading.Thread(target=send).start()
+
+
+def stored_attachments(claimed):
+    """The attachments a submission may keep: only files that really are in storage,
+    described by what is stored rather than by what the browser says."""
+    attachments = {}
+    for item in (claimed if isinstance(claimed, list) else [])[:MAX_ATTACHMENTS]:
+        key = item.get('key') if isinstance(item, dict) else None
+        if isinstance(key, str) and ATTACHMENT_KEY.match(key) and key not in attachments:
+            stored = s3_client.get_form_attachment(key)
+            if stored:
+                attachments[key] = stored
+    return list(attachments.values())
 
 
 @authority_bp.route('/admin/authority-to-act/permanent-link', methods=['GET'])
@@ -305,6 +334,33 @@ def download_submission_pdf(submission_id):
         return jsonify({"error": "Failed to generate PDF"}), 500
 
 
+@authority_bp.route('/admin/authority-to-act/submissions/<int:submission_id>/attachments', methods=['GET'])
+@jwt_required()
+def list_submission_attachments(submission_id):
+    """The files attached to a submission, each with a temporary link to open it."""
+    try:
+        user = require_admin()
+        if not user:
+            return jsonify({"error": "Forbidden"}), 403
+
+        submission = AuthorityToActToken.query.get(submission_id)
+        if not submission or submission.status != 'submitted':
+            return jsonify({"error": "Submission not found"}), 404
+
+        attachments = []
+        for item in (submission.submission_data or {}).get('attachments') or []:
+            # Submissions from before uploads were stored hold empty placeholders here
+            if isinstance(item, dict) and item.get('key'):
+                url = s3_client.generate_presigned_url(item['key'], filename=item.get('name'))
+                attachments.append({**item, 'url': url})
+
+        return jsonify({'attachments': attachments}), 200
+
+    except Exception as e:
+        logger.error(f"Error listing submission attachments: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
 @authority_bp.route('/form/<token>', methods=['GET'])
 def get_authority_form_data(token):
     """Get form data for a specific token (public endpoint, no auth required)."""
@@ -329,6 +385,65 @@ def get_authority_form_data(token):
         return jsonify({"error": "Internal server error"}), 500
 
 
+@authority_bp.route('/form/<token>/attachments', methods=['POST'])
+def upload_authority_form_attachment(token):
+    """Upload one file for an Authority to Act form (public endpoint, no auth required).
+
+    The form uploads its files one at a time before it submits, then lists the
+    returned keys in the submission.
+    """
+    try:
+        permanent_token = AuthorityToActToken.query.filter_by(
+            token=token,
+            status='permanent'
+        ).first()
+
+        if not permanent_token:
+            return jsonify({"error": "Invalid link"}), 404
+
+        if not s3_client.is_configured():
+            logger.error(f"Form attachment refused: {s3_client.get_configuration_error()}")
+            return jsonify({"error": "File uploads are not available at the moment"}), 503
+
+        # Refuse an oversized request before reading its body (the allowance is for the form encoding)
+        if (request.content_length or 0) > MAX_ATTACHMENT_BYTES + 64 * 1024:
+            return jsonify({"error": "Files must be 10 MB or smaller"}), 413
+
+        file = request.files.get('file')
+        if not file or not file.filename:
+            return jsonify({"error": "No file provided"}), 400
+
+        extension = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        if extension not in ATTACHMENT_SIGNATURES:
+            return jsonify({"error": "Only PDF, JPG and PNG files can be attached"}), 400
+
+        opening_bytes = file.stream.read(8)
+        file.stream.seek(0, os.SEEK_END)
+        size = file.stream.tell()
+        file.stream.seek(0)
+
+        if not opening_bytes.startswith(ATTACHMENT_SIGNATURES[extension]):
+            return jsonify({"error": "This file is not a valid PDF, JPG or PNG"}), 400
+        if size > MAX_ATTACHMENT_BYTES:
+            return jsonify({"error": "Files must be 10 MB or smaller"}), 413
+
+        filename = secure_filename(file.filename) or f"attachment.{extension}"
+        upload_result = s3_client.upload_form_attachment(file, filename, extension)
+        if not upload_result.get('success'):
+            logger.error(f"Form attachment upload failed: {upload_result.get('error')}")
+            return jsonify({"error": "Upload failed. Please try again."}), 502
+
+        return jsonify({
+            'key': upload_result['file_key'],
+            'name': filename,
+            'size': size
+        }), 201
+
+    except Exception as e:
+        logger.error(f"Error uploading form attachment: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
 @authority_bp.route('/form/<token>/submit', methods=['POST'])
 def submit_authority_form(token):
     """Submit Authority to Act form (public endpoint, no auth required)."""
@@ -343,6 +458,7 @@ def submit_authority_form(token):
             return jsonify({"error": "Invalid link"}), 404
 
         data = request.get_json() or {}
+        data['attachments'] = stored_attachments(data.get('attachments'))
 
         # Create a new submission record
         submission = AuthorityToActToken(
