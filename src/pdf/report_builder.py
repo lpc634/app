@@ -109,6 +109,7 @@ def build_report_pdf(file_obj, form_type, data, reference=None, submitted_by=Non
     """
     data = data or {}
     data = data.get('formData') if isinstance(data.get('formData'), dict) else data
+    form_type = str(form_type or '').replace('-', '_')     # the forms save their slug, e.g. 'squatter-eviction'
     s = _styles()
     title = REPORT_TITLES.get(form_type) or f"{(form_type or 'Job').replace('_', ' ').title()} Report"
     used = set(JOB_FIELDS)
