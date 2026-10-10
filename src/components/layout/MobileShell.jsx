@@ -5,7 +5,7 @@ import { usePageHeaderState } from "@/components/layout/PageHeaderContext.jsx";
 import { useAuth } from "@/useAuth.jsx";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search, FileText, DollarSign, MessageCircle, FileEdit, FileSignature, Mail, MessageSquare, UserCheck, Shield } from "lucide-react";
+import { Menu, LogOut, Home, Users, Briefcase, BarChart3, Search, FileText, DollarSign, MessageCircle, FileEdit, FileSignature, Mail, MessageSquare, UserCheck, Shield, ScrollText } from "lucide-react";
 import logo from "@/assets/new_logo.png";
 
 const navigation = [
@@ -18,6 +18,7 @@ const navigation = [
   { name: 'Police Interactions', href: '/police-interactions', icon: Shield },
   { name: 'V3 Job Reports', href: '/admin/v3-reports', icon: FileEdit },
   { name: 'Authority to Act', href: '/admin/authority-to-act', icon: FileSignature, adminOnly: true },
+  { name: 'Notices', href: '/admin/notices', icon: ScrollText, adminOnly: true },
   { name: 'Contact Forms', href: '/admin/contact-forms', icon: MessageSquare, adminOnly: true },
   { name: 'E-Flyer', href: '/admin/eflyer', icon: Mail, adminOnly: true },
   { name: 'Communications', href: '/admin/communications/message-agents', icon: MessageCircle, adminOnly: true },

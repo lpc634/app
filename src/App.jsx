@@ -32,6 +32,7 @@ const routeImports = {
   AdminMore: () => import('./Pages/admin/AdminMore.jsx'),
   MessageAgents: () => import('./Pages/admin/communications/MessageAgents.jsx'),
   AuthorityToActManager: () => import('./Pages/admin/AuthorityToActManager.jsx'),
+  Notices: () => import('./Pages/admin/Notices.jsx'),
   PublicAuthorityToActPage: () => import('./Pages/PublicAuthorityToActPage.jsx'),
   EFlyerPage: () => import('./Pages/EFlyerPage.jsx'),
   EFlyerRedirect: () => import('./Pages/EFlyerRedirect.jsx'),
@@ -70,6 +71,7 @@ const ReviewInvoicePage = lazy(routeImports.ReviewInvoicePage);
 const AdminMore = lazy(routeImports.AdminMore);
 const MessageAgents = lazy(routeImports.MessageAgents);
 const AuthorityToActManager = lazy(routeImports.AuthorityToActManager);
+const Notices = lazy(routeImports.Notices);
 const PublicAuthorityToActPage = lazy(routeImports.PublicAuthorityToActPage);
 const EFlyerPage = lazy(routeImports.EFlyerPage);
 const EFlyerRedirect = lazy(routeImports.EFlyerRedirect);
@@ -177,6 +179,7 @@ function AppRoutes() {
               <Route path="/admin/more" element={<AdminMore />} />
               <Route path="/admin/communications/message-agents" element={<MessageAgents />} />
               <Route path="/admin/authority-to-act" element={<AuthorityToActManager />} />
+              <Route path="/admin/notices" element={<Notices />} />
             </Route>
 
             {/* Legacy Admin Paths (back-compat) */}

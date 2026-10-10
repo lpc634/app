@@ -55,6 +55,7 @@ from src.routes.telegram import telegram_bp, telegram_api_bp, agent_telegram_bp
 from src.routes.police_interactions import bp as police_bp
 from src.routes.forms import forms_bp
 from src.routes.authority_to_act import authority_bp
+from src.routes.notices import notices_bp
 from src.routes.contact_forms import contact_forms_bp
 from src.routes.crm import crm_bp
 
@@ -217,6 +218,7 @@ app.register_blueprint(agent_telegram_bp)
 app.register_blueprint(police_bp, url_prefix='/api')
 app.register_blueprint(forms_bp, url_prefix='/api')
 app.register_blueprint(authority_bp, url_prefix='/api')
+app.register_blueprint(notices_bp, url_prefix='/api')
 app.register_blueprint(contact_forms_bp, url_prefix='/api')
 app.register_blueprint(crm_bp, url_prefix='/api/crm')
 
