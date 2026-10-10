@@ -437,7 +437,8 @@ def _photo(raw, box_w, box_h):
         jpeg = io.BytesIO()
         picture.save(jpeg, format='JPEG', quality=82)
         jpeg.seek(0)
-        scale = min(box_w / picture.width, box_h / picture.height)
+        # Fit the frame, but never enlarge a small picture past about 110 dpi, where it turns blocky
+        scale = min(box_w / picture.width, box_h / picture.height, 72 / 110)
         return Image(jpeg, width=picture.width * scale, height=picture.height * scale)
     except Exception:
         return None
