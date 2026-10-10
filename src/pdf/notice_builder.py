@@ -4,39 +4,24 @@ Notice Builder (ReportLab)
 — Notices served on site. They name only the landowner: no company name, logo or contact details —
 """
 
-import os
 import re
 from datetime import datetime
 from xml.sax.saxutils import escape
 
-from reportlab.lib.colors import HexColor, white
+from reportlab.lib.colors import white
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph
 
-# ===== Look =====
-INK = HexColor("#2B2E31")      # body text
-SLATE = HexColor("#45494D")    # charcoal of the house style
-ORANGE = HexColor("#EE722E")
-MID = HexColor("#6B7278")
-RULE = HexColor("#C9CDD1")
-PANEL = HexColor("#F5F6F7")
+from .house_style import (
+    INK, SLATE, ORANGE, MID, RULE, PANEL, W, H, STRIP, FONT, SEMIBOLD, BOLD, accent_strip, spaced
+)
 
-W, H = A4
 LEFT = 25 * mm
 RIGHT = W - 25 * mm
 COLUMN = RIGHT - LEFT
-
-# Poppins (SIL Open Font License, see fonts/OFL.txt) is bundled so notices look the same on any server
-FONT_DIR = os.path.join(os.path.dirname(__file__), 'fonts')
-FONT, SEMIBOLD, BOLD = "Poppins", "Poppins-SemiBold", "Poppins-Bold"
-for _name, _file in ((FONT, "Poppins-Regular.ttf"), (SEMIBOLD, "Poppins-SemiBold.ttf"), (BOLD, "Poppins-Bold.ttf")):
-    pdfmetrics.registerFont(TTFont(_name, os.path.join(FONT_DIR, _file)))
-pdfmetrics.registerFontFamily(FONT, normal=FONT, bold=SEMIBOLD, italic=FONT, boldItalic=SEMIBOLD)
 
 # ===== Questions a notice can ask, in the order the form shows them =====
 LANDOWNER = {'name': 'landowner', 'label': 'Landowner / client', 'type': 'text', 'max': 150}
@@ -110,21 +95,20 @@ def build_notice_pdf(file_obj, notice_type, values):
     c.setSubject(notice['kicker'])
     kicker, title, badge = notice['kicker'].upper(), notice['title'].upper(), notice['badge'].upper()
 
-    strip = 9 * mm
-    _accent_strip(c, H - strip, strip)
-    _accent_strip(c, 0, strip, flip=True)
+    accent_strip(c, H - STRIP)
+    accent_strip(c, 0, flip=True)
 
     # ---- title ----
-    y = H - strip - 19 * mm
-    _spaced(c, kicker, W / 2, y, SEMIBOLD, 10, 3.2, ORANGE, centre=True)
+    y = H - STRIP - 19 * mm
+    spaced(c, kicker, W / 2, y, SEMIBOLD, 10, 3.2, ORANGE, centre=True)
     y -= 15 * mm
-    _spaced(c, title, W / 2, y, BOLD, 30, 0.6, SLATE, centre=True)
+    spaced(c, title, W / 2, y, BOLD, 30, 0.6, SLATE, centre=True)
     y -= 14 * mm
     badge_size, badge_track = 11, 2.1
     badge_w = c.stringWidth(badge, SEMIBOLD, badge_size) + badge_track * (len(badge) - 1) + 14 * mm
     c.setFillColor(SLATE)
     c.roundRect(W / 2 - badge_w / 2, y - 2.8 * mm, badge_w, 8.6 * mm, 1.4 * mm, stroke=0, fill=1)
-    _spaced(c, badge, W / 2, y, SEMIBOLD, badge_size, badge_track, white, centre=True)
+    spaced(c, badge, W / 2, y, SEMIBOLD, badge_size, badge_track, white, centre=True)
     y -= 11 * mm
     c.setStrokeColor(SLATE)
     c.setLineWidth(1.3)
@@ -154,7 +138,7 @@ def build_notice_pdf(file_obj, notice_type, values):
     y -= panel_h
 
     # ---- the wording: the largest text that fits above the date (it is read standing at a gate) ----
-    foot = strip + 15 * mm
+    foot = STRIP + 15 * mm
     top = y - 11 * mm
     available = top - (foot + 14 * mm)
     for size in (12.5, 12, 11.5, 11, 10.5, 10, 9.5, 9):
@@ -172,7 +156,7 @@ def build_notice_pdf(file_obj, notice_type, values):
             c.setStrokeColor(RULE)
             c.setLineWidth(0.7)
             c.line(LEFT, y + section_gap / 2, RIGHT, y + section_gap / 2)
-        _spaced(c, heading, LEFT, y - size * 0.82, SEMIBOLD, size * 0.88, 1.1, SLATE)
+        spaced(c, heading, LEFT, y - size * 0.82, SEMIBOLD, size * 0.88, 1.1, SLATE)
         y -= size + head_gap
         p.drawOn(c, LEFT, y - height)
         y -= height + section_gap
@@ -190,42 +174,6 @@ def build_notice_pdf(file_obj, notice_type, values):
     c.save()
 
     return re.sub(r'[\\/:*?"<>|\r\n]+', ' ', f"{notice['label']} - {address}").strip()[:120]
-
-
-# ===== Layout pieces =====
-
-def _accent_strip(c, y, height, flip=False):
-    """Edge strip in the house colours: charcoal with a slanted orange end."""
-    c.setFillColor(SLATE)
-    c.rect(0, y, W, height, stroke=0, fill=1)
-    slant, length = height * 0.9, 62 * mm
-    p = c.beginPath()
-    if not flip:    # orange at the right-hand end
-        p.moveTo(W - length, y)
-        p.lineTo(W, y)
-        p.lineTo(W, y + height)
-        p.lineTo(W - length + slant, y + height)
-    else:           # orange at the left-hand end
-        p.moveTo(0, y)
-        p.lineTo(length - slant, y)
-        p.lineTo(length, y + height)
-        p.lineTo(0, y + height)
-    p.close()
-    c.setFillColor(ORANGE)
-    c.drawPath(p, stroke=0, fill=1)
-
-
-def _spaced(c, text, x, y, font, size, tracking, colour, centre=False):
-    """Draw letter-spaced text; `centre` centres it on x."""
-    if centre:
-        x -= (c.stringWidth(text, font, size) + tracking * (len(text) - 1)) / 2
-    t = c.beginText(x, y)
-    t.setFont(font, size)
-    t.setCharSpace(tracking)
-    t.setFillColor(colour)
-    t.textOut(text)
-    t.setCharSpace(0)  # tracking is PDF text state; reset it or it carries into everything drawn next
-    c.drawText(t)
 
 
 # ===== Helpers =====

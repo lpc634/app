@@ -16,15 +16,8 @@ import json
 import logging
 import requests
 import io
-import re
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch, cm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak, KeepTogether
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 admin_bp = Blueprint('admin', __name__)
 @admin_bp.route('/admin/agents/minimal', methods=['GET'])
@@ -3248,447 +3241,41 @@ def get_job_v3_reports(job_id):
 
 def generate_v3_report_pdf(report, agent_name=None):
 	"""
-	Generates a professional PDF for a V3 job report using the V3 headed template.
+	Generates the PDF of a V3 job report for sending to the client (layout in src/pdf/report_builder.py).
 	Returns bytes of the PDF file.
 	"""
-	from PyPDF2 import PdfReader, PdfWriter
-	import os
+	from src.pdf.report_builder import build_report_pdf
 
-	# Path to the headed template
-	template_path = os.path.join(os.path.dirname(__file__), '..', 'templates', 'headed_template.pdf')
-
-	# First, generate the content PDF
-	content_buffer = io.BytesIO()
-	doc = SimpleDocTemplate(
-		content_buffer,
-		pagesize=A4,
-		rightMargin=1.5*cm,
-		leftMargin=1.5*cm,
-		topMargin=4.2*cm,  # Space for header (logo + address) - increased for better spacing
-		bottomMargin=2.0*cm  # Space for footer
-	)
-
-	# Styles
-	styles = getSampleStyleSheet()
-	styles.add(ParagraphStyle(
-		name='ReportTitle',
-		parent=styles['Heading1'],
-		fontSize=20,
-		spaceAfter=20,
-		alignment=TA_CENTER,
-		textColor=colors.HexColor('#1a1a2e')
-	))
-	styles.add(ParagraphStyle(
-		name='SectionTitle',
-		parent=styles['Heading2'],
-		fontSize=14,
-		spaceBefore=15,
-		spaceAfter=10,
-		textColor=colors.HexColor('#ff6b35'),
-		borderPadding=(0, 0, 5, 0)
-	))
-	styles.add(ParagraphStyle(
-		name='FieldLabel',
-		parent=styles['Normal'],
-		fontSize=10,
-		textColor=colors.HexColor('#666666'),
-		fontName='Helvetica-Bold'
-	))
-	styles.add(ParagraphStyle(
-		name='FieldValue',
-		parent=styles['Normal'],
-		fontSize=11,
-		textColor=colors.HexColor('#1a1a2e'),
-		spaceAfter=8
-	))
-	styles.add(ParagraphStyle(
-		name='TimelineTime',
-		parent=styles['Normal'],
-		fontSize=10,
-		textColor=colors.HexColor('#ff6b35'),
-		fontName='Helvetica-Bold'
-	))
-	styles.add(ParagraphStyle(
-		name='TimelineText',
-		parent=styles['Normal'],
-		fontSize=10,
-		textColor=colors.HexColor('#333333'),
-		leftIndent=20
-	))
-
-	elements = []
-	report_data = report.report_data or {}
-
-	# Form type names
-	form_type_names = {
-		'traveller_eviction': 'Traveller Eviction Report',
-		'traveller_serve': 'Traveller Serve Report',
-		'squatter_serve': 'Squatter Serve Report',
-		'squatter_eviction': 'Squatter Eviction Report',
-	}
-	report_title = form_type_names.get(report.form_type, 'Job Report')
-
-	# Title
-	elements.append(Paragraph(report_title, styles['ReportTitle']))
-	elements.append(Paragraph(f"Report ID: {report.id}", styles['Normal']))
-	elements.append(Spacer(1, 0.3*inch))
-
-	# Helper function to format values
-	def format_value(key, value):
-		if value is None or value == '':
-			return None
-		if isinstance(value, bool):
-			return 'Yes' if value else 'No'
-		if isinstance(value, dict):
-			# Timeline entries
-			entries = [(k, v) for k, v in value.items() if v and str(v).strip()]
-			if not entries:
-				return None
-			return entries
-		return str(value)
-
-	# Field labels
-	field_labels = {
-		'client': 'Client',
-		'address1': 'Address Line 1',
-		'address2': 'Address Line 2',
-		'city': 'City',
-		'postcode': 'Postcode',
-		'date': 'Date',
-		'arrival_time': 'Arrival Time',
-		'departure_time': 'Departure Time',
-		'completion_date': 'Completion Date',
-		'prior_notice_served': 'Prior Notice Served',
-		'property_condition': 'Property Condition',
-		'property_damage': 'Property Damage',
-		'damage_details': 'Damage Details',
-		'aggressive': 'Squatters Aggressive',
-		'aggression_details': 'Aggression Details',
-		'dogs_on_site': 'Dogs on Site',
-		'dog_details': 'Dog Details',
-		'num_males': 'Adult Males',
-		'num_females': 'Adult Females',
-		'num_children': 'Children',
-		'police_attendance': 'Police Attendance',
-		'cad_number': 'CAD Number',
-		'police_force': 'Police Force',
-		'police_notes': 'Police Notes',
-		'additional_notes': 'Additional Notes',
-	}
-
-	def get_label(key):
-		if key in field_labels:
-			return field_labels[key]
-		if key.startswith('agent_'):
-			num = key.split('_')[1]
-			return f"Agent {num}" if num != '1' else "Lead Agent"
-		return key.replace('_', ' ').title()
-
-	# Metadata section
-	elements.append(Paragraph("Report Information", styles['SectionTitle']))
-	meta_data = [
-		['Submitted By:', agent_name or 'Unknown'],
-		['Submitted On:', report.submitted_at.strftime('%d %b %Y at %H:%M') if report.submitted_at else 'Unknown'],
-	]
-	if report.reviewed_at:
-		meta_data.append(['Reviewed At:', report.reviewed_at.strftime('%d %b %Y at %H:%M')])
-
-	meta_table = Table(meta_data, colWidths=[2.5*inch, 4.5*inch])
-	meta_table.setStyle(TableStyle([
-		('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-		('FONTSIZE', (0, 0), (-1, -1), 10),
-		('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
-		('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a2e')),
-		('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-		('VALIGN', (0, 0), (-1, -1), 'TOP'),
-	]))
-	elements.append(meta_table)
-	elements.append(Spacer(1, 0.2*inch))
-
-	# Job Details section
-	job_fields = ['client', 'address1', 'address2', 'city', 'postcode', 'date', 'arrival_time']
-	job_data = []
-	for field in job_fields:
-		value = format_value(field, report_data.get(field))
-		if value:
-			job_data.append([get_label(field) + ':', value])
-
-	if job_data:
-		job_section = []
-		job_section.append(Paragraph("Job Details", styles['SectionTitle']))
-		job_table = Table(job_data, colWidths=[2.5*inch, 4.5*inch])
-		job_table.setStyle(TableStyle([
-			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-			('FONTSIZE', (0, 0), (-1, -1), 10),
-			('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
-			('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a2e')),
-			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-			('VALIGN', (0, 0), (-1, -1), 'TOP'),
-		]))
-		job_section.append(job_table)
-		job_section.append(Spacer(1, 0.2*inch))
-		elements.append(KeepTogether(job_section))
-
-	# Agents section
-	agent_data = []
-	for i in range(1, 21):
-		field = f'agent_{i}'
-		value = format_value(field, report_data.get(field))
-		if value:
-			label = "Lead Agent:" if i == 1 else f"Agent {i}:"
-			agent_data.append([label, value])
-
-	if agent_data:
-		agent_section = []
-		agent_section.append(Paragraph("Agents on Site", styles['SectionTitle']))
-		agent_table = Table(agent_data, colWidths=[2.5*inch, 4.5*inch])
-		agent_table.setStyle(TableStyle([
-			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-			('FONTSIZE', (0, 0), (-1, -1), 10),
-			('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
-			('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a2e')),
-			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-			('VALIGN', (0, 0), (-1, -1), 'TOP'),
-		]))
-		agent_section.append(agent_table)
-		agent_section.append(Spacer(1, 0.2*inch))
-		elements.append(KeepTogether(agent_section))
-
-	# Property Details section
-	prop_fields = ['prior_notice_served', 'property_condition', 'property_damage', 'damage_details',
-				   'aggressive', 'aggression_details', 'dogs_on_site', 'dog_details',
-				   'num_males', 'num_females', 'num_children']
-	prop_data = []
-	for field in prop_fields:
-		value = format_value(field, report_data.get(field))
-		if value:
-			prop_data.append([get_label(field) + ':', value])
-
-	if prop_data:
-		prop_section = []
-		prop_section.append(Paragraph("Property Details", styles['SectionTitle']))
-		prop_table = Table(prop_data, colWidths=[2.5*inch, 4.5*inch])
-		prop_table.setStyle(TableStyle([
-			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-			('FONTSIZE', (0, 0), (-1, -1), 10),
-			('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
-			('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a2e')),
-			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-			('VALIGN', (0, 0), (-1, -1), 'TOP'),
-		]))
-		prop_section.append(prop_table)
-		prop_section.append(Spacer(1, 0.2*inch))
-		elements.append(KeepTogether(prop_section))
-
-	# Timeline sections
-	for day_num in range(1, 8):
-		timeline_key = f'timeline_day{day_num}'
-		timeline_data = report_data.get(timeline_key)
-		if timeline_data and isinstance(timeline_data, dict):
-			entries = [(k, v) for k, v in timeline_data.items() if v and str(v).strip()]
-			if entries:
-				day_label = "Day 1 Timeline" if day_num == 1 else f"Day {day_num} Timeline"
-				elements.append(Paragraph(day_label, styles['SectionTitle']))
-
-				# Add each timeline entry as a separate table for proper spacing
-				sorted_entries = sorted(entries, key=lambda x: x[0])
-				for i, (time, text) in enumerate(sorted_entries):
-					# Format text: add line breaks before sub-timestamps and make them bold
-					formatted_text = str(text)
-					# First, make all timestamps bold (e.g., "07:10" becomes "<b>07:10</b>")
-					formatted_text = re.sub(r'(\d{1,2}:\d{2})', r'<b>\1</b>', formatted_text)
-					# Then add double line break before timestamps that appear after text (not at start)
-					formatted_text = re.sub(r'(\s)(<b>\d{1,2}:\d{2}</b>\s)', r'<br/><br/>\2', formatted_text)
-					wrapped_text = Paragraph(formatted_text, styles['TimelineText'])
-
-					# Create individual table for each timeline entry
-					entry_table = Table([[time, wrapped_text]], colWidths=[1*inch, 5.5*inch])
-					entry_table.setStyle(TableStyle([
-						('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
-						('FONTSIZE', (0, 0), (0, 0), 10),
-						('TEXTCOLOR', (0, 0), (0, 0), colors.HexColor('#ff6b35')),
-						('TOPPADDING', (0, 0), (-1, -1), 6),
-						('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-						('VALIGN', (0, 0), (-1, -1), 'TOP'),
-						('LEFTPADDING', (0, 0), (0, 0), 0),
-						('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#e9ecef')),
-					]))
-					elements.append(entry_table)
-
-					# Add spacer between entries (except after the last one)
-					if i < len(sorted_entries) - 1:
-						elements.append(Spacer(1, 0.1*inch))
-
-				elements.append(Spacer(1, 0.15*inch))
-
-	# Police Details section
-	police_fields = ['police_attendance', 'cad_number', 'police_force', 'police_notes']
-	police_data = []
-	for field in police_fields:
-		value = format_value(field, report_data.get(field))
-		if value:
-			police_data.append([get_label(field) + ':', value])
-
-	if police_data:
-		police_section = []
-		police_section.append(Paragraph("Police Details", styles['SectionTitle']))
-		police_table = Table(police_data, colWidths=[2.5*inch, 4.5*inch])
-		police_table.setStyle(TableStyle([
-			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-			('FONTSIZE', (0, 0), (-1, -1), 10),
-			('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
-			('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a2e')),
-			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-			('VALIGN', (0, 0), (-1, -1), 'TOP'),
-		]))
-		police_section.append(police_table)
-		police_section.append(Spacer(1, 0.2*inch))
-		elements.append(KeepTogether(police_section))
-
-	# Completion section
-	completion_fields = ['departure_time', 'completion_date', 'additional_notes']
-	completion_data = []
-	for field in completion_fields:
-		value = format_value(field, report_data.get(field))
-		if value:
-			# Wrap additional notes if long
-			if field == 'additional_notes' and len(str(value)) > 80:
-				completion_data.append([get_label(field) + ':', Paragraph(str(value), styles['FieldValue'])])
+	# Fetch the photos from storage; the builder turns them into print-sized images
+	photos = []
+	photos_missing = 0
+	for i, photo in enumerate(report.photo_urls or []):
+		try:
+			s3_key = photo.get('url') if isinstance(photo, dict) else photo
+			signed_url = None
+			if s3_key and s3_client.is_configured():
+				signed_url = s3_client.generate_presigned_url(s3_key, expiration=300)
+			img_response = requests.get(signed_url, timeout=30) if signed_url else None
+			if img_response is not None and img_response.status_code == 200:
+				photos.append(img_response.content)
 			else:
-				completion_data.append([get_label(field) + ':', value])
+				photos_missing += 1
+		except Exception as photo_err:
+			photos_missing += 1
+			current_app.logger.warning(f"Failed to download photo {i}: {str(photo_err)}")
 
-	if completion_data:
-		completion_section = []
-		completion_section.append(Paragraph("Completion", styles['SectionTitle']))
-		completion_table = Table(completion_data, colWidths=[2.5*inch, 4.5*inch])
-		completion_table.setStyle(TableStyle([
-			('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-			('FONTSIZE', (0, 0), (-1, -1), 10),
-			('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
-			('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1a1a2e')),
-			('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-			('VALIGN', (0, 0), (-1, -1), 'TOP'),
-		]))
-		completion_section.append(completion_table)
-		elements.append(KeepTogether(completion_section))
-
-	# Photos section - embed actual images
-	photo_urls = report.photo_urls or []
-	if photo_urls:
-		elements.append(Spacer(1, 0.3*inch))
-		elements.append(Paragraph(f"Photos & Evidence ({len(photo_urls)})", styles['SectionTitle']))
-		elements.append(Spacer(1, 0.1*inch))
-
-		# Download and embed each photo
-		photo_images = []
-		for i, photo in enumerate(photo_urls):
-			try:
-				s3_key = photo.get('url') if isinstance(photo, dict) else photo
-				if s3_key and s3_client.is_configured():
-					signed_url = s3_client.generate_presigned_url(s3_key, expiration=300)
-					if signed_url:
-						# Download the image
-						img_response = requests.get(signed_url, timeout=30)
-						if img_response.status_code == 200:
-							# Create image from bytes
-							img_buffer = io.BytesIO(img_response.content)
-							try:
-								# Create ReportLab Image
-								img = Image(img_buffer)
-								# Scale to fit nicely (max 2.5 inches wide, maintain aspect ratio)
-								img_width = img.drawWidth
-								img_height = img.drawHeight
-								max_width = 2.4 * inch
-								max_height = 2.4 * inch
-
-								# Scale proportionally
-								scale = min(max_width / img_width, max_height / img_height, 1.0)
-								img.drawWidth = img_width * scale
-								img.drawHeight = img_height * scale
-
-								photo_images.append(img)
-							except Exception as img_err:
-								current_app.logger.warning(f"Failed to process image {i}: {str(img_err)}")
-			except Exception as photo_err:
-				current_app.logger.warning(f"Failed to download photo {i}: {str(photo_err)}")
-
-		# Arrange photos in a grid (3 per row)
-		if photo_images:
-			# Create rows of 3 images
-			rows = []
-			for i in range(0, len(photo_images), 3):
-				row = photo_images[i:i+3]
-				# Pad row to 3 columns if needed
-				while len(row) < 3:
-					row.append('')
-				rows.append(row)
-
-			# Create table with photos
-			photo_table = Table(rows, colWidths=[2.5*inch, 2.5*inch, 2.5*inch])
-			photo_table.setStyle(TableStyle([
-				('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-				('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-				('LEFTPADDING', (0, 0), (-1, -1), 5),
-				('RIGHTPADDING', (0, 0), (-1, -1), 5),
-				('TOPPADDING', (0, 0), (-1, -1), 5),
-				('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-			]))
-			elements.append(photo_table)
-		else:
-			elements.append(Paragraph(
-				f"Photos could not be loaded. View the full report online to see all {len(photo_urls)} images.",
-				styles['Normal']
-			))
-
-	# Generation timestamp
-	elements.append(Spacer(1, 0.3*inch))
-	elements.append(Paragraph(
-		f"Report generated on {datetime.now().strftime('%d %b %Y at %H:%M')}",
-		ParagraphStyle(
-			name='Timestamp',
-			parent=styles['Normal'],
-			fontSize=8,
-			textColor=colors.HexColor('#999999'),
-			alignment=TA_CENTER
-		)
-	))
-
-	# Build content PDF
-	doc.build(elements)
-	content_buffer.seek(0)
-
-	# Now merge content with the headed template
-	try:
-		# Read the template
-		template_reader = PdfReader(template_path)
-		template_page = template_reader.pages[0]
-
-		# Read the content we just generated
-		content_reader = PdfReader(content_buffer)
-
-		# Create output PDF
-		output = PdfWriter()
-
-		# For each page of content, merge with template
-		for i, content_page in enumerate(content_reader.pages):
-			# Create a copy of the template for each page
-			from copy import copy
-			new_page = copy(template_page)
-			# Merge the content on top of the template
-			new_page.merge_page(content_page)
-			output.add_page(new_page)
-
-		# Write to buffer
-		output_buffer = io.BytesIO()
-		output.write(output_buffer)
-		output_buffer.seek(0)
-		return output_buffer.getvalue()
-
-	except Exception as merge_error:
-		# If merging fails, fall back to content-only PDF
-		current_app.logger.warning(f"Template merge failed, using content only: {str(merge_error)}")
-		content_buffer.seek(0)
-		return content_buffer.getvalue()
+	buffer = io.BytesIO()
+	build_report_pdf(
+		buffer,
+		report.form_type,
+		report.report_data,
+		reference=report.id,
+		submitted_by=agent_name,
+		submitted_at=report.submitted_at,
+		photos=photos,
+		photos_missing=photos_missing,
+	)
+	return buffer.getvalue()
 
 
 @admin_bp.route('/admin/v3-reports/<int:report_id>/pdf', methods=['GET'])
