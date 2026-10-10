@@ -5,15 +5,19 @@ from src.models.authority_to_act import AuthorityToActToken
 from src.extensions import db
 from datetime import datetime
 import logging
+import base64
 import io
+import re
 import smtplib
+import threading
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
+from xml.sax.saxutils import escape
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib import colors
 
 authority_bp = Blueprint('authority', __name__)
@@ -29,6 +33,97 @@ def require_admin():
             return None
         return user
     except Exception:
+        return None
+
+
+def send_mail(msg):
+    """Send a prepared message through the configured SMTP server."""
+    use_ssl = str(current_app.config.get('MAIL_USE_SSL', '')).lower() == 'true'
+    use_tls = str(current_app.config.get('MAIL_USE_TLS', '')).lower() == 'true'
+    mail_server = current_app.config['MAIL_SERVER']
+    mail_port = int(current_app.config['MAIL_PORT'])
+
+    logger.info(f"Attempting to connect to {mail_server}:{mail_port} (SSL={use_ssl}, TLS={use_tls})")
+
+    if use_ssl:
+        # Use SMTP_SSL for port 465
+        server = smtplib.SMTP_SSL(mail_server, mail_port, timeout=10)
+    else:
+        # Use SMTP with STARTTLS for port 587
+        server = smtplib.SMTP(mail_server, mail_port, timeout=10)
+        if use_tls:
+            server.starttls()
+
+    server.login(current_app.config['MAIL_USERNAME'], current_app.config['MAIL_PASSWORD'])
+    server.send_message(msg)
+    server.quit()
+
+
+def notify_admins_of_submission(submission):
+    """Email every admin that a client has submitted a form."""
+    if not current_app.config.get('MAIL_USERNAME') or not current_app.config.get('MAIL_PASSWORD'):
+        logger.error("Email not configured - submission notification not sent")
+        return
+
+    recipients = [u.email for u in User.query.filter(User.role.in_(['admin', 'manager'])).all()]
+    if not recipients:
+        return
+
+    data = submission.submission_data or {}
+    client_name = data.get('client_name', 'Unknown')
+    form_name = (submission.form_type or '').replace('authority-to-act-', '').replace('-', ' ').title()
+
+    msg = MIMEMultipart()
+    mail_sender = current_app.config.get('MAIL_DEFAULT_SENDER')
+    msg['From'] = formataddr(mail_sender) if isinstance(mail_sender, tuple) else mail_sender
+    msg['To'] = ', '.join(recipients)
+    msg['Subject'] = f"Authority to Act form submitted - {client_name}"
+
+    email_body = "A client has completed an Authority to Act form.\n\n"
+    email_body += f"Form: {form_name or 'Authority to Act'}\n"
+    email_body += f"Client: {client_name}\n"
+    if data.get('company'):
+        email_body += f"Company: {data.get('company')}\n"
+    email_body += f"Email: {data.get('client_email', 'Not provided')}\n"
+    email_body += f"Phone: {data.get('phone', 'Not provided')}\n"
+    email_body += f"Property: {data.get('property_address', 'Not specified')}\n\n"
+    email_body += "View the full submission:\n"
+    email_body += f"{current_app.config.get('PUBLIC_BASE_URL')}/admin/authority-to-act\n"
+
+    msg.attach(MIMEText(email_body, 'plain'))
+
+    # Send in the background so a slow mail server can't hold up the client's submission
+    app = current_app._get_current_object()
+
+    def send():
+        with app.app_context():
+            try:
+                send_mail(msg)
+            except Exception as e:
+                logger.error(f"Failed to email submission notification: {e}")
+
+    threading.Thread(target=send).start()
+
+
+def signature_image(data_url):
+    """Turn the form's signature (a PNG data URL) into an image for the PDF.
+
+    The signature pad draws near-white strokes on a transparent canvas, which
+    would be invisible on paper, so the strokes are re-inked black on white.
+    """
+    if not data_url:
+        return None
+    try:
+        from PIL import Image as PILImage
+        drawn = PILImage.open(io.BytesIO(base64.b64decode(data_url.split(',', 1)[1]))).convert('RGBA')
+        inked = PILImage.new('RGB', drawn.size, 'white')
+        inked.paste(PILImage.new('RGB', drawn.size, 'black'), mask=drawn.getchannel('A'))
+        png = io.BytesIO()
+        inked.save(png, format='PNG')
+        png.seek(0)
+        return Image(png, width=3.5 * inch, height=1.2 * inch, kind='proportional', hAlign='LEFT')
+    except Exception as e:
+        logger.error(f"Could not render signature for PDF: {e}")
         return None
 
 
@@ -119,25 +214,7 @@ def send_form_link_email():
         msg.attach(MIMEText(email_body, 'plain'))
 
         # Send email with timeout
-        use_ssl = str(current_app.config.get('MAIL_USE_SSL', '')).lower() == 'true'
-        use_tls = str(current_app.config.get('MAIL_USE_TLS', '')).lower() == 'true'
-        mail_server = current_app.config['MAIL_SERVER']
-        mail_port = int(current_app.config['MAIL_PORT'])
-
-        logger.info(f"Attempting to connect to {mail_server}:{mail_port} (SSL={use_ssl}, TLS={use_tls})")
-
-        if use_ssl:
-            # Use SMTP_SSL for port 465
-            server = smtplib.SMTP_SSL(mail_server, mail_port, timeout=10)
-        else:
-            # Use SMTP with STARTTLS for port 587
-            server = smtplib.SMTP(mail_server, mail_port, timeout=10)
-            if use_tls:
-                server.starttls()
-
-        server.login(current_app.config['MAIL_USERNAME'], current_app.config['MAIL_PASSWORD'])
-        server.send_message(msg)
-        server.quit()
+        send_mail(msg)
 
         logger.info(f"Email sent successfully to {recipient_email}")
 
@@ -272,11 +349,23 @@ def download_submission_pdf(submission_id):
 
         # Title
         elements.append(Paragraph("Authority to Act", title_style))
-        elements.append(Paragraph("Squatter Eviction Services", styles['Heading3']))
+        form_name = (submission.form_type or '').replace('authority-to-act-', '').replace('-', ' ').title()
+        elements.append(Paragraph(f"{form_name or 'Squatter Eviction'} Services", styles['Heading3']))
         elements.append(Spacer(1, 0.3 * inch))
 
         # Submission details
         data = submission.submission_data or {}
+
+        def cell(value):
+            """Table cell for a submitted value; a Paragraph so long answers wrap instead of running off the page."""
+            if isinstance(value, bool):
+                text = 'Yes' if value else 'No'
+            elif isinstance(value, dict):
+                # Addresses arrive as {line1, line2, city, ...}
+                text = ', '.join(str(part) for part in value.values() if part)
+            else:
+                text = str(value)
+            return Paragraph(escape(text).replace('\n', '<br/>'), body_style)
 
         # Build data table
         details = [
@@ -286,23 +375,26 @@ def download_submission_pdf(submission_id):
         ]
 
         if data.get('client_name'):
-            details.append(['Client Name:', data.get('client_name')])
+            details.append(['Client Name:', cell(data.get('client_name'))])
         if data.get('client_email'):
-            details.append(['Email:', data.get('client_email')])
+            details.append(['Email:', cell(data.get('client_email'))])
         if data.get('client_phone'):
-            details.append(['Phone:', data.get('client_phone')])
+            details.append(['Phone:', cell(data.get('client_phone'))])
         if data.get('property_address'):
-            details.append(['Property Address:', data.get('property_address')])
+            details.append(['Property Address:', cell(data.get('property_address'))])
 
         details.append(['', ''])
         details.append(['Form Details', ''])
 
-        # Add all other form fields
+        # Add all other form fields (the signature is drawn below the table)
         for key, value in data.items():
-            if key not in ['client_name', 'client_email', 'client_phone', 'property_address']:
-                # Convert key to readable format
-                readable_key = key.replace('_', ' ').title()
-                details.append([readable_key + ':', str(value)])
+            if key in ['client_name', 'client_email', 'client_phone', 'property_address', 'signatureDataUrl']:
+                continue
+            if value is None or value == '' or value == {}:
+                continue
+            # Convert key to readable format (firstName -> First Name)
+            readable_key = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', key).replace('_', ' ').title()
+            details.append([readable_key + ':', cell(value)])
 
         # Create table
         table = Table(details, colWidths=[2.5*inch, 4*inch])
@@ -321,6 +413,12 @@ def download_submission_pdf(submission_id):
         ]))
 
         elements.append(table)
+
+        signature = signature_image(data.get('signatureDataUrl'))
+        if signature:
+            elements.append(Paragraph("Signature", heading_style))
+            elements.append(signature)
+
         elements.append(Spacer(1, 0.5 * inch))
 
         # Footer
@@ -420,6 +518,13 @@ def submit_authority_form(token):
         except Exception as telegram_error:
             logger.error(f"Failed to send Telegram notification: {telegram_error}")
             # Don't fail the submission if Telegram fails
+
+        # Email the admins
+        try:
+            notify_admins_of_submission(submission)
+        except Exception as email_error:
+            logger.error(f"Failed to send submission email: {email_error}")
+            # Don't fail the submission if email fails
 
         return jsonify({
             'message': 'Form submitted successfully',

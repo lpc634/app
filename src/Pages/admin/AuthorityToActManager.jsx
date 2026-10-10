@@ -115,7 +115,7 @@ export default function AuthorityToActManager() {
 
       const response = await fetch(`/api/admin/authority-to-act/submissions/${submissionId}/pdf`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
 
