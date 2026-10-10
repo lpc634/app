@@ -393,7 +393,7 @@ export default function AuthorityToActManager() {
                         <Badge variant="secondary">Submitted</Badge>
                       </td>
                       <td className="p-3 text-sm">
-                        {new Date(submission.submitted_at).toLocaleDateString('en-GB', {
+                        {new Date(submission.submitted_at + 'Z').toLocaleDateString('en-GB', {
                           day: '2-digit',
                           month: '2-digit',
                           year: 'numeric',

@@ -3,22 +3,15 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from src.models.user import User
 from src.models.authority_to_act import AuthorityToActToken
 from src.extensions import db
+from src.pdf.authority_to_act_builder import build_authority_to_act_pdf
 from datetime import datetime
 import logging
-import base64
 import io
-import re
 import smtplib
 import threading
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
-from xml.sax.saxutils import escape
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
-from reportlab.lib import colors
 
 authority_bp = Blueprint('authority', __name__)
 logger = logging.getLogger(__name__)
@@ -103,28 +96,6 @@ def notify_admins_of_submission(submission):
                 logger.error(f"Failed to email submission notification: {e}")
 
     threading.Thread(target=send).start()
-
-
-def signature_image(data_url):
-    """Turn the form's signature (a PNG data URL) into an image for the PDF.
-
-    The signature pad draws near-white strokes on a transparent canvas, which
-    would be invisible on paper, so the strokes are re-inked black on white.
-    """
-    if not data_url:
-        return None
-    try:
-        from PIL import Image as PILImage
-        drawn = PILImage.open(io.BytesIO(base64.b64decode(data_url.split(',', 1)[1]))).convert('RGBA')
-        inked = PILImage.new('RGB', drawn.size, 'white')
-        inked.paste(PILImage.new('RGB', drawn.size, 'black'), mask=drawn.getchannel('A'))
-        png = io.BytesIO()
-        inked.save(png, format='PNG')
-        png.seek(0)
-        return Image(png, width=3.5 * inch, height=1.2 * inch, kind='proportional', hAlign='LEFT')
-    except Exception as e:
-        logger.error(f"Could not render signature for PDF: {e}")
-        return None
 
 
 @authority_bp.route('/admin/authority-to-act/permanent-link', methods=['GET'])
@@ -311,122 +282,13 @@ def download_submission_pdf(submission_id):
 
         # Generate PDF
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter,
-                                rightMargin=72, leftMargin=72,
-                                topMargin=72, bottomMargin=18)
-
-        # Container for the PDF elements
-        elements = []
-        styles = getSampleStyleSheet()
-
-        # Title style
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=24,
-            textColor=colors.HexColor('#1a1a1a'),
-            spaceAfter=30,
-            alignment=1  # Center
+        build_authority_to_act_pdf(
+            buffer,
+            submission.submission_data,
+            form_type=submission.form_type,
+            submitted_at=submission.submitted_at,
+            reference=submission.id,
         )
-
-        # Heading style
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
-            fontSize=14,
-            textColor=colors.HexColor('#2563eb'),
-            spaceAfter=12,
-            spaceBefore=12
-        )
-
-        # Body style
-        body_style = ParagraphStyle(
-            'CustomBody',
-            parent=styles['BodyText'],
-            fontSize=11,
-            leading=16
-        )
-
-        # Title
-        elements.append(Paragraph("Authority to Act", title_style))
-        form_name = (submission.form_type or '').replace('authority-to-act-', '').replace('-', ' ').title()
-        elements.append(Paragraph(f"{form_name or 'Squatter Eviction'} Services", styles['Heading3']))
-        elements.append(Spacer(1, 0.3 * inch))
-
-        # Submission details
-        data = submission.submission_data or {}
-
-        def cell(value):
-            """Table cell for a submitted value; a Paragraph so long answers wrap instead of running off the page."""
-            if isinstance(value, bool):
-                text = 'Yes' if value else 'No'
-            elif isinstance(value, dict):
-                # Addresses arrive as {line1, line2, city, ...}
-                text = ', '.join(str(part) for part in value.values() if part)
-            else:
-                text = str(value)
-            return Paragraph(escape(text).replace('\n', '<br/>'), body_style)
-
-        # Build data table
-        details = [
-            ['Submission Date:', submission.submitted_at.strftime('%d %B %Y at %H:%M') if submission.submitted_at else 'N/A'],
-            ['', ''],
-            ['Client Information', ''],
-        ]
-
-        if data.get('client_name'):
-            details.append(['Client Name:', cell(data.get('client_name'))])
-        if data.get('client_email'):
-            details.append(['Email:', cell(data.get('client_email'))])
-        if data.get('client_phone'):
-            details.append(['Phone:', cell(data.get('client_phone'))])
-        if data.get('property_address'):
-            details.append(['Property Address:', cell(data.get('property_address'))])
-
-        details.append(['', ''])
-        details.append(['Form Details', ''])
-
-        # Add all other form fields (the signature is drawn below the table)
-        for key, value in data.items():
-            if key in ['client_name', 'client_email', 'client_phone', 'property_address', 'signatureDataUrl']:
-                continue
-            if value is None or value == '' or value == {}:
-                continue
-            # Convert key to readable format (firstName -> First Name)
-            readable_key = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', key).replace('_', ' ').title()
-            details.append([readable_key + ':', cell(value)])
-
-        # Create table
-        table = Table(details, colWidths=[2.5*inch, 4*inch])
-        table.setStyle(TableStyle([
-            ('FONT', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONT', (1, 0), (1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 11),
-            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#374151')),
-            ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1f2937')),
-            ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
-            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb'))
-        ]))
-
-        elements.append(table)
-
-        signature = signature_image(data.get('signatureDataUrl'))
-        if signature:
-            elements.append(Paragraph("Signature", heading_style))
-            elements.append(signature)
-
-        elements.append(Spacer(1, 0.5 * inch))
-
-        # Footer
-        footer_text = f"Generated by V3 Services on {datetime.utcnow().strftime('%d %B %Y')}"
-        elements.append(Paragraph(footer_text, styles['Italic']))
-
-        # Build PDF
-        doc.build(elements)
 
         # Prepare for download
         buffer.seek(0)
