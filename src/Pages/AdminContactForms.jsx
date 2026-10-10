@@ -145,13 +145,13 @@ export default function AdminContactForms() {
             <input
               type="text"
               readOnly
-              value="https://v3-app-49c3d1eff914.herokuapp.com/contact"
+              value={`${window.location.origin}/contact`}
               className="bg-v3-bg-darkest border border-v3-border text-v3-text text-sm px-3 py-2 rounded flex-1 focus:outline-none focus:border-v3-orange"
               onClick={(e) => e.target.select()}
             />
             <Button
               onClick={() => {
-                navigator.clipboard.writeText('https://v3-app-49c3d1eff914.herokuapp.com/contact');
+                navigator.clipboard.writeText(`${window.location.origin}/contact`);
               }}
               className="bg-v3-orange hover:bg-v3-orange/80 text-white"
             >

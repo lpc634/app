@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 
 export default function EFlyerPage() {
   const [loading, setLoading] = useState(true);
-  const eflyerUrl = 'https://v3-app-49c3d1eff914.herokuapp.com/e-flyer';
+  const eflyerUrl = `${window.location.origin}/e-flyer`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(eflyerUrl);

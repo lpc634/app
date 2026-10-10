@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 const AuthContext = createContext(null);
 
 const API_BASE_URL = import.meta.env.PROD
-  ? 'https://v3-app-49c3d1eff914.herokuapp.com/api'
+  ? '/api'
   : 'http://localhost:5001/api';
 
 export function AuthProvider({ children }) {

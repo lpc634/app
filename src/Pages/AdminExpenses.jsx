@@ -305,7 +305,7 @@ export default function AdminExpenses() {
 
       // Use fetch to get blob with auth
       const token = localStorage.getItem('token');
-      const resp = await fetch((import.meta.env.PROD ? 'https://v3-app-49c3d1eff914.herokuapp.com/api' : 'http://localhost:5001/api') + url, {
+      const resp = await fetch((import.meta.env.PROD ? '/api' : 'http://localhost:5001/api') + url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!resp.ok) {

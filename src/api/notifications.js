@@ -1,6 +1,6 @@
 // Helper function to get API base URL
 const API_BASE_URL = import.meta.env.PROD
-  ? 'https://v3-app-49c3d1eff914.herokuapp.com/api'
+  ? '/api'
   : 'http://localhost:5001/api';
 
 // Helper function to make API calls

@@ -135,7 +135,7 @@ def send_password_reset_email(recipient_email, reset_token):
         msg['To'] = recipient_email
         msg['Subject'] = "Password Reset Request"
 
-        body = f"Hello,\n\nTo reset your password, click the following link:\nhttps://v3-app-49c3d1eff914.herokuapp.com/reset-password?token={reset_token}\n\nIf you did not request this, ignore this email.\n\nThank you,\nV3 Services"
+        body = f"Hello,\n\nTo reset your password, click the following link:\n{current_app.config['PUBLIC_BASE_URL']}/reset-password?token={reset_token}\n\nIf you did not request this, ignore this email.\n\nThank you,\nV3 Services"
         msg.attach(MIMEText(body, 'plain'))
 
         server = smtplib.SMTP(current_app.config['MAIL_SERVER'], current_app.config['MAIL_PORT'])
