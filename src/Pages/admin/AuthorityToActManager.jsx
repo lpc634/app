@@ -19,7 +19,8 @@ import {
   Loader2,
   Circle,
   CircleDot,
-  Mail
+  Mail,
+  Trash2
 } from "lucide-react";
 import { useAuth } from "@/useAuth";
 import { toast } from "sonner";
@@ -30,7 +31,7 @@ const FORM_TYPES = [
 ];
 
 export default function AuthorityToActManager() {
-  const { apiCall } = useAuth();
+  const { apiCall, user } = useAuth();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedFormType, setSelectedFormType] = useState(FORM_TYPES[0].value);
@@ -38,6 +39,7 @@ export default function AuthorityToActManager() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [downloadingPdf, setDownloadingPdf] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
@@ -147,6 +149,22 @@ export default function AuthorityToActManager() {
       console.error(err);
     } finally {
       setDownloadingPdf(null);
+    }
+  };
+
+  const deleteSubmission = async (submission, e) => {
+    e.stopPropagation(); // Prevent row click
+    if (!confirm(`Delete the form submitted by ${submission.client_name || 'this client'}, including any files attached to it? This cannot be undone.`)) return;
+    try {
+      setDeletingId(submission.id);
+      await apiCall(`/admin/authority-to-act/submissions/${submission.id}`, { method: 'DELETE' });
+      setSubmissions(prev => prev.filter(sub => sub.id !== submission.id));
+      toast.success("Submission deleted");
+    } catch (err) {
+      toast.error("Failed to delete submission");
+      console.error(err);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -427,18 +445,36 @@ export default function AuthorityToActManager() {
                         {submission.property_address || '-'}
                       </td>
                       <td className="p-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => downloadPdf(submission.id, e)}
-                          disabled={downloadingPdf === submission.id}
-                        >
-                          {downloadingPdf === submission.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Download className="h-4 w-4" />
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => downloadPdf(submission.id, e)}
+                            disabled={downloadingPdf === submission.id}
+                          >
+                            {downloadingPdf === submission.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                          </Button>
+                          {user?.role === 'admin' && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              title="Delete submission"
+                              onClick={(e) => deleteSubmission(submission, e)}
+                              disabled={deletingId === submission.id}
+                              className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30"
+                            >
+                              {deletingId === submission.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
                           )}
-                        </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}

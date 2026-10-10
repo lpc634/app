@@ -361,6 +361,40 @@ def list_submission_attachments(submission_id):
         return jsonify({"error": "Internal server error"}), 500
 
 
+@authority_bp.route('/admin/authority-to-act/submissions/<int:submission_id>', methods=['DELETE'])
+@jwt_required()
+def delete_submission(submission_id):
+    """Delete a submission and the files attached to it (admin only)."""
+    try:
+        user = require_admin()
+        if not user or user.role != 'admin':
+            return jsonify({"error": "Forbidden"}), 403
+
+        # Only submissions: the permanent form links share this table and must survive
+        submission = AuthorityToActToken.query.get(submission_id)
+        if not submission or submission.status != 'submitted':
+            return jsonify({"error": "Submission not found"}), 404
+
+        attachments = (submission.submission_data or {}).get('attachments') or []
+
+        db.session.delete(submission)
+        db.session.commit()
+
+        # Remove its files once the record is gone, so a storage failure can't leave a record with dead links
+        for item in attachments:
+            key = item.get('key') if isinstance(item, dict) else None
+            if isinstance(key, str) and ATTACHMENT_KEY.match(key):
+                s3_client.delete_file(key)
+
+        logger.info(f"Authority to Act submission {submission_id} deleted by admin {user.id}")
+        return jsonify({"message": "Submission deleted"}), 200
+
+    except Exception as e:
+        logger.error(f"Error deleting submission: {e}")
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+
+
 @authority_bp.route('/form/<token>', methods=['GET'])
 def get_authority_form_data(token):
     """Get form data for a specific token (public endpoint, no auth required)."""
