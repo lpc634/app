@@ -3,6 +3,7 @@ import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AnimatePresence, motion } from "framer-motion";
+import PhotoPicker from "./PhotoPicker";
 
 /** ===== THEME (dark V3; no blue anywhere) ===== */
 const THEME_CSS = String.raw`
@@ -235,10 +236,6 @@ const ReportSchema = z.object({
   police_force: z.string().optional(),
   police_notes: z.string().optional(),
 
-  extra_photos_1: z.boolean().default(false),
-  extra_photos_2: z.boolean().default(false),
-  extra_photos_3: z.boolean().default(false),
-  extra_photos_4: z.boolean().default(false),
   additional_notes: z.string().optional(),
 
   departure_time: z.string().min(1),
@@ -493,10 +490,6 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
       police_cad: "",
       police_force: "",
       police_notes: "",
-      extra_photos_1: false,
-      extra_photos_2: false,
-      extra_photos_3: false,
-      extra_photos_4: false,
       additional_notes: "",
       departure_time: "",
       completion_date: "",
@@ -513,36 +506,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
   } = form;
 
   // photo tiles
-  const [photosA, setPhotosA] = useState<(File | null)[]>([
-    null,
-    null,
-    null,
-    null,
-  ]);
-  const [photosB, setPhotosB] = useState<(File | null)[]>([
-    null,
-    null,
-    null,
-    null,
-  ]);
-  const [photosC, setPhotosC] = useState<(File | null)[]>([
-    null,
-    null,
-    null,
-    null,
-  ]);
-  const [photosD, setPhotosD] = useState<(File | null)[]>([
-    null,
-    null,
-    null,
-    null,
-  ]);
-  const [photosE, setPhotosE] = useState<(File | null)[]>([
-    null,
-    null,
-    null,
-    null,
-  ]);
+  const [photos, setPhotos] = useState<File[]>([]);
   const [damagePhotos, setDamagePhotos] = useState<(string | null)[]>([
     null,
     null,
@@ -646,14 +610,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
       // Collect all photos from all photo states
       const allPhotos: File[] = [];
 
-      // Collect from photosA through photosE
-      [photosA, photosB, photosC, photosD, photosE].forEach(photoArray => {
-        photoArray.forEach(photo => {
-          if (photo instanceof File) {
-            allPhotos.push(photo);
-          }
-        });
-      });
+      allPhotos.push(...photos);
 
       console.log("Collected photos:", allPhotos.length);
 
@@ -686,10 +643,6 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
   const d6 = watch("day6");
   const d7 = watch("day7");
   const police = watch("police_attendance");
-  const extraPhotos1 = watch("extra_photos_1");
-  const extraPhotos2 = watch("extra_photos_2");
-  const extraPhotos3 = watch("extra_photos_3");
-  const extraPhotos4 = watch("extra_photos_4");
 
   // auto-reset hidden values
   const noticePrior = watch("notice_prior");
@@ -2902,375 +2855,7 @@ export default function TravellerEvictionForm({ jobData, onSubmit: parentOnSubmi
             <div className="h2" style={{ marginBottom: 12 }}>
               Photos:
             </div>
-            <div className="photo-grid">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={`A-${i}`}>
-                  <div className="h2" style={{ marginBottom: 6 }}>
-                    Photo:
-                  </div>
-                  <label className="photo-tile">
-                    {photosA[i] ? (
-                      <img
-                        src={URL.createObjectURL(photosA[i] as File)}
-                        alt="preview"
-                        className="photo-thumb"
-                      />
-                    ) : (
-                      <div className="sub" style={{ textAlign: "center" }}>
-                        Click to upload or drop
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: "none" }}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0] ?? null;
-                        const next = photosA.slice();
-                        next[i] = f;
-                        setPhotosA(next);
-                      }}
-                    />
-                    {photosA[i] && (
-                      <button
-                        type="button"
-                        className="photo-remove"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          const next = photosA.slice();
-                          next[i] = null;
-                          setPhotosA(next);
-                        }}
-                      >
-                        ×
-                      </button>
-                    )}
-                  </label>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: 14 }}>
-              <YesNo name="extra_photos_1" label="Need to upload More?" />
-            </div>
-            <AnimatePresence initial={false} mode="wait">
-              {extraPhotos1 && (
-                <motion.div
-                  className="photo-grid"
-                  style={{ marginTop: 12 }}
-                  initial={{
-                    opacity: 0,
-                    y: -8,
-                    scale: 0.98,
-                    filter: "blur(4px)",
-                  }}
-                  animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-                  exit={{ opacity: 0, y: -6, scale: 0.98, filter: "blur(3px)" }}
-                  transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                  layout
-                >
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={`B-${i}`}>
-                      <div className="h2" style={{ marginBottom: 6 }}>
-                        Photo:
-                      </div>
-                      <label className="photo-tile">
-                        {photosB[i] ? (
-                          <img
-                            src={URL.createObjectURL(photosB[i] as File)}
-                            alt="preview"
-                            className="photo-thumb"
-                          />
-                        ) : (
-                          <div className="sub" style={{ textAlign: "center" }}>
-                            Click to upload or drop
-                          </div>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          style={{ display: "none" }}
-                          onChange={(e) => {
-                            const f = e.target.files?.[0] ?? null;
-                            const next = photosB.slice();
-                            next[i] = f;
-                            setPhotosB(next);
-                          }}
-                        />
-                        {photosB[i] && (
-                          <button
-                            type="button"
-                            className="photo-remove"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              const next = photosB.slice();
-                              next[i] = null;
-                              setPhotosB(next);
-                            }}
-                          >
-                            ×
-                          </button>
-                        )}
-                      </label>
-                    </div>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {extraPhotos1 && (
-              <>
-                <div style={{ marginTop: 14 }}>
-                  <YesNo name="extra_photos_2" label="Need to upload More?" />
-                </div>
-                <AnimatePresence initial={false} mode="wait">
-                  {extraPhotos2 && (
-                    <motion.div
-                      className="photo-grid"
-                      style={{ marginTop: 12 }}
-                      initial={{
-                        opacity: 0,
-                        y: -8,
-                        scale: 0.98,
-                        filter: "blur(4px)",
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        scale: 1,
-                        filter: "blur(0px)",
-                      }}
-                      exit={{
-                        opacity: 0,
-                        y: -6,
-                        scale: 0.98,
-                        filter: "blur(3px)",
-                      }}
-                      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                      layout
-                    >
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={`C-${i}`}>
-                          <div className="h2" style={{ marginBottom: 6 }}>
-                            Photo:
-                          </div>
-                          <label className="photo-tile">
-                            {photosC[i] ? (
-                              <img
-                                src={URL.createObjectURL(photosC[i] as File)}
-                                alt="preview"
-                                className="photo-thumb"
-                              />
-                            ) : (
-                              <div
-                                className="sub"
-                                style={{ textAlign: "center" }}
-                              >
-                                Click to upload or drop
-                              </div>
-                            )}
-                            <input
-                              type="file"
-                              accept="image/*"
-                              style={{ display: "none" }}
-                              onChange={(e) => {
-                                const f = e.target.files?.[0] ?? null;
-                                const next = photosC.slice();
-                                next[i] = f;
-                                setPhotosC(next);
-                              }}
-                            />
-                            {photosC[i] && (
-                              <button
-                                type="button"
-                                className="photo-remove"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  const next = photosC.slice();
-                                  next[i] = null;
-                                  setPhotosC(next);
-                                }}
-                              >
-                                ×
-                              </button>
-                            )}
-                          </label>
-                        </div>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </>
-            )}
-
-            {extraPhotos2 && (
-              <>
-                <div style={{ marginTop: 14 }}>
-                  <YesNo name="extra_photos_3" label="Need to upload More?" />
-                </div>
-                <AnimatePresence initial={false} mode="wait">
-                  {extraPhotos3 && (
-                    <motion.div
-                      className="photo-grid"
-                      style={{ marginTop: 12 }}
-                      initial={{
-                        opacity: 0,
-                        y: -8,
-                        scale: 0.98,
-                        filter: "blur(4px)",
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        scale: 1,
-                        filter: "blur(0px)",
-                      }}
-                      exit={{
-                        opacity: 0,
-                        y: -6,
-                        scale: 0.98,
-                        filter: "blur(3px)",
-                      }}
-                      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                      layout
-                    >
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={`D-${i}`}>
-                          <div className="h2" style={{ marginBottom: 6 }}>
-                            Photo:
-                          </div>
-                          <label className="photo-tile">
-                            {photosD[i] ? (
-                              <img
-                                src={URL.createObjectURL(photosD[i] as File)}
-                                alt="preview"
-                                className="photo-thumb"
-                              />
-                            ) : (
-                              <div
-                                className="sub"
-                                style={{ textAlign: "center" }}
-                              >
-                                Click to upload or drop
-                              </div>
-                            )}
-                            <input
-                              type="file"
-                              accept="image/*"
-                              style={{ display: "none" }}
-                              onChange={(e) => {
-                                const f = e.target.files?.[0] ?? null;
-                                const next = photosD.slice();
-                                next[i] = f;
-                                setPhotosD(next);
-                              }}
-                            />
-                            {photosD[i] && (
-                              <button
-                                type="button"
-                                className="photo-remove"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  const next = photosD.slice();
-                                  next[i] = null;
-                                  setPhotosD(next);
-                                }}
-                              >
-                                ×
-                              </button>
-                            )}
-                          </label>
-                        </div>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </>
-            )}
-
-            {extraPhotos3 && (
-              <>
-                <div style={{ marginTop: 14 }}>
-                  <YesNo name="extra_photos_4" label="Need to upload More?" />
-                </div>
-                <AnimatePresence initial={false} mode="wait">
-                  {extraPhotos4 && (
-                    <motion.div
-                      className="photo-grid"
-                      style={{ marginTop: 12 }}
-                      initial={{
-                        opacity: 0,
-                        y: -8,
-                        scale: 0.98,
-                        filter: "blur(4px)",
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        scale: 1,
-                        filter: "blur(0px)",
-                      }}
-                      exit={{
-                        opacity: 0,
-                        y: -6,
-                        scale: 0.98,
-                        filter: "blur(3px)",
-                      }}
-                      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                      layout
-                    >
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={`E-${i}`}>
-                          <div className="h2" style={{ marginBottom: 6 }}>
-                            Photo:
-                          </div>
-                          <label className="photo-tile">
-                            {photosE[i] ? (
-                              <img
-                                src={URL.createObjectURL(photosE[i] as File)}
-                                alt="preview"
-                                className="photo-thumb"
-                              />
-                            ) : (
-                              <div
-                                className="sub"
-                                style={{ textAlign: "center" }}
-                              >
-                                Click to upload or drop
-                              </div>
-                            )}
-                            <input
-                              type="file"
-                              accept="image/*"
-                              style={{ display: "none" }}
-                              onChange={(e) => {
-                                const f = e.target.files?.[0] ?? null;
-                                const next = photosE.slice();
-                                next[i] = f;
-                                setPhotosE(next);
-                              }}
-                            />
-                            {photosE[i] && (
-                              <button
-                                type="button"
-                                className="photo-remove"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  const next = photosE.slice();
-                                  next[i] = null;
-                                  setPhotosE(next);
-                                }}
-                              >
-                                ×
-                              </button>
-                            )}
-                          </label>
-                        </div>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </>
-            )}
+            <PhotoPicker photos={photos} onChange={setPhotos} />
           </section>
 
           {/* Additional Notes + Final */}

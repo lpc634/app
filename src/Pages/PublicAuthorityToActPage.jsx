@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import ClientAuthorityToActSquatterEviction from "@/components/forms/ClientInstructionFormAuthorityToActSquatterEviction";
+import { shrinkPhoto } from "@/lib/photos";
 
 // Minimal V3 dark styling for the public success page (parity with form theme)
 const V3_SUCCESS_CSS = String.raw`
@@ -23,28 +24,6 @@ const V3_SUCCESS_CSS = String.raw`
 @keyframes star-movement-bottom{ 0%{transform:translate(0,0);opacity:1} 100%{transform:translate(-100%,0);opacity:0} }
 @keyframes star-movement-top{ 0%{transform:translate(0,0);opacity:1} 100%{transform:translate(100%,0);opacity:0} }
 `;
-
-// Phone photos are several MB each; shrink them so the upload is quick on a mobile connection
-async function shrinkPhoto(file) {
-  if (file.type !== "image/jpeg" || file.size < 1.5 * 1024 * 1024) return file;
-  const source = URL.createObjectURL(file);
-  try {
-    const img = new Image();
-    img.src = source;
-    await img.decode();
-    const scale = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(img.naturalWidth * scale);
-    canvas.height = Math.round(img.naturalHeight * scale);
-    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
-    return blob && blob.size < file.size ? new File([blob], file.name, { type: "image/jpeg" }) : file;
-  } catch {
-    return file; // send the original rather than lose the photo
-  } finally {
-    URL.revokeObjectURL(source);
-  }
-}
 
 export default function PublicAuthorityToActPage() {
   const { token } = useParams();

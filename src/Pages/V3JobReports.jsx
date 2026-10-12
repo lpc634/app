@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { useAuth } from "../useAuth";
 import { motion, AnimatePresence } from 'framer-motion';
 import { ClipboardList, Edit, CheckCircle, ServerCrash, RefreshCw, X, History, FileText, Plus, Briefcase } from 'lucide-react';
@@ -9,6 +9,7 @@ import TravellerEvictionForm from '../components/forms/TravellerEvictionForm';
 import { AdminFormStartModal } from '../components/modals/AdminFormStartModal';
 import { useForm, FormProvider } from "react-hook-form";
 import { JobSelect } from "@/components/common/JobSelect";
+import { shrinkPhoto } from "@/lib/photos";
 
 // Lazy load forms for better performance
 const SquatterServeForm = lazy(() => import('../components/forms/SquatterServeForm'));
@@ -63,6 +64,7 @@ const V3JobReports = () => {
   const [completedJobs, setCompletedJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [selectedFormSlug, setSelectedFormSlug] = useState('');
+  const uploadedPhotos = useRef(new Map()); // File -> stored photo, so a retry only sends what failed
   const [showFormModal, setShowFormModal] = useState(false);
   const [showAdminStartModal, setShowAdminStartModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -131,18 +133,10 @@ const V3JobReports = () => {
       console.log('📤 Form Submission Data:', submissionData);
       console.log('📸 Photos to upload:', submissionData.photos);
 
-      let photoUrls = [];
+      const photos = submissionData.photos || [];
+      const photoUrls = [];
 
-      // Check if we have photos to upload
-      if (submissionData.photos && submissionData.photos.length > 0) {
-        toast.info('Uploading photos...', { description: `${submissionData.photos.length} photos found` });
-
-        // Create FormData for photo upload
-        const formData = new FormData();
-        submissionData.photos.forEach((photo) => {
-          formData.append('photos', photo);
-        });
-
+      if (photos.length > 0) {
         // Upload photos to S3 (use admin or agent endpoint based on role)
         const uploadEndpoint = (user?.role === 'admin' || user?.role === 'manager')
           ? '/admin/v3-reports/upload-photos'
@@ -152,28 +146,47 @@ const V3JobReports = () => {
           ? '/api'
           : 'http://localhost:5001/api';
 
-        try {
-          const uploadResponse = await fetch(`${API_BASE_URL}${uploadEndpoint}`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: formData
-          });
-
-          if (!uploadResponse.ok) {
-            throw new Error('Photo upload failed');
+        // One photo per request, shrunk first: a single request holding thirty phone photos times out
+        const notUploaded = [];
+        for (const [i, photo] of photos.entries()) {
+          toast.loading(`Uploading photo ${i + 1} of ${photos.length}…`, { id: 'photo-upload' });
+          try {
+            if (!uploadedPhotos.current.has(photo)) {
+              const formData = new FormData();
+              formData.append('photos', await shrinkPhoto(photo));
+              const uploadResponse = await fetch(`${API_BASE_URL}${uploadEndpoint}`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: formData
+              });
+              const uploadData = uploadResponse.ok ? await uploadResponse.json() : {};
+              if (!uploadData.photos?.length) {
+                throw new Error('Photo upload failed');
+              }
+              uploadedPhotos.current.set(photo, uploadData.photos[0]);
+            }
+            photoUrls.push(uploadedPhotos.current.get(photo));
+          } catch (uploadErr) {
+            console.error('Photo upload error:', uploadErr);
+            notUploaded.push(photo.name);
           }
+        }
+        toast.dismiss('photo-upload');
 
-          const uploadData = await uploadResponse.json();
-          photoUrls = uploadData.photos || [];
-
+        if (notUploaded.length > 0) {
+          const listed = notUploaded.slice(0, 8).join('\n') + (notUploaded.length > 8 ? `\n…and ${notUploaded.length - 8} more` : '');
+          const submitAnyway = window.confirm(
+            `${notUploaded.length} of ${photos.length} photos could not be uploaded:\n\n${listed}\n\n` +
+            'Press OK to submit the report without them, or Cancel to go back and try again.'
+          );
+          if (!submitAnyway) {
+            toast.info('Report not submitted', { description: 'Your answers and photos are still here. Submit again to retry.' });
+            return;
+          }
+        } else {
           toast.success(`${photoUrls.length} photos uploaded successfully`);
-        } catch (uploadErr) {
-          console.error('Photo upload error:', uploadErr);
-          toast.error('Failed to upload photos', {
-            description: 'Report will be submitted without photos'
-          });
         }
       }
 

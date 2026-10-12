@@ -222,6 +222,10 @@ app.register_blueprint(notices_bp, url_prefix='/api')
 app.register_blueprint(contact_forms_bp, url_prefix='/api')
 app.register_blueprint(crm_bp, url_prefix='/api/crm')
 
+# A report's photos are uploaded one per request, so one report can be dozens of calls
+for _endpoint in ('admin.admin_upload_v3_report_photos', 'agent.upload_v3_report_photos'):
+    limiter.exempt(app.view_functions[_endpoint])
+
 # ==================== CONTACT FORM AUTOMATION ====================
 # Contact Form Endpoint with OpenAI Auto-Reply, Telegram & Email Integration
 
@@ -804,6 +808,11 @@ def serve(path):
     if path != '' and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
+
+# The rate limit is for the API. One page load is dozens of script and image requests through
+# these routes, and when they were limited the app could stop loading ("429 Too Many Requests")
+for _view in (service_worker, firebase_messaging_sw, e_flyer, serve_static, serve):
+    limiter.exempt(_view)
 
 # --- Error Handler for 500 Errors ---
 @app.errorhandler(500)

@@ -3,6 +3,7 @@ import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "framer-motion";
+import PhotoPicker from "./PhotoPicker";
 
 /** =====================
  *  V3 THEME + STARBORDER + STICKY PROGRESS
@@ -138,7 +139,6 @@ const schema = z.object({
 
   // Photos
   photo_of_serve: z.any().optional(),
-  need_more_photos: z.boolean().default(false),
   p2: z.any().optional(), p3: z.any().optional(), p4: z.any().optional(), p5: z.any().optional(), p6: z.any().optional(), p7: z.any().optional(), p8: z.any().optional(), p9: z.any().optional(), p10: z.any().optional(), p11: z.any().optional(), p12: z.any().optional(), p13: z.any().optional(),
 
   // Footer
@@ -243,7 +243,7 @@ function PhotoTile({ value, onChange }){
  *  ===================== */
 export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit, onCancel }){
   const methods = useForm({ resolver: zodResolver(schema), defaultValues:{
-    more_than_10:false, need_more_entries:false, need_more_photos:false,
+    more_than_10:false, need_more_entries:false,
     prior_notice_served:false, property_damage:false, aggressive:false, dogs_on_site:false, police_attendance:false,
     day2_enabled:false, day3_enabled:false, day4_enabled:false, day5_enabled:false, day6_enabled:false, day7_enabled:false,
     day2_same_agents:true, day3_same_agents:true, day4_same_agents:true, day5_same_agents:true, day6_same_agents:true, day7_same_agents:true,
@@ -307,11 +307,11 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
   const day5 = watch('day5_enabled');
   const day6 = watch('day6_enabled');
   const day7 = watch('day7_enabled');
-  const morePhotos = watch('need_more_photos');
   const police = watch('police_attendance');
 
   // photo previews state
-  const [photos, setPhotos] = useState({ p0:null, p2:null, p3:null, p4:null, p5:null, p6:null, p7:null, p8:null, p9:null, p10:null, p11:null, p12:null, p13:null });
+  const [photos, setPhotos] = useState({ p0:null, p2:null });   // photo of serve, photo of damage
+  const [extraPhotos, setExtraPhotos] = useState([]);             // every other photo, any number
 
   const onSubmit = async (data) => {
     console.log('✅ Squatter Eviction Form - Submit called', data);
@@ -324,6 +324,7 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
           allPhotos.push(photo);
         }
       });
+      allPhotos.push(...extraPhotos);
 
       console.log('📸 Collected photos:', allPhotos.length);
 
@@ -851,37 +852,12 @@ export default function SquatterEvictionForm({ jobData, onSubmit: parentOnSubmit
               <Field label="Photo of Serve:" required>
                 <PhotoTile value={photos.p0} onChange={(f)=>{ setPhotos(p=>({ ...p, p0:f })); setValue('photo_of_serve', f); }} />
               </Field>
-              <Field label="Photo:">
-                <PhotoTile value={photos.p3} onChange={(f)=>setPhotos(p=>({ ...p, p3:f }))} />
+            </div>
+            <div className="row" style={{ marginTop:12 }}>
+              <Field label="Photos:">
+                <PhotoPicker photos={extraPhotos} onChange={setExtraPhotos} />
               </Field>
             </div>
-            <div className="row row-2" style={{marginTop:12}}>
-              <Field label="Photo:"><PhotoTile value={photos.p4} onChange={(f)=>setPhotos(p=>({ ...p, p4:f }))} /></Field>
-              <Field label="Photo:"><PhotoTile value={photos.p5} onChange={(f)=>setPhotos(p=>({ ...p, p5:f }))} /></Field>
-            </div>
-            <div className="row" style={{ marginTop:8 }}>
-              <YesNo name="need_more_photos" label="Need to upload more?" />
-            </div>
-            <AnimatePresence>{morePhotos && (
-              <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}}>
-                <div className="row row-2" style={{marginTop:12}}>
-                  <Field label="Photo:"><PhotoTile value={photos.p6} onChange={(f)=>setPhotos(p=>({ ...p, p6:f }))} /></Field>
-                  <Field label="Photo:"><PhotoTile value={photos.p7} onChange={(f)=>setPhotos(p=>({ ...p, p7:f }))} /></Field>
-                </div>
-                <div className="row row-2" style={{marginTop:12}}>
-                  <Field label="Photo:"><PhotoTile value={photos.p8} onChange={(f)=>setPhotos(p=>({ ...p, p8:f }))} /></Field>
-                  <Field label="Photo:"><PhotoTile value={photos.p9} onChange={(f)=>setPhotos(p=>({ ...p, p9:f }))} /></Field>
-                </div>
-                <div className="row row-2" style={{marginTop:12}}>
-                  <Field label="Photo:"><PhotoTile value={photos.p10} onChange={(f)=>setPhotos(p=>({ ...p, p10:f }))} /></Field>
-                  <Field label="Photo:"><PhotoTile value={photos.p11} onChange={(f)=>setPhotos(p=>({ ...p, p11:f }))} /></Field>
-                </div>
-                <div className="row row-2" style={{marginTop:12}}>
-                  <Field label="Photo:"><PhotoTile value={photos.p12} onChange={(f)=>setPhotos(p=>({ ...p, p12:f }))} /></Field>
-                  <Field label="Photo:"><PhotoTile value={photos.p13} onChange={(f)=>setPhotos(p=>({ ...p, p13:f }))} /></Field>
-                </div>
-              </motion.div>
-            )}</AnimatePresence>
           </section>
 
           {/* Footer */}
