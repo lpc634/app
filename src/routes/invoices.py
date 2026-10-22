@@ -64,6 +64,8 @@ def _render_invoice_pdf_bytes(inv: Invoice) -> bytes | None:
                     'rate': float((ln.rate_net if ln.rate_net is not None else ln.rate_per_hour) or 0),
                     'amount': float((ln.line_net if ln.line_net is not None else ln.line_total) or 0),
                     'job_type': getattr(linked_job, 'job_type', None),
+                    # Miscellaneous lines have no job; their description is kept in notes
+                    'description': None if linked_job else ln.notes,
                 })
         else:
             # Fallback aggregate
@@ -148,7 +150,8 @@ def _render_invoice_pdf_bytes(inv: Invoice) -> bytes | None:
             invoice_number=inv.invoice_number,
             invoice_date=getattr(inv, 'issue_date', None),
             agent_invoice_number=getattr(inv, 'agent_invoice_number', None),
-            invoice=inv
+            invoice=inv,
+            client_key=getattr(inv, 'bill_to', None) or 'v3'
         )
         with open(tmp_path, 'rb') as f:
             pdf_bytes = f.read()

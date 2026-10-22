@@ -405,9 +405,11 @@ def generate_invoice_pdf(agent,
                          total_amount,
                          invoice_number,
                          upload_to_s3=True,
-                         agent_invoice_number=None):
+                         agent_invoice_number=None,
+                         bill_to='v3'):
     """
     Generates a professional PDF invoice using Platypus layout and uploads to S3.
+    bill_to picks the client the invoice is addressed to (see invoice_builder._CLIENT_CONFIG).
 
     Hardened to accept both shapes of jobs_data:
       1) [{'job': <Job>, 'hours': number, 'rate'?: number}, ...]
@@ -647,7 +649,8 @@ def generate_invoice_pdf(agent,
             invoice_number=invoice_number,
             invoice_date=invoice_date,
             agent_invoice_number=agent_invoice_number,
-            invoice=invoice
+            invoice=invoice,
+            client_key=bill_to
         )
 
         current_app.logger.info(f"PDF GENERATION SUCCESS: {file_path}")
@@ -1100,6 +1103,9 @@ def create_invoice():
         extras_amount = data.get('extras_amount')
         extras_description = data.get('extras_description')
 
+        # Which client the invoice is addressed to: 'v3' (default) or 'lh1_global'
+        bill_to = str(data.get('bill_to') or 'v3').strip().lower()
+
         # Support both old (job_items) and new (time_entries) formats
         if not job_items and not time_entries:
             return jsonify({'error': 'No items or time entries provided for invoicing.'}), 400
@@ -1152,8 +1158,8 @@ def create_invoice():
                 total_amount += line_total
         elif time_entries:
             # New multi-day time entries format: { jobId, entries: [{ work_date, hours, rate_net, notes }] }
+            # No local datetime import here: it would shadow the module's one in the other branches
             from decimal import Decimal as D
-            from datetime import datetime
             for job_entry in time_entries:
                 job_id = job_entry.get('jobId')
                 entries = job_entry.get('entries', [])
@@ -1196,6 +1202,30 @@ def create_invoice():
         else:
             # Legacy single-day job_items format
             for item in job_items:
+                raw_job_id = item.get('jobId')
+                if isinstance(raw_job_id, int) and raw_job_id < 0:
+                    # Miscellaneous line (negative jobId): not tied to a job, priced as quantity x unit price
+                    description = str(item.get('title') or item.get('description') or '').strip()
+                    if not description:
+                        return jsonify({'error': 'Each line item needs a description.'}), 400
+                    try:
+                        hours = Decimal(str(item.get('hours') or 0))
+                        rate = Decimal(str(item.get('rate') or 0))
+                    except InvalidOperation:
+                        return jsonify({'error': f"Invalid quantity or price for '{description}'."}), 400
+                    if hours <= 0 or rate <= 0:
+                        return jsonify({'error': f"Quantity and price must be more than 0 for '{description}'."}), 400
+                    try:
+                        work_date = datetime.strptime(item.get('work_date') or '', '%Y-%m-%d').date()
+                    except (ValueError, TypeError):
+                        work_date = date.today()
+
+                    amount = (hours * rate).quantize(Decimal('0.01'))
+                    total_amount += amount
+                    jobs_to_invoice.append({'job': None, 'hours': hours, 'rate': rate, 'amount': amount,
+                                            'work_date': work_date, 'description': description})
+                    continue
+
                 job = Job.query.get(item['jobId'])
                 if not job:
                     return jsonify({'error': f"Job with ID {item['jobId']} not found."}), 404
@@ -1370,7 +1400,8 @@ def create_invoice():
             'total_amount': total_amount,
             'status': 'submitted',
             'job_type': job_type_snapshot,
-            'address': address_snapshot
+            'address': address_snapshot,
+            'bill_to': bill_to,
         }
         # VAT rate decision
         from decimal import Decimal as D
@@ -1447,6 +1478,17 @@ def create_invoice():
             # Legacy job_items format - keep InvoiceJob for backward compatibility
             for item in jobs_to_invoice:
                 job = item['job']
+                if job is None:
+                    # Miscellaneous line: no job to link, so keep it as an invoice line
+                    db.session.add(InvoiceLine(
+                        invoice_id=new_invoice.id,
+                        work_date=item['work_date'],
+                        hours=item['hours'],
+                        rate_net=item['rate'],
+                        line_net=item['amount'],
+                        notes=item['description']
+                    ))
+                    continue
                 hours = item['hours']
                 rate = job.hourly_rate
                 db.session.add(InvoiceJob(
@@ -1615,7 +1657,7 @@ def create_invoice():
                 'total': float(grand_total),
             }
             # Temporarily pass grand_total to original function; it recomputes totals but we give exact lines
-            pdf_result = generate_invoice_pdf(agent, jobs_pdf, float(grand_total), invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
+            pdf_result = generate_invoice_pdf(agent, jobs_pdf, float(grand_total), invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number, bill_to=bill_to)
         elif time_entries_to_invoice:
             # DEBUG: Using time_entries path
             current_app.logger.info(f"DEBUG: Using time_entries_to_invoice path with {len(time_entries_to_invoice)} entries")
@@ -1650,12 +1692,12 @@ def create_invoice():
                 entries_pdf.sort(key=lambda x: (_coerce_date(x.get('date')) or date_cls.today(), x.get('job', object()).__hash__()))
             except Exception:
                 pass
-            pdf_result = generate_invoice_pdf(agent, entries_pdf, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
+            pdf_result = generate_invoice_pdf(agent, entries_pdf, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number, bill_to=bill_to)
         else:
             # DEBUG: Using legacy jobs path
             current_app.logger.info(f"DEBUG: Using jobs_to_invoice path with {len(jobs_to_invoice)} jobs")
             current_app.logger.info(f"DEBUG jobs_to_invoice structure: {[(j.get('description'), j.get('job_type'), getattr(j.get('job'), 'job_type', None) if j.get('job') else None) for j in jobs_to_invoice]}")
-            pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number)
+            pdf_result = generate_invoice_pdf(agent, jobs_to_invoice, total_amount, invoice_number, upload_to_s3=True, agent_invoice_number=final_agent_invoice_number, bill_to=bill_to)
         
         # Handle different return formats (with or without S3 upload)
         if isinstance(pdf_result, tuple):
@@ -1960,7 +2002,8 @@ def update_invoice(invoice_id):
                 float(total_amount),
                 invoice.invoice_number,
                 upload_to_s3=True,
-                agent_invoice_number=agent_inv_number
+                agent_invoice_number=agent_inv_number,
+                bill_to=getattr(invoice, 'bill_to', None) or 'v3'
             )
             
             if isinstance(pdf_result, tuple):
@@ -2465,6 +2508,8 @@ def download_invoice_direct(invoice_id):
                     'amount': amount_val,
                     'job_type': getattr((assignment.job if assignment else linked_job), 'job_type', None) if (assignment or linked_job) else None,
                     'address': assignment_address or (getattr(linked_job, 'address', None) if linked_job else None),
+                    # Miscellaneous lines have no job; their description is kept in notes
+                    'description': None if (linked_job or assignment) else ln.notes,
                 })
         else:
             # Fallback to legacy InvoiceJob aggregation
@@ -2513,7 +2558,8 @@ def download_invoice_direct(invoice_id):
             total_amount_float,
             invoice.invoice_number,
             upload_to_s3=False,
-            agent_invoice_number=getattr(invoice, 'agent_invoice_number', None)
+            agent_invoice_number=getattr(invoice, 'agent_invoice_number', None),
+            bill_to=getattr(invoice, 'bill_to', None) or 'v3'
         )
         
         # Handle PDF generation failure
