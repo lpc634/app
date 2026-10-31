@@ -16,6 +16,7 @@ const SquatterServeForm = lazy(() => import('../components/forms/SquatterServeFo
 const SquatterEvictionForm = lazy(() => import('../components/forms/SquatterEvictionForm'));
 const TravellerServeForm = lazy(() => import('../components/forms/TravellerServeForm'));
 const AbandonedVehicleForm = lazy(() => import('../components/forms/AbandonedVehicleForm'));
+const WasteClearanceForm = lazy(() => import('../components/forms/WasteClearanceForm'));
 
 // Form registry - centralized configuration for all available forms
 const FORM_REGISTRY = [
@@ -52,6 +53,13 @@ const FORM_REGISTRY = [
     label: 'Abandoned Vehicle Report',
     description: 'Report for abandoned vehicles on site',
     component: AbandonedVehicleForm,
+    isEligible: (job) => true,
+  },
+  {
+    slug: 'waste-clearance',
+    label: 'Waste Clearance Report',
+    description: 'Report for clearing waste from a site (waste details, disposal, before and after photos)',
+    component: WasteClearanceForm,
     isEligible: (job) => true,
   },
 ];

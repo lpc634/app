@@ -11,6 +11,7 @@ export const JOB_TYPES = [
   { code: "ROUGH_SLEEPER",               label: "Rough sleeper" },
   { code: "AGENT_INVOICE",               label: "Agent Invoice" },
   { code: "SURVEILLANCE",                label: "Surveillance" },
+  { code: "WASTE_CLEARANCE",             label: "Waste Clearance" },
 ]
 
 // Helper functions

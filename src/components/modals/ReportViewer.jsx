@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { X, FileText, Calendar, User, Image as ImageIcon, ChevronLeft, ChevronRight, Clock, Users, Shield, Home, AlertTriangle, FileDown, Trash2, Copy, Check } from 'lucide-react';
+import { X, FileText, Calendar, User, Image as ImageIcon, ChevronLeft, ChevronRight, Clock, Users, Shield, Home, AlertTriangle, FileDown, Trash2, Copy, Check, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import '../../styles/admin/report-viewer.css';
 
@@ -41,6 +41,7 @@ const FIELD_LABELS = {
   police_force: 'Police Force',
   police_notes: 'Police Notes',
   additional_notes: 'Additional Notes',
+  waste_details: 'Description of Waste',
 };
 
 // Section definitions for organizing form data
@@ -112,6 +113,33 @@ const SECTIONS = {
       icon: Calendar,
       fields: ['departure_time', 'completion_date', 'additional_notes']
     }
+  ],
+  'waste-clearance': [
+    {
+      title: 'Job Details',
+      icon: FileText,
+      fields: ['client', 'address1', 'date', 'arrival_time']
+    },
+    {
+      title: 'Agents on Site',
+      icon: Users,
+      fields: ['agent_1', 'agent_2', 'agent_3', 'agent_4']
+    },
+    {
+      title: 'Waste Details',
+      icon: Trash2,
+      fields: ['waste_types', 'waste_details', 'amount_cleared', 'hazardous_waste', 'hazardous_waste_details']
+    },
+    {
+      title: 'Waste Disposal',
+      icon: Truck,
+      fields: ['waste_carrier', 'carrier_licence_number', 'carrier_vehicle_registration', 'disposal_site', 'waste_transfer_note_number']
+    },
+    {
+      title: 'Completion',
+      icon: Calendar,
+      fields: ['site_fully_cleared', 'waste_remaining_details', 'site_secured', 'site_damage', 'site_damage_details', 'departure_time', 'completion_date', 'additional_notes']
+    }
   ]
 };
 
@@ -133,6 +161,7 @@ export default function ReportViewer({ report, isOpen, onClose, onDelete }) {
     'traveller_serve': 'Traveller Serve Report',
     'squatter_serve': 'Squatter Serve Report',
     'squatter_eviction': 'Squatter Eviction Report',
+    'waste-clearance': 'Waste Clearance Report',
   };
 
   const reportName = formTypeNames[report.form_type] || report.form_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Job Report';

@@ -1264,6 +1264,7 @@ export default function JobManagement() {
                             'traveller_eviction': 'Traveller Eviction Report',
                             'traveller_serve': 'Traveller Serve Report',
                             'squatter_serve': 'Squatter Serve Report',
+                            'waste-clearance': 'Waste Clearance Report',
                           };
                           const reportName = formTypeNames[report.form_type] || report.form_type.replace('_', ' ');
 

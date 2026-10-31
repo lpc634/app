@@ -34,9 +34,10 @@ REPORT_TITLES = {
     'squatter_serve': 'Squatter Serve Report',
     'squatter_eviction': 'Squatter Eviction Report',
     'abandoned_vehicle': 'Abandoned Vehicle Report',
+    'waste_clearance': 'Waste Clearance Report',
 }
 
-# ===== What the five report forms send =====
+# ===== What the six report forms send =====
 # The forms name the same thing differently (postcode / postal_zip, cad_number / police_cad ...),
 # so each list holds every spelling; a report only ever contains one of them.
 SITE_FIELDS = [
@@ -52,8 +53,16 @@ VEHICLE_FIELDS = [
     'vehicle_registration', 'vehicle_make', 'vehicle_model', 'vehicle_colour', 'vehicle_vin',
     'vehicle_location', 'police_contacted', 'height_barriers', 'recovery_truck_access', 'bodyworn_cctv',
 ]
+WASTE_FIELDS = ['waste_types', 'waste_details', 'amount_cleared', 'hazardous_waste', 'hazardous_waste_details']
+DISPOSAL_FIELDS = [
+    'waste_carrier', 'carrier_licence_number', 'carrier_vehicle_registration', 'disposal_site',
+    'waste_transfer_note_number',
+]
 POLICE_FIELDS = ['police_attendance', 'cad_number', 'police_cad', 'police_force', 'police_notes']
-COMPLETION_FIELDS = ['departure_time', 'completion_date', 'additional_notes', 'report_notes']
+COMPLETION_FIELDS = [
+    'site_fully_cleared', 'waste_remaining_details', 'site_secured', 'site_damage', 'site_damage_details',
+    'departure_time', 'completion_date', 'additional_notes', 'report_notes',
+]
 JOB_FIELDS = ['client', 'address1', 'address2', 'city', 'postcode', 'postal_zip', 'date', 'arrival_time']
 
 LABELS = {
@@ -73,6 +82,7 @@ LABELS = {
     'children': 'Children', 'num_children': 'Children',
     'vehicle_registration': 'Registration', 'vehicle_make': 'Make', 'vehicle_model': 'Model',
     'vehicle_colour': 'Colour', 'vehicle_vin': 'VIN', 'vehicle_location': 'Vehicle location',
+    'waste_details': 'Description of waste',
     'police_contacted': 'Police contacted', 'height_barriers': 'Site has height barriers',
     'recovery_truck_access': 'Large recovery truck can gain access', 'bodyworn_cctv': 'Bodyworn CCTV used',
     'police_attendance': 'Police attendance', 'cad_number': 'CAD number', 'police_cad': 'CAD number',
@@ -82,7 +92,7 @@ LABELS = {
 }
 
 # Free-text answers get the full width; everything else sits in a three-column grid
-LONG_FIELDS = re.compile(r'(_details|_notes|^vehicle_location)$')
+LONG_FIELDS = re.compile(r'(_details|_notes|^vehicle_location|^waste_types)$')
 
 # Switches the forms use to show or hide parts of themselves; not information about the job
 FORM_SWITCHES = re.compile(
@@ -162,6 +172,14 @@ def build_report_pdf(file_obj, form_type, data, reference=None, submitted_by=Non
     vehicle = _fields(data, VEHICLE_FIELDS, labels, used, s)
     if vehicle:
         story.extend(_section("Vehicle Details", vehicle, s))
+
+    waste = _fields(data, WASTE_FIELDS, labels, used, s)
+    if waste:
+        story.extend(_section("Waste Details", waste, s))
+
+    disposal = _fields(data, DISPOSAL_FIELDS, labels, used, s)
+    if disposal:
+        story.extend(_section("Waste Disposal", disposal, s))
 
     # ---- what happened, day by day ----
     timeline = _timeline(data, used, s)

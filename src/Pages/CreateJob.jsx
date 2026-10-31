@@ -278,6 +278,7 @@ const CreateJob = () => {
                                 <option value="ROUGH_SLEEPER">Rough sleeper</option>
                                 <option value="AGENT_INVOICE">Agent Invoice</option>
                                 <option value="SURVEILLANCE">Surveillance</option>
+                                <option value="WASTE_CLEARANCE">Waste Clearance</option>
                             </select>
                         </div>
 

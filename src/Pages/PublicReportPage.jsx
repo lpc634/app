@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { FileText, Calendar, User, Image as ImageIcon, Download, ChevronLeft, ChevronRight, X, Clock, Users, Shield, Home, FileDown, Images } from 'lucide-react';
+import { FileText, Calendar, User, Image as ImageIcon, Download, ChevronLeft, ChevronRight, X, Clock, Users, Shield, Home, FileDown, Images, Trash2, Truck } from 'lucide-react';
 import '../styles/admin/report-viewer.css';
 
 // Field label mapping
@@ -35,6 +35,7 @@ const FIELD_LABELS = {
   police_force: 'Police Force',
   police_notes: 'Police Notes',
   additional_notes: 'Additional Notes',
+  waste_details: 'Description of Waste',
 };
 
 // Section definitions
@@ -54,6 +55,13 @@ const SECTIONS = {
     { title: 'Timeline', icon: Clock, fields: ['timeline_day1', 'timeline_day2', 'timeline_day3', 'timeline_day4', 'timeline_day5', 'timeline_day6', 'timeline_day7'] },
     { title: 'Police Details', icon: Shield, fields: ['police_attendance', 'cad_number', 'police_force', 'police_notes'] },
     { title: 'Completion', icon: Calendar, fields: ['departure_time', 'completion_date', 'additional_notes'] }
+  ],
+  'waste-clearance': [
+    { title: 'Job Details', icon: FileText, fields: ['client', 'address1', 'date', 'arrival_time'] },
+    { title: 'Agents on Site', icon: Users, fields: ['agent_1', 'agent_2', 'agent_3', 'agent_4'] },
+    { title: 'Waste Details', icon: Trash2, fields: ['waste_types', 'waste_details', 'amount_cleared', 'hazardous_waste', 'hazardous_waste_details'] },
+    { title: 'Waste Disposal', icon: Truck, fields: ['waste_carrier', 'carrier_licence_number', 'carrier_vehicle_registration', 'disposal_site', 'waste_transfer_note_number'] },
+    { title: 'Completion', icon: Calendar, fields: ['site_fully_cleared', 'waste_remaining_details', 'site_secured', 'site_damage', 'site_damage_details', 'departure_time', 'completion_date', 'additional_notes'] }
   ]
 };
 
@@ -62,6 +70,7 @@ const formTypeNames = {
   'traveller_serve': 'Traveller Serve Report',
   'squatter_serve': 'Squatter Serve Report',
   'squatter_eviction': 'Squatter Eviction Report',
+  'waste-clearance': 'Waste Clearance Report',
 };
 
 export default function PublicReportPage() {

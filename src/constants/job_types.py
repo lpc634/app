@@ -11,6 +11,7 @@ JOB_TYPES = {
     "ROUGH_SLEEPER": "Rough sleeper",
     "AGENT_INVOICE": "Agent Invoice",
     "SURVEILLANCE": "Surveillance",
+    "WASTE_CLEARANCE": "Waste Clearance",
 }
 
 ALLOWED_JOB_TYPE_CODES = set(JOB_TYPES.keys())

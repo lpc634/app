@@ -3192,6 +3192,7 @@ def submit_v3_report():
             'traveller_eviction': 'Traveller Eviction Report',
             'traveller_serve': 'Traveller Serve Report',
             'squatter_serve': 'Squatter Serve Report',
+            'waste-clearance': 'Waste Clearance Report',
         }
 
         form_name = form_type_names.get(form_type, form_type.replace('_', ' ').title())
